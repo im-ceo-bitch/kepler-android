@@ -393,11 +393,27 @@ private fun BookingLifecycleTimer(session: StoredBookingSession, language: AppLa
     fun parsed(raw: String?): Long? = raw?.let { runCatching { Instant.parse(it).toEpochMilli() }.getOrNull() }
     fun deadline(explicit: String?, start: String?, seconds: Long): Long? = parsed(explicit) ?: parsed(start)?.plus(seconds * 1000)
     return when (status) {
-        "NEW", "AVAILABILITY_CHECK" -> deadline(session.availabilityDeadlineAt, session.availabilityStartedAt ?: session.booking.createdAt, 6 * 60 * 60)?.let { BookingDetailLifecyclePhase("availability", it, Color(0xFFF2A900), CupertinoSymbol.Hourglass) }
-        "PAYMENT_PENDING" -> if (session.paymentReceivedAt != null)
-            deadline(session.paymentConfirmationDeadlineAt, session.paymentReceivedAt, 10 * 60)?.let { BookingDetailLifecyclePhase("confirmation", it, Color(0xFF34C759), CupertinoSymbol.CheckCircle) }
-        else deadline(session.priceLockExpiresAt, session.priceLockStartedAt ?: session.booking.updatedAt, 30 * 60)?.let { BookingDetailLifecyclePhase("price", it, Color(0xFF007AFF), CupertinoSymbol.CalendarClock) }
-        "BOOKING_CONFIRMED" -> deadline(session.documentsDeadlineAt, session.documentsStartedAt ?: session.booking.updatedAt, 24 * 60 * 60)?.let { BookingDetailLifecyclePhase("documents", it, Color(0xFF5856D6), CupertinoSymbol.Document) }
+        "NEW", "AVAILABILITY_CHECK" -> deadline(
+            session.availabilityDeadlineAt,
+            session.availabilityStartedAt ?: session.latestStatusTimestamp(setOf("availability_check", "new")) ?: session.booking.createdAt,
+            6 * 60 * 60,
+        )?.let { BookingDetailLifecyclePhase("availability", it, Color(0xFFF2A900), CupertinoSymbol.Hourglass) }
+        "PAYMENT_PENDING" -> if (!session.paymentReceivedAt.isNullOrBlank()) {
+            deadline(session.paymentConfirmationDeadlineAt, session.paymentReceivedAt, 10 * 60)?.let {
+                BookingDetailLifecyclePhase("confirmation", it, Color(0xFF34C759), CupertinoSymbol.CheckCircle)
+            }
+        } else {
+            deadline(
+                session.priceLockExpiresAt,
+                session.priceLockStartedAt ?: session.latestStatusTimestamp(setOf("payment_pending")) ?: session.booking.updatedAt,
+                30 * 60,
+            )?.let { BookingDetailLifecyclePhase("price", it, Color(0xFF007AFF), CupertinoSymbol.CalendarClock) }
+        }
+        "PAID", "BOOKING_CONFIRMED" -> deadline(
+            session.documentsDeadlineAt,
+            session.documentsStartedAt ?: session.latestStatusTimestamp(setOf("booking_confirmed", "paid")) ?: session.booking.updatedAt,
+            24 * 60 * 60,
+        )?.let { BookingDetailLifecyclePhase("documents", it, Color(0xFF5856D6), CupertinoSymbol.Document) }
         else -> null
     }
 }

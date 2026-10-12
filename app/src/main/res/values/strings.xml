@@ -1,3 +1,8 @@
 <resources>
     <string name="app_name">iumrah</string>
+    <string name="widget_active_trip_description">iumrah active trip</string>
+    <string name="widget_booking_status_description">iumrah booking status</string>
+    <string name="widget_planned_umrah_description">iumrah planned Umrah</string>
+    <string name="widget_identity_description">iumrah ID</string>
+    <string name="widget_umrah_countdown_description">iumrah countdown</string>
 </resources>

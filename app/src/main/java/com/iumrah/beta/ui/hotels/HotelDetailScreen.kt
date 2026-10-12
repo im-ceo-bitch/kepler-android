@@ -28,6 +28,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -84,6 +85,7 @@ import com.iumrah.beta.core.settings.AppLanguage
 import com.iumrah.beta.core.navigation.HotelConfiguratorDeepLink
 import com.iumrah.beta.core.share.IumrahPackageShare
 import com.iumrah.beta.data.hotel.HotelCatalogService
+import com.iumrah.beta.data.hotel.StorefrontHotelDetailCache
 import com.iumrah.beta.data.hotel.RemotePackageEngineClient
 import com.iumrah.beta.domain.journey.JourneyStore
 import com.iumrah.beta.models.hotel.HotelDetail
@@ -108,10 +110,28 @@ import org.maplibre.android.camera.CameraPosition
 import org.maplibre.android.camera.CameraUpdateFactory
 import org.maplibre.android.geometry.LatLng
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
 
 private val DetailPagePadding = 18.dp
 private val DetailCardRadius = 28.dp
+
+/** Summary stays usable when the public detail API is briefly unavailable. */
+private fun HotelDetail.asStorefrontSummary(): HotelSummary = HotelSummary(
+    id = id,
+    name = name,
+    city = city,
+    stars = stars,
+    rating = rating,
+    reviewCount = reviewCount,
+    status = status,
+    coverImageURL = images.firstOrNull { it.isCover }?.url ?: images.firstOrNull()?.url,
+    imageCount = images.size,
+    roomCount = rooms.size,
+    price = price,
+    updatedAt = Instant.now().toString(),
+)
 
 @Composable
 fun HotelDetailScreen(
@@ -133,6 +153,7 @@ fun HotelDetailScreen(
     val journeyState by journey.state.collectAsState()
     val origin = journeyState.trip.originCode.ifBlank { "TAS" }.uppercase(Locale.US)
     val favoritePrefs = remember { context.getSharedPreferences("iumrah_storefront_favorites", Context.MODE_PRIVATE) }
+    val hotelCache = remember(context) { StorefrontHotelDetailCache(context) }
 
     var detail by remember(hotelId) { mutableStateOf<HotelDetail?>(null) }
     var categories by remember(hotelId) { mutableStateOf<List<IumrahRoomCategoryOption>>(emptyList()) }
@@ -150,42 +171,40 @@ fun HotelDetailScreen(
     var didAutoOpenConfigurator by remember(hotelId, autoOpenConfigurator) { mutableStateOf(false) }
 
     suspend fun loadAll() {
-        loading = true
+        loading = detail == null
         error = null
         val detailResult = runCatching { catalog.hotelDetail(hotelId) }
-        detail = detailResult.getOrNull()
-        selectionSummary = detail?.let { value ->
-            HotelSummary(
-                id = value.id,
-                name = value.name,
-                city = value.city,
-                stars = value.stars,
-                rating = value.rating,
-                reviewCount = value.reviewCount,
-                status = value.status,
-                coverImageURL = value.images.firstOrNull { it.isCover }?.url ?: value.images.firstOrNull()?.url,
-                imageCount = value.images.size,
-                roomCount = value.rooms.size,
-                price = value.price,
-                updatedAt = Instant.now().toString(),
-            )
+        currentCoroutineContext().ensureActive()
+        if (journey.state.value.trip.originCode.ifBlank { "TAS" }.uppercase(Locale.US) != origin) return
+        val responseDetail = detailResult.getOrNull()
+        if (responseDetail != null && responseDetail.id == hotelId) {
+            detail = responseDetail
+            selectionSummary = responseDetail.asStorefrontSummary()
+            hotelCache.save(responseDetail)
+        } else if (detail == null) {
+            error = detailText(language, "load_error")
         }
-        if (detailResult.isFailure) error = detailText(language, "load_error")
+        // A transient error must not erase valid previously displayed details.
         loading = false
 
         categoryLoading = true
         categoryError = null
-        categories = runCatching { packageEngine.roomCategories(hotelId) }
-            .onFailure { categoryError = detailText(language, "room_error") }
-            .getOrDefault(emptyList())
+        val categoryResult = runCatching { packageEngine.roomCategories(hotelId) }
+        currentCoroutineContext().ensureActive()
+        if (journey.state.value.trip.originCode.ifBlank { "TAS" }.uppercase(Locale.US) != origin) return
+        categoryResult.onSuccess { categories = it }.onFailure {
+            categoryError = detailText(language, "room_error")
+            // Preserve previously received room categories on transient outages.
+        }
         categoryLoading = false
 
-        // Same server-owned Hotel First registry as iOS. A first GET may be
-        // incomplete; ask the server to advance its bounded D1 build and re-read
-        // snapshots instead of treating an incomplete page as "no packages".
+        // Hotel First snapshots stay server-authoritative, without locally
+        // estimated prices or accepting a blank progressive page as a reset.
         var packagePage = runCatching { catalog.storefrontPackages("hotel-first", origin, 300) }.getOrNull()
+        currentCoroutineContext().ensureActive()
+        if (journey.state.value.trip.originCode.ifBlank { "TAS" }.uppercase(Locale.US) != origin) return
         fun applyPackagePage() {
-            packages = packagePage?.items.orEmpty()
+            val ready = packagePage?.items.orEmpty()
                 .filter { usableHotelFirstSnapshot(it, hotelId) }
                 .distinctBy { it.hotelFirstVariantIndex?.let { index -> "index-$index" } ?: it.hotelFirstVariant?.takeIf(String::isNotBlank)?.let { variant -> "variant-$variant" } ?: "package-${it.id}" }
                 .sortedWith(
@@ -193,7 +212,12 @@ fun HotelDetailScreen(
                         .thenBy { it.totalDays ?: Int.MAX_VALUE }
                         .thenBy { it.id },
                 )
-            selectedPackage = selectedPackage.coerceIn(0, (packages.size - 1).coerceAtLeast(0))
+            // An empty server build cursor must never hide already-rendered
+            // offers from the same departure airport.
+            if (ready.isNotEmpty()) {
+                packages = ready
+                selectedPackage = selectedPackage.coerceIn(0, (ready.size - 1).coerceAtLeast(0))
+            }
         }
         applyPackagePage()
 
@@ -205,8 +229,12 @@ fun HotelDetailScreen(
                 passes = minOf(24, maxOf(2, kotlin.math.ceil(expectedHotels / 3.0).toInt() * 2))
             }
             for (pass in 0 until passes) {
+                currentCoroutineContext().ensureActive()
+                if (journey.state.value.trip.originCode.ifBlank { "TAS" }.uppercase(Locale.US) != origin) return
                 val refresh = runCatching { catalog.refreshStorefrontPackages("hotel-first", origin, cursor) }.getOrNull() ?: break
+                currentCoroutineContext().ensureActive()
                 packagePage = runCatching { catalog.storefrontPackages("hotel-first", origin, 300) }.getOrNull() ?: break
+                currentCoroutineContext().ensureActive()
                 applyPackagePage()
                 if (packagePage?.complete == true || refresh.complete == true) break
                 cursor = maxOf(0, refresh.nextRefreshCursor ?: packagePage?.nextRefreshCursor ?: cursor)
@@ -215,7 +243,18 @@ fun HotelDetailScreen(
         }
     }
 
-    LaunchedEffect(hotelId, origin) { loadAll() }
+    LaunchedEffect(hotelId, origin) {
+        // Match iOS HotelStorefrontStore detail snapshots: show the public
+        // hotel information immediately, even if live network calls fail.
+        val cached = hotelCache.restore(hotelId)
+        currentCoroutineContext().ensureActive()
+        if (cached != null && detail == null) {
+            detail = cached
+            selectionSummary = cached.asStorefrontSummary()
+            loading = false
+        }
+        loadAll()
+    }
 
     LaunchedEffect(autoOpenConfigurator, loading, packages, selectedPackage, sharedConfiguration) {
         if (autoOpenConfigurator && !loading && !didAutoOpenConfigurator) {
@@ -1344,6 +1383,7 @@ private fun SelectionConfirmationBar(
         modifier
             .fillMaxWidth()
             .background(MaterialTheme.colorScheme.surface)
+            .navigationBarsPadding()
             .border(.5.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = .08f), RoundedCornerShape(topStart = 22.dp, topEnd = 22.dp))
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,

@@ -96,6 +96,7 @@ import coil3.compose.AsyncImage
 import kotlin.math.absoluteValue
 import kotlin.math.cos
 import kotlin.math.sin
+import java.util.Locale
 import kotlinx.coroutines.delay
 
 @Composable
@@ -571,7 +572,7 @@ private fun ReadyPackagesSection(
                 val rowState = rememberLazyListState()
                 val selected by remember { derivedStateOf { rowState.firstVisibleItemIndex.coerceIn(0, readyEntries.size) } }
                 LazyRow(state = rowState, horizontalArrangement = Arrangement.spacedBy(13.dp), contentPadding = PaddingValues(horizontal = 1.dp)) {
-                    items(readyEntries, key = { it.second.id }) { (option, snapshot) ->
+                    items(readyEntries, key = { it.first.id }) { (option, snapshot) ->
                         ReadyPackageCard(language, option, snapshot) { chrome.openFlightPackage(snapshot.id) }
                     }
                     item { AllFlightPackagesCard(language, chrome) }
@@ -603,26 +604,99 @@ private fun ReadyPackagesSection(
     }
 }
 
+// iOS HomeAppleStoreSections.swift: HomeStorefrontFlightOptionCard and
+// HomeDashboardView.swift: allPackagesCard (12 October 2026 baseline).
+// Both carousel cards intentionally share the same footprint.  In particular,
+// 2-line airlines and multi-leg itineraries must not shift the next card.
+private val homeReadyCardWidth = 318.dp
+private val homeReadyCardHeight = 372.dp
+
 @Composable
 private fun AllFlightPackagesCard(language: AppLanguage, chrome: AppChromeStore) {
-    IumrahPressable(onClick = chrome::openStorefrontFlights, modifier = Modifier.width(318.dp), cornerRadius = 28.dp, background = Color.White, shadowElevation = 3.dp) {
-        Column(Modifier.fillMaxWidth().background(Color.White)) {
-            Image(painterResource(R.drawable.iumrah_flights_showcase), contentDescription = null, modifier = Modifier.fillMaxWidth().height(118.dp), contentScale = ContentScale.Crop)
-            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(13.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(CupertinoSymbol.Airplane, null, tint = Color.Black.copy(alpha = .52f), modifier = Modifier.size(17.dp))
-                    Spacer(Modifier.width(7.dp))
+    val shape = RoundedCornerShape(28.dp)
+    IumrahPressable(
+        onClick = chrome::openStorefrontFlights,
+        modifier = Modifier.width(homeReadyCardWidth).height(homeReadyCardHeight)
+            .border(.8.dp, Color.Black.copy(alpha = .055f), shape),
+        cornerRadius = 28.dp,
+        background = Color.White,
+        shadowElevation = 0.dp,
+    ) {
+        Column(Modifier.fillMaxSize().background(Color.White)) {
+            Image(
+                painterResource(R.drawable.iumrah_flights_showcase),
+                contentDescription = null,
+                modifier = Modifier.fillMaxWidth().height(118.dp),
+                contentScale = ContentScale.Crop,
+            )
+            Column(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(13.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Icon(CupertinoSymbol.Airplane, null, tint = Color.Black.copy(alpha = .52f), modifier = Modifier.size(16.dp))
                     Text("Iumrah Flights", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.Black.copy(alpha = .52f))
                 }
-                Text(tr(language, "Больше вариантов поездки", "More journey options", "Ko‘proq safar variantlari", "Кўпроқ сафар вариантлари"), fontSize = 23.sp, lineHeight = 27.sp, fontWeight = FontWeight.Bold, color = Color.Black)
-                Text(tr(language, "Откройте полную витрину авиабилетов и готовых пакетов Iumrah.", "Open the complete Iumrah flights and ready-package storefront.", "Iumrah parvozlari va tayyor paketlarining to‘liq vitrinasini oching.", "Iumrah парвозлари ва тайёр пакетларининг тўлиқ витринасини очинг."), fontSize = 14.sp, lineHeight = 19.sp, color = Color.Black.copy(alpha = .58f))
-                Row(Modifier.fillMaxWidth().height(45.dp).clip(RoundedCornerShape(15.dp)).background(Color.Black).padding(horizontal = 15.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text(tr(language, "Посмотреть все пакеты", "View all packages", "Barcha paketlarni ko‘rish", "Барча пакетларни кўриш"), color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                Text(
+                    tr(language, "Больше вариантов поездки", "More journey options", "Ko‘proq safar variantlari", "Кўпроқ сафар вариантлари"),
+                    fontSize = 23.sp, lineHeight = 27.sp, fontWeight = FontWeight.Bold, color = Color.Black,
+                    maxLines = 2,
+                )
+                Text(
+                    tr(language, "Откройте полную витрину авиабилетов и готовых пакетов Iumrah.", "Open the complete Iumrah flights and ready-package storefront.", "Iumrah parvozlari va tayyor paketlarining to‘liq vitrinasini oching.", "Iumrah парвозлари ва тайёр пакетларининг тўлиқ витринасини очинг."),
+                    fontSize = 14.sp, lineHeight = 19.sp, color = Color.Black.copy(alpha = .58f), maxLines = 3,
+                )
+                Spacer(Modifier.weight(1f))
+                Row(
+                    Modifier.fillMaxWidth().height(45.dp).clip(RoundedCornerShape(15.dp))
+                        .background(Color.Black).padding(horizontal = 15.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(tr(language, "Посмотреть все пакеты", "View all packages", "Barcha paketlarni ko‘rish", "Барча пакетларни кўриш"),
+                        color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold, maxLines = 1)
                     Spacer(Modifier.weight(1f))
                     Icon(CupertinoSymbol.ArrowRight, null, tint = Color.White, modifier = Modifier.size(17.dp))
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun ReadyHomeAirlineLogo(codeRaw: String?) {
+    val code = codeRaw?.uppercase(Locale.US)?.takeIf { it.matches(Regex("[A-Z0-9]{2}")) }
+    Box(
+        Modifier.size(40.dp).clip(RoundedCornerShape(10.dp)).background(Color.White),
+        contentAlignment = Alignment.Center,
+    ) {
+        if (code != null) {
+            AsyncImage(
+                model = "https://www.gstatic.com/flights/airline_logos/70px/$code.png",
+                contentDescription = code,
+                modifier = Modifier.size(34.dp),
+                contentScale = ContentScale.Fit,
+            )
+        } else {
+            Icon(CupertinoSymbol.Airplane, null, tint = Color(0xFF007AFF), modifier = Modifier.size(21.dp))
+        }
+    }
+}
+
+private fun homeReadyPackageScope(snapshot: StorefrontPackageSnapshot, language: AppLanguage): String {
+    return if ((snapshot.madinahNights ?: 0) > 0 || snapshot.kind == "makkah-madinah") {
+        tr(language, "Мекка + Медина", "Makkah + Madinah", "Makka + Madina", "Макка + Мадина")
+    } else {
+        tr(language, "Только Мекка", "Makkah only", "Faqat Makka", "Фақат Макка")
+    }
+}
+
+@Composable
+private fun ReadyHomeFlightTime(leg: com.iumrah.beta.models.hotel.StorefrontFlightLeg, modifier: Modifier = Modifier) {
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(3.dp)) {
+        Text(homeFlightDay(leg.departureAt), fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+        Text(
+            "${homeFlightTime(leg.departureAt)}  ${leg.origin} → ${leg.destination}",
+            fontSize = 12.sp,
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = .56f),
+            maxLines = 1,
+        )
     }
 }
 
@@ -633,64 +707,100 @@ private fun ReadyPackageCard(
     snapshot: StorefrontPackageSnapshot,
     onOpen: () -> Unit,
 ) {
-    val image = snapshot.imageUrl ?: snapshot.hotelImages.firstOrNull()
+    val foreground = MaterialTheme.colorScheme.onSurface
+    val image = snapshot.imageUrl?.takeIf { it.isNotBlank() }
+        ?: snapshot.hotelImages.firstOrNull { it.isNotBlank() }
     val route = option.inbound?.let { "${option.outbound.origin} → ${option.outbound.destination} · ${it.origin} → ${it.destination}" }
         ?: "${option.outbound.origin} → ${option.outbound.destination}"
     val airline = buildList {
         add("${option.outbound.airline} ${option.outbound.flightNumber}")
         option.inbound?.let { add("${it.airline} ${it.flightNumber}") }
     }.joinToString(" · ")
-    val price = snapshot.pricePerPerson?.let { "$" + it.toInt().toString() } ?: "—"
-    val routeSummary = snapshot.routeSummary ?: buildString {
-        append(snapshot.totalDays?.let { "$it " + tr(language, "дн.", "days", "kun", "кун") } ?: "")
-        snapshot.tier?.takeIf { it.isNotBlank() }?.let { if (isNotEmpty()) append(" · "); append(it.replaceFirstChar(Char::uppercase)) }
+    val price = snapshot.pricePerPerson?.let { "$" + String.format(Locale.US, "%.0f", it) } ?: "—"
+    val scope = homeReadyPackageScope(snapshot, language)
+    val summary = listOfNotNull(
+        snapshot.outbound?.let { "${it.origin} → ${it.destination}" },
+        snapshot.inbound?.let { "${it.origin} → ${it.destination}" },
+    ).joinToString(" + ").ifBlank { route }
+    val duration = snapshot.totalDays?.takeIf { it > 0 }?.let {
+        "$it " + tr(language, "дн.", "days", "kun", "кун")
     }
+    val summaryText = listOfNotNull(summary, duration, scope).filter { it.isNotBlank() }.joinToString(" · ")
+    val shape = RoundedCornerShape(28.dp)
 
-    IumrahPressable(onClick = onOpen, modifier = Modifier.width(318.dp), cornerRadius = 28.dp, shadowElevation = 4.dp) {
-        Column(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface)) {
+    IumrahPressable(
+        onClick = onOpen,
+        modifier = Modifier.width(homeReadyCardWidth).height(homeReadyCardHeight)
+            .border(.8.dp, foreground.copy(alpha = .06f), shape),
+        cornerRadius = 28.dp,
+        background = MaterialTheme.colorScheme.surface,
+        shadowElevation = 0.dp,
+    ) {
+        Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface)) {
             Box(Modifier.fillMaxWidth().height(118.dp)) {
-                if (!image.isNullOrBlank()) {
+                if (image != null) {
                     AsyncImage(model = image, contentDescription = null, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
                 } else {
-                    Image(painterResource(R.drawable.iumrah_flights_showcase), contentDescription = null, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+                    Image(painterResource(R.drawable.iumrah_flights_showcase), contentDescription = null,
+                        modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
                 }
-                Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = .58f)))))
-                snapshot.tier?.takeIf { it.isNotBlank() }?.let { tier ->
+                Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color.Black.copy(alpha = .02f), Color.Black.copy(alpha = .62f)))))
+                Row(Modifier.align(Alignment.BottomStart).fillMaxWidth().padding(13.dp), verticalAlignment = Alignment.Bottom,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    ReadyHomeAirlineLogo(option.outbound.airlineCode)
+                    val inboundCode = snapshot.inbound?.airlineCode ?: option.inbound?.airlineCode
+                    if (!inboundCode.isNullOrBlank() && !inboundCode.equals(option.outbound.airlineCode, ignoreCase = true)) {
+                        ReadyHomeAirlineLogo(inboundCode)
+                    }
+                    Spacer(Modifier.weight(1f))
                     Text(
-                        tier.replaceFirstChar(Char::uppercase),
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White,
-                        modifier = Modifier.align(Alignment.BottomEnd).padding(13.dp).clip(CircleShape).background(Color.Black.copy(alpha = .36f)).padding(horizontal = 10.dp, vertical = 7.dp),
+                        listOfNotNull(scope, snapshot.tier?.takeIf { it.isNotBlank() }?.replaceFirstChar(Char::uppercase)).joinToString(" · "),
+                        color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold, maxLines = 1,
+                        modifier = Modifier.clip(CircleShape).background(Color.Black.copy(alpha = .36f))
+                            .padding(horizontal = 10.dp, vertical = 7.dp),
                     )
                 }
             }
-            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(13.dp)) {
+            Column(
+                Modifier.fillMaxSize().padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(13.dp),
+            ) {
                 Row(verticalAlignment = Alignment.Top) {
-                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text(route, fontSize = 16.sp, lineHeight = 20.sp, fontWeight = FontWeight.Bold)
-                        Text(airline, fontSize = 11.sp, lineHeight = 14.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = .55f), maxLines = 2)
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                        Text(route, fontSize = 16.sp, lineHeight = 20.sp, fontWeight = FontWeight.Bold, maxLines = 2)
+                        Text(airline, fontSize = 12.sp, lineHeight = 15.sp,
+                            color = foreground.copy(alpha = .55f), maxLines = 2)
                     }
-                    Spacer(Modifier.width(10.dp))
-                    Column(horizontalAlignment = Alignment.End) {
-                        Text(price, fontSize = 22.sp, fontWeight = FontWeight.Bold)
-                        Text(tr(language, "пакет · 1 человек", "package · 1 person", "paket · 1 kishi", "пакет · 1 киши"), fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = .50f))
-                    }
-                }
-                if (routeSummary.isNotBlank()) {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Icon(CupertinoSymbol.SuitcaseFill, null, Modifier.size(13.dp), tint = MaterialTheme.colorScheme.onSurface.copy(alpha = .50f))
-                        Text(routeSummary, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface.copy(alpha = .55f), maxLines = 2)
+                    Spacer(Modifier.width(8.dp))
+                    Column(Modifier.width(115.dp), horizontalAlignment = Alignment.End) {
+                        Text(price, fontSize = 22.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                        Text(tr(language, "пакет · 1 человек", "package · 1 person", "paket · 1 kishi", "пакет · 1 киши"),
+                            fontSize = 10.sp, lineHeight = 13.sp, color = foreground.copy(alpha = .50f), maxLines = 2)
                     }
                 }
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    ReadyHomeFlightTime(option.outbound, Modifier.weight(1f))
+                    option.inbound?.let { inbound ->
+                        Box(Modifier.width(.7.dp).height(34.dp).background(foreground.copy(alpha = .1f)))
+                        ReadyHomeFlightTime(inbound, Modifier.weight(1f))
+                    }
+                }
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Icon(CupertinoSymbol.SuitcaseFill, null, tint = foreground.copy(alpha = .52f), modifier = Modifier.size(13.dp))
+                    Text(summaryText, fontSize = 10.sp, lineHeight = 13.sp, fontWeight = FontWeight.SemiBold,
+                        color = foreground.copy(alpha = .55f), maxLines = 2)
+                }
+                Spacer(Modifier.weight(1f))
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    IumrahPill(
+                    Text(
                         tr(language, "Сгенерировано Iumrah Configurator", "Generated by Iumrah Configurator", "Iumrah Configurator yaratdi", "Iumrah Configurator яратди"),
-                        background = MaterialTheme.colorScheme.surfaceVariant,
-                        foreground = MaterialTheme.colorScheme.onSurface.copy(alpha = .62f),
+                        fontSize = 10.sp, maxLines = 1,
+                        fontWeight = FontWeight.SemiBold, color = Color(0xFF26A9C9),
+                        modifier = Modifier.clip(CircleShape).background(MaterialTheme.colorScheme.surfaceVariant)
+                            .padding(horizontal = 10.dp, vertical = 7.dp),
                     )
                     Spacer(Modifier.weight(1f))
-                    Icon(CupertinoSymbol.ChevronRight, null, Modifier.size(13.dp), tint = MaterialTheme.colorScheme.onSurface.copy(alpha = .35f))
+                    Icon(CupertinoSymbol.ChevronRight, null, tint = foreground.copy(alpha = .35f), modifier = Modifier.size(13.dp))
                 }
             }
         }

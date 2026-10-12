@@ -3,6 +3,7 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
     <application
         android:name="com.iumrah.beta.IumrahApplication"
@@ -30,6 +31,11 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="iumrahapp" android:host="hotel" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:scheme="iumrah" android:host="widget" />
             </intent-filter>
         </activity>
 
@@ -75,5 +81,33 @@
         <receiver
             android:name="com.iumrah.beta.ui.planning.UmrahPlanReminderReceiver"
             android:exported="false" />
+        <receiver android:name="com.iumrah.beta.data.prayer.PrayerAlertReceiver" android:exported="false" />
+        <receiver android:name="com.iumrah.beta.data.prayer.PrayerBootReceiver" android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.TIME_SET" />
+                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+            </intent-filter>
+        </receiver>
+        <receiver android:name="com.iumrah.beta.core.widget.ActiveTripWidget" android:exported="true" android:label="iumrah active trip">
+            <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/iumrah_widget_active_trip" />
+        </receiver>
+        <receiver android:name="com.iumrah.beta.core.widget.BookingStatusWidget" android:exported="true" android:label="iumrah booking status">
+            <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/iumrah_widget_booking_status" />
+        </receiver>
+        <receiver android:name="com.iumrah.beta.core.widget.PlannedUmrahWidget" android:exported="true" android:label="iumrah planned Umrah">
+            <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/iumrah_widget_planned_umrah" />
+        </receiver>
+        <receiver android:name="com.iumrah.beta.core.widget.IdentityWidget" android:exported="true" android:label="iumrah ID">
+            <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/iumrah_widget_identity" />
+        </receiver>
+        <receiver android:name="com.iumrah.beta.core.widget.UmrahCountdownWidget" android:exported="true" android:label="iumrah countdown">
+            <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/iumrah_widget_umrah_countdown" />
+        </receiver>
     </application>
 </manifest>

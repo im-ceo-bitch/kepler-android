@@ -99,6 +99,20 @@ data class JourneyState(
 }
 
 class JourneyStore {
+    // A slow quote must never replace a newer route, room or flight selection.
+    // The remote quote is authoritative, but only for the exact inputs it priced.
+    private var quoteRequestGeneration = 0L
+
+    private fun quoteInputs(state: JourneyState): List<Any?> = listOf(
+        state.trip, state.packageFlightPath,
+        state.makkahHotel?.id, state.makkahRoom?.id, state.makkahRoomCategory?.id,
+        state.madinahHotel?.id, state.madinahRoom?.id, state.madinahRoomCategory?.id,
+        state.selectedPublishedCompleteID, state.selectedPublishedOutboundID, state.selectedPublishedReturnID,
+        state.stagedAviasalesRoundTrip, state.stagedAviasalesOutbound, state.stagedAviasalesReturn,
+        state.selectedTransferVehicle, state.haramainTrainSelected,
+        state.haramainFareClass, state.haramainAdultTickets, state.haramainChildTickets,
+    )
+
     private val _state = MutableStateFlow(JourneyState())
     val state: StateFlow<JourneyState> = _state
 
@@ -187,11 +201,13 @@ class JourneyStore {
     }
 
     fun clearPublishedFlightSelection() {
-        _state.update { current -> current.copy(
+        quoteRequestGeneration++
+        _state.update { it.copy(
             selectedPublishedCompleteID = null,
             selectedPublishedOutboundID = null,
             selectedPublishedReturnID = null,
-            quote = null,
+            flightResults = emptyList(), selectedJourneyId = null, selectedOutboundJourneyId = null,
+            quote = null, transferSelectionConfirmed = false,
             packageError = null,
         ) }
     }
@@ -206,6 +222,9 @@ class JourneyStore {
             _state.update { it.copy(packageError = error.message) }
             return Result.failure(error)
         }
+        val generation = ++quoteRequestGeneration
+        val initialInputs = quoteInputs(snapshot)
+        var activeInputs = initialInputs
         return runCatching {
             val resolved = curated.resolvePublishedSelection(
                 snapshot.trip,
@@ -215,6 +234,9 @@ class JourneyStore {
                     returnID = snapshot.selectedPublishedReturnID,
                 ),
             )
+            check(generation == quoteRequestGeneration && quoteInputs(_state.value) == initialInputs) {
+                "Flight selection changed while resolving the package."
+            }
             val arrivalSegment = resolved.outbound.segments?.lastOrNull()
             val zone = arrivalSegment?.destination?.timeZoneIdentifier
                 ?.let { runCatching { ZoneId.of(it) }.getOrNull() } ?: ZoneId.of("Asia/Riyadh")
@@ -228,11 +250,18 @@ class JourneyStore {
                 quote = null,
             )
             _state.value = resolvedState
+            val resolvedInputs = quoteInputs(resolvedState)
+            activeInputs = resolvedInputs
             val quote = packageEngine.packageQuote(resolvedState)
+            check(generation == quoteRequestGeneration && quoteInputs(_state.value) == resolvedInputs) {
+                "Package selection changed while fetching the quote."
+            }
             _state.update { it.copy(quote = quote, packageError = null) }
             quote
         }.onFailure { error ->
-            _state.update { it.copy(packageError = error.message ?: "PACKAGE_QUOTE_FAILED", quote = null) }
+            if (generation == quoteRequestGeneration && quoteInputs(_state.value) == activeInputs) {
+                _state.update { it.copy(packageError = error.message ?: "PACKAGE_QUOTE_FAILED", quote = null) }
+            }
         }
     }
 
@@ -283,7 +312,14 @@ class JourneyStore {
     }
 
     fun clearStagedAviasalesFlights() {
-        _state.update { it.copy(stagedAviasalesRoundTrip = null, stagedAviasalesOutbound = null, stagedAviasalesReturn = null) }
+        quoteRequestGeneration++
+        _state.update { current ->
+            if (current.packageFlightPath == PackageFlightPath.AVIASALES_SELECTED) current.copy(
+                stagedAviasalesRoundTrip = null, stagedAviasalesOutbound = null, stagedAviasalesReturn = null,
+                flightResults = emptyList(), selectedJourneyId = null, selectedOutboundJourneyId = null,
+                quote = null, packageError = null, transferSelectionConfirmed = false,
+            ) else current.copy(stagedAviasalesRoundTrip = null, stagedAviasalesOutbound = null, stagedAviasalesReturn = null)
+        }
     }
 
     private fun parseAviasalesDay(raw: String): java.time.LocalDate? =
@@ -309,6 +345,9 @@ class JourneyStore {
         if (snapshot.packageFlightPath != PackageFlightPath.AVIASALES_SELECTED || !snapshot.hasCompleteStagedFlightSelection) {
             return Result.failure(IllegalStateException("Complete both flight directions before proceeding."))
         }
+        val generation = ++quoteRequestGeneration
+        val initialInputs = quoteInputs(snapshot)
+        var activeInputs = initialInputs
         return runCatching {
             val outbound = snapshot.stagedAviasalesRoundTrip ?: snapshot.stagedAviasalesOutbound
                 ?: error("Outbound flight not selected")
@@ -352,17 +391,27 @@ class JourneyStore {
                 currency = "USD", fareScope = FlightFareScope.PER_PASSENGER, observedAt = at,
                 providerItineraryID = providerID, outbound = outCandidate, inbound = reverse,
             )
+            check(generation == quoteRequestGeneration && quoteInputs(_state.value) == initialInputs) {
+                "Flight selection changed while preparing the package."
+            }
             val prepared = _state.value.copy(
                 flightResults = listOf(journey), selectedJourneyId = providerID, selectedOutboundJourneyId = providerID,
                 trip = _state.value.trip.copy(flightTripType = FlightTripType.ROUND_TRIP),
                 quote = null, packageError = null,
             )
             _state.value = prepared
+            val preparedInputs = quoteInputs(prepared)
+            activeInputs = preparedInputs
             val quote = packageEngine.packageQuote(prepared) // authoritative server-side fare re-resolution
+            check(generation == quoteRequestGeneration && quoteInputs(_state.value) == preparedInputs) {
+                "Package selection changed while fetching the quote."
+            }
             _state.update { it.copy(quote = quote, packageError = null) }
             quote
         }.onFailure { error ->
-            _state.update { it.copy(quote = null, packageError = error.message) }
+            if (generation == quoteRequestGeneration && quoteInputs(_state.value) == activeInputs) {
+                _state.update { it.copy(quote = null, packageError = error.message) }
+            }
         }
     }
 

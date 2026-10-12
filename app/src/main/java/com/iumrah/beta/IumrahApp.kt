@@ -32,6 +32,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import com.iumrah.beta.core.widget.IumrahWidgetSync
 import com.iumrah.beta.core.design.IumrahMotion
 import com.iumrah.beta.core.design.IumrahTheme
 import com.iumrah.beta.core.navigation.AppTab
@@ -97,6 +98,13 @@ fun IumrahApp() {
             hasTrip = bookingState.sessions.isNotEmpty(),
             locale = settings.language.code,
         )
+    }
+
+    // Widgets only receive non-secret summaries; refresh after booking, identity or locale changes.
+    LaunchedEffect(settings.isLoaded, settings.language.code, bookingState.sessions, accountState.account) {
+        if (settings.isLoaded) {
+            IumrahWidgetSync.sync(app, bookingState.sessions, accountState.account, settings.language.code)
+        }
     }
 
     LaunchedEffect(pushState.eventRevision) {

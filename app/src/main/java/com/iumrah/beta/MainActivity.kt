@@ -33,6 +33,21 @@ class MainActivity : ComponentActivity() {
     private fun handleDeepLink(uri: Uri?) {
         uri ?: return
         val chrome = appContainer.chromeStore
+        // iOS WidgetExtension routes translated to Android home-screen widget deep links.
+        if (uri.scheme.equals("iumrah", true) && uri.host.equals("widget", true)) {
+            val widgetParts = uri.pathSegments
+            when {
+                widgetParts.size == 2 && widgetParts[0] == "booking" &&
+                    widgetParts[1].length in 1..100 && !widgetParts[1].contains('/') ->
+                    chrome.openBookingDetail(widgetParts[1])
+                widgetParts.size == 1 && widgetParts[0] == "bookings" ->
+                    chrome.navigate(com.iumrah.beta.core.navigation.AppTab.BOOKING)
+                widgetParts.size == 1 && widgetParts[0] == "planned" -> chrome.openUmrahPlan()
+                widgetParts.size == 1 && widgetParts[0] == "account" ->
+                    chrome.navigate(com.iumrah.beta.core.navigation.AppTab.ACCOUNT)
+            }
+            return
+        }
         val parts = uri.pathSegments.filter { it.isNotBlank() }
 
         if (uri.scheme.equals("https", true) && uri.host.equals("iumrah.app", true) &&

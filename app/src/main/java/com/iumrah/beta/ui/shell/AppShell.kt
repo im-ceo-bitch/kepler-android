@@ -115,6 +115,7 @@ import com.iumrah.beta.ui.chat.BookingChatScreen
 import com.iumrah.beta.ui.notifications.NotificationsScreen
 import com.iumrah.beta.ui.home.HomeScreen
 import com.iumrah.beta.ui.home.IumrahGiftCardsScreen
+import com.iumrah.beta.ui.prayer.PrayerTimesScreen
 import com.iumrah.beta.ui.hotels.FlightFirstPackageDetailScreen
 import com.iumrah.beta.ui.hotels.HotelDetailScreen
 import com.iumrah.beta.ui.hotels.HotelsScreen
@@ -301,6 +302,7 @@ fun AppShell(
                 AppRoute.AccountProfileEditor -> AccountProfileEditorParityScreen(language, accountStore, chrome)
                 AppRoute.AccountUserData -> IumrahUserDataScreen(language, accountStore, bookingStore, settingsStore, chrome)
                 is AppRoute.AccountKyc -> AccountKycScreen(route.bookingID, language, bookingStore, chrome)
+                AppRoute.PrayerTimes -> PrayerTimesScreen(language, chrome)
                 AppRoute.GiftCards -> IumrahGiftCardsScreen(language, accountStore, chrome)
             }
         }

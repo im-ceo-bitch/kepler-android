@@ -32,6 +32,7 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -47,6 +48,7 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -55,6 +57,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -84,6 +87,7 @@ import com.iumrah.beta.core.settings.AppLanguage
 import com.iumrah.beta.data.flight.AirportSearchService
 import com.iumrah.beta.data.flight.AviasalesFlightDiscoveryService
 import com.iumrah.beta.data.hotel.HotelCatalogService
+import com.iumrah.beta.data.hotel.StorefrontCatalogCache
 import com.iumrah.beta.domain.journey.JourneyStore
 import com.iumrah.beta.models.flight.Airport
 import com.iumrah.beta.models.hotel.HotelDetail
@@ -92,6 +96,7 @@ import com.iumrah.beta.models.hotel.StorefrontFlightLeg
 import com.iumrah.beta.models.hotel.StorefrontFlightOption
 import com.iumrah.beta.models.hotel.StorefrontPackageSnapshot
 import com.iumrah.beta.ui.flights.FlightDiscoveryPanel
+import com.iumrah.beta.ui.flights.FlightAssemblyCard
 import com.iumrah.beta.ui.components.IumrahPressable
 import com.iumrah.beta.ui.components.IumrahPrimaryButton
 import com.iumrah.beta.ui.components.IumrahRootPageHeader
@@ -102,6 +107,10 @@ import java.time.OffsetDateTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -114,6 +123,14 @@ enum class HotelsBoard { HOTELS, FLIGHTS, SUNDAY }
 private data class HotelPreview(
     val images: List<String> = emptyList(),
     val detail: HotelDetail? = null,
+)
+
+private data class StorefrontInitialLoad(
+    val makkah: Result<List<HotelSummary>>,
+    val madinah: Result<List<HotelSummary>>,
+    val flights: Result<List<StorefrontFlightOption>>,
+    val hotelPackages: Result<com.iumrah.beta.models.hotel.StorefrontPackagesEnvelope>,
+    val flightPackages: Result<List<StorefrontPackageSnapshot>>,
 )
 
 @Composable
@@ -133,6 +150,9 @@ fun HotelsScreen(
     val origin = journeyState.trip.originCode.ifBlank { "TAS" }.uppercase()
 
     var board by rememberSaveable { mutableStateOf(initialBoard) }
+    var refreshSeed by remember { mutableIntStateOf(0) }
+    var assemblyExpanded by rememberSaveable { mutableStateOf(false) }
+    var displayedOrigin by remember { mutableStateOf(origin) }
     var makkah by remember { mutableStateOf<List<HotelSummary>>(emptyList()) }
     var madinah by remember { mutableStateOf<List<HotelSummary>>(emptyList()) }
     var flights by remember { mutableStateOf<List<StorefrontFlightOption>>(emptyList()) }
@@ -148,6 +168,9 @@ fun HotelsScreen(
     var flightDestinationFilter by rememberSaveable { mutableStateOf<String?>(null) }
     var friendsCalculatorPresented by remember { mutableStateOf(false) }
     val previews = remember { mutableStateMapOf<String, HotelPreview>() }
+    // Public hotel listings may be displayed offline. Package prices are never
+    // restored from disk; they must be validated by the server for this session.
+    val catalogCache = remember(context) { StorefrontCatalogCache(context) }
 
     val favoritePrefs = remember { context.getSharedPreferences("iumrah_storefront_favorites", Context.MODE_PRIVATE) }
     var favorites by remember { mutableStateOf(favoritePrefs.getStringSet("hotel_ids", emptySet()).orEmpty().toSet()) }
@@ -176,31 +199,49 @@ fun HotelsScreen(
         loading = true
         error = null
         val normalizedOrigin = originCode.trim().uppercase()
-        val makkahResult = runCatching { service.listHotels(listOf("Makkah", "Mecca", "Makka")) }
-        val madinahResult = runCatching {
-            service.listHotels(listOf(
-                "Madinah", "Medina", "Madina", "Medinah",
-                "Al Madinah", "Al Medina", "Madinah Al Munawwarah", "Al Madinah Al Munawwarah",
-            ))
+        // Like iOS HotelStorefrontStore, perform independent catalog operations
+        // concurrently. Per-request failures do not cancel unrelated sections.
+        // coroutineScope retains the cancellation contract of LaunchedEffect(origin).
+        val initial = coroutineScope {
+            val m = async {
+                runCatching { service.listHotels(listOf("Makkah", "Mecca", "Makka")) }
+            }
+            val d = async {
+                runCatching { service.listHotels(listOf(
+                    "Madinah", "Medina", "Madina", "Medinah", "Al Madinah",
+                    "Al Medina", "Madinah Al Munawwarah", "Al Madinah Al Munawwarah",
+                )) }
+            }
+            val flightsTask = async { runCatching { service.storefrontFlightBoard(normalizedOrigin).options } }
+            val hotelsTask = async { runCatching { service.storefrontPackages("hotel-first", normalizedOrigin, 300) } }
+            val packagesTask = async { runCatching { service.storefrontPackages("flight-first", normalizedOrigin, 500).items } }
+            val makkahResult = m.await()
+            val madinahResult = d.await()
+            currentCoroutineContext().ensureActive()
+            // Display the hotel lists as soon as their requests finish, without
+            // waiting for the slower flight/Package Engine endpoints (iOS order).
+            makkahResult.getOrNull()?.let { makkah = it }
+            madinahResult.getOrNull()?.let { madinah = it }
+            if (makkahResult.isSuccess || madinahResult.isSuccess) catalogCache.save(makkah, madinah)
+            StorefrontInitialLoad(makkahResult, madinahResult, flightsTask.await(), hotelsTask.await(), packagesTask.await())
         }
-        val flightResult = runCatching { service.storefrontFlightBoard(normalizedOrigin).options }
-        val hotelPageResult = runCatching { service.storefrontPackages("hotel-first", normalizedOrigin, 300) }
-        val flightPackageResult = runCatching { service.storefrontPackages("flight-first", normalizedOrigin, 500).items }
-
-        makkahResult.getOrNull()?.let { makkah = it }
-        madinahResult.getOrNull()?.let { madinah = it }
-        flightResult.getOrNull()?.let { flights = it }
-        val initialHotelPage = hotelPageResult.getOrNull()
-        initialHotelPage?.let { hotelPackages = it.items }
-        flightPackageResult.getOrNull()?.let { flightPackages = it }
-        if (makkahResult.isFailure && madinahResult.isFailure) {
+        currentCoroutineContext().ensureActive() // No stale result after the origin changes.
+        initial.makkah.getOrNull()?.let { makkah = it }
+        initial.madinah.getOrNull()?.let { madinah = it }
+        initial.flights.getOrNull()?.let { flights = it }
+        val initialHotelPage = initial.hotelPackages.getOrNull()
+        // A progressive empty page must never erase a previously loaded ready
+        // package list for this same departure origin.
+        initialHotelPage?.items?.takeIf { it.isNotEmpty() }?.let { hotelPackages = it }
+        initial.flightPackages.getOrNull()?.let { flightPackages = it }
+        if (initial.makkah.isFailure && initial.madinah.isFailure && makkah.isEmpty() && madinah.isEmpty()) {
             error = hotelText(language, "load_error")
         }
         loading = false
 
-        // iOS parity: Hotel First is a server-owned D1 cache. A GET can legally
-        // return an incomplete page and ask the client to advance the bounded server
-        // build. Never replace already-ready snapshots with an empty local fallback.
+        // Hotel First is a server-owned progressive cache. Its bounded refresh
+        // is independent of the initial render. Never replace a non-empty ready
+        // page with a temporarily empty response.
         var page = initialHotelPage
         if (page != null && page.complete != true && (page.refreshRecommended == true || page.complete == false)) {
             var cursor = maxOf(0, page.nextRefreshCursor ?: 0)
@@ -210,9 +251,12 @@ fun HotelsScreen(
                 maxPasses = minOf(24, maxOf(2, kotlin.math.ceil(expectedHotels / 3.0).toInt() * 2))
             }
             repeat(maxPasses) {
+                currentCoroutineContext().ensureActive()
                 if (journey.state.value.trip.originCode.uppercase() != normalizedOrigin) return
                 val refresh = runCatching { service.refreshStorefrontPackages("hotel-first", normalizedOrigin, cursor) }.getOrNull() ?: return
+                currentCoroutineContext().ensureActive()
                 val refreshedPage = runCatching { service.storefrontPackages("hotel-first", normalizedOrigin, 300) }.getOrNull() ?: return
+                currentCoroutineContext().ensureActive()
                 page = refreshedPage
                 if (refreshedPage.items.isNotEmpty()) hotelPackages = refreshedPage.items
                 if (refreshedPage.complete == true || refresh.complete == true) return
@@ -222,7 +266,25 @@ fun HotelsScreen(
         }
     }
 
-    LaunchedEffect(origin) { load(origin) }
+    LaunchedEffect(origin, refreshSeed) {
+        // Package snapshots are scoped to one airport. Never let TAS prices
+        // survive an airport switch to SKD or the inverse.
+        if (displayedOrigin != origin) {
+            flights = emptyList()
+            flightPackages = emptyList()
+            hotelPackages = emptyList()
+            displayedOrigin = origin
+        }
+        // Display the last published hotel *catalog* quickly on weak networks.
+        // Stale room/package prices are never cached or shown as current.
+        val cached = catalogCache.restore()
+        currentCoroutineContext().ensureActive()
+        if (cached != null) {
+            if (makkah.isEmpty()) makkah = cached.makkah
+            if (madinah.isEmpty()) madinah = cached.madinah
+        }
+        load(origin)
+    }
 
     val pageTitle = when (board) {
         HotelsBoard.HOTELS -> L10n.text("tab_hotels", language)
@@ -230,13 +292,27 @@ fun HotelsScreen(
         HotelsBoard.SUNDAY -> "Sunday Umrah Club"
     }
 
+    // iOS HotelsHomeView clips scroll content to the safe-area and keeps its
+    // Flight-First assembly bar independent of the vertical scroll position.
+    // The Android root tab bar is an overlay; leave clearance for both bars.
+    Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+    PullToRefreshBox(
+        isRefreshing = loading,
+        onRefresh = { refreshSeed += 1 },
+        modifier = Modifier.fillMaxSize(),
+    ) {
     LazyColumn(
-        modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background),
-        contentPadding = androidx.compose.foundation.layout.PaddingValues(start = 18.dp, end = 18.dp, top = 10.dp, bottom = 118.dp),
+        modifier = Modifier.fillMaxSize().statusBarsPadding(),
+        contentPadding = androidx.compose.foundation.layout.PaddingValues(
+            start = 18.dp, end = 18.dp, top = 10.dp,
+            bottom = if (board == HotelsBoard.FLIGHTS) (if (assemblyExpanded) 410.dp else 220.dp) else 118.dp,
+        ),
         verticalArrangement = Arrangement.spacedBy(22.dp),
     ) {
         item { IumrahRootPageHeader(pageTitle, chrome, unreadCount = unreadCount) }
-        item {
+        // The airport button is intentionally absent from iOS' Flights board;
+        // that board owns a dedicated search-origin selector inside discovery.
+        if (board != HotelsBoard.FLIGHTS) item {
             AirportSelector(
                 language = language,
                 airport = journeyState.trip.originAirport,
@@ -334,6 +410,7 @@ fun HotelsScreen(
                         airports = airports,
                         journey = journey,
                         chrome = chrome,
+                        showEmbeddedAssembly = false,
                     )
                 }
                 // The second iOS section contains only ready, already-generated
@@ -370,6 +447,29 @@ fun HotelsScreen(
             }
         }
     }
+
+    } // pull-to-refresh content
+
+    // Mirrors iOS safeAreaInset(.bottom) on the flight-discovery board.
+    // Lift the existing assembly UI above the floating root navigation; do
+    // not duplicate it in the scrolling FlightDiscoveryPanel.
+    if (board == HotelsBoard.FLIGHTS) {
+        FlightAssemblyCard(
+            language = language,
+            state = journeyState,
+            onContinue = { chrome.openHotelSelection() },
+            onClear = {
+                journey.clearStagedAviasalesFlights()
+                journey.clearPublishedFlightSelection()
+                assemblyExpanded = false
+            },
+            expandedState = assemblyExpanded,
+            onExpandedChange = { assemblyExpanded = it },
+            modifier = Modifier.align(Alignment.BottomCenter)
+                .padding(start = 18.dp, end = 18.dp, bottom = 104.dp),
+        )
+    }
+    } // storefront overlay root
 
     if (airportPicker) {
         AirportPickerDialog(

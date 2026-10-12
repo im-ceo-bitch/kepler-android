@@ -28,6 +28,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.app.NotificationCompat
 import com.iumrah.beta.R
+import com.iumrah.beta.core.widget.IumrahWidgetSync
 import com.iumrah.beta.core.navigation.AppChromeStore
 import com.iumrah.beta.core.settings.AppLanguage
 import com.iumrah.beta.ui.components.IumrahPressable
@@ -50,8 +51,8 @@ private data class PlannedTrip(
 private class PlanStore(private val context:Context){
     private val prefs=context.getSharedPreferences("iumrah.planned-trip.v1",Context.MODE_PRIVATE)
     var trip by mutableStateOf(load()); private set
-    fun save(t:PlannedTrip){ trip=t; prefs.edit().putString("title",t.title).putString("start",t.start.toString()).putString("end",t.end.toString()).putString("bg",t.background).putString("days",t.reminderDays.sortedDescending().joinToString(",")).putInt("hour",t.hour).putInt("minute",t.minute).putBoolean("notifications",t.notifications).putString("language",t.language).apply(); PlanScheduler.reschedule(context,t) }
-    fun delete(){ trip=null; prefs.edit().clear().apply(); PlanScheduler.cancel(context) }
+    fun save(t:PlannedTrip){ trip=t; prefs.edit().putString("title",t.title).putString("start",t.start.toString()).putString("end",t.end.toString()).putString("bg",t.background).putString("days",t.reminderDays.sortedDescending().joinToString(",")).putInt("hour",t.hour).putInt("minute",t.minute).putBoolean("notifications",t.notifications).putString("language",t.language).apply(); PlanScheduler.reschedule(context,t); IumrahWidgetSync.refreshAll(context) }
+    fun delete(){ trip=null; prefs.edit().clear().apply(); PlanScheduler.cancel(context); IumrahWidgetSync.refreshAll(context) }
     private fun load():PlannedTrip?{ val s=prefs.getString("start",null)?:return null; return runCatching{PlannedTrip(prefs.getString("title","Umrah")?:"Umrah",LocalDate.parse(s),LocalDate.parse(prefs.getString("end",s)),prefs.getString("bg","gradient-sunset")?:"gradient-sunset",prefs.getString("days","")!!.split(',').mapNotNull{it.toIntOrNull()}.toSet().ifEmpty{setOf(60,30,20,15,10,7,5,3,2,1)},prefs.getInt("hour",19),prefs.getInt("minute",0),prefs.getBoolean("notifications",true),prefs.getString("language","ru")?:"ru")}.getOrNull() }
 }
 

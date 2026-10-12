@@ -110,6 +110,12 @@ private fun SidebarDrawer(language: AppLanguage, chrome: AppChromeStore) {
         DrawerRow(CupertinoSymbol.Suitcase, sidebarCopy(language).trips) { chrome.navigate(AppTab.BOOKING) }
         DrawerRow(CupertinoSymbol.Heart, "iumrah Care") { chrome.navigate(AppTab.CARE) }
         DrawerRow(CupertinoSymbol.PersonCircle, sidebarCopy(language).account) { chrome.navigate(AppTab.ACCOUNT) }
+        DrawerRow(CupertinoSymbol.MoonStarsFill, when (language) {
+            AppLanguage.RUSSIAN -> "Времена молитв"
+            AppLanguage.ENGLISH -> "Prayer Times"
+            AppLanguage.UZBEK -> "Namoz vaqtlari"
+            AppLanguage.UZBEK_CYRILLIC -> "Намоз вақтлари"
+        }) { chrome.openPrayerTimes() }
         SidebarESIMCard(language, chrome)
         Spacer(Modifier.weight(1f))
         Text("Independent Umrah · iumrah", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurface.copy(alpha = .35f))

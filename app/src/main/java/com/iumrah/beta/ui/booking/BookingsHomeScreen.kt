@@ -2136,7 +2136,10 @@ private fun lifecyclePhase(session: StoredBookingSession): BookingHomeLifecycleP
     return when (session.effectiveStatus.uppercase()) {
         "NEW", "AVAILABILITY_CHECK" -> lifecycleDeadline(
             explicit = session.availabilityDeadlineAt,
-            start = session.availabilityStartedAt ?: session.booking.createdAt,
+            start = session.availabilityStartedAt
+                ?: transitionDate("availability_check", session)
+                ?: transitionDate("new", session)
+                ?: session.booking.createdAt,
             durationMs = 6L * 60 * 60 * 1000,
         )?.let { BookingHomeLifecyclePhase(LifecycleKind.AVAILABILITY, it, CupertinoSymbol.CalendarClock) }
 

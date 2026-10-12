@@ -254,23 +254,35 @@ internal fun FlightPublishedCarousel(language: AppLanguage, title: String, subti
 }
 
 @Composable
-internal fun FlightAssemblyCard(language: AppLanguage, state: JourneyState, onContinue: () -> Unit, onClear: () -> Unit) {
+internal fun FlightAssemblyCard(
+    language: AppLanguage,
+    state: JourneyState,
+    onContinue: () -> Unit,
+    onClear: () -> Unit,
+    modifier: Modifier = Modifier,
+    expandedState: Boolean? = null,
+    onExpandedChange: ((Boolean) -> Unit)? = null,
+) {
     val staged = state.packageFlightPath == com.iumrah.beta.domain.trip.PackageFlightPath.AVIASALES_SELECTED
     val published = state.packageFlightPath == com.iumrah.beta.domain.trip.PackageFlightPath.PUBLISHED_DIRECT
     val selectionCount = if (staged) listOfNotNull(state.stagedAviasalesRoundTrip,
         state.stagedAviasalesOutbound, state.stagedAviasalesReturn).size
         else if (published) listOfNotNull(state.selectedPublishedCompleteID,
             state.selectedPublishedOutboundID, state.selectedPublishedReturnID).size else 0
-    if (selectionCount == 0) return
-    val complete = if (staged) state.hasCompleteStagedFlightSelection else state.hasCompletePublishedFlightSelection
-    var expanded by remember { mutableStateOf(false) }
+    // iOS displays the assembly tray even before the first flight is selected.
+    val complete = selectionCount > 0 &&
+        (if (staged) state.hasCompleteStagedFlightSelection else state.hasCompletePublishedFlightSelection)
+    var locallyExpanded by remember { mutableStateOf(false) }
+    val expanded = expandedState ?: locallyExpanded
     val rows = if (staged) listOfNotNull(state.stagedAviasalesRoundTrip,
         state.stagedAviasalesOutbound, state.stagedAviasalesReturn) else emptyList()
-    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(30.dp))
+    Column(modifier.fillMaxWidth().clip(RoundedCornerShape(30.dp))
         .background(MaterialTheme.colorScheme.surface)
         .border(.8.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = .07f), RoundedCornerShape(30.dp))) {
-        Row(Modifier.fillMaxWidth().clickable { expanded = !expanded }
-            .padding(14.dp), verticalAlignment = Alignment.CenterVertically,
+        Row(Modifier.fillMaxWidth().clickable {
+            if (expandedState == null) locallyExpanded = !locallyExpanded
+            else onExpandedChange?.invoke(!expanded)
+        }.padding(14.dp), verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(11.dp)) {
             Box(Modifier.size(38.dp).clip(CircleShape)
                 .background(Color(0xFF34C759).copy(alpha = .12f)), contentAlignment = Alignment.Center) {
@@ -280,6 +292,7 @@ internal fun FlightAssemblyCard(language: AppLanguage, state: JourneyState, onCo
                 Text(flightText(language, "Сборка Umrah пакета", "Umrah package assembly", "Umra paketini yig‘ish", "Умра пакетини йиғиш"),
                     fontSize = 14.sp, fontWeight = FontWeight.Bold)
                 Text(if (complete) flightText(language,"Рейсы туда и обратно выбраны","Outbound and return selected","Borish va qaytish tanlandi","Бориш ва қайтиш танланди")
+                    else if (selectionCount == 0) flightText(language,"Ещё ничего не выбрано","Nothing selected yet","Hali hech narsa tanlanmagan","Ҳали ҳеч нарса танланмаган")
                     else flightText(language,"Выберите второе направление","Choose the other flight","Ikkinchi reysni tanlang","Иккинчи рейсни танланг"),
                     fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = .6f), maxLines = 1)
             }
@@ -289,6 +302,11 @@ internal fun FlightAssemblyCard(language: AppLanguage, state: JourneyState, onCo
         if (expanded) {
             Column(Modifier.padding(start = 17.dp, end = 17.dp, bottom = 14.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                if (selectionCount == 0) Text(
+                    flightText(language, "Вы ещё ничего не выбрали.", "You haven’t selected anything yet.", "Hali hech narsa tanlamadingiz.", "Ҳали ҳеч нарса танламадингиз."),
+                    fontSize = 13.sp,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = .6f),
+                )
                 rows.forEach { offer ->
                     Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                         Text("✈   ${offer.origin.uppercase()} → ${offer.destination.uppercase()}",
@@ -299,11 +317,11 @@ internal fun FlightAssemblyCard(language: AppLanguage, state: JourneyState, onCo
                             fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = .65f))
                     }
                 }
-                if (published) Text(flightText(language,"Опубликованные билеты iumrah","Published iumrah flights",
+                if (published && selectionCount > 0) Text(flightText(language,"Опубликованные билеты iumrah","Published iumrah flights",
                     "iumrah e’lon qilgan reyslar","iumrah эълон қилган рейслар"),
                     fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = .6f))
                 Row(horizontalArrangement = Arrangement.spacedBy(9.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text(flightText(language,"Сбросить","Clear","Tozalash","Тозалаш"),
+                    if (selectionCount > 0) Text(flightText(language,"Сбросить","Clear","Tozalash","Тозалаш"),
                         Modifier.clickable(onClick = onClear).padding(10.dp),
                         fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = .63f))
                     Box(Modifier.weight(1f).height(48.dp).clip(RoundedCornerShape(16.dp))

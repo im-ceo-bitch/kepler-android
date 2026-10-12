@@ -102,6 +102,7 @@ fun FlightDiscoveryPanel(
     airports: AirportSearchService,
     journey: JourneyStore,
     chrome: AppChromeStore,
+    showEmbeddedAssembly: Boolean = true,
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -371,7 +372,7 @@ fun FlightDiscoveryPanel(
             }
             if (recommendedError != null) Text(recommendedError!!, fontSize=12.sp, color=MaterialTheme.colorScheme.error)
         }
-        FlightAssemblyCard(language, journeyState,
+        if (showEmbeddedAssembly) FlightAssemblyCard(language, journeyState,
             onContinue = { chrome.openHotelSelection() },
             onClear = { journey.clearStagedAviasalesFlights(); journey.clearPublishedFlightSelection() })
     }

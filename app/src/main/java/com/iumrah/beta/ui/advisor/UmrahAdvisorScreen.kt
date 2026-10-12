@@ -1,6 +1,12 @@
 package com.iumrah.beta.ui.advisor
 
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -21,6 +27,15 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
+import androidx.compose.foundation.Canvas
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.drawscope.clipPath
+import androidx.compose.ui.graphics.drawscope.Stroke
+import kotlin.math.PI
+import kotlin.math.sin
+import kotlin.math.cos
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -29,6 +44,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.media3.common.MediaItem
+import androidx.media3.common.Player
+import androidx.media3.common.PlaybackException
 import androidx.media3.exoplayer.ExoPlayer
 import com.iumrah.beta.core.navigation.AppChromeStore
 import com.iumrah.beta.core.settings.AppLanguage
@@ -36,7 +53,7 @@ import com.iumrah.beta.ui.cupertino.CupertinoIcon
 import com.iumrah.beta.ui.cupertino.CupertinoSymbol
 import com.iumrah.beta.data.advisor.UmrahFlowContent
 import com.iumrah.beta.data.advisor.UmrahFlowService
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.CancellationException
 
 enum class UmrahGuideLanguage(val code: String, val nativeName: String) {
     RUSSIAN("ru", "Русский"),
@@ -70,7 +87,7 @@ fun UmrahAdvisorScreen(
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val service = remember { UmrahFlowService() }
+    val service = remember(context) { UmrahFlowService(context.applicationContext) }
     val player = remember(context) { ExoPlayer.Builder(context).build() }
     DisposableEffect(Unit) { onDispose { player.release() } }
 
@@ -95,12 +112,48 @@ fun UmrahAdvisorScreen(
     var showNavigator by remember { mutableStateOf(false) }
     var showSunnahDua by remember { mutableStateOf(false) }
     var showSafaDua by remember { mutableStateOf(false) }
+    var navigatorSelection by remember { mutableStateOf(Stage.START) }
+    var playingKey by remember { mutableStateOf<String?>(null) }
+    var audioLoading by remember { mutableStateOf(false) }
+    var audioPlaying by remember { mutableStateOf(false) }
 
-    fun stopAudio() { player.stop(); player.clearMediaItems() }
+    DisposableEffect(player) {
+        val listener = object : Player.Listener {
+            override fun onIsPlayingChanged(isPlaying: Boolean) {
+                audioPlaying = isPlaying
+                if (isPlaying) audioLoading = false
+            }
+            override fun onPlaybackStateChanged(playbackState: Int) {
+                if (playbackState == Player.STATE_READY || playbackState == Player.STATE_ENDED) audioLoading = false
+                if (playbackState == Player.STATE_ENDED) { audioPlaying = false; playingKey = null }
+            }
+            override fun onPlayerError(error: PlaybackException) {
+                audioLoading = false; audioPlaying = false; playingKey = null
+            }
+        }
+        player.addListener(listener)
+        onDispose { player.removeListener(listener) }
+    }
+
     fun text(key: String, fallback: String = key): String = content.translations[key]?.trim().takeUnless { it.isNullOrBlank() } ?: fallback
+    fun stageLabel(target: Stage): String = when (target) {
+        Stage.START -> text("umrah_start_title", stageTitle(target, selectedLanguage))
+        Stage.TAWAF -> text("tawaf_title", stageTitle(target, selectedLanguage))
+        Stage.POST_TAWAF -> text("tawaf_break_title", stageTitle(target, selectedLanguage))
+        Stage.SAFA -> text("sai_title", stageTitle(target, selectedLanguage))
+        Stage.END -> text("tahallul_title", stageTitle(target, selectedLanguage))
+        Stage.AFTER -> text("home2_3title", stageTitle(target, selectedLanguage))
+    }
+    fun stopAudio() {
+        player.stop(); player.clearMediaItems()
+        playingKey = null; audioLoading = false; audioPlaying = false
+    }
     fun play(key: String) {
-        val url = content.audio[key] ?: return
+        val url = content.audio[key]?.takeIf { it.startsWith("https://", ignoreCase = true) } ?: return
+        if (playingKey == key && (audioPlaying || audioLoading)) { stopAudio(); return }
         stopAudio()
+        playingKey = key
+        audioLoading = true
         player.setMediaItem(MediaItem.fromUri(url))
         player.prepare()
         player.playWhenReady = true
@@ -113,11 +166,21 @@ fun UmrahAdvisorScreen(
 
     LaunchedEffect(started, selectedLanguage) {
         if (!started) return@LaunchedEffect
-        loading = true; error = null
-        runCatching { service.load(selectedLanguage.code) }
-            .onSuccess { content = it }
-            .onFailure { error = it.message }
-        loading = false
+        // Load persisted content before hitting the network so offline pilgrim
+        // guidance does not flash empty UI. A language change never displays
+        // cached text belonging to a different language.
+        content = service.cached(selectedLanguage.code)
+        loading = content.translations.isEmpty()
+        error = null
+        try {
+            content = service.load(selectedLanguage.code)
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (failure: Exception) {
+            if (content.translations.isEmpty()) error = failure.localizedMessage
+        } finally {
+            loading = false
+        }
     }
 
     DisposableEffect(Unit) {
@@ -128,6 +191,7 @@ fun UmrahAdvisorScreen(
     if (!started) {
         LanguagePicker(
             selection = selectedLanguage,
+            appLanguage = appLanguage,
             onSelect = { selectedLanguage = it },
             onClose = { chrome.back() },
             onStart = { started = true },
@@ -151,11 +215,11 @@ fun UmrahAdvisorScreen(
         )
     ) {
         AdvisorHeader(
-            title = stageTitle(stage, selectedLanguage),
+            title = stageLabel(stage),
             subtitle = advisorSubtitle(selectedLanguage),
             progress = animatedProgress,
             onBack = { stopAudio(); chrome.back() },
-            onNavigate = { stopAudio(); showNavigator = true },
+            onNavigate = { stopAudio(); navigatorSelection = stage; showNavigator = true },
         )
         if (loading && content.translations.isEmpty()) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
@@ -167,6 +231,7 @@ fun UmrahAdvisorScreen(
                         kicker = text("umrah_start_title", "Start Umrah"), title = "",
                         body = text(listOf("start_text","start_text1","start_text2","start_text3")[startPhase], startFallback(startPhase)),
                         counter = "${startPhase + 1} / 4", audioAvailable = content.audio["tawaf_start"] != null,
+                        audioActive = playingKey == "tawaf_start" && audioPlaying, audioBuffering = playingKey == "tawaf_start" && audioLoading,
                         onListen = { play("tawaf_start") }, showPrevious = startPhase > 0,
                         onPrevious = { stopAudio(); if (startPhase > 0) startPhase-- },
                         nextDone = startPhase == 3,
@@ -179,6 +244,7 @@ fun UmrahAdvisorScreen(
                                 kicker = text("tawaf_title", "Tawaf"), title = text("tawaf${tawafRound}_tarab1", "Round $tawafRound"),
                                 body = text("tawaf${tawafRound}_text${if (tawafTextMode == 0) 1 else 2}", "Continue Tawaf calmly and remember Allah."),
                                 counter = "$tawafRound / 7", audioAvailable = content.audio["tawaf_$tawafRound"] != null,
+                                audioActive = playingKey == "tawaf_$tawafRound" && audioPlaying, audioBuffering = playingKey == "tawaf_$tawafRound" && audioLoading,
                                 onListen = { play("tawaf_$tawafRound") }, onBodyTap = { tawafTextMode = (tawafTextMode + 1) % 2 },
                                 showPrevious = true, onPrevious = {
                                     stopAudio(); tawafTextMode = 0; tawafReadingStep = 0; tawafZikrCount = 0
@@ -216,7 +282,8 @@ fun UmrahAdvisorScreen(
                         }
                         VoiceStep(
                             kicker = copy.first, title = copy.second, body = copy.third, counter = "${postTawafStep + 1} / 4",
-                            audioAvailable = content.audio[keys[postTawafStep]] != null, onListen = { play(keys[postTawafStep]) },
+                            audioAvailable = content.audio[keys[postTawafStep]] != null,
+                            audioActive = playingKey == keys[postTawafStep] && audioPlaying, audioBuffering = playingKey == keys[postTawafStep] && audioLoading, onListen = { play(keys[postTawafStep]) },
                             showPrevious = true, onPrevious = { stopAudio(); if (postTawafStep > 0) postTawafStep-- else { stage = Stage.TAWAF; tawafRound = 7 } },
                             nextDone = postTawafStep == 3, onNext = { stopAudio(); if (postTawafStep < 3) postTawafStep++ else { stage = Stage.SAFA; safaRound = 1 } },
                             secondaryAction = if (postTawafStep == 3) text("overlay_safa_title", "Dua at Safa and Marwa") to { showSafaDua = true } else null,
@@ -229,6 +296,7 @@ fun UmrahAdvisorScreen(
                                 kicker = text("sai_title","Safa & Marwa"), title = text("safa${safaRound}_title1", "Round $safaRound"),
                                 body = text("safa${safaRound}_text${if(safaTextMode == 0) 1 else 2}", "Continue Sa'i calmly and remember Allah."),
                                 counter = "$safaRound / 7", audioAvailable = content.audio["safa_$safaRound"] != null,
+                                audioActive = playingKey == "safa_$safaRound" && audioPlaying, audioBuffering = playingKey == "safa_$safaRound" && audioLoading,
                                 onListen = { play("safa_$safaRound") }, onBodyTap = { safaTextMode = (safaTextMode + 1) % 2 },
                                 showPrevious = true, onPrevious = { stopAudio(); safaTextMode = 0; safaReadingStep = 0; if(safaRound > 1) safaRound-- else { stage = Stage.POST_TAWAF; postTawafStep = 3 } },
                                 nextDone = safaRound == 7, onNext = { stopAudio(); safaTextMode = 0; safaReadingStep = 0; if(safaRound < 7) safaRound++ else stage = Stage.END },
@@ -246,7 +314,8 @@ fun UmrahAdvisorScreen(
                     Stage.END -> VoiceStep(
                         kicker = text("tahallul_title","Complete Umrah"), title = "",
                         body = text(listOf("end_text","end_text1","end_text3")[endPhase], endFallback(endPhase)), counter = "${endPhase + 1} / 3",
-                        audioAvailable = content.audio["safa_end"] != null, onListen = { play("safa_end") }, showPrevious = true,
+                        audioAvailable = content.audio["safa_end"] != null,
+                        audioActive = playingKey == "safa_end" && audioPlaying, audioBuffering = playingKey == "safa_end" && audioLoading, onListen = { play("safa_end") }, showPrevious = true,
                         onPrevious = { stopAudio(); if(endPhase > 0) endPhase-- else { stage = Stage.SAFA; safaRound = 7 } },
                         nextDone = endPhase == 2, onNext = { stopAudio(); if(endPhase < 2) endPhase++ else stage = Stage.AFTER }
                     )
@@ -264,16 +333,29 @@ fun UmrahAdvisorScreen(
         ModalBottomSheet(onDismissRequest = { showNavigator = false }) {
             Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(advisorTitle(selectedLanguage), fontSize = 24.sp, fontWeight = FontWeight.Bold)
+                Text(stageLabel(stage), fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 listOf(
-                    Stage.START to stageTitle(Stage.START, selectedLanguage), Stage.TAWAF to stageTitle(Stage.TAWAF, selectedLanguage),
-                    Stage.POST_TAWAF to stageTitle(Stage.POST_TAWAF, selectedLanguage), Stage.SAFA to stageTitle(Stage.SAFA, selectedLanguage),
-                    Stage.END to stageTitle(Stage.END, selectedLanguage), Stage.AFTER to stageTitle(Stage.AFTER, selectedLanguage),
+                    Stage.START to stageLabel(Stage.START), Stage.TAWAF to stageLabel(Stage.TAWAF),
+                    Stage.POST_TAWAF to stageLabel(Stage.POST_TAWAF), Stage.SAFA to stageLabel(Stage.SAFA),
+                    Stage.END to stageLabel(Stage.END),
                 ).forEach { (target, label) ->
-                    Surface(onClick = { stopAudio(); stage = target; showNavigator = false }, shape = RoundedCornerShape(18.dp), color = if(stage == target) Color.Black else MaterialTheme.colorScheme.surfaceVariant) {
-                        Text(label, Modifier.fillMaxWidth().padding(16.dp), color = if(stage == target) Color.White else MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.SemiBold)
+                    val selected = navigatorSelection == target
+                    Surface(onClick = { navigatorSelection = target }, shape = RoundedCornerShape(18.dp),
+                        color = if(selected) Color(0xFF2E66E6).copy(alpha = .12f) else MaterialTheme.colorScheme.surfaceVariant) {
+                        Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Text(label, Modifier.weight(1f), color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.SemiBold)
+                            if (selected) CupertinoIcon(CupertinoSymbol.CheckCircleFill, null, Modifier.size(18.dp), tint = Color(0xFF2E66E6))
+                        }
                     }
                 }
-                TextButton(onClick = { showNavigator = false; chrome.back() }, modifier = Modifier.fillMaxWidth()) { Text(cancelUmrah(selectedLanguage), color = MaterialTheme.colorScheme.error) }
+                Button(onClick = { stopAudio(); stage = navigatorSelection; showNavigator = false },
+                    modifier = Modifier.fillMaxWidth().height(54.dp), shape = CircleShape,
+                    colors = ButtonDefaults.buttonColors(containerColor = Color.Black)) {
+                    Text(text("navigate_button", "Go"), fontWeight = FontWeight.Bold)
+                }
+                TextButton(onClick = { showNavigator = false; chrome.back() }, modifier = Modifier.fillMaxWidth()) {
+                    Text(cancelUmrah(selectedLanguage), color = MaterialTheme.colorScheme.error)
+                }
                 Spacer(Modifier.height(16.dp))
             }
         }
@@ -303,14 +385,20 @@ fun UmrahAdvisorScreen(
 }
 
 @Composable
-private fun LanguagePicker(selection: UmrahGuideLanguage, onSelect: (UmrahGuideLanguage) -> Unit, onClose: () -> Unit, onStart: () -> Unit) {
+private fun LanguagePicker(selection: UmrahGuideLanguage, appLanguage: AppLanguage, onSelect: (UmrahGuideLanguage) -> Unit, onClose: () -> Unit, onStart: () -> Unit) {
+    val copy = when (appLanguage) {
+        AppLanguage.RUSSIAN -> listOf("Язык iumrah Advisor", "Выберите язык голосового гида перед началом Умры.", "Начать Умру", "Закрыть")
+        AppLanguage.UZBEK -> listOf("iumrah Advisor tili", "Umrani boshlashdan oldin ovozli gid tilini tanlang.", "Umrani boshlash", "Yopish")
+        AppLanguage.UZBEK_CYRILLIC -> listOf("iumrah Advisor тили", "Умрани бошлашдан олдин овозли гид тилини танланг.", "Умрани бошлаш", "Ёпиш")
+        AppLanguage.ENGLISH -> listOf("iumrah Advisor language", "Choose the voice-guide language before you begin Umrah.", "Start Umrah", "Close")
+    }
     Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).statusBarsPadding().padding(20.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                Text("iumrah Advisor", fontSize = 30.sp, fontWeight = FontWeight.Bold)
-                Text("Choose the language of your Umrah voice guide", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(copy[0], fontSize = 25.sp, fontWeight = FontWeight.Bold)
+                Text(copy[1], fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            TextButton(onClick = onClose) { Text("Close") }
+            TextButton(onClick = onClose) { Text(copy[3]) }
         }
         Spacer(Modifier.height(22.dp))
         LazyVerticalGrid(columns = GridCells.Fixed(2), modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(10.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -329,7 +417,7 @@ private fun LanguagePicker(selection: UmrahGuideLanguage, onSelect: (UmrahGuideL
             }
         }
         Button(onClick = onStart, modifier = Modifier.fillMaxWidth().height(56.dp), shape = CircleShape, colors = ButtonDefaults.buttonColors(containerColor = Color.Black)) {
-            Text("Start Advisor", fontWeight = FontWeight.Bold)
+            Text(copy[2], fontWeight = FontWeight.Bold)
         }
     }
 }
@@ -367,7 +455,7 @@ private fun RitualScreen(title: String, mode: RitualMode, onMode: (RitualMode) -
 @Composable
 private fun VoiceStep(
     kicker: String, title: String, body: String, counter: String,
-    audioAvailable: Boolean, onListen: () -> Unit,
+    audioAvailable: Boolean, audioActive: Boolean, audioBuffering: Boolean, onListen: () -> Unit,
     showPrevious: Boolean, onPrevious: () -> Unit, nextDone: Boolean, onNext: () -> Unit,
     onBodyTap: (() -> Unit)? = null, secondaryAction: Pair<String, () -> Unit>? = null,
 ) {
@@ -381,8 +469,13 @@ private fun VoiceStep(
             Spacer(Modifier.height(10.dp))
             if(title.isNotBlank()) Text(title, fontSize = 29.sp, lineHeight = 34.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
             Spacer(Modifier.height(24.dp))
-            Box(Modifier.size(112.dp).clip(CircleShape).background(Color(0xFF2E66E6).copy(alpha=.10f)).border(1.dp, Color(0xFF2E66E6).copy(alpha=.20f), CircleShape).clickable(enabled = audioAvailable) { onListen() }, contentAlignment = Alignment.Center) {
-                CupertinoIcon(if(audioAvailable) CupertinoSymbol.SignalWave else CupertinoSymbol.SpeakerSlash, null, Modifier.size(42.dp), tint = Color(0xFF2E66E6))
+            // Native Compose rendering of the iOS advisor's blue/violet/orange fluid orb.
+            // Playback drives intensity; never suggests microphone metering without permission.
+            Box(Modifier.size(150.dp).clickable(enabled = audioAvailable) { onListen() }, contentAlignment = Alignment.Center) {
+                AdvisorFluidOrb(active = audioActive, buffering = audioBuffering, modifier = Modifier.fillMaxSize())
+                if (audioBuffering) CircularProgressIndicator(Modifier.size(27.dp), strokeWidth = 2.dp, color = Color.White)
+                else if (!audioAvailable) CupertinoIcon(CupertinoSymbol.SpeakerSlash, null, Modifier.size(24.dp), tint = Color.White.copy(alpha = .68f))
+                else if (!audioActive) CupertinoIcon(CupertinoSymbol.Play, null, Modifier.size(25.dp), tint = Color.White.copy(alpha = .9f))
             }
             Spacer(Modifier.height(24.dp))
             Text(body, modifier = if(onBodyTap != null) Modifier.clickable { onBodyTap() } else Modifier, fontSize = 22.sp, lineHeight = 31.sp, fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center)
@@ -507,3 +600,88 @@ private fun cancelUmrah(l: UmrahGuideLanguage) = when(l){ UmrahGuideLanguage.RUS
 private fun done(l: UmrahGuideLanguage) = when(l){ UmrahGuideLanguage.RUSSIAN -> "Готово"; UmrahGuideLanguage.UZBEK -> "Tayyor"; else -> "Done" }
 private fun startFallback(i: Int) = listOf("Prepare your intention and begin Umrah calmly.", "Enter Masjid al-Haram with attention and keep your intention clear.", "Move toward the beginning of Tawaf and follow the guidance.", "When you are ready, continue to Tawaf.")[i.coerceIn(0,3)]
 private fun endFallback(i: Int) = listOf("You have completed Sa'i. Follow the final guidance carefully.", "Complete the final requirement of Umrah calmly and deliberately.", "Your Umrah is complete. May Allah accept it from you.")[i.coerceIn(0,2)]
+
+/** Approximation of IumrahSiriOrb.swift using translucent moving sheets clipped to a sphere.
+ *  The 9.05s morph, near-black core and blue/violet/orange palette follow the iOS reference.
+ *  Reduced activity when stopped avoids animating with the same force as spoken guidance.
+ */
+@Composable
+private fun AdvisorFluidOrb(active: Boolean, buffering: Boolean, modifier: Modifier = Modifier) {
+    val transition = rememberInfiniteTransition(label = "advisor-siri-fluid")
+    val phase by transition.animateFloat(
+        initialValue = 0f, targetValue = 1f,
+        animationSpec = infiniteRepeatable(animation = tween(9050, easing = LinearEasing), repeatMode = RepeatMode.Restart),
+        label = "advisor-siri-morph",
+    )
+    val energy by animateFloatAsState(
+        targetValue = if (active) 1f else if (buffering) .66f else .42f,
+        animationSpec = tween(410), label = "advisor-siri-energy",
+    )
+    Canvas(modifier) {
+        val side = size.minDimension
+        val center = Offset(size.width / 2, size.height / 2)
+        val radius = side * .458f
+        val theta = phase * (2f * PI.toFloat())
+        drawCircle(
+            Brush.radialGradient(listOf(Color(0xFF6C3CFB).copy(alpha = .22f * energy), Color.Transparent), center, side * .54f),
+            radius = side * .52f, center = center,
+        )
+        val clip = Path().apply { addOval(androidx.compose.ui.geometry.Rect(center - Offset(radius, radius), center + Offset(radius, radius))) }
+        clipPath(clip) {
+            drawCircle(
+                brush = Brush.radialGradient(listOf(Color(0xFF09102C), Color(0xFF050512), Color.Black), center, radius),
+                center = center, radius = radius,
+            )
+            val colors = listOf(
+                Color(0xFF7A2BFF), Color(0xFF1F3FFF), Color(0xFF09A4FF),
+                Color(0xFF245AFF), Color(0xFFEA31FD), Color(0xFFFF6C0E), Color(0xFF7334FD),
+            )
+            for (index in colors.indices) {
+                val fraction = index / 6f
+                val width = side * (.13f + fraction * .06f)
+                val baseY = center.y + side * ((fraction - .5f) * .52f)
+                val curvature = side * (.12f + energy * .095f)
+                val wave = theta * (1f + index * .06f) + index * 1.34f
+                val route = Path()
+                // Sheets cross the complete sphere, not radial petals.
+                val samples = 36
+                fun curve(x: Float): Float {
+                    val ratio = (x - center.x) / side
+                    return baseY + ratio * side * (-.38f + .10f * sin(wave)) +
+                        curvature * sin(ratio * 5.2f + wave) * (1f - kotlin.math.abs(ratio))
+                }
+                for (sample in 0..samples) {
+                    val x = center.x - radius * 1.35f + (radius * 2.70f * sample / samples)
+                    val y = curve(x) - width * (.35f + .08f * sin(wave))
+                    if (sample == 0) route.moveTo(x, y) else route.lineTo(x, y)
+                }
+                for (sample in samples downTo 0) {
+                    val x = center.x - radius * 1.35f + (radius * 2.70f * sample / samples)
+                    route.lineTo(x, curve(x) + width * (.55f + .12f * cos(wave)))
+                }
+                route.close()
+                drawPath(route, brush = Brush.linearGradient(
+                    listOf(colors[index].copy(alpha = .14f * energy),
+                        colors[index].copy(alpha = (.53f + energy * .25f).coerceAtMost(.94f)),
+                        colors[index].copy(alpha = .09f)),
+                    start = Offset(center.x - radius, center.y - radius),
+                    end = Offset(center.x + radius, center.y + radius),
+                ))
+            }
+            drawCircle(
+                brush = Brush.radialGradient(listOf(Color.White.copy(alpha = .18f * energy), Color.Transparent),
+                    center + Offset(side * .08f * sin(theta), side * .10f * cos(theta)), radius * .65f),
+                center = center, radius = radius,
+            )
+        }
+        drawCircle(
+            brush = Brush.sweepGradient(
+                listOf(Color(0xFF224EFF), Color(0xFF10A5FF), Color(0xFF852BFF), Color(0xFFFF650A), Color(0xFF224EFF)),
+                center = center,
+            ),
+            center = center, radius = radius * .99f,
+            style = Stroke(width = side * .009f),
+            alpha = .62f * energy,
+        )
+    }
+}
