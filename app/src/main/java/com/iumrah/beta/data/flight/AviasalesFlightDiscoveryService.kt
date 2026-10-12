@@ -26,6 +26,8 @@ data class FlightDiscoveryOffer(
     @SerialName("bookingUrl") val bookingUrl: String? = null,
     @SerialName("returnAirlineCode") val returnAirlineCode: String? = null,
     @SerialName("returnFlightNumber") val returnFlightNumber: String? = null,
+    @SerialName("outboundSegments") val outboundSegments: List<FlightDiscoveryVerifiedSegment>? = null,
+    @SerialName("inboundSegments") val inboundSegments: List<FlightDiscoveryVerifiedSegment>? = null,
 ) {
     val isRoundTrip: Boolean get() = !returnAt.isNullOrBlank()
     val isDirect: Boolean get() = transfers == 0 && (!isRoundTrip || returnTransfers == 0)
@@ -56,10 +58,13 @@ data class FlightDiscoveryCalendarDay(
     @SerialName("bookingUrl") val bookingUrl: String? = null,
     @SerialName("returnAirlineCode") val returnAirlineCode: String? = null,
     @SerialName("returnFlightNumber") val returnFlightNumber: String? = null,
+    @SerialName("outboundSegments") val outboundSegments: List<FlightDiscoveryVerifiedSegment>? = null,
+    @SerialName("inboundSegments") val inboundSegments: List<FlightDiscoveryVerifiedSegment>? = null,
 ) {
     val offer: FlightDiscoveryOffer get() = FlightDiscoveryOffer(
         id, origin, destination, originAirport, destinationAirport, price, airlineCode, flightNumber,
         departureAt, returnAt, transfers, returnTransfers, durationMinutes, returnDurationMinutes, bookingUrl, returnAirlineCode, returnFlightNumber,
+        outboundSegments, inboundSegments,
     )
 }
 

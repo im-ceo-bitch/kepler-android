@@ -48,6 +48,9 @@ import com.iumrah.beta.core.settings.AppLanguage
 import com.iumrah.beta.data.flight.AviasalesFlightDiscoveryService
 import com.iumrah.beta.data.flight.FlightDiscoveryOffer
 import com.iumrah.beta.data.flight.FlightReferenceCatalog
+import com.iumrah.beta.data.flight.AviasalesSearchLinkBuilder
+import com.iumrah.beta.data.flight.FlightDiscoveryItineraryValidator
+import com.iumrah.beta.data.flight.FlightDiscoveryVerifiedSegment
 import com.iumrah.beta.data.flight.FlightDataParity
 import java.util.Locale
 import com.iumrah.beta.ui.components.IumrahPressable
@@ -118,10 +121,10 @@ internal fun FlightDiscoveryDetailSheetV46(
                 offer = current
                 refreshed = true
                 message = t(language,
-                    "Цена сверена с Data API (не онлайн-бронирование).",
-                    "Matched recent Data API fare (not live bookable inventory).",
-                    "Narx Data API bilan solishtirildi (jonli band qilish emas).",
-                    "Нарх Data API билан солиштирилди (жонли банд қилиш эмас).")
+                    "Цена сверена с последними данными. Наличие уточняйте у продавца.",
+                    "Fare matched recently available data. Confirm availability with the seller.",
+                    "Narx so‘nggi ma’lumot bilan solishtirildi. Mavjudligini sotuvchidan tekshiring.",
+                    "Нарх сўнгги маълумот билан солиштирилди. Мавжудлигини сотувчидан текширинг.")
             }
         } catch (cancel: CancellationException) {
             throw cancel
@@ -151,7 +154,7 @@ internal fun FlightDiscoveryDetailSheetV46(
                     Modifier.weight(1f), fontWeight = FontWeight.Bold, fontSize = 21.sp)
                 Text(if (isFavorite) "♥" else "♡", Modifier.clickable { isFavorite = !isFavorite; onFavorite(offer) }.padding(7.dp),
                     fontSize = 24.sp, color = if (isFavorite) Color(0xFFFF375F) else MaterialTheme.colorScheme.onSurface)
-                Text("↗", Modifier.clickable { share(context, offer, currency) }.padding(7.dp), fontSize = 24.sp)
+                Text("↗", Modifier.clickable { share(context, offer, currency, adults, children, infants) }.padding(7.dp), fontSize = 24.sp)
             }
             Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(28.dp)).background(MaterialTheme.colorScheme.surface)
                 .padding(18.dp), horizontalAlignment = Alignment.CenterHorizontally,
@@ -164,9 +167,9 @@ internal fun FlightDiscoveryDetailSheetV46(
                     "Changed from ${price(initialOffer.price,currency)}","Oldingi narx ${price(initialOffer.price,currency)}",
                     "Олдинги нарх ${price(initialOffer.price,currency)}"),fontSize=12.sp,color=Color(0xFF34C759))
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text(if (checking) t(language,"Проверяем Data API…","Checking Data API…","Data API tekshirilmoqda…","Data API текширилмоқда…")
+                    Text(if (checking) t(language,"Проверяем цену…","Checking fare…","Narx tekshirilmoqda…","Нарх текширилмоқда…")
                         else if (refreshed) t(language,"Недавно обновлено","Recently checked","Hozir tekshirildi","Ҳозир текширилди")
-                        else t(language,"Цена из кэша Data API","Cached Data API fare","Data API kesh narxi","Data API кеш нархи"),
+                        else t(language,"Предварительная цена","Indicative fare","Taxminiy narx","Тахминий нарх"),
                         fontSize=12.sp,color=MaterialTheme.colorScheme.onSurface.copy(alpha=.65f))
                     if (checking) CircularProgressIndicator(Modifier.size(15.dp),strokeWidth=2.dp)
                 }
@@ -181,16 +184,16 @@ internal fun FlightDiscoveryDetailSheetV46(
             }
             FlightDetailLegV46(language, "✈", t(language,"Рейс туда","Outbound flight","Borish reysi","Бориш рейси"),
                 offer.origin, offer.destination, offer.departureAt, offer.airlineCode, offer.flightNumber, offer.transfers,
-                offer.durationMinutes)
+                offer.durationMinutes, offer.outboundSegments)
             if (offer.isRoundTrip) {
                 FlightDetailLegV46(language, "↩", t(language,"Рейс обратно","Return flight","Qaytish reysi","Қайтиш рейси"),
                     offer.destination, offer.origin, offer.returnAt.orEmpty(), offer.returnAirlineCode.orEmpty(), offer.returnFlightNumber.orEmpty(), offer.returnTransfers,
-                    offer.returnDurationMinutes ?: 0)
+                    offer.returnDurationMinutes ?: 0, offer.inboundSegments)
                 if (offer.returnAirlineCode.isNullOrBlank() || offer.returnFlightNumber.isNullOrBlank()) {
-                    Text(t(language,"Data API не подтверждает перевозчика и номер обратного рейса. Уточните перед покупкой.",
-                        "Data API does not confirm the return carrier or flight number. Verify before paying.",
-                        "Data API qaytish reysi va aviakompaniyani tasdiqlamaydi.",
-                        "Data API қайтиш рейси ва авиакомпанияни тасдиқламайди."),
+                    Text(t(language,"Перевозчик и номер обратного рейса пока не подтверждены. Уточните перед покупкой.",
+                        "Return carrier and flight number are not yet confirmed. Verify before paying.",
+                        "Qaytish reysi va aviakompaniya tasdiqlanmagan. Sotuvchidan tekshiring.",
+                        "Қайтиш рейси ва авиакомпания тасдиқланмаган. Сотувчидан текширинг."),
                         fontSize=12.sp,color=Color(0xFFEE9500))
                 }
             }
@@ -198,19 +201,32 @@ internal fun FlightDiscoveryDetailSheetV46(
                 Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(MaterialTheme.colorScheme.surface).padding(14.dp),
                     verticalArrangement=Arrangement.spacedBy(5.dp)) {
                     Text(t(language,"Пересадки","Connections","Transferlar","Трансферлар"),fontWeight=FontWeight.Bold)
-                    Text(t(language,"Data API показывает количество пересадок, но не полный список сегментов. Откройте Aviasales, чтобы проверить детали маршрута.",
-                        "Data API provides stop counts, not the full segment itinerary. Open Aviasales for full transfer details.",
-                        "Data API transferlar sonini ko‘rsatadi, to‘liq marshrut uchun Aviasales’ni oching.",
-                        "Data API трансферлар сонини кўрсатади, тўлиқ маршрут учун Aviasales’ни очинг."),
+                    Text(t(language,"Аэропорты пересадок, время ожидания и следующие рейсы уточняйте при поиске у продавца.",
+                        "Connection airports, layovers and additional flights are available during the seller’s search.",
+                        "Almashish aeroportlari, kutish va keyingi reyslarni sotuvchida tekshiring.",
+                        "Алмашиш аэропортлари, кутиш ва кейинги рейсларни сотувчида текширинг."),
                         fontSize=12.sp,lineHeight=18.sp)
                 }
             }
-            Text(t(language,"Наличие и окончательная цена подтверждаются продавцом. Data API не является онлайн-бронированием.",
-                "Availability and final fare are confirmed by the seller. Data API is not live booking inventory.",
+            Text(t(language,"Наличие и окончательная цена подтверждаются при поиске у продавца.",
+                "Availability and the final fare are confirmed during the seller’s search.",
                 "Mavjudlik va yakuniy narx sotuvchida tasdiqlanadi.",
                 "Мавжудлик ва якуний нарх сотувчида тасдиқланади."),fontSize=12.sp,
                 lineHeight=17.sp,color=MaterialTheme.colorScheme.onSurface.copy(alpha=.6f))
-            IumrahPressable(onClick={openAviasalesV46(context, offer)},modifier=Modifier.fillMaxWidth().height(57.dp),
+            IumrahPressable(onClick={
+                val url = AviasalesSearchLinkBuilder.searchUrl(
+                    offer.origin, offer.destination, offer.departureAt, offer.returnAt,
+                    adults, children, infants,
+                )
+                if (url == null) {
+                    message = t(language, "Не удалось сформировать поиск для этих дат.",
+                        "Could not open a search for these dates.",
+                        "Ushbu sanalar uchun qidiruv ochilmadi.",
+                        "Ушбу саналар учун қидирув очилмади.")
+                } else {
+                    runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
+                }
+            },modifier=Modifier.fillMaxWidth().height(57.dp),
                 cornerRadius=20.dp,background=Color.Black,shadowElevation=0.dp) {
                 Box(Modifier.fillMaxWidth().height(57.dp),contentAlignment=Alignment.Center) {
                     Text(t(language,"Проверить и купить ↗","Check fare & buy ↗","Narxni tekshirish va sotib olish ↗","Нархни текшириш ва сотиб олиш ↗"),
@@ -233,7 +249,8 @@ internal fun FlightDiscoveryDetailSheetV46(
 
 @Composable
 private fun FlightDetailLegV46(language: AppLanguage, icon: String, title: String, from: String,
-    to: String, at: String, code: String, number: String, stops: Int?, durationMinutes: Int) {
+    to: String, at: String, code: String, number: String, stops: Int?, durationMinutes: Int,
+    segments: List<FlightDiscoveryVerifiedSegment>?) {
     Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(MaterialTheme.colorScheme.surface).padding(16.dp),
         verticalArrangement=Arrangement.spacedBy(9.dp)) {
         Text("$icon  $title",fontSize=15.sp,fontWeight=FontWeight.Bold)
@@ -245,14 +262,32 @@ private fun FlightDetailLegV46(language: AppLanguage, icon: String, title: Strin
             AppLanguage.UZBEK_CYRILLIC -> Locale.forLanguageTag("uz-Cyrl-UZ")
         }
         Text("${FlightDataParity.localDate(at, from, locale)} · ${FlightDataParity.localTime(at, from)}",fontSize=13.sp)
-        Text(t(language,"Прибытие","Arrival","Yetib kelish","Етиб келиш") + ": " +
-            FlightDataParity.arrivalDate(at, durationMinutes, to, locale) + " · " +
-            FlightDataParity.arrivalTime(at, durationMinutes, to),
-            fontSize=12.sp, color=MaterialTheme.colorScheme.onSurface.copy(alpha=.66f))
+        if (durationMinutes > 0) {
+            Text(t(language,"Прибытие (расчётное)","Arrival (estimated)","Yetib kelish (taxminiy)","Етиб келиш (тахминий)") + ": " +
+                FlightDataParity.arrivalDate(at, durationMinutes, to, locale) + " · " +
+                FlightDataParity.arrivalTime(at, durationMinutes, to),
+                fontSize=12.sp, color=MaterialTheme.colorScheme.onSurface.copy(alpha=.66f))
+        }
         Text(if(code.isBlank() || number.isBlank()) t(language,"Перевозчик / номер не подтверждены","Carrier / flight unconfirmed",
             "Reys ma’lumoti tasdiqlanmagan","Рейс маълумоти тасдиқланмаган")
             else "${FlightReferenceCatalog.airlineName(code,code)} · $code $number",fontSize=13.sp,
             color=MaterialTheme.colorScheme.onSurface.copy(alpha=.74f))
+        val verified = FlightDiscoveryItineraryValidator.verified(segments, from, to, stops ?: -1)
+        if (verified != null) {
+            verified.forEachIndexed { index, leg ->
+                if (index > 0) {
+                    val connection = FlightDiscoveryItineraryValidator.connectionMinutes(verified[index - 1], leg)
+                    Text(t(language, "Пересадка", "Connection", "Transfer", "Трансфер") +
+                        " · ${leg.originAirport} · ${connection ?: "?"} " +
+                        t(language, "мин", "min", "daq", "дақ"), fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                Text("${leg.originAirport} → ${leg.destinationAirport} · ${leg.airlineCode} ${leg.flightNumber}",
+                    fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                Text("${leg.departureAt.take(16).replace('T', ' ')} → ${leg.arrivalAt.take(16).replace('T', ' ')}",
+                    fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
         Text(when(stops) {
             null -> t(language,"Число пересадок не подтверждено","Stop count unconfirmed","Transferlar noma’lum","Трансферлар номаълум")
             0 -> t(language,"Прямой рейс","Non-stop","To‘g‘ri reys","Тўғри рейс")
@@ -261,13 +296,9 @@ private fun FlightDetailLegV46(language: AppLanguage, icon: String, title: Strin
     }
 }
 
-private fun openAviasalesV46(context: Context, offer: FlightDiscoveryOffer) {
-    val url = offer.bookingUrl?.takeIf { it.startsWith("https://") } ?: "https://www.aviasales.com/"
-    runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
-}
-private fun share(context: Context, offer: FlightDiscoveryOffer, currency: String) {
+private fun share(context: Context, offer: FlightDiscoveryOffer, currency: String, adults: Int, children: Int, infants: Int) {
     runCatching { context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply {
         type="text/plain"
-        putExtra(Intent.EXTRA_TEXT, "${offer.routeTitle}\n${fmtDate(offer.departureAt)}\n${price(offer.price,currency)}\nhttps://www.aviasales.com/")
+        putExtra(Intent.EXTRA_TEXT, "${offer.routeTitle}\n${fmtDate(offer.departureAt)}\n${price(offer.price,currency)}\n${AviasalesSearchLinkBuilder.searchUrl(offer.origin, offer.destination, offer.departureAt, offer.returnAt, adults, children, infants).orEmpty()}")
     },null)) }
 }

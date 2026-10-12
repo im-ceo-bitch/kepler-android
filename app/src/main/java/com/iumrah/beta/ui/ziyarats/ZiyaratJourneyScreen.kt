@@ -77,6 +77,7 @@ import com.iumrah.beta.core.config.AppConfig
 import com.iumrah.beta.core.design.IumrahColors
 import com.iumrah.beta.core.navigation.AppChromeStore
 import com.iumrah.beta.core.settings.AppLanguage
+import com.iumrah.beta.data.ziyarat.ZiyaratFallbackCatalog
 import com.iumrah.beta.data.ziyarat.ZiyaratService
 import com.iumrah.beta.models.ziyarat.ZiyaratImage
 import com.iumrah.beta.models.ziyarat.ZiyaratPlace
@@ -99,134 +100,9 @@ fun ZiyaratJourneyScreen(
     chrome: AppChromeStore,
     service: ZiyaratService = remember { ZiyaratService() },
 ) {
-    var city by remember { mutableStateOf(JourneyCity.MADINAH) }
-    var route by remember { mutableStateOf(ZiyaratSeedData.madinah) }
-    var loading by remember { mutableStateOf(true) }
-    var selectedPlace by remember { mutableStateOf<ZiyaratPlace?>(null) }
-    var tab by remember { mutableStateOf(ZiyaratTab.JOURNEY) }
-    var panelLevel by remember { mutableStateOf(PanelLevel.COMPACT) }
-    var mapMode by remember { mutableStateOf(ZiyaratMapMode.STANDARD) }
-    var showRoute by remember { mutableStateOf(true) }
-    var showPins by remember { mutableStateOf(true) }
-    var welcomeVisible by remember { mutableStateOf(true) }
-    var welcomeCopyVisible by remember { mutableStateOf(false) }
-    var revealedStops by remember { mutableIntStateOf(0) }
-    var fitRouteNonce by remember { mutableIntStateOf(0) }
-
-    DisposableEffect(Unit) {
-        chrome.setImmersive(true)
-        onDispose { chrome.setImmersive(false) }
-    }
-
-    LaunchedEffect(city) {
-        loading = true
-        selectedPlace = null
-        tab = ZiyaratTab.JOURNEY
-        route = service.route(if (city == JourneyCity.MADINAH) "Madinah" else "Makkah")
-        loading = false
-        revealedStops = route.places.size
-    }
-
-    LaunchedEffect(Unit) {
-        welcomeCopyVisible = true
-        kotlinx.coroutines.delay(260)
-        for (index in 1..max(route.places.size, 1)) {
-            kotlinx.coroutines.delay(92)
-            revealedStops = index
-        }
-        kotlinx.coroutines.delay(650)
-        welcomeVisible = false
-        panelLevel = PanelLevel.CARD
-    }
-
-    Box(Modifier.fillMaxSize()) {
-        ZiyaratMapSurface(
-            language = language,
-            route = route,
-            selectedPlace = selectedPlace,
-            showRoute = showRoute,
-            showPins = showPins,
-            mode = mapMode,
-            revealedStops = if (welcomeVisible) revealedStops else route.places.size,
-            fitRouteNonce = fitRouteNonce,
-            onSelect = {
-                selectedPlace = it
-                tab = ZiyaratTab.PLACES
-                panelLevel = PanelLevel.CARD
-            },
-        )
-
-        ZiyaratTopChrome(
-            language = language,
-            city = city,
-            mapMode = mapMode,
-            expanded = panelLevel == PanelLevel.FULL,
-            onCity = { city = it },
-            onMap = {
-                selectedPlace = null
-                tab = ZiyaratTab.MAP
-                panelLevel = PanelLevel.CARD
-            },
-            onBack = { chrome.back() },
-            onFit = {
-                selectedPlace = null
-                tab = ZiyaratTab.ROUTE
-                panelLevel = PanelLevel.CARD
-                fitRouteNonce += 1
-            },
-        )
-
-        if (!loading && route.places.isEmpty()) {
-            EmptyZiyaratOverlay(language, Modifier.align(Alignment.Center).padding(horizontal = 24.dp))
-        }
-
-        ZiyaratBottomPanel(
-            modifier = Modifier.align(Alignment.BottomCenter),
-            language = language,
-            route = route,
-            selectedPlace = selectedPlace,
-            activeTab = tab,
-            panelLevel = panelLevel,
-            mapMode = mapMode,
-            showRoute = showRoute,
-            showPins = showPins,
-            loading = loading,
-            onTab = {
-                tab = it
-                if (it != ZiyaratTab.PLACES) selectedPlace = null
-                panelLevel = PanelLevel.CARD
-            },
-            onPanelLevel = { panelLevel = it },
-            onSelectPlace = {
-                selectedPlace = it
-                tab = ZiyaratTab.PLACES
-                panelLevel = PanelLevel.CARD
-            },
-            onBackPlace = { selectedPlace = null; tab = ZiyaratTab.PLACES; panelLevel = PanelLevel.CARD },
-            onShowRoute = { selectedPlace = null; tab = ZiyaratTab.ROUTE; panelLevel = PanelLevel.CARD },
-            onMapMode = { mapMode = it },
-            onShowRouteLine = { showRoute = it },
-            onShowPins = { showPins = it },
-            onFitRoute = {
-                selectedPlace = null
-                showRoute = true
-                panelLevel = PanelLevel.COMPACT
-                fitRouteNonce += 1
-            },
-        )
-
-        if (welcomeVisible) {
-            Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = .22f)), contentAlignment = Alignment.Center) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    if (welcomeCopyVisible) {
-                        Text(zt(language, "Добро пожаловать в", "Welcome to", "Xush kelibsiz", "Хуш келибсиз"), color = Color.White.copy(alpha = .82f), fontSize = 15.sp, fontWeight = FontWeight.Medium)
-                        Text("iumrah Ziyarats", color = Color.White, fontSize = 38.sp, fontWeight = FontWeight.Bold, letterSpacing = (-1.1).sp)
-                        Text(cityTitle(language, city), color = Color.White.copy(alpha = .82f), fontSize = 17.sp, fontWeight = FontWeight.Medium)
-                    }
-                }
-            }
-        }
-    }
+    // iOS Ziyarats rebuild: preserve existing navigation entry point.
+    // This no longer constructs a map, animates route pins or waits on network at launch.
+    ZiyaratStableScreen(language = language, chrome = chrome, service = service)
 }
 
 @Composable
@@ -803,7 +679,7 @@ private fun PlaceGallery(place: ZiyaratPlace, expanded: Boolean) {
 }
 
 @Composable
-private fun ZiyaratImageThumb(image: ZiyaratImage?, modifier: Modifier) {
+internal fun ZiyaratImageThumb(image: ZiyaratImage?, modifier: Modifier) {
     val local = image?.url?.let(::localZiyaratDrawable)
     if (local != null) {
         androidx.compose.foundation.Image(androidx.compose.ui.res.painterResource(local), null, modifier = modifier, contentScale = ContentScale.Crop)
@@ -902,8 +778,8 @@ private fun zt(language: AppLanguage, ru: String, en: String, uz: String, cy: St
 }
 
 /**
- * Booking-facing Ziyarats catalog, mirroring the focused iOS swipe carousel.
- * The immersive map remains available as the standalone Ziyarats product.
+ * Booking-facing Ziyarats catalog. Starts from the same offline seed as iOS.
+ * The standalone Ziyarats entry opens the safer on-demand map instead of an eager map.
  */
 @Composable
 fun BookingZiyaratCatalogScreen(
@@ -912,7 +788,7 @@ fun BookingZiyaratCatalogScreen(
     service: ZiyaratService = remember { ZiyaratService() },
 ) {
     var city by remember { mutableStateOf(JourneyCity.MAKKAH) }
-    var route by remember(city) { mutableStateOf(ZiyaratSeedData.fallback(if (city == JourneyCity.MAKKAH) "Makkah" else "Madinah")) }
+    var route by remember(city) { mutableStateOf(ZiyaratFallbackCatalog.route(if (city == JourneyCity.MAKKAH) "Makkah" else "Madinah")) }
     var loading by remember { mutableStateOf(true) }
 
     LaunchedEffect(city) {
