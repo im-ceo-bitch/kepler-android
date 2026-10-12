@@ -22,3 +22,21 @@ if [[ -z "$version_code" || "$version_code" -lt 1 ]]; then
 fi
 
 echo "Android build environment checks passed: compileSdk=36 targetSdk=36 versionCode=$version_code."
+
+# Preflight regression: the October iOS parity flight panel previously contained
+# an extra top-level brace which made :app:compileDebugKotlin fail at line 608.
+# Catch the exact source-shape failure before Gradle spends time compiling.
+python3 - <<'PYFLIGHT'
+from pathlib import Path
+import re
+source = Path('app/src/main/java/com/iumrah/beta/ui/flights/FlightDiscoveryPanel.kt').read_text()
+helper = 'private fun airportCity('
+if helper not in source:
+    raise SystemExit('STOP: FlightDiscoveryPanel helper section is missing.')
+head = source[:source.index(helper)]
+if not re.search(r'(?m)^\s*}\s*\Z', head):
+    raise SystemExit('STOP: FlightDiscoveryPanel helper boundary is malformed.')
+if re.search(r'(?m)^\s*}\s*\n\s*}\s*\Z', head):
+    raise SystemExit('STOP: redundant top-level brace in FlightDiscoveryPanel (previous line 608 regression).')
+print('FlightDiscoveryPanel top-level brace regression check passed.')
+PYFLIGHT
