@@ -201,7 +201,7 @@ fun FlightDateCalendarDialog(
                         horizontalArrangement = Arrangement.spacedBy(10.dp),
                     ) {
                         RouteCode(trip.originCode, Modifier.weight(1f)); Icon(CupertinoSymbol.ArrowRight, null, Modifier.size(13.dp), secondary)
-                        RouteCode(trip.outboundDestinationCode, Modifier.weight(1f)); Text("↔", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = secondary)
+                        RouteCode(trip.outboundDestinationCode, Modifier.weight(1f)); Icon(CupertinoSymbol.ArrowLeftRight, null, Modifier.size(13.dp), secondary)
                         RouteCode(trip.returnOriginCode, Modifier.weight(1f)); Icon(CupertinoSymbol.ArrowRight, null, Modifier.size(13.dp), secondary)
                         RouteCode(trip.originCode, Modifier.weight(1f))
                     }

@@ -239,7 +239,10 @@ private fun StablePlaceRow(place: ZiyaratPlace, language: AppLanguage, onClick: 
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
             Text(content.title.ifEmpty { place.title }, maxLines = 2, overflow = TextOverflow.Ellipsis, fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
             Text(content.shortDescription, maxLines = 3, overflow = TextOverflow.Ellipsis, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Text(t(language, "Подробнее ↗", "View details ↗", "Batafsil ↗", "Батафсил ↗"), fontSize = 12.sp, color = MaterialTheme.colorScheme.primary)
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                Text(t(language, "Подробнее", "View details", "Batafsil", "Батафсил"), fontSize = 12.sp, color = MaterialTheme.colorScheme.primary)
+                Icon(CupertinoSymbol.ArrowUpRight, null, Modifier.size(12.dp), MaterialTheme.colorScheme.primary)
+            }
         }
         Icon(CupertinoSymbol.ChevronRight, null, Modifier.size(16.dp), MaterialTheme.colorScheme.onSurfaceVariant)
     }

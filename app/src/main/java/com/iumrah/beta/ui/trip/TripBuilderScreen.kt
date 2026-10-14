@@ -879,7 +879,15 @@ private fun TierCard(language: AppLanguage, tier: PackageTier, selected: Boolean
                 }
                 Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Box(Modifier.height(26.dp).clip(CircleShape).background(Color.White.copy(alpha = .16f)).padding(horizontal = 10.dp), contentAlignment = Alignment.Center) {
-                        Text(if (tier == PackageTier.ECONOMY) "2★ · 1★" else "${tierStars(tier)}★", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.White.copy(alpha = .92f))
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+                            val labelTint = Color.White.copy(alpha = .92f)
+                            if (tier == PackageTier.ECONOMY) {
+                                Text("2", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = labelTint)
+                                Icon(CupertinoSymbol.StarFill, null, Modifier.size(10.dp), labelTint)
+                                Text("· 1", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = labelTint)
+                            } else Text("${tierStars(tier)}", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = labelTint)
+                            Icon(CupertinoSymbol.StarFill, null, Modifier.size(10.dp), labelTint)
+                        }
                     }
                     if (selected) Text(tr(language, "Текущий", "Current", "Joriy", "Жорий"), fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color.White)
                 }

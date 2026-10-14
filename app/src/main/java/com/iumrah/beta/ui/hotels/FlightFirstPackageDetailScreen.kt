@@ -77,6 +77,7 @@ import com.iumrah.beta.ui.components.IumrahPressable
 import com.iumrah.beta.ui.components.IumrahPrimaryButton
 import com.iumrah.beta.ui.cupertino.CupertinoIcon
 import com.iumrah.beta.ui.cupertino.CupertinoSymbol
+import com.iumrah.beta.ui.cupertino.CupertinoRatingStars
 import java.math.BigDecimal
 import java.time.Instant
 import java.time.LocalDate
@@ -749,7 +750,7 @@ private fun PackageHotelFallbackCard(name: String, city: String, stars: Int?, ni
         Column(Modifier.weight(1f).fillMaxSize().padding(14.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
             Text(name, fontSize = 16.sp, lineHeight = 19.sp, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                stars?.let { Text("★".repeat(it.coerceIn(1, 5)), fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFFFFB000)) }
+                stars?.let { CupertinoRatingStars(it, size = 11.dp) }
                 Text(city, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = .52f))
             }
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {

@@ -258,7 +258,11 @@ internal fun IumrahFriendsCalculatorSheet(
                                         .clickable { stars = value },
                                     contentAlignment = Alignment.Center,
                                 ) {
-                                    Text("$value★", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = if (selected) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.onSurface)
+                                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+                                        val selectedColor = if (selected) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.onSurface
+                                        Text("$value", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = selectedColor)
+                                        CupertinoIcon(CupertinoSymbol.Star, null, Modifier.size(12.dp), selectedColor)
+                                    }
                                 }
                             }
                         }
@@ -304,7 +308,7 @@ internal fun IumrahFriendsCalculatorSheet(
                             }
                             Spacer(Modifier.height(10.dp))
                             usedPreview?.let { p -> MetricLine(CupertinoSymbol.Airplane, friendsTr(language, "Прямые опубликованные рейсы · ${p.totalDays ?: 10} дней", "Published direct flights · ${p.totalDays ?: 10} days", "E’lon qilingan to‘g‘ridan-to‘g‘ri reyslar · ${p.totalDays ?: 10} kun", "Эълон қилинган тўғридан-тўғри рейслар · ${p.totalDays ?: 10} кун")) }
-                            usedMakkah?.let { MetricLine(CupertinoSymbol.Building, "${it.name} · $stars★") }
+                            usedMakkah?.let { MetricLine(CupertinoSymbol.Building, "${it.name} · $stars") }
                             usedMadinah?.let { MetricLine(CupertinoSymbol.MoonStarsFill, it.name) }
                         }
                         else -> Text(errorText ?: friendsUnavailable(language), fontSize = 14.sp, lineHeight = 19.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.fillMaxWidth().height(72.dp))

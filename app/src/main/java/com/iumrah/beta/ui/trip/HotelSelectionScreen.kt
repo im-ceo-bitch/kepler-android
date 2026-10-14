@@ -135,13 +135,18 @@ fun HotelSelectionScreen(
                 val outbound = state.stagedAviasalesRoundTrip ?: state.stagedAviasalesOutbound
                 val inbound = state.stagedAviasalesReturn
                 if (outbound != null) {
-                    Text(
-                        "✈  ${outbound.origin.uppercase()} → ${outbound.destination.uppercase()}" +
-                            "   ·   ${outbound.departureAt.take(10)}" +
-                            (inbound?.let { "   ·   ↩ ${it.departureAt.take(10)}" }
-                                ?: outbound.returnAt?.let { "   ·   ↩ ${it.take(10)}" }.orEmpty()),
-                        fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = .72f),
-                    )
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                        Icon(CupertinoSymbol.AirplaneTakeoff, null, Modifier.size(15.dp),
+                            MaterialTheme.colorScheme.onSurface.copy(alpha = .72f))
+                        Text("${outbound.origin.uppercase()} → ${outbound.destination.uppercase()}  ·  ${outbound.departureAt.take(10)}",
+                            fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = .72f))
+                        val returnDate = inbound?.departureAt?.take(10) ?: outbound.returnAt?.take(10)
+                        if (!returnDate.isNullOrBlank()) {
+                            Icon(CupertinoSymbol.AirplaneLand, null, Modifier.size(15.dp),
+                                MaterialTheme.colorScheme.onSurface.copy(alpha = .72f))
+                            Text(returnDate, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = .72f))
+                        }
+                    }
                 }
             }
         }
@@ -260,8 +265,12 @@ private fun FlightFirstHotelTierCard(language: AppLanguage, selected: PackageTie
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(5.dp),
                 ) {
-                    Text("${tier.primaryHotelStars}★", color = if (active) Color.White else MaterialTheme.colorScheme.onSurface,
-                        fontSize = 19.sp, fontWeight = FontWeight.Bold)
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+                        val tint = if (active) Color.White else MaterialTheme.colorScheme.onSurface
+                        Text("${tier.primaryHotelStars}", color = tint,
+                            fontSize = 19.sp, fontWeight = FontWeight.Bold)
+                        Icon(CupertinoSymbol.StarFill, null, Modifier.size(14.dp), tint)
+                    }
                     Text(name, color = if (active) Color.White else MaterialTheme.colorScheme.onSurface,
                         fontSize = 10.sp, maxLines = 1)
                 }
@@ -570,7 +579,7 @@ private fun PrimaryStayCard(
                     hotel.stars?.let { stars ->
                         Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
                             Icon(CupertinoSymbol.Star, null, Modifier.size(11.dp), tint = fg.copy(alpha = .55f))
-                            Text("$stars★", fontSize = 11.sp, fontWeight = FontWeight.Medium, color = fg.copy(alpha = .55f))
+                            Text("$stars", fontSize = 11.sp, fontWeight = FontWeight.Medium, color = fg.copy(alpha = .55f))
                         }
                     }
                     hotel.rating?.let { rating ->

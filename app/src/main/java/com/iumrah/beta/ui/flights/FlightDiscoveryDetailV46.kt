@@ -152,9 +152,12 @@ internal fun FlightDiscoveryDetailSheetV46(
                 Spacer(Modifier.width(8.dp))
                 Text(t(language, "Авиабилет", "Flight", "Aviachipta", "Авиачипта"),
                     Modifier.weight(1f), fontWeight = FontWeight.Bold, fontSize = 21.sp)
-                Text(if (isFavorite) "♥" else "♡", Modifier.clickable { isFavorite = !isFavorite; onFavorite(offer) }.padding(7.dp),
-                    fontSize = 24.sp, color = if (isFavorite) Color(0xFFFF375F) else MaterialTheme.colorScheme.onSurface)
-                Text("↗", Modifier.clickable { share(context, offer, currency, adults, children, infants) }.padding(7.dp), fontSize = 24.sp)
+                Icon(if (isFavorite) CupertinoSymbol.HeartFill else CupertinoSymbol.Heart, null,
+                    Modifier.size(38.dp).clickable { isFavorite = !isFavorite; onFavorite(offer) }.padding(7.dp),
+                    if (isFavorite) Color(0xFFFF375F) else MaterialTheme.colorScheme.onSurface)
+                Icon(CupertinoSymbol.Share, null,
+                    Modifier.size(38.dp).clickable { share(context, offer, currency, adults, children, infants) }.padding(7.dp),
+                    MaterialTheme.colorScheme.onSurface)
             }
             Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(28.dp)).background(MaterialTheme.colorScheme.surface)
                 .padding(18.dp), horizontalAlignment = Alignment.CenterHorizontally,
@@ -178,15 +181,18 @@ internal fun FlightDiscoveryDetailSheetV46(
                 IumrahPressable(onClick={scope.launch { checkPrice() }}, modifier=Modifier.fillMaxWidth().height(46.dp),
                     cornerRadius=16.dp,background=MaterialTheme.colorScheme.surfaceVariant,shadowElevation=0.dp) {
                     Box(Modifier.fillMaxWidth().height(46.dp),contentAlignment=Alignment.Center) {
-                        Text(t(language,"↻ Обновить цену","↻ Refresh fare","↻ Narxni yangilash","↻ Нархни янгилаш"),fontWeight=FontWeight.Bold)
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Icon(CupertinoSymbol.Refresh, null, Modifier.size(17.dp))
+                            Text(t(language,"Обновить цену","Refresh fare","Narxni yangilash","Нархни янгилаш"),fontWeight=FontWeight.Bold)
+                        }
                     }
                 }
             }
-            FlightDetailLegV46(language, "✈", t(language,"Рейс туда","Outbound flight","Borish reysi","Бориш рейси"),
+            FlightDetailLegV46(language, CupertinoSymbol.AirplaneTakeoff, t(language,"Рейс туда","Outbound flight","Borish reysi","Бориш рейси"),
                 offer.origin, offer.destination, offer.departureAt, offer.airlineCode, offer.flightNumber, offer.transfers,
                 offer.durationMinutes, offer.outboundSegments)
             if (offer.isRoundTrip) {
-                FlightDetailLegV46(language, "↩", t(language,"Рейс обратно","Return flight","Qaytish reysi","Қайтиш рейси"),
+                FlightDetailLegV46(language, CupertinoSymbol.AirplaneLand, t(language,"Рейс обратно","Return flight","Qaytish reysi","Қайтиш рейси"),
                     offer.destination, offer.origin, offer.returnAt.orEmpty(), offer.returnAirlineCode.orEmpty(), offer.returnFlightNumber.orEmpty(), offer.returnTransfers,
                     offer.returnDurationMinutes ?: 0, offer.inboundSegments)
                 if (offer.returnAirlineCode.isNullOrBlank() || offer.returnFlightNumber.isNullOrBlank()) {
@@ -229,16 +235,22 @@ internal fun FlightDiscoveryDetailSheetV46(
             },modifier=Modifier.fillMaxWidth().height(57.dp),
                 cornerRadius=20.dp,background=Color.Black,shadowElevation=0.dp) {
                 Box(Modifier.fillMaxWidth().height(57.dp),contentAlignment=Alignment.Center) {
-                    Text(t(language,"Проверить и купить ↗","Check fare & buy ↗","Narxni tekshirish va sotib olish ↗","Нархни текшириш ва сотиб олиш ↗"),
-                        color=Color.White,fontSize=15.sp,fontWeight=FontWeight.Bold)
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(t(language,"Проверить и купить","Check fare & buy","Narxni tekshirish va sotib olish","Нархни текшириш ва сотиб олиш"),
+                            color=Color.White,fontSize=15.sp,fontWeight=FontWeight.Bold)
+                        Icon(CupertinoSymbol.ArrowUpRight, null, Modifier.size(16.dp), Color.White)
+                    }
                 }
             }
             if (offer.origin.uppercase() in setOf("JED","MED") || offer.destination.uppercase() in setOf("JED","MED")) {
                 IumrahPressable(onClick={onBuildUmrah(offer)},modifier=Modifier.fillMaxWidth().height(57.dp),
                     cornerRadius=20.dp,background=MaterialTheme.colorScheme.surfaceVariant,shadowElevation=0.dp) {
                     Box(Modifier.fillMaxWidth().height(57.dp),contentAlignment=Alignment.Center) {
-                        Text(t(language,"＋ Добавить рейс в сборку Umrah","＋ Add to Umrah package",
-                            "＋ Umra paketiga qo‘shish","＋ Умра пакетига қўшиш"),fontSize=14.sp,fontWeight=FontWeight.Bold)
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Icon(CupertinoSymbol.Plus, null, Modifier.size(17.dp))
+                            Text(t(language,"Добавить рейс в сборку Umrah","Add to Umrah package",
+                                "Umra paketiga qo‘shish","Умра пакетига қўшиш"),fontSize=14.sp,fontWeight=FontWeight.Bold)
+                        }
                     }
                 }
             }
@@ -248,12 +260,15 @@ internal fun FlightDiscoveryDetailSheetV46(
 }
 
 @Composable
-private fun FlightDetailLegV46(language: AppLanguage, icon: String, title: String, from: String,
+private fun FlightDetailLegV46(language: AppLanguage, icon: CupertinoSymbol, title: String, from: String,
     to: String, at: String, code: String, number: String, stops: Int?, durationMinutes: Int,
     segments: List<FlightDiscoveryVerifiedSegment>?) {
     Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(MaterialTheme.colorScheme.surface).padding(16.dp),
         verticalArrangement=Arrangement.spacedBy(9.dp)) {
-        Text("$icon  $title",fontSize=15.sp,fontWeight=FontWeight.Bold)
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Icon(icon, null, Modifier.size(18.dp), MaterialTheme.colorScheme.onSurface)
+            Text(title, fontSize=15.sp, fontWeight=FontWeight.Bold)
+        }
         Text("${from.uppercase()} → ${to.uppercase()}",fontSize=24.sp,fontWeight=FontWeight.Bold)
         val locale = when (language) {
             AppLanguage.RUSSIAN -> Locale("ru")

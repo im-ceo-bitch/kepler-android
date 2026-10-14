@@ -231,7 +231,8 @@ internal fun FlightPublishedCarousel(language: AppLanguage, title: String, subti
                         .clickable { onSelect(offer) }.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(offer.primaryAirlineName, Modifier.weight(1f), fontSize = 15.sp, fontWeight = FontWeight.Bold, maxLines = 1)
-                            Text(if (selected) "✓" else "✈", color = if (selected) Color(0xFF34C759) else Color(0xFF007AFF), fontSize = 19.sp)
+                            Icon(if (selected) CupertinoSymbol.Checkmark else CupertinoSymbol.Airplane, null,
+                                Modifier.size(19.dp), if (selected) Color(0xFF34C759) else Color(0xFF007AFF))
                         }
                         Text("${offer.outbound.origin.uppercase()} → ${offer.outbound.destination.uppercase()}",
                             fontSize = 21.sp, fontWeight = FontWeight.Bold, letterSpacing = -.4.sp)
@@ -242,9 +243,9 @@ internal fun FlightPublishedCarousel(language: AppLanguage, title: String, subti
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(flightText(language, "Прямой рейс", "Non-stop flight", "To‘g‘ri reys", "Тўғри рейс"),
                                 Modifier.weight(1f), fontSize = 11.sp, color = Color(0xFF34C759), fontWeight = FontWeight.SemiBold)
-                            Text(if (selected) flightText(language,"Выбран","Selected","Tanlandi","Танланди") else "+",
-                                color = if (selected) Color(0xFF34C759) else MaterialTheme.colorScheme.onSurface,
-                                fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                            if (selected) Text(flightText(language,"Выбран","Selected","Tanlandi","Танланди"),
+                                color = Color(0xFF34C759), fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                            else Icon(CupertinoSymbol.Plus, null, Modifier.size(15.dp), MaterialTheme.colorScheme.onSurface)
                         }
                     }
                 }
@@ -296,8 +297,8 @@ internal fun FlightAssemblyCard(
                     else flightText(language,"Выберите второе направление","Choose the other flight","Ikkinchi reysni tanlang","Иккинчи рейсни танланг"),
                     fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = .6f), maxLines = 1)
             }
-            Text(if (expanded) "⌄" else "⌃", fontSize = 19.sp, fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = .58f))
+            Icon(if (expanded) CupertinoSymbol.ChevronUp else CupertinoSymbol.ChevronDown, null,
+                Modifier.size(19.dp), MaterialTheme.colorScheme.onSurface.copy(alpha = .58f))
         }
         if (expanded) {
             Column(Modifier.padding(start = 17.dp, end = 17.dp, bottom = 14.dp),
@@ -309,12 +310,18 @@ internal fun FlightAssemblyCard(
                 )
                 rows.forEach { offer ->
                     Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                        Text("✈   ${offer.origin.uppercase()} → ${offer.destination.uppercase()}",
-                            fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                            Icon(CupertinoSymbol.Airplane, null, Modifier.size(16.dp), MaterialTheme.colorScheme.onSurface)
+                            Text("${offer.origin.uppercase()} → ${offer.destination.uppercase()}",
+                                fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                        }
                         Text("${offer.airlineCode} ${offer.flightNumber}  ·  ${offer.departureAt.take(10)}",
                             fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = .65f))
-                        if (offer.isRoundTrip) Text("↩  ${offer.returnAt?.take(10).orEmpty()}",
-                            fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = .65f))
+                        if (offer.isRoundTrip) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                            Icon(CupertinoSymbol.AirplaneLand, null, Modifier.size(13.dp), MaterialTheme.colorScheme.onSurface.copy(alpha = .65f))
+                            Text(offer.returnAt?.take(10).orEmpty(), fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = .65f))
+                        }
                     }
                 }
                 if (published && selectionCount > 0) Text(flightText(language,"Опубликованные билеты iumrah","Published iumrah flights",
@@ -353,7 +360,10 @@ internal fun FlightPartnerGatewayCard(language: AppLanguage, onOpen: () -> Unit)
         IumrahPressable(onClick=onOpen,modifier=Modifier.fillMaxWidth().height(48.dp),cornerRadius=16.dp,
             background=Color(0xFF007AFF),shadowElevation=0.dp) {
             Box(Modifier.fillMaxWidth().height(48.dp),contentAlignment=Alignment.Center){
-                Text("Aviasales ↗",color=Color.White,fontWeight=FontWeight.Bold)
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                    Text("Aviasales", color=Color.White, fontWeight=FontWeight.Bold)
+                    Icon(CupertinoSymbol.ArrowUpRight, null, Modifier.size(15.dp), Color.White)
+                }
             }
         }
     }

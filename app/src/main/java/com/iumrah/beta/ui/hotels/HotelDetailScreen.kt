@@ -97,6 +97,7 @@ import com.iumrah.beta.models.hotel.IumrahRoomCategoryOption
 import com.iumrah.beta.models.hotel.StorefrontPackageSnapshot
 import com.iumrah.beta.ui.cupertino.CupertinoIcon
 import com.iumrah.beta.ui.cupertino.CupertinoSymbol
+import com.iumrah.beta.ui.cupertino.CupertinoRatingStars
 import com.iumrah.beta.ui.map.IumrahMapLibreView
 import com.iumrah.beta.ui.map.IumrahMapStyle
 import com.iumrah.beta.ui.map.rememberIumrahMapController
@@ -527,7 +528,7 @@ private fun HeroCarousel(hotel: HotelDetail, images: List<HotelImage>, language:
 private fun IdentitySection(hotel: HotelDetail, language: AppLanguage) {
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         hotel.stars?.let {
-            Text("★".repeat(it), fontSize = 12.sp, fontWeight = FontWeight.Bold, color = secondaryText())
+            CupertinoRatingStars(it, tint = secondaryText())
         }
         Text(
             hotel.name,

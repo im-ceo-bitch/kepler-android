@@ -94,6 +94,8 @@ grep -q 'height(340.dp)' app/src/main/java/com/iumrah/beta/ui/packageflow/Transf
 grep -q 'PackageTier.entries.map' app/src/main/java/com/iumrah/beta/ui/packageflow/FinalPackageScreen.kt || { echo 'STOP: Final Package must resolve all iOS package tiers'; exit 1; }
 grep -q 'TierComparisonOption' app/src/main/java/com/iumrah/beta/ui/packageflow/FinalPackageScreen.kt || { echo 'STOP: Final Package tier carousel comparison is missing'; exit 1; }
 
+# Global icon parity gate for all screens; evaluated by existing GitHub workflows.
+bash scripts/verify-global-cupertino-icons.sh
 echo 'Stage 010 iOS Configurator strict pixel/flow parity checks passed.'
 # Compatibility bridge: older GitHub workflows in this repository still select
 # the highest verifier only from Stage 1..10. When Stage 10 is invoked directly,

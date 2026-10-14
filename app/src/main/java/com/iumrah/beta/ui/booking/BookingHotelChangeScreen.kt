@@ -139,13 +139,15 @@ fun BookingHotelChangeScreen(
                             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                                     Text(hotel.name, fontSize = 19.sp, lineHeight = 23.sp, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                                    Text(
-                                        listOfNotNull(hotel.stars?.let { "$it ★" }, hotel.rating?.let { String.format("%.1f", it) }, city).joinToString(" · "),
-                                        fontSize = 12.sp,
-                                        lineHeight = 15.sp,
-                                        fontWeight = FontWeight.SemiBold,
-                                        color = MaterialTheme.colorScheme.onBackground.copy(alpha = .52f),
-                                    )
+                                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                                        val metadataTint = MaterialTheme.colorScheme.onBackground.copy(alpha = .52f)
+                                        hotel.stars?.let { stars ->
+                                            Text("$stars", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = metadataTint)
+                                            CupertinoIcon(CupertinoSymbol.StarFill, null, Modifier.size(12.dp), metadataTint)
+                                        }
+                                        hotel.rating?.let { Text(String.format("%.1f", it), fontSize = 12.sp, color = metadataTint) }
+                                        if (city.isNotBlank()) Text(city, fontSize = 12.sp, color = metadataTint)
+                                    }
                                 }
                                 if (selected) BookingIconBadge(CupertinoSymbol.CheckCircleFill, Color(0xFF34C759), 38.dp, 15.dp, 19.dp, circle = true)
                                 else CupertinoIcon(CupertinoSymbol.ChevronRight, null, Modifier.size(14.dp), MaterialTheme.colorScheme.onBackground.copy(alpha = .30f))

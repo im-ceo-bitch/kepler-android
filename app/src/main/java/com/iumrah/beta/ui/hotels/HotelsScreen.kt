@@ -102,6 +102,7 @@ import com.iumrah.beta.ui.components.IumrahPrimaryButton
 import com.iumrah.beta.ui.components.IumrahRootPageHeader
 import com.iumrah.beta.ui.cupertino.CupertinoIcon
 import com.iumrah.beta.ui.cupertino.CupertinoSymbol
+import com.iumrah.beta.ui.cupertino.CupertinoRatingStars
 import com.iumrah.beta.ui.trip.IumrahAirportMapDialog
 import java.time.OffsetDateTime
 import java.time.format.DateTimeFormatter
@@ -764,7 +765,7 @@ private fun HotelStorefrontCard(
                 Text(hotel.name, fontSize = 18.sp, lineHeight = 21.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.2).sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 Row(horizontalArrangement = Arrangement.spacedBy(7.dp), verticalAlignment = Alignment.CenterVertically) {
                     hotel.stars?.let { stars ->
-                        Text("★".repeat(stars.coerceIn(1, 5)), fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color(0xFFFFB000))
+                        CupertinoRatingStars(stars)
                     }
                     hotel.rating?.let { Text(String.format(Locale.US, "%.1f", it), fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface.copy(alpha = .55f)) }
                 }
