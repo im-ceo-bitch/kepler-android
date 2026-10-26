@@ -319,7 +319,7 @@ private fun CalendarTopBar(language: AppLanguage, onDismiss: () -> Unit) {
 
 @Composable
 private fun RouteCode(code: String, modifier: Modifier = Modifier) {
-    Text(code, modifier = modifier, fontSize = 14.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace, textAlign = TextAlign.Center)
+    Text(code, modifier = modifier, fontSize = 14.sp, fontWeight = FontWeight.Bold, fontFamily = com.iumrah.beta.core.design.IumrahFontFamily, textAlign = TextAlign.Center)
 }
 
 @Composable

@@ -11,13 +11,13 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.DeviceFontFamilyName
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.iumrah.beta.core.settings.AppAppearance
+import com.iumrah.beta.R
 
 /**
  * Android mirror of Sources/Core/DesignSystem.swift from the current iOS repository.
@@ -37,7 +37,7 @@ object IumrahDesign {
 object IumrahBookingStatusVisual {
     fun color(status: String): Color = when (status.uppercase()) {
         "NEW", "AVAILABILITY_CHECK" -> IumrahColors.SystemYellow
-        "PAYMENT_PENDING", "AVAILABILITY_CONFIRMED" -> IumrahColors.SystemOrange
+        "PAYMENT_PENDING" -> IumrahColors.SystemOrange
         "PAID", "BOOKING_CONFIRMED" -> IumrahColors.SystemGreen
         "DOCUMENTS_READY", "READY_TO_TRAVEL" -> IumrahColors.SystemTeal
         "IN_TRIP" -> IumrahColors.SystemBlue
@@ -49,7 +49,7 @@ object IumrahBookingStatusVisual {
 
 object IumrahColors {
     // UIColor.systemBackground / grouped surfaces translated to deterministic ARGB.
-    val LightPage = Color(0xFFFFFFFF)
+    val LightPage = Color(0xFFF2F2F7) // UIColor.systemGroupedBackground (light)
     val LightCard = Color(0xFFFFFFFF)
     val LightRaised = Color(0xFFF2F2F7)
     val LightRaisedStrong = Color(0xFFE5E5EA)
@@ -60,6 +60,8 @@ object IumrahColors {
     val DarkRaisedStrong = Color(0xFF3A3A3C)
 
     val Graphite = Color(0xFF17191D)
+    // iOS signature header and active navigation surface: 0.035 sRGB linear fraction.
+    val SignatureBlack = Color(0xFF090909)
     val SoftGraphite = Color(0xFF2A2B2F)
     val CareDark = Color(0xFF0E2422)
     val CareLight = Color(0xFF74A187)
@@ -127,25 +129,16 @@ private val DarkColors = darkColorScheme(
     outlineVariant = Color.White.copy(alpha = .055f),
 )
 
-// iOS uses SF Pro Rounded across the product. Android must not bundle Apple's font files,
-// so prefer the platform-installed rounded sans family and fall back to the device sans family.
-// DeviceFontFamilyName keeps the APK self-contained/offline and preserves OEM rendering quality.
-private val RoundedDevice = DeviceFontFamilyName("sans-serif-rounded")
-private val SansDevice = DeviceFontFamilyName("sans-serif")
-
+// Cross-platform iumrah type family: bundled OFL Lato. Never fall back to
+// OEM rounded fonts when an Android device is configured differently.
+// Same two visual faces as iOS: Regular for normal/medium text,
+// Bold for semibold headings, buttons, prices and emphasis.
+// Keep weight aliases so existing Compose fontWeight requests resolve predictably.
 val IumrahFontFamily = FontFamily(
-    Font(RoundedDevice, FontWeight.W300),
-    Font(RoundedDevice, FontWeight.W400),
-    Font(RoundedDevice, FontWeight.W500),
-    Font(RoundedDevice, FontWeight.W600),
-    Font(RoundedDevice, FontWeight.W700),
-    Font(RoundedDevice, FontWeight.W800),
-    Font(SansDevice, FontWeight.W300),
-    Font(SansDevice, FontWeight.W400),
-    Font(SansDevice, FontWeight.W500),
-    Font(SansDevice, FontWeight.W600),
-    Font(SansDevice, FontWeight.W700),
-    Font(SansDevice, FontWeight.W800),
+    Font(R.font.lato_regular, FontWeight.Normal),
+    Font(R.font.lato_regular, FontWeight.Medium),
+    Font(R.font.lato_bold, FontWeight.SemiBold),
+    Font(R.font.lato_bold, FontWeight.Bold),
 )
 
 private val IumrahTypography = Typography(
@@ -215,6 +208,25 @@ private val IumrahTypography = Typography(
     ),
 )
 
+// All Material components inherit the same font, not just bare Text() calls.
+private val UnifiedTypography = IumrahTypography.copy(
+    displayLarge = IumrahTypography.displayLarge.copy(fontFamily = IumrahFontFamily),
+    displayMedium = IumrahTypography.displayMedium.copy(fontFamily = IumrahFontFamily),
+    displaySmall = IumrahTypography.displaySmall.copy(fontFamily = IumrahFontFamily),
+    headlineLarge = IumrahTypography.headlineLarge.copy(fontFamily = IumrahFontFamily),
+    headlineMedium = IumrahTypography.headlineMedium.copy(fontFamily = IumrahFontFamily),
+    headlineSmall = IumrahTypography.headlineSmall.copy(fontFamily = IumrahFontFamily),
+    titleLarge = IumrahTypography.titleLarge.copy(fontFamily = IumrahFontFamily),
+    titleMedium = IumrahTypography.titleMedium.copy(fontFamily = IumrahFontFamily),
+    titleSmall = IumrahTypography.titleSmall.copy(fontFamily = IumrahFontFamily),
+    bodyLarge = IumrahTypography.bodyLarge.copy(fontFamily = IumrahFontFamily),
+    bodyMedium = IumrahTypography.bodyMedium.copy(fontFamily = IumrahFontFamily),
+    bodySmall = IumrahTypography.bodySmall.copy(fontFamily = IumrahFontFamily),
+    labelLarge = IumrahTypography.labelLarge.copy(fontFamily = IumrahFontFamily),
+    labelMedium = IumrahTypography.labelMedium.copy(fontFamily = IumrahFontFamily),
+    labelSmall = IumrahTypography.labelSmall.copy(fontFamily = IumrahFontFamily),
+)
+
 private val IumrahShapes = Shapes(
     extraSmall = RoundedCornerShape(10.dp),
     small = RoundedCornerShape(IumrahGalaxyMetrics.RadiusSmall),
@@ -237,11 +249,11 @@ fun IumrahTheme(
 
     MaterialTheme(
         colorScheme = if (dark) DarkColors else LightColors,
-        typography = IumrahTypography,
+        typography = UnifiedTypography,
         shapes = IumrahShapes,
     ) {
         // Many parity screens set explicit size/weight but intentionally omit fontFamily.
-        // This provider makes the rounded family global without forcing one global text size.
+        // This provider makes Lato global without forcing one global text size.
         ProvideTextStyle(value = TextStyle(fontFamily = IumrahFontFamily)) {
             content()
         }

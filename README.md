@@ -78,3 +78,16 @@ Stage 23 guards these changes. Release `.aab` remains unverified locally.
 
 ## v45 Google Play 16 KB verifier correction (2026-10-09)
 The release AAB already builds and signs successfully. The post-build native verifier now applies the 16 KB ELF alignment gate to the 64-bit ABIs used by 16 KB devices (`arm64-v8a`, `x86_64`) and treats 32-bit `armeabi-v7a`/`x86` alignment as informational while still requiring matching 64-bit counterparts.
+
+## 2026-10-25 unified visual layer
+
+- All Compose `CupertinoIcon` calls now use original **Flutter CupertinoIcons
+  TTF glyphs**, not locally drawn icons. Native Android installs the typeface
+  and glyph registry via the `bootstrapCupertinoIcons` Gradle task before
+  building (requires outbound HTTPS on first build).
+- Lato (downloaded during bootstrap) is now the global app font: Regular for text, Bold for headings/prices;
+  Semibold/Medium remain available for intermediate emphasis.
+- `CupertinoSfCatalog` maps the iOS `systemName` vocabulary to matching or
+  nearest available *Cupertino* glyphs. Not every Apple SF Symbol exists in the
+  open-source Cupertino set; see `docs/cupertino/UNIFIED_ICON_LATO_20261025.md`
+  and the post-bootstrap `glyph-resolution.json` for known mismatches.

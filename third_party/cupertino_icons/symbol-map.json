@@ -1,0 +1,698 @@
+{
+  "Airplane": [
+    "airplane",
+    "paperplane",
+    "circle"
+  ],
+  "AirplaneLand": [
+    "airplane_arrival",
+    "airplane",
+    "paperplane",
+    "circle"
+  ],
+  "AirplaneTakeoff": [
+    "airplane_departure",
+    "airplane",
+    "paperplane",
+    "circle"
+  ],
+  "Apple": [
+    "logo_apple",
+    "device_phone_portrait",
+    "apple_logo",
+    "device_phone_portrait",
+    "circle"
+  ],
+  "ArrowDown": [
+    "arrow_down",
+    "circle"
+  ],
+  "ArrowLeftRight": [
+    "arrow_left_arrow_right",
+    "arrow_right_arrow_left",
+    "arrow_2_squarepath",
+    "arrow_left",
+    "arrow_right",
+    "circle"
+  ],
+  "ArrowRight": [
+    "arrow_right",
+    "circle"
+  ],
+  "ArrowUp": [
+    "arrow_up",
+    "circle"
+  ],
+  "ArrowUpDown": [
+    "arrow_up_arrow_down",
+    "arrow_2_squarepath",
+    "arrow_up",
+    "arrow_down",
+    "circle"
+  ],
+  "ArrowUpRight": [
+    "arrow_up_right",
+    "circle"
+  ],
+  "Bag": [
+    "bag",
+    "bag_fill",
+    "circle"
+  ],
+  "Bed": [
+    "bed_double",
+    "bed_double_fill",
+    "house",
+    "briefcase",
+    "circle"
+  ],
+  "Bell": [
+    "bell",
+    "circle"
+  ],
+  "BellBadge": [
+    "bell_badge",
+    "bell_fill",
+    "circle"
+  ],
+  "BellFill": [
+    "bell_fill",
+    "circle"
+  ],
+  "BellSignal": [
+    "bell_badge_fill",
+    "bell_fill",
+    "bell",
+    "circle"
+  ],
+  "BellSlashFill": [
+    "bell_slash_fill",
+    "circle"
+  ],
+  "Book": [
+    "book_closed_fill",
+    "book_fill",
+    "circle"
+  ],
+  "Building": [
+    "building_2",
+    "building_2_fill",
+    "building",
+    "house",
+    "square",
+    "circle"
+  ],
+  "Calendar": [
+    "calendar",
+    "circle"
+  ],
+  "CalendarClock": [
+    "calendar_badge_clock",
+    "calendar",
+    "circle"
+  ],
+  "Car": [
+    "car_fill",
+    "car",
+    "circle"
+  ],
+  "Cart": [
+    "cart_fill",
+    "cart",
+    "circle"
+  ],
+  "ChartBar": [
+    "chart_bar",
+    "chart_bar_fill",
+    "circle"
+  ],
+  "ChatBubble": [
+    "chat_bubble",
+    "bubble_left_bubble_right_fill",
+    "circle"
+  ],
+  "CheckCircle": [
+    "checkmark_circle",
+    "check_mark_circled",
+    "circle"
+  ],
+  "CheckCircleFill": [
+    "checkmark_circle_fill",
+    "check_mark_circled_solid",
+    "circle"
+  ],
+  "Checklist": [
+    "checklist",
+    "list_bullet",
+    "circle"
+  ],
+  "Checkmark": [
+    "checkmark",
+    "check_mark",
+    "circle"
+  ],
+  "ChevronDown": [
+    "chevron_down",
+    "circle"
+  ],
+  "ChevronLeft": [
+    "chevron_left",
+    "left_chevron",
+    "circle"
+  ],
+  "ChevronRight": [
+    "chevron_right",
+    "right_chevron",
+    "circle"
+  ],
+  "ChevronUp": [
+    "chevron_up",
+    "circle"
+  ],
+  "Clock": [
+    "clock",
+    "circle"
+  ],
+  "Close": [
+    "xmark",
+    "clear",
+    "circle"
+  ],
+  "CloudSun": [
+    "cloud_sun_fill",
+    "cloud_sun",
+    "circle"
+  ],
+  "Copy": [
+    "doc_on_doc",
+    "doc_on_clipboard",
+    "circle"
+  ],
+  "CreditCard": [
+    "creditcard",
+    "creditcard_fill",
+    "circle"
+  ],
+  "CrownFill": [
+    "crown_fill",
+    "star_fill",
+    "star_fill",
+    "circle"
+  ],
+  "CupSaucerFill": [
+    "cup_and_saucer_fill",
+    "cup_and_saucer",
+    "flame_fill",
+    "flame",
+    "circle"
+  ],
+  "Device": [
+    "device_phone_portrait",
+    "device_phone_portrait_fill",
+    "circle"
+  ],
+  "Document": [
+    "doc_text_fill",
+    "doc_text",
+    "circle"
+  ],
+  "Download": [
+    "square_arrow_down",
+    "arrow_down_to_line",
+    "arrow_down_circle",
+    "circle"
+  ],
+  "Ellipsis": [
+    "ellipsis",
+    "circle"
+  ],
+  "ExclamationCircle": [
+    "exclamationmark_circle",
+    "exclamationmark_circle_fill",
+    "circle"
+  ],
+  "Eye": [
+    "eye",
+    "circle"
+  ],
+  "EyeSlash": [
+    "eye_slash",
+    "circle"
+  ],
+  "ForkKnife": [
+    "fork_knife",
+    "fork_knife_circle",
+    "circle"
+  ],
+  "Gear": [
+    "gear",
+    "gear_alt",
+    "circle"
+  ],
+  "Gift": [
+    "gift_fill",
+    "gift",
+    "tag_fill",
+    "tag",
+    "circle"
+  ],
+  "Globe": [
+    "globe",
+    "circle"
+  ],
+  "Grid": [
+    "square_grid_2x2",
+    "square_grid_2x2_fill",
+    "circle"
+  ],
+  "HalfCircle": [
+    "circle_lefthalf_fill",
+    "moon",
+    "circle"
+  ],
+  "HandRaised": [
+    "hand_raised",
+    "hand_raised_fill",
+    "circle"
+  ],
+  "Heart": [
+    "heart",
+    "circle"
+  ],
+  "HeartFill": [
+    "heart_fill",
+    "circle"
+  ],
+  "Home": [
+    "house",
+    "house_fill",
+    "circle"
+  ],
+  "HomeFill": [
+    "house_fill",
+    "circle"
+  ],
+  "Hotel": [
+    "building_2",
+    "building_2_fill",
+    "house",
+    "house",
+    "circle"
+  ],
+  "Hourglass": [
+    "hourglass",
+    "circle"
+  ],
+  "IdentityCard": [
+    "person_text_rectangle",
+    "person_crop_rectangle",
+    "person_crop_square",
+    "circle"
+  ],
+  "InfoCircle": [
+    "info_circle",
+    "info",
+    "circle"
+  ],
+  "InfoCircleFill": [
+    "info_circle_fill",
+    "info_circle",
+    "circle"
+  ],
+  "Key": [
+    "key_fill",
+    "key",
+    "circle"
+  ],
+  "LeafFill": [
+    "leaf_fill",
+    "leaf",
+    "circle"
+  ],
+  "Lightbulb": [
+    "lightbulb",
+    "lightbulb_fill",
+    "lightbulb",
+    "circle"
+  ],
+  "Link": [
+    "link",
+    "link_circle",
+    "circle"
+  ],
+  "Location": [
+    "location",
+    "location_fill",
+    "circle"
+  ],
+  "Lock": [
+    "lock",
+    "lock_fill",
+    "circle"
+  ],
+  "LockOpen": [
+    "lock_open",
+    "lock_open_fill",
+    "circle"
+  ],
+  "LockShield": [
+    "lock_shield",
+    "lock_shield_fill",
+    "lock_fill",
+    "circle"
+  ],
+  "Mail": [
+    "envelope",
+    "envelope_fill",
+    "mail",
+    "circle"
+  ],
+  "Map": [
+    "map",
+    "map_fill",
+    "circle"
+  ],
+  "Menu": [
+    "line_horizontal_3",
+    "bars",
+    "list_bullet",
+    "circle"
+  ],
+  "Message": [
+    "chat_bubble_text",
+    "chat_bubble",
+    "bubble_left_fill",
+    "circle"
+  ],
+  "Microphone": [
+    "mic",
+    "mic_fill",
+    "circle"
+  ],
+  "Minus": [
+    "minus",
+    "circle"
+  ],
+  "Moon": [
+    "moon",
+    "circle"
+  ],
+  "MoonStarsFill": [
+    "moon_stars_fill",
+    "moon_fill",
+    "circle"
+  ],
+  "NumberSquare": [
+    "number_square",
+    "number",
+    "number_circle",
+    "number_circle",
+    "number",
+    "circle"
+  ],
+  "PackageBox": [
+    "shippingbox_fill",
+    "cube_box_fill",
+    "cube_box",
+    "circle"
+  ],
+  "Paperclip": [
+    "paperclip",
+    "circle"
+  ],
+  "Passport": [
+    "person_text_rectangle",
+    "doc_person",
+    "doc_text",
+    "circle"
+  ],
+  "Pencil": [
+    "pencil",
+    "circle"
+  ],
+  "Person": [
+    "person",
+    "person_fill",
+    "circle"
+  ],
+  "PersonCircle": [
+    "person_crop_circle",
+    "profile_circled",
+    "circle"
+  ],
+  "Persons": [
+    "person_2",
+    "person_2_fill",
+    "circle"
+  ],
+  "Phone": [
+    "phone",
+    "phone_fill",
+    "circle"
+  ],
+  "Photo": [
+    "photo",
+    "photo_fill",
+    "circle"
+  ],
+  "PhotoFill": [
+    "photo_fill",
+    "circle"
+  ],
+  "Play": [
+    "play_fill",
+    "play",
+    "circle"
+  ],
+  "Plus": [
+    "plus",
+    "circle"
+  ],
+  "PlusPerson": [
+    "person_badge_plus",
+    "person_add",
+    "person",
+    "circle"
+  ],
+  "QrCode": [
+    "qrcode",
+    "barcode_viewfinder",
+    "camera_viewfinder",
+    "viewfinder",
+    "camera",
+    "circle"
+  ],
+  "QuestionCircle": [
+    "question_circle",
+    "questionmark_circle",
+    "circle"
+  ],
+  "Refresh": [
+    "arrow_clockwise",
+    "refresh",
+    "circle"
+  ],
+  "Route": [
+    "arrow_branch",
+    "arrow_2_squarepath",
+    "map",
+    "map",
+    "circle"
+  ],
+  "Safari": [
+    "safari",
+    "safari_fill",
+    "circle"
+  ],
+  "Scan": [
+    "viewfinder",
+    "camera_viewfinder",
+    "circle"
+  ],
+  "Search": [
+    "search",
+    "search_circle",
+    "circle"
+  ],
+  "Seatbelt": [
+    "car_fill",
+    "car",
+    "car",
+    "circle"
+  ],
+  "Send": [
+    "paperplane",
+    "paperplane_fill",
+    "circle"
+  ],
+  "Share": [
+    "square_arrow_up",
+    "share",
+    "share_up",
+    "circle"
+  ],
+  "ShieldCheck": [
+    "checkmark_shield_fill",
+    "shield_lefthalf_fill",
+    "shield_fill",
+    "shield_lefthalf_fill",
+    "circle"
+  ],
+  "SignOut": [
+    "rectangle_portrait_and_arrow_right",
+    "square_arrow_right",
+    "arrow_right_square",
+    "arrow_right",
+    "circle"
+  ],
+  "SignalWave": [
+    "waveform",
+    "antenna_radiowaves_left_right",
+    "wifi",
+    "circle"
+  ],
+  "SimCard": [
+    "simcard",
+    "rectangle_on_rectangle",
+    "rectangle",
+    "doc",
+    "rectangle",
+    "circle"
+  ],
+  "Sliders": [
+    "slider_horizontal_3",
+    "slider_horizontal_3",
+    "slider_horizontal_below_rectangle",
+    "circle"
+  ],
+  "SosCircle": [
+    "sos_circle_fill",
+    "exclamationmark_circle_fill",
+    "exclamationmark_circle_fill",
+    "circle"
+  ],
+  "Sparkles": [
+    "sparkles",
+    "sparkle",
+    "wand_stars",
+    "star_fill",
+    "circle"
+  ],
+  "Speaker": [
+    "speaker_wave_2",
+    "speaker_2",
+    "speaker",
+    "circle"
+  ],
+  "SpeakerSlash": [
+    "speaker_slash",
+    "speaker_2_slash",
+    "speaker_slash",
+    "circle"
+  ],
+  "Star": [
+    "star",
+    "circle"
+  ],
+  "StarFill": [
+    "star_fill",
+    "circle"
+  ],
+  "Suitcase": [
+    "suitcase",
+    "bag",
+    "briefcase",
+    "circle"
+  ],
+  "SuitcaseFill": [
+    "suitcase_fill",
+    "bag_fill",
+    "briefcase_fill",
+    "circle"
+  ],
+  "Sun": [
+    "sun_max",
+    "sun_max_fill",
+    "circle"
+  ],
+  "SunMaxFill": [
+    "sun_max_fill",
+    "sun_max",
+    "circle"
+  ],
+  "Sunrise": [
+    "sunrise_fill",
+    "sunrise",
+    "sun_max_fill",
+    "circle"
+  ],
+  "Ticket": [
+    "ticket_fill",
+    "ticket",
+    "circle"
+  ],
+  "Timer": [
+    "timer",
+    "clock",
+    "circle"
+  ],
+  "Trash": [
+    "trash",
+    "circle"
+  ],
+  "TrashSlash": [
+    "trash_slash",
+    "trash",
+    "circle"
+  ],
+  "Tray": [
+    "tray",
+    "circle"
+  ],
+  "TrayFill": [
+    "tray_fill",
+    "tray",
+    "circle"
+  ],
+  "UndoCircle": [
+    "arrow_uturn_backward_circle_fill",
+    "arrow_uturn_backward",
+    "arrow_counterclockwise",
+    "circle"
+  ],
+  "Wallet": [
+    "wallet_pass_fill",
+    "creditcard_fill",
+    "circle"
+  ],
+  "WarningTriangle": [
+    "exclamationmark_triangle_fill",
+    "exclamationmark_triangle",
+    "circle"
+  ],
+  "WarningTriangleFill": [
+    "exclamationmark_triangle_fill",
+    "circle"
+  ],
+  "Wifi": [
+    "wifi",
+    "dot_radiowaves_left_right",
+    "antenna_radiowaves_left_right",
+    "waveform",
+    "circle"
+  ],
+  "WifiSlash": [
+    "wifi_slash",
+    "wifi",
+    "dot_radiowaves_left_right",
+    "waveform",
+    "circle"
+  ],
+  "WifiWarning": [
+    "wifi_exclamationmark",
+    "wifi",
+    "dot_radiowaves_left_right",
+    "waveform",
+    "circle"
+  ]
+}

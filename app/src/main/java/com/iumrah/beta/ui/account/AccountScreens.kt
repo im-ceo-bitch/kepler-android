@@ -34,6 +34,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.iumrah.beta.R
+import com.iumrah.beta.ui.components.IumrahRootPageHeader
 import com.iumrah.beta.IumrahApplication
 import com.iumrah.beta.core.auth.GoogleSignInSupport
 import com.iumrah.beta.core.design.IumrahBookingStatusVisual
@@ -54,6 +55,7 @@ import com.iumrah.beta.ui.booking.IumrahSecurityConfirmationPanel
 import com.iumrah.beta.ui.components.IumrahPaymentMethodsMarquee
 import com.iumrah.beta.ui.cupertino.CupertinoIcon
 import com.iumrah.beta.ui.cupertino.CupertinoSymbol
+import com.iumrah.beta.ui.cupertino.IumrahIconBadge
 import kotlinx.coroutines.launch
 
 private val Care = Color(0xFF30B0C7)
@@ -103,7 +105,7 @@ fun AccountRootScreen(
     var signOutConfirm by remember { mutableStateOf(false) }
 
     LazyColumn(
-        modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).statusBarsPadding(),
+        modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background),
         contentPadding = PaddingValues(start = PagePad, end = PagePad, top = 12.dp, bottom = 130.dp),
         verticalArrangement = Arrangement.spacedBy(20.dp),
     ) {
@@ -153,34 +155,22 @@ fun AccountRootScreen(
 
 @Composable
 private fun AccountHeader(language: AppLanguage, authenticated: Boolean, unread: Int, chrome: AppChromeStore) {
-    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
-        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text("Account", fontSize = 38.sp, fontWeight = FontWeight.Bold, letterSpacing = (-1).sp)
-            Text(
-                if (authenticated) tr(language, "Your iumrah profile and trips", "Ваш профиль и поездки iumrah", "iumrah profilingiz va safarlaringiz", "iumrah профилингиз ва сафарларингиз")
-                else tr(language, "Sign in or create your permanent iumrah account", "Войдите или создайте постоянный аккаунт iumrah", "Doimiy iumrah akkauntingizga kiring yoki uni yarating", "Доимий iumrah аккаунтингизга киринг ёки уни яратинг"),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-        Spacer(Modifier.width(10.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            Box {
-                Surface(onClick = { chrome.openNotifications() }, modifier = Modifier.size(50.dp), shape = CircleShape, color = MaterialTheme.colorScheme.surface.copy(alpha = .92f), border = androidx.compose.foundation.BorderStroke(.7.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = .08f))) {
-                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        CupertinoIcon(if (unread > 0) CupertinoSymbol.BellBadge else CupertinoSymbol.BellSignal, null, Modifier.size(18.dp), MaterialTheme.colorScheme.onSurface)
-                    }
-                }
-                if (unread > 0) {
-                    Box(Modifier.align(Alignment.TopEnd).padding(top = 3.dp, end = 1.dp).height(17.dp).clip(CircleShape).background(Danger).border(1.dp, Color.White, CircleShape).padding(horizontal = 5.dp), contentAlignment = Alignment.Center) {
-                        Text(if (unread > 9) "9+" else "$unread", color = Color.White, fontSize = 9.sp, fontWeight = FontWeight.Bold)
-                    }
-                }
-            }
-            Surface(onClick = { chrome.openSidebar() }, modifier = Modifier.size(50.dp), shape = CircleShape, color = MaterialTheme.colorScheme.surface.copy(alpha = .92f), border = androidx.compose.foundation.BorderStroke(.7.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = .08f))) {
-                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CupertinoIcon(CupertinoSymbol.Menu, null, Modifier.size(18.dp), MaterialTheme.colorScheme.onSurface) }
-            }
-        }
+    Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        IumrahRootPageHeader(
+            title = when (language) {
+                AppLanguage.RUSSIAN, AppLanguage.UZBEK_CYRILLIC -> "Аккаунт"
+                AppLanguage.UZBEK -> "Akkaunt"
+                AppLanguage.ENGLISH -> "Account"
+            },
+            chrome = chrome,
+            unreadCount = unread,
+        )
+        Text(
+            if (authenticated) tr(language, "Your iumrah profile and trips", "Ваш профиль и поездки iumrah", "iumrah profilingiz va safarlaringiz", "iumrah профилингиз ва сафарларингиз")
+            else tr(language, "Sign in or create your permanent iumrah account", "Войдите или создайте постоянный аккаунт iumrah", "Doimiy iumrah akkauntingizga kiring yoki uni yarating", "Доимий iumrah аккаунтингизга киринг ёки уни яратинг"),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
 
@@ -252,7 +242,7 @@ private fun ActiveTripCard(session: StoredBookingSession, language: AppLanguage,
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text(tr(language,"Active trip","Активная поездка","Faol safar","Фаол сафар"), fontSize = 12.sp, fontWeight = FontWeight.Bold, color = IosGray)
                     Text("${session.booking.route.originCode} → ${session.booking.route.outboundDestination}", fontSize = 23.sp, fontWeight = FontWeight.Bold)
-                    Text("Бронь ${session.displayBookingNumber}", fontSize = 12.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.SemiBold, color = IosGray)
+                    Text("Бронь ${session.displayBookingNumber}", fontSize = 12.sp, fontFamily = com.iumrah.beta.core.design.IumrahFontFamily, fontWeight = FontWeight.SemiBold, color = IosGray)
                 }
                 CupertinoIcon(CupertinoSymbol.ChevronRight, null, Modifier.padding(top = 16.dp).size(15.dp), IosGray.copy(alpha=.7f))
             }
@@ -830,7 +820,7 @@ private fun SignalNotificationSection(
                 Text(title,fontSize=24.sp,fontWeight=FontWeight.Bold)
                 Text(subtitle,fontSize=12.sp,color=IosGray)
             }
-            Text("${rows.size}",Modifier.clip(CircleShape).background((if(unreadSection)Signal else IosGray).copy(alpha=.10f)).padding(horizontal=10.dp,vertical=7.dp),fontSize=12.sp,fontWeight=FontWeight.Bold,fontFamily=FontFamily.Monospace,color=if(unreadSection)Signal else IosGray)
+            Text("${rows.size}",Modifier.clip(CircleShape).background((if(unreadSection)Signal else IosGray).copy(alpha=.10f)).padding(horizontal=10.dp,vertical=7.dp),fontSize=12.sp,fontWeight=FontWeight.Bold,fontFamily=com.iumrah.beta.core.design.IumrahFontFamily,color=if(unreadSection)Signal else IosGray)
         }
         rows.forEach{n->SignalNotificationCard(language,n,dismissed.contains(n.id),notifications,accountStore,chrome,scope)}
     }
@@ -888,7 +878,7 @@ private fun SignalNotificationCard(
     }
 }
 
-@Composable private fun SignalChip(value:String,title:String,emphasized:Boolean){Row(Modifier.clip(RoundedCornerShape(20.dp)).background(Color.White.copy(alpha=if(emphasized).16f else .09f)).padding(horizontal=13.dp,vertical=8.dp),horizontalArrangement=Arrangement.spacedBy(6.dp),verticalAlignment=Alignment.CenterVertically){Text(value,color=Color.White,fontWeight=FontWeight.Bold,fontFamily=FontFamily.Monospace);Text(title,color=Color.White.copy(alpha=if(emphasized)1f else .78f),fontSize=12.sp,fontWeight=FontWeight.SemiBold)}}
+@Composable private fun SignalChip(value:String,title:String,emphasized:Boolean){Row(Modifier.clip(RoundedCornerShape(20.dp)).background(Color.White.copy(alpha=if(emphasized).16f else .09f)).padding(horizontal=13.dp,vertical=8.dp),horizontalArrangement=Arrangement.spacedBy(6.dp),verticalAlignment=Alignment.CenterVertically){Text(value,color=Color.White,fontWeight=FontWeight.Bold,fontFamily=com.iumrah.beta.core.design.IumrahFontFamily);Text(title,color=Color.White.copy(alpha=if(emphasized)1f else .78f),fontSize=12.sp,fontWeight=FontWeight.SemiBold)}}
 
 @Composable
 private fun AccountPage(title:String,chrome:AppChromeStore,content:@Composable ColumnScope.()->Unit){
@@ -909,7 +899,30 @@ private fun SettingsRow(icon:CupertinoSymbol,title:String,value:String,enabled:B
     }
 }
 @Composable private fun EmptyRow(icon:CupertinoSymbol,text:String){Row(Modifier.fillMaxWidth().padding(vertical=9.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(12.dp)){IconBadge(icon,IosGray,42.dp,17.dp);Text(text,color=IosGray,fontSize=13.sp)}}
-@Composable private fun IconBadge(icon:CupertinoSymbol,tint:Color,size:androidx.compose.ui.unit.Dp,symbolSize:androidx.compose.ui.unit.Dp,darkFill:Boolean=false){val bg=if(darkFill)Color.White.copy(alpha=.12f) else tint.copy(alpha=.105f);Box(Modifier.size(size).clip(if(size>=48.dp)CircleShape else RoundedCornerShape(14.dp)).background(bg),contentAlignment=Alignment.Center){CupertinoIcon(icon,null,Modifier.size(symbolSize),tint)}}
+/** All Account icon badges share the exact iOS solid icon-badge primitive. */
+@Composable private fun IconBadge(
+    icon: CupertinoSymbol,
+    tint: Color,
+    size: androidx.compose.ui.unit.Dp,
+    symbolSize: androidx.compose.ui.unit.Dp,
+    darkFill: Boolean = false,
+) {
+    val radius = when {
+        size >= 52.dp -> 17.dp
+        size >= 48.dp -> 16.dp
+        size >= 44.dp -> 15.dp
+        size >= 42.dp -> 14.dp
+        size >= 40.dp -> 13.dp
+        else -> 12.dp
+    }
+    if (darkFill) {
+        Box(Modifier.size(size).clip(RoundedCornerShape(radius)).background(Color.White.copy(alpha = .12f)), contentAlignment = Alignment.Center) {
+            CupertinoIcon(icon, null, Modifier.size(symbolSize), Color.White)
+        }
+    } else {
+        IumrahIconBadge(icon, tint, size = size, symbolSize = symbolSize, cornerRadius = radius)
+    }
+}
 
 @Composable private fun AccountField(value:String,onChange:(String)->Unit,label:String,keyboard:KeyboardType=KeyboardType.Text,password:Boolean=false){OutlinedTextField(value,onChange,Modifier.fillMaxWidth(),label={Text(label)},singleLine=true,shape=RoundedCornerShape(16.dp),keyboardOptions=KeyboardOptions(keyboardType=keyboard),visualTransformation=if(password)PasswordVisualTransformation() else androidx.compose.ui.text.input.VisualTransformation.None)}
 @Composable

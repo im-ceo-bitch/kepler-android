@@ -634,7 +634,7 @@ private fun PlaceDetailPanel(language: AppLanguage, place: ZiyaratPlace, expande
                 Text(zt(language, "Точная точка", "Exact point", "Aniq nuqta", "Аниқ нуқта"), fontSize = 20.sp, fontWeight = FontWeight.Bold)
                 Text(if (place.mapLabel.isNotBlank()) place.mapLabel else place.address, fontSize = 12.sp, lineHeight = 16.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = .54f))
                 Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(MaterialTheme.colorScheme.surfaceVariant).padding(13.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text(String.format("%.5f, %.5f", place.latitude, place.longitude), fontFamily = FontFamily.Monospace, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = .56f))
+                    Text(String.format("%.5f, %.5f", place.latitude, place.longitude), fontFamily = com.iumrah.beta.core.design.IumrahFontFamily, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = .56f))
                     Spacer(Modifier.weight(1f))
                     Icon(CupertinoSymbol.CheckCircleFill, null, modifier = Modifier.size(17.dp), tint = IumrahColors.SystemBlue)
                 }

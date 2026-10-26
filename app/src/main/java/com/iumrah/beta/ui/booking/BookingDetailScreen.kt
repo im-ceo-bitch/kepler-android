@@ -286,7 +286,7 @@ private fun IdentityBlock(label: String, value: String, modifier: Modifier = Mod
     Row(modifier, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
             Text(label, fontSize = 11.sp, lineHeight = 13.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onBackground.copy(alpha = .48f))
-            Text(value, fontSize = 15.sp, lineHeight = 18.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(value, fontSize = 15.sp, lineHeight = 18.sp, fontWeight = FontWeight.Bold, fontFamily = com.iumrah.beta.core.design.IumrahFontFamily, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
         Box(Modifier.size(34.dp).clip(CircleShape).background(bookingIosCard()), contentAlignment = Alignment.Center) {
             CupertinoIcon(CupertinoSymbol.Copy, null, Modifier.size(13.dp), MaterialTheme.colorScheme.onBackground.copy(alpha = if (value == "—") .28f else .72f))
@@ -444,7 +444,7 @@ private fun LifecycleTimerCard(phase: BookingDetailLifecyclePhase, language: App
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(title, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-                Text(if (expired) "00:00:00" else countdown, fontSize = 24.sp, lineHeight = 28.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace, color = phase.tint)
+                Text(if (expired) "00:00:00" else countdown, fontSize = 24.sp, lineHeight = 28.sp, fontWeight = FontWeight.Bold, fontFamily = com.iumrah.beta.core.design.IumrahFontFamily, color = phase.tint)
             }
             BookingIconBadge(phase.symbol, phase.tint, size = 40.dp, symbolSize = 17.dp, radius = 14.dp)
         }

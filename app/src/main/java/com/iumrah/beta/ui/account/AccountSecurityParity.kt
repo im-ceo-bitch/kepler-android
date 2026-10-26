@@ -66,6 +66,7 @@ import com.iumrah.beta.models.account.IumrahSecurityOverview
 import com.iumrah.beta.models.account.IumrahSecuritySession
 import com.iumrah.beta.ui.cupertino.CupertinoIcon
 import com.iumrah.beta.ui.cupertino.CupertinoSymbol
+import com.iumrah.beta.ui.cupertino.IumrahIconBadge
 import java.time.Duration
 import java.time.Instant
 import java.util.Locale
@@ -304,7 +305,7 @@ internal fun AccountSecurityParityContent(
                             Text(secTr(language, "Devices and sessions", "Устройства и сеансы", "Qurilmalar va seanslar", "Қурилмалар ва сеанслар"), fontSize = 24.sp, fontWeight = FontWeight.Bold)
                             Text(secTr(language, "Devices signed in to this iumrah ID", "Устройства, вошедшие в этот iumrah ID", "Ushbu iumrah ID ga kirgan qurilmalar", "Ушбу iumrah ID га кирган қурилмалар"), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
-                        Text("${value.sessions.size}", fontSize = 12.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace, color = SecurityGray)
+                        Text("${value.sessions.size}", fontSize = 12.sp, fontWeight = FontWeight.Bold, fontFamily = com.iumrah.beta.core.design.IumrahFontFamily, color = SecurityGray)
                     }
                     current?.let { session ->
                         SecuritySessionGroupLabel(secTr(language, "THIS DEVICE", "ЭТО УСТРОЙСТВО", "BU QURILMA", "БУ ҚУРИЛМА"))
@@ -523,7 +524,7 @@ private fun SecurityHero(iumrahID: String?) {
         Column(Modifier.fillMaxSize().padding(horizontal = 22.dp, vertical = 30.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 CupertinoIcon(CupertinoSymbol.LockShield, null, Modifier.size(24.dp), SecurityCare)
-                if (!iumrahID.isNullOrBlank()) Text("ID $iumrahID", fontSize = 12.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace, color = Color.White.copy(alpha = .64f))
+                if (!iumrahID.isNullOrBlank()) Text("ID $iumrahID", fontSize = 12.sp, fontWeight = FontWeight.Bold, fontFamily = com.iumrah.beta.core.design.IumrahFontFamily, color = Color.White.copy(alpha = .64f))
             }
             Spacer(Modifier.weight(1f))
             Text("Iumrah\nSecurity", fontSize = 30.sp, lineHeight = 31.sp, fontWeight = FontWeight.Bold, color = Color.White)
@@ -663,9 +664,8 @@ private fun SecuritySessionCard(language: AppLanguage, session: IumrahSecuritySe
 
 @Composable
 private fun SecurityIconBadge(icon: CupertinoSymbol, tint: Color, size: androidx.compose.ui.unit.Dp, iconSize: androidx.compose.ui.unit.Dp) {
-    Box(Modifier.size(size).clip(RoundedCornerShape(size * .30f)).background(tint.copy(alpha = .10f)), contentAlignment = Alignment.Center) {
-        CupertinoIcon(icon, null, Modifier.size(iconSize), tint)
-    }
+    // iOS security status rows use the solid system icon badge, not a pastel chip.
+    IumrahIconBadge(icon, tint, size = size, symbolSize = iconSize, cornerRadius = size * .30f)
 }
 
 @Composable

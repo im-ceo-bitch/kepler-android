@@ -5,11 +5,17 @@ package com.iumrah.beta.ui.cupertino
  *
  * This file is intentionally generated from the current iOS repository.  It gives
  * Android one stable semantic icon source instead of mixing Material icons, emoji
- * glyphs and text arrows.  Multiple SF variants can map to the same Android vector
- * when the visual distinction is fill/badge-only and does not affect navigation.
+ * glyphs and text arrows.  SF names map to native Cupertino glyphs where the asset offers an equivalent.
+ * Missing Apple-only variants are listed in the visual-parity audit; Apple
+ * copyrighted SF assets must not be embedded in Android.
  */
 object CupertinoSfCatalog {
     val currentIosSystemNames: Map<String, CupertinoSymbol> = mapOf(
+        // Canonical forward-direction labels are widely used in the current SwiftUI source.
+        "chevron.forward" to CupertinoSymbol.ChevronRight,
+        "arrow.forward" to CupertinoSymbol.ArrowRight,
+        "location.north.fill" to CupertinoSymbol.Location,
+        "creditcard.fill" to CupertinoSymbol.CreditCard,
         "bell" to CupertinoSymbol.Bell,
         "bell.badge" to CupertinoSymbol.BellBadge,
         "checklist" to CupertinoSymbol.Checklist,
@@ -43,14 +49,14 @@ object CupertinoSfCatalog {
         "cart.badge.plus" to CupertinoSymbol.Cart,
         "cart.fill" to CupertinoSymbol.Cart,
         "chart.bar.xaxis" to CupertinoSymbol.ChartBar,
-        "info.circle.fill" to CupertinoSymbol.InfoCircle,
+        "info.circle.fill" to CupertinoSymbol.InfoCircleFill,
         "key.fill" to CupertinoSymbol.Key,
         "magnifyingglass" to CupertinoSymbol.Search,
         "message.fill" to CupertinoSymbol.Message,
         "questionmark.circle" to CupertinoSymbol.QuestionCircle,
         "sos.circle.fill" to CupertinoSymbol.SosCircle,
         "ticket.fill" to CupertinoSymbol.Ticket,
-        "tray" to CupertinoSymbol.TrayFill,
+        "tray" to CupertinoSymbol.Tray,
         "airplane" to CupertinoSymbol.Airplane,
         "airplane.circle" to CupertinoSymbol.Airplane,
         "airplane.circle.fill" to CupertinoSymbol.Airplane,
@@ -76,8 +82,8 @@ object CupertinoSfCatalog {
         "bed.double" to CupertinoSymbol.Bed,
         "bed.double.fill" to CupertinoSymbol.Bed,
         "bell.badge.fill" to CupertinoSymbol.BellBadge,
-        "bell.fill" to CupertinoSymbol.Bell,
-        "bell.slash.fill" to CupertinoSymbol.Bell,
+        "bell.fill" to CupertinoSymbol.BellFill,
+        "bell.slash.fill" to CupertinoSymbol.BellSlashFill,
         "book.closed.fill" to CupertinoSymbol.Book,
         "building.2" to CupertinoSymbol.Building,
         "building.2.crop.circle" to CupertinoSymbol.Building,
@@ -118,7 +124,7 @@ object CupertinoSfCatalog {
         "exclamationmark.circle.fill" to CupertinoSymbol.ExclamationCircle,
         "exclamationmark.shield.fill" to CupertinoSymbol.WarningTriangle,
         "exclamationmark.triangle" to CupertinoSymbol.WarningTriangle,
-        "exclamationmark.triangle.fill" to CupertinoSymbol.WarningTriangle,
+        "exclamationmark.triangle.fill" to CupertinoSymbol.WarningTriangleFill,
         "fork.knife" to CupertinoSymbol.ForkKnife,
         "fork.knife.circle.fill" to CupertinoSymbol.ForkKnife,
         "function" to CupertinoSymbol.Sliders,
@@ -131,7 +137,7 @@ object CupertinoSfCatalog {
         "heart.fill" to CupertinoSymbol.HeartFill,
         "hourglass" to CupertinoSymbol.Hourglass,
         "house" to CupertinoSymbol.Home,
-        "house.fill" to CupertinoSymbol.Home,
+        "house.fill" to CupertinoSymbol.HomeFill,
         "info.circle" to CupertinoSymbol.InfoCircle,
         "iphone.gen3" to CupertinoSymbol.Device,
         "key.viewfinder" to CupertinoSymbol.Key,
@@ -173,7 +179,7 @@ object CupertinoSfCatalog {
         "phone.badge.checkmark.fill" to CupertinoSymbol.Phone,
         "phone.fill" to CupertinoSymbol.Phone,
         "photo" to CupertinoSymbol.Photo,
-        "photo.fill" to CupertinoSymbol.Photo,
+        "photo.fill" to CupertinoSymbol.PhotoFill,
         "photo.on.rectangle" to CupertinoSymbol.Photo,
         "photo.on.rectangle.angled" to CupertinoSymbol.Photo,
         "play.fill" to CupertinoSymbol.Play,
@@ -213,5 +219,5 @@ object CupertinoSfCatalog {
     )
 
     fun resolve(systemName: String): CupertinoSymbol =
-        currentIosSystemNames[systemName] ?: CupertinoSymbol.InfoCircle
+        requireNotNull(currentIosSystemNames[systemName]) { "Unmapped iOS SF symbol: $systemName" }
 }

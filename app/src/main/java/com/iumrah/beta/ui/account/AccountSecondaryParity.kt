@@ -224,7 +224,7 @@ fun AccountTripsHistoryScreen(
                         }
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             Text(statusLabel(session.effectiveStatus, language), Modifier.clip(CircleShape).background(tint.copy(alpha = .10f)).padding(horizontal = 10.dp, vertical = 7.dp), fontSize = 12.sp, fontWeight = FontWeight.Bold, color = tint)
-                            Text(session.displayBookingNumber, Modifier.clip(CircleShape).background(MaterialTheme.colorScheme.onSurface.copy(alpha = .055f)).padding(horizontal = 10.dp, vertical = 7.dp), fontSize = 12.sp, fontWeight = FontWeight.SemiBold, fontFamily = FontFamily.Monospace, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(session.displayBookingNumber, Modifier.clip(CircleShape).background(MaterialTheme.colorScheme.onSurface.copy(alpha = .055f)).padding(horizontal = 10.dp, vertical = 7.dp), fontSize = 12.sp, fontWeight = FontWeight.SemiBold, fontFamily = com.iumrah.beta.core.design.IumrahFontFamily, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
                 }
@@ -570,7 +570,7 @@ private fun RecoveryField(icon: CupertinoSymbol, value: String, onChange: (Strin
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = keyboard),
                 visualTransformation = if (secure) PasswordVisualTransformation() else androidx.compose.ui.text.input.VisualTransformation.None,
-                textStyle = LocalTextStyle.current.copy(color = MaterialTheme.colorScheme.onSurface, fontSize = 16.sp, fontFamily = if (keyboard == KeyboardType.Number) FontFamily.Monospace else IumrahFontFamily),
+                textStyle = LocalTextStyle.current.copy(color = MaterialTheme.colorScheme.onSurface, fontSize = 16.sp, fontFamily = if (keyboard == KeyboardType.Number) com.iumrah.beta.core.design.IumrahFontFamily else IumrahFontFamily),
                 decorationBox = { inner -> Box { if (value.isEmpty()) Text(placeholder, color = ApGray, fontSize = 16.sp); inner() } },
             )
         }
@@ -778,7 +778,7 @@ private fun SignalHero(language: AppLanguage, unread: Int, total: Int) {
 @Composable
 private fun SignalStatChip(value: String, title: String, emphasized: Boolean) {
     Row(Modifier.clip(CircleShape).background(Color.White.copy(alpha=if(emphasized).16f else .09f)).padding(horizontal=13.dp, vertical=8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-        Text(value, color = Color.White, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
+        Text(value, color = Color.White, fontWeight = FontWeight.Bold, fontFamily = com.iumrah.beta.core.design.IumrahFontFamily)
         Text(title, color = Color.White.copy(alpha = if (emphasized) 1f else .78f), fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
     }
 }
@@ -799,7 +799,7 @@ private fun SignalSection(
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Row(Modifier.fillMaxWidth().padding(horizontal=4.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) { Text(title, fontSize = 24.sp, fontWeight = FontWeight.Bold); Text(subtitle, fontSize = 12.sp, color = ApGray) }
-            Text("${rows.size}", Modifier.clip(CircleShape).background((if(unreadSection) ApBlue else ApGray).copy(alpha=.10f)).padding(horizontal=10.dp, vertical=7.dp), fontSize = 12.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace, color = if(unreadSection) ApBlue else ApGray)
+            Text("${rows.size}", Modifier.clip(CircleShape).background((if(unreadSection) ApBlue else ApGray).copy(alpha=.10f)).padding(horizontal=10.dp, vertical=7.dp), fontSize = 12.sp, fontWeight = FontWeight.Bold, fontFamily = com.iumrah.beta.core.design.IumrahFontFamily, color = if(unreadSection) ApBlue else ApGray)
         }
         rows.forEach { n -> SignalParityCard(language, n, dismissed.contains(n.id), notifications, accountStore, chrome, scope) }
     }

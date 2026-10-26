@@ -301,7 +301,7 @@ private fun IdentityBack(
             Row(Modifier.padding(top = 9.dp), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     Text("iumrah ID", color = Color.White.copy(alpha = .46f), fontSize = 11.sp, fontWeight = FontWeight.Medium)
-                    Text(normalizedIdentity(profile.iumrahID), color = Color.White.copy(alpha = .92f), fontSize = 17.sp, fontWeight = FontWeight.SemiBold, fontFamily = FontFamily.Monospace)
+                    Text(normalizedIdentity(profile.iumrahID), color = Color.White.copy(alpha = .92f), fontSize = 17.sp, fontWeight = FontWeight.SemiBold, fontFamily = com.iumrah.beta.core.design.IumrahFontFamily)
                 }
                 Surface(onClick = onCopy, shape = CircleShape, color = Color.White.copy(alpha = .12f)) {
                     Box(Modifier.size(34.dp), contentAlignment = Alignment.Center) {
@@ -382,7 +382,7 @@ fun IumrahLockedIdentityCardAndroid(language: AppLanguage) {
                     awTr(language, "Your digital identity", "Ваша цифровая карта", "Sizning raqamli kartangiz", "Сизнинг рақамли картангиз"),
                     color = Color.White.copy(alpha = .22f), fontSize = 25.sp, fontWeight = FontWeight.Bold,
                 )
-                Text("••••••••", color = Color.White.copy(alpha = .24f), fontSize = 33.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace, letterSpacing = 3.sp)
+                Text("••••••••", color = Color.White.copy(alpha = .24f), fontSize = 33.sp, fontWeight = FontWeight.Bold, fontFamily = com.iumrah.beta.core.design.IumrahFontFamily, letterSpacing = 3.sp)
             }
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 CupertinoIcon(CupertinoSymbol.Sparkles, null, Modifier.size(15.dp), Color.White.copy(alpha = .48f))
@@ -604,7 +604,7 @@ private fun WalletBoardingPass(
             Spacer(Modifier.weight(1f))
             Column(horizontalAlignment = Alignment.End) {
                 Text(flight.airline, color = Color.Black, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1)
-                Text(flight.flightNumbers, color = Color.Black.copy(alpha = .56f), fontSize = 12.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
+                Text(flight.flightNumbers, color = Color.Black.copy(alpha = .56f), fontSize = 12.sp, fontWeight = FontWeight.Bold, fontFamily = com.iumrah.beta.core.design.IumrahFontFamily)
             }
         }
         Text(
@@ -627,7 +627,7 @@ private fun WalletBoardingPass(
         Row(verticalAlignment = Alignment.Bottom) {
             Column(Modifier.weight(1f)) {
                 Text(awTr(language, "BOOKING", "БРОНЬ", "BRON", "БРОН"), color = Color.Black.copy(alpha = .40f), fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
-                Text(session.displayBookingNumber, color = Color.Black, fontSize = 16.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
+                Text(session.displayBookingNumber, color = Color.Black, fontSize = 16.sp, fontWeight = FontWeight.Bold, fontFamily = com.iumrah.beta.core.design.IumrahFontFamily)
             }
             Text(session.travelerName.orEmpty().ifBlank { profileName(session) }, color = Color.Black.copy(alpha = .64f), fontSize = 11.sp, maxLines = 1)
         }

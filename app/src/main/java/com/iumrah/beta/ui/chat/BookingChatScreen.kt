@@ -1137,7 +1137,7 @@ private fun CareInfoSection(
                 }
                 Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     Text(tr(language, "Booking", "Бронирование", "Bron", "Брон"), color = secondary, fontSize = 12.sp)
-                    Text(bookingNumber, color = primary, fontSize = 15.5.sp, fontWeight = FontWeight.SemiBold, fontFamily = FontFamily.Monospace)
+                    Text(bookingNumber, color = primary, fontSize = 15.5.sp, fontWeight = FontWeight.SemiBold, fontFamily = com.iumrah.beta.core.design.IumrahFontFamily)
                 }
             }
         }

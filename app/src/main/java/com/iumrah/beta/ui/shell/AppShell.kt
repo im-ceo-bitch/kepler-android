@@ -325,6 +325,7 @@ fun AppShell(
 private fun rootTransform(): ContentTransform =
     fadeIn(IumrahMotion.rootFade).togetherWith(fadeOut(IumrahMotion.fastFade))
 
+/** Visual mirror of iOS IumrahStoreTabBar: stable five equal slots, no drag-only Android UI. */
 @Composable
 private fun IumrahBottomBar(
     language: AppLanguage,
@@ -337,110 +338,36 @@ private fun IumrahBottomBar(
         Triple(AppTab.HOTELS, CupertinoSymbol.Hotel, L10n.text("tab_hotels", language)),
         Triple(AppTab.BOOKING, CupertinoSymbol.Suitcase, L10n.text("tab_booking", language)),
         Triple(AppTab.CARE, CupertinoSymbol.HeartFill, L10n.text("tab_care", language)),
-        Triple(AppTab.ACCOUNT, CupertinoSymbol.PersonCircle, "Account"),
+        Triple(AppTab.ACCOUNT, CupertinoSymbol.PersonCircle, when (language) {
+            AppLanguage.RUSSIAN, AppLanguage.UZBEK_CYRILLIC -> "Аккаунт"
+            AppLanguage.UZBEK -> "Akkaunt"
+            AppLanguage.ENGLISH -> "Account"
+        }),
     )
-
-    val dark = MaterialTheme.colorScheme.background.red +
-        MaterialTheme.colorScheme.background.green +
-        MaterialTheme.colorScheme.background.blue < 1.5f
-    // iOS-style adaptive chrome: white glass in light mode, near-black glass in dark mode.
-    // The selected tab intentionally uses monochrome foreground instead of an Android accent.
-    val glass = if (dark) Color(0xFF1C1C1E).copy(alpha = .96f) else Color.White.copy(alpha = .96f)
-    val selectedTint = if (dark) Color.White else Color.Black
-    val unselectedTint = selectedTint.copy(alpha = if (dark) .52f else .46f)
-    val border = selectedTint.copy(alpha = if (dark) .13f else .08f)
-    val selectionFill = selectedTint.copy(alpha = if (dark) .095f else .055f)
-    val barShape = RoundedCornerShape(35.dp)
-    val selectedIndex = items.indexOfFirst { it.first == selected }.coerceAtLeast(0)
-    var dragPx by remember(selected) { androidx.compose.runtime.mutableFloatStateOf(0f) }
-    var dragging by remember { androidx.compose.runtime.mutableStateOf(false) }
-
+    val black = com.iumrah.beta.core.design.IumrahColors.SignatureBlack
+    val shape = RoundedCornerShape(50)
     Box(
-        modifier = modifier
-            .fillMaxWidth()
-            .navigationBarsPadding()
-            .padding(horizontal = 12.dp, vertical = 8.dp),
-        contentAlignment = Alignment.Center,
+        modifier = modifier.fillMaxWidth().navigationBarsPadding()
+            .padding(start = 16.dp, end = 16.dp, top = 5.dp, bottom = 2.dp),
     ) {
-        androidx.compose.foundation.layout.BoxWithConstraints(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(68.dp)
-                .shadow(
-                    elevation = 14.dp,
-                    shape = barShape,
-                    clip = false,
-                    ambientColor = Color.Black.copy(alpha = .12f),
-                    spotColor = Color.Black.copy(alpha = .12f),
-                )
-                .clip(barShape)
-                .background(glass)
-                .border(.7.dp, border, barShape)
-                .padding(horizontal = 5.dp, vertical = 6.dp),
+        Row(
+            modifier = Modifier.fillMaxWidth()
+                .shadow(8.dp, shape, clip = false, ambientColor = Color.Black.copy(alpha = .055f), spotColor = Color.Black.copy(alpha = .055f))
+                .clip(shape)
+                .background(Color.White.copy(alpha = .96f))
+                .border(.8.dp, Color.Black.copy(alpha = .10f), shape)
+                .padding(5.dp),
+            horizontalArrangement = Arrangement.spacedBy(2.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            val density = androidx.compose.ui.platform.LocalDensity.current
-            val slotWidth = maxWidth / items.size
-            val slotPx = with(density) { slotWidth.toPx() }
-            val minDrag = -selectedIndex * slotPx
-            val maxDrag = (items.lastIndex - selectedIndex) * slotPx
-            val liveIndex = if (slotPx > 0f) {
-                (selectedIndex + dragPx / slotPx).roundToInt().coerceIn(0, items.lastIndex)
-            } else selectedIndex
-            val restingOffset by animateFloatAsState(
-                targetValue = selectedIndex * slotPx,
-                animationSpec = IumrahMotion.tab,
-                label = "tab-indicator",
-            )
-
-            Box(
-                Modifier
-                    .fillMaxSize()
-                    .pointerInput(selectedIndex, items.size) {
-                        detectHorizontalDragGestures(
-                            onDragStart = {
-                                dragging = true
-                                dragPx = 0f
-                            },
-                            onHorizontalDrag = { _, amount ->
-                                dragPx = (dragPx + amount).coerceIn(minDrag, maxDrag)
-                            },
-                            onDragCancel = {
-                                dragging = false
-                                dragPx = 0f
-                            },
-                            onDragEnd = {
-                                val target = if (slotPx > 0f) {
-                                    (selectedIndex + dragPx / slotPx).roundToInt().coerceIn(0, items.lastIndex)
-                                } else selectedIndex
-                                dragging = false
-                                dragPx = 0f
-                                if (target != selectedIndex) onSelect(items[target].first)
-                            },
-                        )
-                    },
-            ) {
-                val indicatorOffsetPx = if (dragging) selectedIndex * slotPx + dragPx else restingOffset
-                Box(
-                    Modifier
-                        .offset { androidx.compose.ui.unit.IntOffset(indicatorOffsetPx.roundToInt(), 0) }
-                        .width(slotWidth)
-                        .height(56.dp)
-                        .padding(horizontal = 1.dp)
-                        .clip(RoundedCornerShape(28.dp))
-                        .background(selectionFill),
-                )
-
-                Row(Modifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
-                    items.forEachIndexed { index, (tab, icon, label) ->
-                        BottomTabItem(
-                            selected = index == if (dragging) liveIndex else selectedIndex,
-                            icon = icon,
-                            label = label,
-                            selectedTint = selectedTint,
-                            unselectedTint = unselectedTint,
-                        ) { onSelect(tab) }
-                    }
-                }
+            items.forEach { (tab, symbol, label) ->
+                BottomTabItem(
+                    selected = selected == tab,
+                    icon = symbol,
+                    label = label,
+                    selectedTint = Color.White,
+                    unselectedTint = Color.Black.copy(alpha = .75f),
+                ) { onSelect(tab) }
             }
         }
     }
@@ -455,33 +382,26 @@ private fun RowScope.BottomTabItem(
     unselectedTint: Color,
     onClick: () -> Unit,
 ) {
-    val source = remember { MutableInteractionSource() }
-    val pressed by source.collectIsPressedAsState()
-    val scale by animateFloatAsState(
-        targetValue = if (pressed) .92f else 1f,
-        animationSpec = IumrahMotion.tab,
-        label = "tab-scale",
-    )
-
+    val shape = RoundedCornerShape(25.dp)
     Column(
         modifier = Modifier
             .weight(1f)
-            .height(56.dp)
-            .padding(horizontal = 1.dp)
-            .graphicsLayer { scaleX = scale; scaleY = scale }
-            .clickable(interactionSource = source, indication = null, onClick = onClick),
+            .height(65.dp)
+            .clip(shape)
+            .background(if (selected) com.iumrah.beta.core.design.IumrahColors.SignatureBlack else Color.Transparent)
+            .clickable(onClick = onClick),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center,
+        verticalArrangement = Arrangement.spacedBy(5.dp, Alignment.CenterVertically),
     ) {
         CupertinoIcon(
             symbol = icon,
             contentDescription = label,
-            modifier = Modifier.size(if (selected) 22.dp else 21.dp),
+            modifier = Modifier.size(21.dp),
             tint = if (selected) selectedTint else unselectedTint,
         )
         Text(
             text = label,
-            fontSize = 10.sp,
+            fontSize = 10.5.sp,
             lineHeight = 12.sp,
             fontWeight = if (selected) androidx.compose.ui.text.font.FontWeight.SemiBold else androidx.compose.ui.text.font.FontWeight.Medium,
             color = if (selected) selectedTint else unselectedTint,

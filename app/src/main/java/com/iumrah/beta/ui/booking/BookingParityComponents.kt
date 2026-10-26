@@ -27,6 +27,7 @@ import com.iumrah.beta.core.settings.AppLanguage
 import com.iumrah.beta.ui.components.IumrahPressable
 import com.iumrah.beta.ui.cupertino.CupertinoIcon
 import com.iumrah.beta.ui.cupertino.CupertinoSymbol
+import com.iumrah.beta.ui.cupertino.IumrahIconBadge
 
 enum class BookingPrimaryPageAndroid { BOOKING, STATUS, SCHEDULE }
 
@@ -254,16 +255,14 @@ internal fun BookingIconBadge(
     radius: Dp = 15.dp,
     circle: Boolean = false,
 ) {
-    val shape = if (circle) CircleShape else RoundedCornerShape(radius)
-    Box(
-        Modifier
-            .size(size)
-            .clip(shape)
-            .background(tint.copy(alpha = .12f)),
-        contentAlignment = Alignment.Center,
-    ) {
-        CupertinoIcon(symbol, null, Modifier.size(symbolSize), tint)
-    }
+    IumrahIconBadge(
+        symbol = symbol,
+        tint = tint,
+        size = size,
+        symbolSize = symbolSize,
+        cornerRadius = radius,
+        circle = circle,
+    )
 }
 
 @Composable

@@ -269,7 +269,7 @@ private fun GiftCardArtwork(gift: IumrahFriendGift, language: AppLanguage, modif
             Text("Gift Card", color = Color.White, fontSize = 27.sp, fontWeight = FontWeight.Bold, letterSpacing = (-.65).sp)
             Text(giftText(language, "$100 на Умру", "$100 toward Umrah", "Umrah uchun $100", "Умра учун $100"), color = Color.White.copy(alpha = .82f), fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
             Spacer(Modifier.height(3.dp))
-            Text("#${gift.position}", color = Color.White.copy(alpha = .60f), fontSize = 10.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
+            Text("#${gift.position}", color = Color.White.copy(alpha = .60f), fontSize = 10.sp, fontFamily = com.iumrah.beta.core.design.IumrahFontFamily, fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(4.dp))
         }
     }
@@ -283,7 +283,7 @@ private fun GiftSelectedActionsLight(language: AppLanguage, gift: IumrahFriendGi
         Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(MaterialTheme.colorScheme.surface).border(.7.dp, MaterialTheme.colorScheme.onBackground.copy(alpha = .055f), RoundedCornerShape(20.dp)).padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text(giftText(language, "Код Gift Card", "Gift code", "Gift Card kodi", "Gift Card коди"), color = MaterialTheme.colorScheme.onBackground.copy(alpha = .52f), fontSize = 10.sp)
-                Text(gift.code, color = MaterialTheme.colorScheme.onBackground, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, fontFamily = FontFamily.Monospace)
+                Text(gift.code, color = MaterialTheme.colorScheme.onBackground, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, fontFamily = com.iumrah.beta.core.design.IumrahFontFamily)
             }
             IumrahPressable(onClick = { clipboard.setText(AnnotatedString(gift.code)) }, modifier = Modifier.size(38.dp), cornerRadius = 19.dp, background = MaterialTheme.colorScheme.onBackground.copy(alpha = .06f), shadowElevation = 0.dp) {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CupertinoIcon(CupertinoSymbol.Copy, null, Modifier.size(15.dp), MaterialTheme.colorScheme.onBackground) }

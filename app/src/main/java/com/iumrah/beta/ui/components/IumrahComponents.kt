@@ -106,11 +106,11 @@ fun IumrahPrimaryButton(
         onClick = onClick,
         modifier = modifier.fillMaxWidth().height(IumrahGalaxyMetrics.PrimaryButtonHeight),
         enabled = enabled,
-        pressedScale = IumrahMotion.PressedScale,
+        pressedScale = 0.985f, // Matches iOS IumrahPrimaryButtonStyle
         cornerRadius = IumrahGalaxyMetrics.RadiusButton,
         background = if (enabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
         pressedBackgroundAlpha = .84f,
-        shadowElevation = if (enabled) 3.dp else 0.dp,
+        shadowElevation = 0.dp, // iOS primary button has no elevation
     ) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             Text(
@@ -131,10 +131,10 @@ fun IumrahSecondaryButton(
     IumrahPressable(
         onClick = onClick,
         modifier = modifier.fillMaxWidth().height(IumrahGalaxyMetrics.ControlHeight),
-        pressedScale = IumrahMotion.PressedScale,
+        pressedScale = 0.985f, // Matches iOS IumrahSecondaryButtonStyle
         cornerRadius = IumrahGalaxyMetrics.RadiusButton,
         background = MaterialTheme.colorScheme.surfaceVariant,
-        pressedBackgroundAlpha = .78f,
+        pressedBackgroundAlpha = .90f,
     ) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             Text(title, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)

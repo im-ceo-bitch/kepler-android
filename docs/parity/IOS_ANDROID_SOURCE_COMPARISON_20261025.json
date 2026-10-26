@@ -1,0 +1,44 @@
+{
+  "ios_files": 270,
+  "ios_direct_sf_calls": 666,
+  "literal_sf_unique": 158,
+  "literal_sf_occurrences": 604,
+  "android_sf_mappings": 204,
+  "unmapped_symbols": [],
+  "metrics": {
+    "pagePadding": {
+      "ios_points": 18.0,
+      "android_dp": 18.0,
+      "same_nominal_value": true
+    },
+    "cardRadius": {
+      "ios_points": 28.0,
+      "android_dp": 28.0,
+      "same_nominal_value": true
+    },
+    "heroRadius": {
+      "ios_points": 34.0,
+      "android_dp": 34.0,
+      "same_nominal_value": true
+    },
+    "compactRadius": {
+      "ios_points": 19.0,
+      "android_dp": 19.0,
+      "same_nominal_value": true
+    },
+    "controlHeight": {
+      "ios_points": 56.0,
+      "android_dp": 56.0,
+      "same_nominal_value": true
+    },
+    "glassIconSize": {
+      "ios_points": 46.0,
+      "android_dp": 46.0,
+      "same_nominal_value": true
+    }
+  },
+  "ios_lato_text_styles": 0,
+  "ios_remaining_system_font_modifiers_including_symbols": 881,
+  "android_uses_ios_light_grouped_page_background": true,
+  "warning": "Nominal source geometry only; native point-to-dp equivalence, adaptive colors, SF-vs-Cupertino glyph shapes, typography line metrics, screen layouts and device pixel parity require runtime/screenshot validation."
+}

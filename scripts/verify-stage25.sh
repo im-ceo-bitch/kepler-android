@@ -16,3 +16,15 @@ b=Path('scripts/build-play-release.sh').read_text()
 assert 'bash scripts/verify-stage25.sh' in b
 print('Stage 025: Google Play 16 KB verifier correctly scopes ELF alignment to 64-bit ABIs.')
 PY
+
+# Incremental iOS source-driven UI parity guard (Android-only checkout).
+python3 scripts/verify-next-stage-parity.py
+
+# Hotels storefront parity: geometry, iOS semantics, independent airport actions.
+python3 scripts/verify-hotels-storefront-parity.py
+
+# Latest signature header/navigation follows the supplied 2026-10-26 iOS design patch.
+python3 scripts/verify-signature-brand-parity.py
+
+# Header block 1 contract: iOS source geometry + Metal/AGSL fidelity guards.
+python3 scripts/verify-brand-block1-final.py

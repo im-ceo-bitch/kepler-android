@@ -89,6 +89,34 @@ android {
     }
 }
 
+// A Kotlin/Compose project cannot add the Flutter cupertino_icons Dart package
+// as a Gradle library. Bootstrap the same real MIT-licensed icon font + Flutter
+// codepoints instead; no hand-drawn glyph fallback is permitted.
+val bootstrapCupertinoIcons by tasks.registering(Exec::class) {
+    group = "visual assets"
+    description = "Install official Flutter CupertinoIcons font and exhaustive Kotlin glyph mapping."
+    commandLine("python3", rootProject.file("scripts/install-cupertino-assets.py").absolutePath)
+    inputs.file(rootProject.file("third_party/cupertino_icons/symbol-map.json"))
+    inputs.file(file("src/main/java/com/iumrah/beta/ui/cupertino/CupertinoIcons.kt"))
+    outputs.file(file("src/main/res/font/cupertino_icons.ttf"))
+    listOf("light", "regular", "medium", "semibold", "bold", "heavy").forEach { weight ->
+        outputs.file(file("src/main/res/font/lato_$weight.ttf"))
+    }
+    outputs.file(file("src/main/java/com/iumrah/beta/ui/cupertino/CupertinoGlyphCodepoints.kt"))
+    outputs.file(rootProject.file("third_party/cupertino_icons/glyph-resolution.json"))
+}
+
+// Resource merge, Kotlin compile, and all Gradle build variants must wait until
+// the typeface and source registry are available (including clean CI checkouts).
+tasks.configureEach {
+    if (name == "preBuild" ||
+        (name.startsWith("compile") && name.endsWith("Kotlin")) ||
+        (name.startsWith("merge") && name.endsWith("Resources"))
+    ) {
+        dependsOn(bootstrapCupertinoIcons)
+    }
+}
+
 dependencies {
     val composeBom = platform("androidx.compose:compose-bom:2026.06.01")
     implementation(composeBom)

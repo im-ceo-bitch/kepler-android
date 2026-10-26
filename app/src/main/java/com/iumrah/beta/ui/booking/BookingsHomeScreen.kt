@@ -75,6 +75,7 @@ import com.iumrah.beta.models.booking.BookingGeneratorFlightSnapshot
 import com.iumrah.beta.models.booking.BookingItineraryItem
 import com.iumrah.beta.models.booking.StoredBookingSession
 import com.iumrah.beta.ui.components.IumrahPressable
+import com.iumrah.beta.ui.components.IumrahRootPageHeader
 import com.iumrah.beta.ui.cupertino.CupertinoIcon
 import com.iumrah.beta.ui.cupertino.CupertinoSymbol
 import java.text.NumberFormat
@@ -219,13 +220,13 @@ private fun ActiveBookingHome(
         verticalArrangement = Arrangement.spacedBy(0.dp),
     ) {
         item {
-            BookingRootHeader(
-                language = language,
+            IumrahRootPageHeader(
                 title = L10n.text("tab_booking", language),
+                chrome = chrome,
                 usesBrandLogo = true,
+                showsConnectivityStatus = false,
                 showsMakkahTime = false,
                 unreadCount = unreadCount,
-                chrome = chrome,
             )
             Spacer(Modifier.height(16.dp))
             JourneyTravelInfoPanel(language = language)
@@ -1892,13 +1893,10 @@ private fun EmptyBookingHome(
         verticalArrangement = Arrangement.spacedBy(18.dp),
     ) {
         item {
-            BookingRootHeader(
-                language = language,
+            IumrahRootPageHeader(
                 title = L10n.text("tab_booking", language),
-                usesBrandLogo = false,
-                showsMakkahTime = true,
-                unreadCount = unreadCount,
                 chrome = chrome,
+                unreadCount = unreadCount,
             )
         }
         item { EmptyStatusCard(language) }

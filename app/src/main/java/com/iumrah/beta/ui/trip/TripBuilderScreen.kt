@@ -624,9 +624,9 @@ private fun WeekendDatesSummary(
             }
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Icon(if (selection == CuratedLegSelection.OUTBOUND) CupertinoSymbol.AirplaneTakeoff else CupertinoSymbol.AirplaneLand, null, Modifier.size(15.dp))
-                Text(leg.origin, fontSize = 15.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
+                Text(leg.origin, fontSize = 15.sp, fontWeight = FontWeight.Bold, fontFamily = com.iumrah.beta.core.design.IumrahFontFamily)
                 Icon(CupertinoSymbol.ArrowRight, null, Modifier.size(13.dp), tint = MaterialTheme.colorScheme.onSurface.copy(alpha = .45f))
-                Text(leg.destination, fontSize = 15.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
+                Text(leg.destination, fontSize = 15.sp, fontWeight = FontWeight.Bold, fontFamily = com.iumrah.beta.core.design.IumrahFontFamily)
                 Spacer(Modifier.weight(1f))
                 Text(shortDate(language, date), fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface.copy(alpha = .55f))
             }
@@ -942,7 +942,7 @@ private fun tierBullets(l: AppLanguage, t: PackageTier): List<String> = when (t)
 }
 
 @Composable private fun WeekendRouteSummary(origin: String) { Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(19.dp)).background(generatorRaisedColor()).padding(14.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) { RouteCode(origin, Modifier.weight(1f)); Icon(CupertinoSymbol.ArrowRight, null, Modifier.size(14.dp)); RouteCode("JED", Modifier.weight(1f)); Icon(CupertinoSymbol.ArrowRight, null, Modifier.size(14.dp)); RouteCode(origin, Modifier.weight(1f)) } }
-@Composable private fun RouteCode(code: String, modifier: Modifier = Modifier) { Box(modifier.height(42.dp).clip(RoundedCornerShape(14.dp)).background(generatorPageColor()), contentAlignment = Alignment.Center) { Text(code, fontSize = 16.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace) } }
+@Composable private fun RouteCode(code: String, modifier: Modifier = Modifier) { Box(modifier.height(42.dp).clip(RoundedCornerShape(14.dp)).background(generatorPageColor()), contentAlignment = Alignment.Center) { Text(code, fontSize = 16.sp, fontWeight = FontWeight.Bold, fontFamily = com.iumrah.beta.core.design.IumrahFontFamily) } }
 
 private fun flightChoiceTitle(l: AppLanguage) = tr(l, "Сначала выберите перелёт", "Choose your flight first", "Avval parvozni tanlang", "Аввал парвозни танланг")
 private fun flightChoiceBody(l: AppLanguage) = tr(l, "Выберите прямой рейс с подходящими датами. Если даты важнее рейса, используйте гибкий календарь.", "Choose a direct flight with suitable dates. If your dates matter more than the flight, use the flexible calendar.", "Mos sanali to‘g‘ridan-to‘g‘ri reysni tanlang. Agar sana muhimroq bo‘lsa, moslashuvchan kalendardan foydalaning.", "Мос санали тўғридан-тўғри рейсни танланг. Агар сана муҳимроқ бўлса, мослашувчан календардан фойдаланинг.")

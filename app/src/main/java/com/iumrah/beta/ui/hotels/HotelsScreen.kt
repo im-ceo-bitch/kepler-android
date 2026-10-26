@@ -17,6 +17,7 @@ import android.util.Base64
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -34,9 +35,11 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.requiredWidth
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -81,6 +84,8 @@ import com.iumrah.beta.R
 import com.iumrah.beta.core.config.AppConfig
 import com.iumrah.beta.core.localization.L10n
 import com.iumrah.beta.core.design.IumrahHaptics
+import com.iumrah.beta.core.design.IumrahColors
+import com.iumrah.beta.ui.cupertino.IumrahIconBadge
 import com.iumrah.beta.core.navigation.AppChromeStore
 import com.iumrah.beta.core.share.IumrahPackageShare
 import com.iumrah.beta.core.settings.AppLanguage
@@ -100,6 +105,8 @@ import com.iumrah.beta.ui.flights.FlightAssemblyCard
 import com.iumrah.beta.ui.components.IumrahPressable
 import com.iumrah.beta.ui.components.IumrahPrimaryButton
 import com.iumrah.beta.ui.components.IumrahRootPageHeader
+import com.iumrah.beta.ui.components.iumrahSignatureBleed
+import com.iumrah.beta.ui.components.IumrahSignatureWorldBackground
 import com.iumrah.beta.ui.cupertino.CupertinoIcon
 import com.iumrah.beta.ui.cupertino.CupertinoSymbol
 import com.iumrah.beta.ui.cupertino.CupertinoRatingStars
@@ -303,17 +310,35 @@ fun HotelsScreen(
         modifier = Modifier.fillMaxSize(),
     ) {
     LazyColumn(
-        modifier = Modifier.fillMaxSize().statusBarsPadding(),
+        modifier = Modifier.fillMaxSize(),
         contentPadding = androidx.compose.foundation.layout.PaddingValues(
             start = 18.dp, end = 18.dp, top = 10.dp,
             bottom = if (board == HotelsBoard.FLIGHTS) (if (assemblyExpanded) 410.dp else 220.dp) else 118.dp,
         ),
         verticalArrangement = Arrangement.spacedBy(22.dp),
     ) {
-        item { IumrahRootPageHeader(pageTitle, chrome, unreadCount = unreadCount) }
-        // The airport button is intentionally absent from iOS' Flights board;
-        // that board owns a dedicated search-origin selector inside discovery.
-        if (board != HotelsBoard.FLIGHTS) item {
+        // The October 26 iOS signature patch supersedes the older coloured 94dp
+        // tabs. One uninterrupted black+world map backdrop owns BOTH header
+        // and monochrome Hotels / Flights / Sunday capsule controls.
+        item {
+            BoxWithConstraints(Modifier.fillMaxWidth()) {
+                Box(Modifier.iumrahSignatureBleed()) {
+                    IumrahSignatureWorldBackground(Modifier.matchParentSize())
+                    Column(Modifier.fillMaxWidth().padding(horizontal = 18.dp)) {
+                        IumrahRootPageHeader(
+                            pageTitle,
+                            chrome,
+                            unreadCount = unreadCount,
+                            drawsSignatureBackground = false,
+                        )
+                        StorefrontSegmentedControl(language, board) { board = it }
+                        Spacer(Modifier.height(19.dp))
+                    }
+                }
+            }
+        }
+        // The airport selector is deliberately BELOW the shared dark surface.
+        item {
             AirportSelector(
                 language = language,
                 airport = journeyState.trip.originAirport,
@@ -323,7 +348,6 @@ fun HotelsScreen(
                 onLocate = ::locateAirport,
             )
         }
-        item { StorefrontSegmentedControl(language, board) { board = it } }
 
         when (board) {
             HotelsBoard.HOTELS -> {
@@ -421,7 +445,13 @@ fun HotelsScreen(
                     bestFlightPackage(option, flightPackages)?.let { preview -> option to preview }
                 }
                 if (ready.isNotEmpty()) {
-                    item { StorefrontSectionHeader(hotelText(language, "published"), hotelText(language, "current")) }
+                    item {
+                        StorefrontSectionHeader(
+                            title = readyPackagesTitle(language),
+                            eyebrow = "FLIGHT FIRST",
+                            subtitle = readyPackagesSubtitle(language),
+                        )
+                    }
                     items(ready, key = { "ready-flight-${it.first.id}" }) { (option, preview) ->
                         StorefrontFlightCard(
                             option = option,
@@ -431,6 +461,8 @@ fun HotelsScreen(
                             onClick = { chrome.openFlightPackage(preview.id) },
                         )
                     }
+                } else if (loading) {
+                    item { LoadingStorefront(language, readyPackagesLoadingText(language)) }
                 }
             }
 
@@ -517,62 +549,82 @@ private fun AirportSelector(
     onClick: () -> Unit,
     onLocate: () -> Unit,
 ) {
-    IumrahPressable(
-        onClick = onClick,
-        modifier = Modifier.fillMaxWidth(),
-        cornerRadius = 17.dp,
-        background = MaterialTheme.colorScheme.surfaceVariant,
-        shadowElevation = 0.dp,
+    // SwiftUI AirportSelectorButton has TWO sibling buttons inside a single
+    // 17pt raised surface. A clickable parent must not intercept the location
+    // button or open the picker when the user taps the location icon.
+    val shape = RoundedCornerShape(17.dp)
+    Row(
+        Modifier.fillMaxWidth()
+            .clip(shape)
+            .background(MaterialTheme.colorScheme.surfaceVariant)
+            .border(.7.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = .07f), shape)
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(0.dp),
     ) {
-        Row(
-            Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(13.dp),
+        IumrahPressable(
+            onClick = onClick,
+            modifier = Modifier.weight(1f),
+            pressedScale = 1f,
+            cornerRadius = 12.dp,
+            background = Color.Transparent,
+            shadowElevation = 0.dp,
         ) {
-            Box(
-                Modifier.size(38.dp).clip(CircleShape).background(Color(0xFF007AFF).copy(alpha = .12f)),
-                contentAlignment = Alignment.Center,
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(13.dp),
             ) {
-                CupertinoIcon(CupertinoSymbol.Airplane, null, Modifier.size(17.dp), Color(0xFF007AFF))
-            }
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text(
-                    text = L10n.text("airport_title", language),
-                    fontSize = 11.sp,
-                    lineHeight = 13.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = .48f),
+                IumrahIconBadge(
+                    symbol = CupertinoSymbol.AirplaneTakeoff, // SF airplane.departure
+                    tint = IumrahColors.SystemBlue,
+                    size = 38.dp,
+                    symbolSize = 17.dp,
+                    circle = true,
                 )
-                Text(
-                    text = airport?.compactTitle ?: fallbackCode,
-                    fontSize = 15.sp,
-                    lineHeight = 18.sp,
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                if (airport != null) {
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     Text(
-                        text = airport.name,
-                        fontSize = 11.sp,
-                        lineHeight = 13.sp,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = .48f),
+                        text = L10n.text("airport_title", language),
+                        fontSize = 12.sp,
+                        lineHeight = 15.sp,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = .58f),
+                    )
+                    Text(
+                        text = airport?.compactTitle ?: fallbackCode,
+                        fontSize = 17.sp,
+                        lineHeight = 21.sp,
+                        fontWeight = FontWeight.Bold,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
+                    if (airport != null) {
+                        Text(
+                            text = airport.name,
+                            fontSize = 12.sp,
+                            lineHeight = 15.sp,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = .58f),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
                 }
             }
-            IumrahPressable(
-                onClick = onLocate,
-                modifier = Modifier.size(42.dp),
-                cornerRadius = 21.dp,
-                background = Color.Transparent,
-                shadowElevation = 0.dp,
-            ) {
-                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    if (locating) CircularProgressIndicator(Modifier.size(17.dp), strokeWidth = 2.dp)
-                    else CupertinoIcon(CupertinoSymbol.Location, null, Modifier.size(17.dp), MaterialTheme.colorScheme.onSurface)
-                }
+        }
+        IumrahPressable(
+            onClick = onLocate,
+            modifier = Modifier.size(42.dp),
+            pressedScale = 1f,
+            cornerRadius = 21.dp,
+            background = Color.Transparent,
+            shadowElevation = 0.dp,
+        ) {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                if (locating) CircularProgressIndicator(Modifier.size(17.dp), strokeWidth = 2.dp)
+                else CupertinoIcon(
+                    CupertinoSymbol.Location, // closest Cupertino licensed analogue of SF location.fill
+                    null,
+                    Modifier.size(15.dp),
+                    MaterialTheme.colorScheme.onSurface,
+                )
             }
         }
     }
@@ -667,29 +719,44 @@ private fun AirportPickerDialog(
     }
 }
 
+/** Updated iOS Oct 26 boardTile: 3 x 41pt monochrome capsules on the dark map. */
 @Composable
-private fun StorefrontSegmentedControl(language: AppLanguage, selected: HotelsBoard, onSelect: (HotelsBoard) -> Unit) {
+private fun StorefrontSegmentedControl(
+    language: AppLanguage,
+    selected: HotelsBoard,
+    onSelect: (HotelsBoard) -> Unit,
+) {
     val view = LocalView.current
     val segments = listOf(
-        HotelsBoard.HOTELS to L10n.text("tab_hotels", language),
-        HotelsBoard.FLIGHTS to hotelText(language, "flights"),
-        HotelsBoard.SUNDAY to hotelText(language, "weekend"),
+        Triple(HotelsBoard.HOTELS, L10n.text("tab_hotels", language), CupertinoSymbol.Building),
+        Triple(HotelsBoard.FLIGHTS, hotelText(language, "flights"), CupertinoSymbol.Airplane),
+        Triple(HotelsBoard.SUNDAY, hotelText(language, "weekend"), CupertinoSymbol.Calendar),
     )
-    Row(
-        Modifier.fillMaxWidth().height(38.dp).clip(RoundedCornerShape(10.dp)).background(MaterialTheme.colorScheme.surfaceVariant).padding(2.dp),
-        horizontalArrangement = Arrangement.spacedBy(2.dp),
-    ) {
-        segments.forEach { (board, label) ->
-            val active = board == selected
-            val fill by animateColorAsState(if (active) MaterialTheme.colorScheme.surface else Color.Transparent, label = "storefront-segment")
-            Box(
-                Modifier.weight(1f).fillMaxSize().clip(RoundedCornerShape(8.dp)).background(fill).clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) {
-                    if (board != selected) IumrahHaptics.selection(view)
-                    onSelect(board)
-                },
-                contentAlignment = Alignment.Center,
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+        segments.forEach { (target, label, icon) ->
+            val active = selected == target
+            val fill by animateColorAsState(
+                targetValue = if (active) Color.White else Color.Transparent,
+                animationSpec = tween(durationMillis = 260),
+                label = "storefront-signature-tile",
+            )
+            val tint = if (active) IumrahColors.SignatureBlack else Color.White
+            Row(
+                modifier = Modifier.weight(1f).height(41.dp)
+                    .clip(CircleShape)
+                    .background(fill)
+                    .border(.9.dp, Color.White.copy(alpha = if (active) 0f else .38f), CircleShape)
+                    .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) {
+                        if (!active) {
+                            IumrahHaptics.selection(view)
+                            onSelect(target)
+                        }
+                    },
+                horizontalArrangement = Arrangement.spacedBy(5.dp, Alignment.CenterHorizontally),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text(label, fontSize = 12.sp, lineHeight = 14.sp, fontWeight = if (active) FontWeight.SemiBold else FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                CupertinoIcon(icon, null, Modifier.size(13.dp), tint)
+                Text(label, color = tint, fontSize = 11.5.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         }
     }
@@ -723,10 +790,13 @@ private fun ShowcaseHero(image: Int, title: String, description: String, note: S
 }
 
 @Composable
-private fun StorefrontSectionHeader(title: String, eyebrow: String) {
+private fun StorefrontSectionHeader(title: String, eyebrow: String, subtitle: String? = null) {
     Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
         Text(eyebrow.uppercase(), fontSize = 12.sp, lineHeight = 15.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface.copy(alpha = .56f), letterSpacing = .7.sp)
         Text(title, fontSize = 32.sp, lineHeight = 36.sp, fontWeight = FontWeight.Bold, letterSpacing = (-.7).sp)
+        subtitle?.let {
+            Text(it, fontSize = 15.sp, lineHeight = 20.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = .56f))
+        }
     }
 }
 
@@ -1068,11 +1138,11 @@ private fun NoFlightsCard(language: AppLanguage) {
 }
 
 @Composable
-private fun LoadingStorefront(language: AppLanguage) {
+private fun LoadingStorefront(language: AppLanguage, message: String = hotelText(language, "loading")) {
     Row(Modifier.fillMaxWidth().height(92.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
         CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
         Spacer(Modifier.width(10.dp))
-        Text(hotelText(language, "loading"), fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = .52f))
+        Text(message, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = .52f))
     }
 }
 
@@ -1353,6 +1423,29 @@ private suspend fun requestSingleLocation(manager: LocationManager): Location? =
     continuation.invokeOnCancellation { runCatching { manager.removeUpdates(listener) } }
     runCatching { manager.requestSingleUpdate(provider, listener, Looper.getMainLooper()) }
         .onFailure { if (continuation.isActive) continuation.resume(null) }
+}
+
+// Exact four-language iOS ready-flight-package labels. Flight and pricing
+// services are unchanged; this only replaces the incorrect Android header.
+private fun readyPackagesTitle(language: AppLanguage) = when (language) {
+    AppLanguage.RUSSIAN -> "Готовые пакеты"
+    AppLanguage.ENGLISH -> "Ready packages"
+    AppLanguage.UZBEK -> "Tayyor paketlar"
+    AppLanguage.UZBEK_CYRILLIC -> "Тайёр пакетлар"
+}
+
+private fun readyPackagesSubtitle(language: AppLanguage) = when (language) {
+    AppLanguage.RUSSIAN -> "Только полностью собранные пакеты iumrah с рейсами, отелями и сервисами."
+    AppLanguage.ENGLISH -> "Only fully assembled iumrah packages with flights, hotels and services."
+    AppLanguage.UZBEK -> "Faqat reyslar, mehmonxonalar va xizmatlar bilan to‘liq yig‘ilgan iumrah paketlari."
+    AppLanguage.UZBEK_CYRILLIC -> "Фақат рейслар, меҳмонхоналар ва хизматлар билан тўлиқ йиғилган iumrah пакетлари."
+}
+
+private fun readyPackagesLoadingText(language: AppLanguage) = when (language) {
+    AppLanguage.RUSSIAN -> "Обновляем готовые пакеты…"
+    AppLanguage.ENGLISH -> "Refreshing ready packages…"
+    AppLanguage.UZBEK -> "Tayyor paketlar yangilanmoqda…"
+    AppLanguage.UZBEK_CYRILLIC -> "Тайёр пакетлар янгиланмоқда…"
 }
 
 private fun hotelText(language: AppLanguage, key: String): String {

@@ -334,7 +334,7 @@ private fun CopyRow(context: Context, title: String, value: String) {
     Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .58f)).clickable { copy(context, value) }.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {
             Text(title, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = .52f))
-            Text(value, fontFamily = FontFamily.Monospace, fontSize = 12.sp, fontWeight = FontWeight.Medium, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            Text(value, fontFamily = com.iumrah.beta.core.design.IumrahFontFamily, fontSize = 12.sp, fontWeight = FontWeight.Medium, maxLines = 2, overflow = TextOverflow.Ellipsis)
         }
         Icon(CupertinoSymbol.Copy, null, modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurface.copy(alpha = .5f))
     }

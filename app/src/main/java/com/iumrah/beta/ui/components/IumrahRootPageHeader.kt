@@ -1,9 +1,12 @@
 package com.iumrah.beta.ui.components
 
 import android.content.Context
-import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.snap
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
@@ -14,14 +17,17 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.requiredWidth
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
@@ -38,6 +44,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
@@ -46,10 +53,15 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.iumrah.beta.R
+import com.iumrah.beta.core.design.IumrahColors
 import com.iumrah.beta.IumrahApplication
+import com.iumrah.beta.core.settings.AppLanguage
+import com.iumrah.beta.core.localization.L10n
+import android.provider.Settings
 import com.iumrah.beta.core.network.IumrahConnectivityStatus
 import com.iumrah.beta.core.navigation.AppChromeStore
 import com.iumrah.beta.ui.cupertino.CupertinoIcon
@@ -71,13 +83,89 @@ fun IumrahRootPageHeader(
     unreadCount: Int = 0,
     showsMakkahTime: Boolean = false,
     lightStyle: Boolean = false,
+    drawsSignatureBackground: Boolean = true,
+    language: AppLanguage = AppLanguage.ENGLISH,
 ) {
     BoxWithConstraints(
         modifier = modifier
             .fillMaxWidth()
             .statusBarsPadding(),
     ) {
-        if (usesBrandLogo && showsConnectivityStatus) {
+        if (!lightStyle) {
+            // Mirror SwiftUI ViewThatFits: choose the first ROW that fits,
+            // not a hardcoded device breakpoint. maxWidth here is the inner
+            // content width (screen width minus 36dp horizontal gutters).
+            // SwiftUI HStack includes explicit spacing on EITHER side of
+            // Spacer(minLength:0), so count 4 gaps when status is present.
+            // Wide:   132+88+42+42+4*9=340; medium: 105+88+38+38+4*7=297.
+            // No status: 132+42+42+3*9=243; medium: 105+38+38+3*7=202.
+            val wideNeeded = if (showsConnectivityStatus) 340.dp else 243.dp
+            val mediumNeeded = if (showsConnectivityStatus) 297.dp else 202.dp
+            val rowMode = when {
+                maxWidth >= wideNeeded -> 0
+                maxWidth >= mediumNeeded -> 1
+                else -> 2
+            }
+            val brandWidth = when (rowMode) {
+                0 -> 132.dp
+                1 -> 105.dp
+                else -> 84.dp
+            }
+            val controlSize = when (rowMode) {
+                0 -> 42.dp
+                1 -> 38.dp
+                else -> 36.dp
+            }
+            val spacing = when (rowMode) {
+                0 -> 9.dp
+                1 -> 7.dp
+                else -> 5.dp
+            }
+            // iOS uses .padding(.horizontal, -18) around the signature header.
+            // Expand the header BOTH ways, instead of spilling only to the right.
+            // Hotels already owns the expanded shared surface; do not expand twice.
+            Box(
+                if (drawsSignatureBackground) Modifier.iumrahSignatureBleed()
+                else Modifier.fillMaxWidth()
+            ) {
+                if (drawsSignatureBackground) {
+                    IumrahSignatureWorldBackground(Modifier.matchParentSize())
+                }
+                androidx.compose.foundation.layout.Column(
+                    modifier = Modifier.fillMaxWidth()
+                        .padding(horizontal = 18.dp)
+                        .padding(top = 14.dp, bottom = if (showsConnectivityStatus) 22.dp else 25.dp),
+                    verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(18.dp),
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(spacing),
+                    ) {
+                        BrandWordmark(brandWidth, 1f, lightStyle = true, fixedHeight = 42.dp)
+                        Spacer(Modifier.weight(1f))
+                        if (showsConnectivityStatus) {
+                            AnimatedConnectivityIndicator(
+                                lightStyle = true,
+                                language = language,
+                            )
+                        }
+                        SignatureHeaderButton(if (unreadCount > 0) CupertinoSymbol.BellBadge else CupertinoSymbol.Bell, controlSize, unreadCount, chrome::openNotifications)
+                        SignatureHeaderButton(CupertinoSymbol.Menu, controlSize, 0, chrome::openSidebar)
+                    }
+                    if (!showsConnectivityStatus) {
+                        Text(
+                            title,
+                            fontSize = 34.sp,
+                            lineHeight = 39.sp,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = (-.8).sp,
+                            color = Color.White,
+                            maxLines = 2,
+                        )
+                    }
+                }
+            }
+        } else if (usesBrandLogo && showsConnectivityStatus) {
             val compact = maxWidth < 370.dp
             val veryCompact = maxWidth < 340.dp
             val brandWidth = when {
@@ -148,14 +236,55 @@ fun IumrahRootPageHeader(
 }
 
 @Composable
-private fun BrandWordmark(width: Dp, scale: Float, lightStyle: Boolean) {
+private fun SignatureHeaderButton(
+    symbol: CupertinoSymbol,
+    size: Dp,
+    unreadCount: Int,
+    onClick: () -> Unit,
+) {
+    Box {
+        Surface(
+            modifier = Modifier.size(size),
+            onClick = onClick,
+            shape = CircleShape,
+            color = Color.White.copy(alpha = .105f),
+            border = BorderStroke(.8.dp, Color.White.copy(alpha = .25f)),
+            tonalElevation = 0.dp,
+            shadowElevation = 0.dp,
+        ) {
+            Box(Modifier.size(size), contentAlignment = Alignment.Center) {
+                CupertinoIcon(symbol, null, Modifier.size(17.dp), Color.White)
+            }
+        }
+        if (unreadCount > 0) {
+            // iOS unreadDot: a 16pt red capsule, white 1pt outline,
+            // numeral (or 9+) and topTrailing offset (+3, -4).
+            Box(
+                modifier = Modifier.align(Alignment.TopEnd)
+                    .offset(x = 3.dp, y = (-4).dp)
+                    .height(16.dp)
+                    .clip(RoundedCornerShape(50))
+                    .background(Color(0xFFFF3B30))
+                    .border(1.dp, Color.White.copy(alpha = .95f), RoundedCornerShape(50))
+                    .width(if (unreadCount > 9) 26.dp else 16.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(if (unreadCount > 9) "9+" else unreadCount.toString(), color = Color.White,
+                    fontSize = 9.sp, lineHeight = 10.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+            }
+        }
+    }
+}
+
+@Composable
+private fun BrandWordmark(width: Dp, scale: Float, lightStyle: Boolean, fixedHeight: Dp? = null) {
     Image(
         painter = painterResource(
             if (lightStyle || isSystemInDarkTheme()) R.drawable.iumrah_header_wordmark_dark
             else R.drawable.iumrah_header_wordmark_light,
         ),
         contentDescription = "iumrah",
-        modifier = Modifier.width(width).height(46.dp * scale),
+        modifier = Modifier.width(width).height(fixedHeight ?: (46.dp * scale)),
         contentScale = ContentScale.Fit,
         alignment = Alignment.CenterStart,
     )
@@ -179,7 +308,7 @@ private fun HeaderControls(
                     onClick = chrome::openNotifications,
                 ) {
                     CupertinoIcon(
-                        if (unreadCount > 0) CupertinoSymbol.BellBadge else CupertinoSymbol.BellSignal,
+                        if (unreadCount > 0) CupertinoSymbol.BellSignal else CupertinoSymbol.Bell,
                         contentDescription = "Notifications",
                         modifier = Modifier.size(17.dp),
                         tint = if (lightStyle) Color.White else MaterialTheme.colorScheme.onSurface,
@@ -272,12 +401,41 @@ private fun MakkahClock(lightStyle: Boolean) {
 private fun AnimatedConnectivityIndicator(
     lightStyle: Boolean,
     modifier: Modifier = Modifier,
+    language: AppLanguage = AppLanguage.ENGLISH,
 ) {
     val app = LocalContext.current.applicationContext as IumrahApplication
     val status by app.container.connectivityMonitor.status.collectAsState()
-    val online = status == IumrahConnectivityStatus.ONLINE
+    val motionEnabled = remember(LocalContext.current) {
+        runCatching { Settings.Global.getFloat(
+            app.contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f
+        ) > 0f }.getOrDefault(true)
+    }
+    val localizedStatus = when (status) {
+        IumrahConnectivityStatus.CHECKING -> when(language) {
+            AppLanguage.RUSSIAN -> "Проверка"
+            AppLanguage.UZBEK -> "Tekshirilmoqda"
+            AppLanguage.UZBEK_CYRILLIC -> "Текширилмоқда"
+            AppLanguage.ENGLISH -> "Checking"
+        }
+        IumrahConnectivityStatus.ONLINE -> when(language) {
+            AppLanguage.RUSSIAN -> "В сети"
+            AppLanguage.UZBEK -> "Onlayn"
+            AppLanguage.UZBEK_CYRILLIC -> "Онлайн"
+            AppLanguage.ENGLISH -> "Online"
+        }
+        IumrahConnectivityStatus.OFFLINE -> when(language) {
+            AppLanguage.RUSSIAN -> "Не в сети"
+            AppLanguage.UZBEK -> "Oflayn"
+            AppLanguage.UZBEK_CYRILLIC -> "Офлайн"
+            AppLanguage.ENGLISH -> "Offline"
+        }
+    }
     var expanded by remember(status) { mutableStateOf(false) }
     LaunchedEffect(status) {
+        if (!motionEnabled) {
+            expanded = status != IumrahConnectivityStatus.CHECKING
+            return@LaunchedEffect
+        }
         if (status == IumrahConnectivityStatus.CHECKING) {
             expanded = false
             return@LaunchedEffect
@@ -294,28 +452,49 @@ private fun AnimatedConnectivityIndicator(
     val rotation by infinite.animateFloat(
         initialValue = 0f,
         targetValue = 360f,
-        animationSpec = infiniteRepeatable(tween(1550, easing = FastOutSlowInEasing), RepeatMode.Restart),
+        animationSpec = infiniteRepeatable(tween(1550, easing = LinearEasing), RepeatMode.Restart),
         label = "connectivity-rotation",
     )
-    val width = if (expanded) 88.dp else 34.dp
-    val gradientColors = if (expanded) {
-        if (online) listOf(Color(0xFF16E0ED), Color(0xFF24F2B2), Color.White, Color(0xFF1DE8B8), Color(0xFF16E0ED))
-        else listOf(Color(0xFFFF1457), Color(0xFFFF2B8E), Color.White, Color(0xFFF5277A), Color(0xFFFF1457))
-    } else {
-        listOf(Color(0xFF2EF55E), Color(0xFF14E6F0), Color(0xFF336BFF), Color(0xFF9E2EFA), Color(0xFFFF1F8A), Color(0xFFFFA81A), Color(0xFF2EF55E))
+    val width by animateDpAsState(
+        targetValue = if (expanded) 88.dp else 34.dp,
+        animationSpec = if (motionEnabled) spring(dampingRatio = .82f, stiffness = 220f) else snap(),
+        label = "connectivity-pill-morph",
+    )
+    // iOS ConnectivityStatusPill.swift uses a WHITE/GRAY angular rail in
+    // both states. The old cyan/pink/rainbow Android rail broke the brand.
+    val gradientStops = listOf(
+        0f to Color.White.copy(alpha = .55f),
+        .20f to Color.White.copy(alpha = .98f),
+        .47f to Color(0xFF666666),
+        .65f to Color(0xFF2E2E2E),
+        .86f to Color.White.copy(alpha = .86f),
+        1f to Color.White.copy(alpha = .55f),
+    )
+    // SwiftUI AngularGradient uses nonuniform stops and rotates the RAIL,
+    // not the button content. Resample the same stops at 64 positions to
+    // rotate without changing the capsule/text/globe geometry.
+    val angularPhase = (if (motionEnabled) rotation else 18f) / 360f
+    val rotatedStops = (0..64).map { sample ->
+        val x = sample / 64f
+        val u = ((x - angularPhase) % 1f + 1f) % 1f
+        val right = gradientStops.indexOfFirst { it.first >= u }.coerceAtLeast(1)
+        val leftStop = gradientStops[right - 1]
+        val rightStop = gradientStops[right]
+        val weight = ((u - leftStop.first) / (rightStop.first - leftStop.first)).coerceIn(0f, 1f)
+        x to androidx.compose.ui.graphics.lerp(leftStop.second, rightStop.second, weight)
     }
+    Box(modifier.width(88.dp).height(34.dp), contentAlignment = Alignment.CenterEnd) {
     Box(
-        modifier
+        Modifier
             .width(width)
             .height(34.dp)
             .clip(RoundedCornerShape(17.dp))
             .background(Color.Black.copy(alpha = .985f))
             .border(
                 2.15.dp,
-                Brush.sweepGradient(gradientColors),
+                Brush.sweepGradient(*rotatedStops.toTypedArray()),
                 RoundedCornerShape(17.dp),
-            )
-            .graphicsLayer { rotationZ = rotation * .018f },
+            ),
         contentAlignment = Alignment.CenterEnd,
     ) {
         Row(
@@ -324,16 +503,21 @@ private fun AnimatedConnectivityIndicator(
         ) {
             if (expanded) {
                 Text(
-                    status.title,
+                    localizedStatus,
+                    modifier = Modifier.width(40.dp),
                     color = Color.White,
-                    fontSize = 11.5.sp,
+                    // SwiftUI's 40pt serif label allows a .86 scale floor.
+                    // Use the equivalent reduction for longer Lato translations.
+                    fontSize = if (localizedStatus.length > 7) 9.9.sp else 11.5.sp,
                     fontWeight = FontWeight.Bold,
+                    fontStyle = FontStyle.Italic,
                     maxLines = 1,
                 )
                 Spacer(Modifier.weight(1f))
             }
             CupertinoIcon(CupertinoSymbol.Globe, null, Modifier.size(19.dp), Color.White)
         }
+    }
     }
 }
 

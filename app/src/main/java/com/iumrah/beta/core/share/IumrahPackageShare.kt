@@ -23,8 +23,8 @@ object IumrahPackageShare {
         val image = File(dir, "iumrah-package-$slug.png")
         val pdf = File(dir, "iumrah-package-$slug.pdf")
         val link = "https://iumrah.app/flights/package/${snapshot.id}"
-        renderImage(snapshot, quote, language, link, image)
-        renderPdf(snapshot, quote, language, link, pdf)
+        renderImage(context, snapshot, quote, language, link, image)
+        renderPdf(context, snapshot, quote, language, link, pdf)
 
         val imageUri = FileProvider.getUriForFile(context, "${context.packageName}.files", image)
         val pdfUri = FileProvider.getUriForFile(context, "${context.packageName}.files", pdf)
@@ -53,57 +53,57 @@ object IumrahPackageShare {
         }
     }
 
-    private fun renderImage(snapshot: StorefrontPackageSnapshot, quote: PackageQuote?, language: AppLanguage, link: String, file: File) {
+    private fun renderImage(context: Context, snapshot: StorefrontPackageSnapshot, quote: PackageQuote?, language: AppLanguage, link: String, file: File) {
         val bitmap = android.graphics.Bitmap.createBitmap(1080, 1350, android.graphics.Bitmap.Config.ARGB_8888)
         val canvas = android.graphics.Canvas(bitmap)
         canvas.drawColor(Color.WHITE)
         val paint = Paint(Paint.ANTI_ALIAS_FLAG)
         paint.color = Color.BLACK
         canvas.drawRect(0f, 0f, 1080f, 310f, paint)
-        draw(canvas, paint, "iumrah", 72f, 120f, 62f, Color.WHITE, true)
-        draw(canvas, paint, "Configurator", 72f, 174f, 28f, 0xBFFFFFFF.toInt(), false)
+        draw(context, canvas, paint, "iumrah", 72f, 120f, 62f, Color.WHITE, true)
+        draw(context, canvas, paint, "Configurator", 72f, 174f, 28f, 0xBFFFFFFF.toInt(), false)
         val route = snapshot.routeSummary ?: snapshot.outbound?.let { "${it.origin} → ${it.destination}" }.orEmpty()
-        draw(canvas, paint, route, 72f, 250f, 34f, Color.WHITE, true)
-        draw(canvas, paint, snapshot.hotelName ?: "iumrah", 72f, 430f, 51f, Color.BLACK, true)
+        draw(context, canvas, paint, route, 72f, 250f, 34f, Color.WHITE, true)
+        draw(context, canvas, paint, snapshot.hotelName ?: "iumrah", 72f, 430f, 51f, Color.BLACK, true)
         val people = snapshot.configuration?.let { it.adults + it.children + it.infants } ?: 2
-        draw(canvas, paint, "${snapshot.tier.orEmpty()} · ${snapshot.totalDays ?: 0} days · $people pilgrims", 72f, 500f, 28f, Color.DKGRAY, false)
-        draw(canvas, paint, dateRange(snapshot, language), 72f, 550f, 24f, Color.GRAY, false)
-        draw(canvas, paint, money(quote?.pricePerPerson?.toDouble() ?: snapshot.pricePerPerson), 72f, 700f, 88f, Color.BLACK, true)
-        draw(canvas, paint, when(language){ AppLanguage.RUSSIAN -> "на человека"; AppLanguage.ENGLISH -> "per person"; AppLanguage.UZBEK -> "kishi boshiga"; AppLanguage.UZBEK_CYRILLIC -> "киши бошига" }, 72f, 750f, 27f, Color.GRAY, false)
-        draw(canvas, paint, "${money(quote?.totalPackagePrice?.toDouble() ?: snapshot.totalPackagePrice)} · full package", 72f, 835f, 34f, Color.DKGRAY, true)
+        draw(context, canvas, paint, "${snapshot.tier.orEmpty()} · ${snapshot.totalDays ?: 0} days · $people pilgrims", 72f, 500f, 28f, Color.DKGRAY, false)
+        draw(context, canvas, paint, dateRange(snapshot, language), 72f, 550f, 24f, Color.GRAY, false)
+        draw(context, canvas, paint, money(quote?.pricePerPerson?.toDouble() ?: snapshot.pricePerPerson), 72f, 700f, 88f, Color.BLACK, true)
+        draw(context, canvas, paint, when(language){ AppLanguage.RUSSIAN -> "на человека"; AppLanguage.ENGLISH -> "per person"; AppLanguage.UZBEK -> "kishi boshiga"; AppLanguage.UZBEK_CYRILLIC -> "киши бошига" }, 72f, 750f, 27f, Color.GRAY, false)
+        draw(context, canvas, paint, "${money(quote?.totalPackagePrice?.toDouble() ?: snapshot.totalPackagePrice)} · full package", 72f, 835f, 34f, Color.DKGRAY, true)
         paint.color = Color.BLACK
         canvas.drawRoundRect(72f, 1126f, 1008f, 1238f, 34f, 34f, paint)
-        draw(canvas, paint, when(language){ AppLanguage.RUSSIAN -> "Открыть в iumrah"; AppLanguage.ENGLISH -> "Open in iumrah"; AppLanguage.UZBEK -> "iumrah’da ochish"; AppLanguage.UZBEK_CYRILLIC -> "iumrah’да очиш" }, 112f, 1194f, 34f, Color.WHITE, true)
-        draw(canvas, paint, "iumrah.app", 72f, 1302f, 20f, Color.GRAY, false)
+        draw(context, canvas, paint, when(language){ AppLanguage.RUSSIAN -> "Открыть в iumrah"; AppLanguage.ENGLISH -> "Open in iumrah"; AppLanguage.UZBEK -> "iumrah’da ochish"; AppLanguage.UZBEK_CYRILLIC -> "iumrah’да очиш" }, 112f, 1194f, 34f, Color.WHITE, true)
+        draw(context, canvas, paint, "iumrah.app", 72f, 1302f, 20f, Color.GRAY, false)
         FileOutputStream(file).use { bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) }
         bitmap.recycle()
     }
 
-    private fun renderPdf(snapshot: StorefrontPackageSnapshot, quote: PackageQuote?, language: AppLanguage, link: String, file: File) {
+    private fun renderPdf(context: Context, snapshot: StorefrontPackageSnapshot, quote: PackageQuote?, language: AppLanguage, link: String, file: File) {
         val doc = PdfDocument()
         val page = doc.startPage(PdfDocument.PageInfo.Builder(595, 842, 1).create())
         val canvas = page.canvas
         val paint = Paint(Paint.ANTI_ALIAS_FLAG)
         paint.color = Color.BLACK
         canvas.drawRect(0f, 0f, 595f, 86f, paint)
-        draw(canvas, paint, "iumrah", 42f, 58f, 26f, Color.WHITE, true)
-        draw(canvas, paint, "CONFIGURATOR", 420f, 54f, 10f, 0xBFFFFFFF.toInt(), true)
-        draw(canvas, paint, snapshot.hotelName ?: "Umrah package", 42f, 140f, 26f, Color.BLACK, true)
-        draw(canvas, paint, snapshot.routeSummary ?: "${snapshot.originCode} → Saudi Arabia", 42f, 178f, 16f, Color.DKGRAY, false)
-        draw(canvas, paint, dateRange(snapshot, language), 42f, 210f, 13f, Color.GRAY, false)
-        draw(canvas, paint, money(quote?.totalPackagePrice?.toDouble() ?: snapshot.totalPackagePrice), 42f, 305f, 39f, Color.BLACK, true)
-        draw(canvas, paint, "${money(quote?.pricePerPerson?.toDouble() ?: snapshot.pricePerPerson)} · per person", 42f, 344f, 17f, Color.DKGRAY, true)
-        draw(canvas, paint, link, 42f, 735f, 10f, Color.GRAY, false)
-        draw(canvas, paint, "Price and availability are rechecked before booking.", 42f, 785f, 10f, Color.GRAY, false)
+        draw(context, canvas, paint, "iumrah", 42f, 58f, 26f, Color.WHITE, true)
+        draw(context, canvas, paint, "CONFIGURATOR", 420f, 54f, 10f, 0xBFFFFFFF.toInt(), true)
+        draw(context, canvas, paint, snapshot.hotelName ?: "Umrah package", 42f, 140f, 26f, Color.BLACK, true)
+        draw(context, canvas, paint, snapshot.routeSummary ?: "${snapshot.originCode} → Saudi Arabia", 42f, 178f, 16f, Color.DKGRAY, false)
+        draw(context, canvas, paint, dateRange(snapshot, language), 42f, 210f, 13f, Color.GRAY, false)
+        draw(context, canvas, paint, money(quote?.totalPackagePrice?.toDouble() ?: snapshot.totalPackagePrice), 42f, 305f, 39f, Color.BLACK, true)
+        draw(context, canvas, paint, "${money(quote?.pricePerPerson?.toDouble() ?: snapshot.pricePerPerson)} · per person", 42f, 344f, 17f, Color.DKGRAY, true)
+        draw(context, canvas, paint, link, 42f, 735f, 10f, Color.GRAY, false)
+        draw(context, canvas, paint, "Price and availability are rechecked before booking.", 42f, 785f, 10f, Color.GRAY, false)
         doc.finishPage(page)
         FileOutputStream(file).use { doc.writeTo(it) }
         doc.close()
     }
 
-    private fun draw(canvas: android.graphics.Canvas, paint: Paint, text: String, x: Float, y: Float, size: Float, color: Int, bold: Boolean) {
+    private fun draw(context: Context, canvas: android.graphics.Canvas, paint: Paint, text: String, x: Float, y: Float, size: Float, color: Int, bold: Boolean) {
         paint.textSize = size
         paint.color = color
-        paint.typeface = if (bold) Typeface.create(Typeface.DEFAULT, Typeface.BOLD) else Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
+        paint.typeface = androidx.core.content.res.ResourcesCompat.getFont(context, if (bold) com.iumrah.beta.R.font.lato_bold else com.iumrah.beta.R.font.lato_regular)
         canvas.drawText(text.take(90), x, y, paint)
     }
 

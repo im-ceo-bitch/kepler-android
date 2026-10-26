@@ -1,0 +1,3 @@
+Android-only cumulative UI source update: v4, 2026-10-26.
+Source references: unchanged iOS zip + user-supplied iOS signature header/world dot patch.
+Not an APK build or verified pixel-perfect port. Next: render + end-to-end validation.

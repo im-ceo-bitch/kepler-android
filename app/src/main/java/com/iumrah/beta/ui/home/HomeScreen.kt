@@ -124,6 +124,7 @@ fun HomeScreen(
                 usesBrandLogo = true,
                 brandScale = 1.25f,
                 showsConnectivityStatus = true,
+                language = language,
                 unreadCount = notificationState.unreadCount,
             )
         }
