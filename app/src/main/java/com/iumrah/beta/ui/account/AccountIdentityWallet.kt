@@ -345,7 +345,7 @@ private fun makeQrBitmap(value: String): Bitmap? = runCatching {
 }.getOrNull()
 
 @Composable
-fun IumrahLockedIdentityCardAndroid(language: AppLanguage) {
+fun IumrahLockedIdentityCardAndroid(language: AppLanguage, onUnlock: () -> Unit) {
     val shape = RoundedCornerShape(32.dp)
     val transition = rememberInfiniteTransition(label = "identity-seal")
     val shimmer by transition.animateFloat(
@@ -358,7 +358,8 @@ fun IumrahLockedIdentityCardAndroid(language: AppLanguage) {
     BoxWithConstraints(
         Modifier.fillMaxWidth().height(238.dp).shadow(24.dp, shape, clip = false).clip(shape)
             .background(Color.Black)
-            .border(.8.dp, Color.White.copy(alpha = .10f), shape),
+            .border(.8.dp, Color.White.copy(alpha = .10f), shape)
+            .clickable(onClick = onUnlock),
     ) {
         val cardWidth = maxWidth
         val halfWidth = (maxWidth / 2) + 1.dp

@@ -78,6 +78,7 @@ import java.util.Locale
 
 enum class GeneratorFlightChoice { PUBLISHED_DIRECT, FLEXIBLE_DATES, WEEKEND }
 private enum class CuratedLegSelection { OUTBOUND, RETURN }
+private enum class CuratedFlightDisplayMode { SEPARATE, ROUND_TRIP }
 
 @Composable
 fun TripBuilderScreen(
@@ -105,6 +106,7 @@ fun TripBuilderScreen(
     var selectedCompleteID by remember { mutableStateOf(journeyState.selectedPublishedCompleteID) }
     var selectedOutboundID by remember { mutableStateOf(journeyState.selectedPublishedOutboundID) }
     var selectedReturnID by remember { mutableStateOf(journeyState.selectedPublishedReturnID) }
+    var curatedDisplayMode by remember { mutableStateOf(CuratedFlightDisplayMode.SEPARATE) }
     var showDateCalendar by remember { mutableStateOf(false) }
     var showWeekendCalendar by remember { mutableStateOf(false) }
 
@@ -113,6 +115,7 @@ fun TripBuilderScreen(
     LaunchedEffect(routeKey) {
         val routeChanged = loadedRouteKey != null && loadedRouteKey != routeKey
         loadedRouteKey = routeKey
+        if (routeChanged) curatedDisplayMode = CuratedFlightDisplayMode.SEPARATE
         if (routeChanged && mode != GeneratorFlightChoice.WEEKEND) {
             // Mirrors SwiftUI onChange(routeSelectionKey): a real route edit returns
             // the generator to Published Direct and clears only stale flight IDs.
@@ -146,6 +149,29 @@ fun TripBuilderScreen(
     }.filter { recommendation ->
         if (selectedOutboundID == null) true
         else runCatching { LocalDate.parse(recommendation.outboundDate) }.getOrNull()?.let { !it.isBefore(draft.departureDate) } == true
+    }
+
+    // The API publishes both independent one-way legs and complete return offers.
+    // iOS defines a curatedRoundTripRow and auto-switches its display mode when
+    // independent legs are empty. Do not silently discard the complete offers.
+    val roundTripFlights = recommendations.filter { recommendation ->
+        val inbound = recommendation.inbound ?: return@filter false
+        val outboundDate = runCatching { LocalDate.parse(recommendation.outboundDate.take(10)) }.getOrNull()
+        val inboundDate = runCatching { LocalDate.parse(recommendation.inboundDate?.take(10) ?: "") }.getOrNull()
+        recommendation.nonstop && outboundDate != null && inboundDate != null && !inboundDate.isBefore(outboundDate) &&
+            recommendation.outbound.origin.equals(draft.originCode, true) &&
+            recommendation.outbound.destination.equals(draft.outboundDestinationCode, true) &&
+            inbound.origin.equals(draft.returnOriginCode, true) &&
+            inbound.destination.equals(draft.originCode, true)
+    }
+    LaunchedEffect(routeKey, recommendations) {
+        curatedDisplayMode = when {
+            curatedDisplayMode == CuratedFlightDisplayMode.SEPARATE &&
+                outboundFlights.isEmpty() && returnFlights.isEmpty() && roundTripFlights.isNotEmpty() -> CuratedFlightDisplayMode.ROUND_TRIP
+            curatedDisplayMode == CuratedFlightDisplayMode.ROUND_TRIP &&
+                roundTripFlights.isEmpty() -> CuratedFlightDisplayMode.SEPARATE
+            else -> curatedDisplayMode
+        }
     }
 
     val canContinue = draft.canContinue && when (mode) {
@@ -263,6 +289,25 @@ fun TripBuilderScreen(
                     returns = returnFlights,
                     selectedOutboundID = selectedOutboundID,
                     selectedReturnID = selectedReturnID,
+                    roundTrips = roundTripFlights,
+                    selectedCompleteID = selectedCompleteID,
+                    showRoundTrips = curatedDisplayMode == CuratedFlightDisplayMode.ROUND_TRIP,
+                    onDisplayModeChange = { curatedDisplayMode = if (it) CuratedFlightDisplayMode.ROUND_TRIP else CuratedFlightDisplayMode.SEPARATE },
+                    onRoundTrip = { recommendation ->
+                        val outboundDate = runCatching { LocalDate.parse(recommendation.outboundDate.take(10)) }.getOrNull()
+                        val inboundDate = runCatching { LocalDate.parse(recommendation.inboundDate?.take(10) ?: "") }.getOrNull()
+                        if (recommendation.inbound != null && outboundDate != null && inboundDate != null && !inboundDate.isBefore(outboundDate)) {
+                            draft = draft.copy(
+                                departureDate = outboundDate,
+                                returnDate = inboundDate,
+                                flexibility = DateFlexibility.EXACT,
+                                flightTripType = FlightTripType.ROUND_TRIP,
+                            )
+                            selectedCompleteID = recommendation.id
+                            selectedOutboundID = null
+                            selectedReturnID = null
+                        }
+                    },
                     onOutbound = { recommendation ->
                         val date = runCatching { LocalDate.parse(recommendation.outboundDate) }.getOrNull()
                         if (date != null) {
@@ -383,6 +428,8 @@ fun TripBuilderScreen(
                     selectedCompleteID = published.completeID
                     selectedOutboundID = published.outboundID
                     selectedReturnID = published.returnID
+                    curatedDisplayMode = if (published.completeID != null)
+                        CuratedFlightDisplayMode.ROUND_TRIP else CuratedFlightDisplayMode.SEPARATE
                 } else {
                     mode = GeneratorFlightChoice.FLEXIBLE_DATES
                     selectedCompleteID = null
@@ -520,6 +567,11 @@ private fun WeekendDatesSummary(
     returns: List<CuratedFlightRecommendation>,
     selectedOutboundID: String?,
     selectedReturnID: String?,
+    roundTrips: List<CuratedFlightRecommendation>,
+    selectedCompleteID: String?,
+    showRoundTrips: Boolean,
+    onDisplayModeChange: (Boolean) -> Unit,
+    onRoundTrip: (CuratedFlightRecommendation) -> Unit,
     onOutbound: (CuratedFlightRecommendation) -> Unit,
     onReturn: (CuratedFlightRecommendation) -> Unit,
 ) {
@@ -541,16 +593,30 @@ private fun WeekendDatesSummary(
                 Text("iumrah", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = orange)
             }
         }
-        if (loading && outbound.isEmpty() && returns.isEmpty()) {
+        if (loading && outbound.isEmpty() && returns.isEmpty() && roundTrips.isEmpty()) {
             Row(Modifier.fillMaxWidth().height(92.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
                 Text(curatedLoadingLabel(language), fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface.copy(alpha = .56f))
             }
         } else {
-            CuratedOneWayRow(language, curatedOutboundRowTitle(language), "$origin → $outboundDestination", outbound, selectedOutboundID, CuratedLegSelection.OUTBOUND, onOutbound)
-            Box(Modifier.fillMaxWidth().height(1.dp).background(MaterialTheme.colorScheme.onSurface.copy(alpha = .08f)))
-            CuratedOneWayRow(language, curatedReturnRowTitle(language), "$returnOrigin → $origin", returns, selectedReturnID, CuratedLegSelection.RETURN, onReturn)
-            if (error != null && outbound.isEmpty() && returns.isEmpty()) {
+            if (roundTrips.isNotEmpty() && (outbound.isNotEmpty() || returns.isNotEmpty())) {
+                CuratedFlightTypeSelector(language, showRoundTrips, onDisplayModeChange)
+            }
+            if (showRoundTrips && roundTrips.isNotEmpty()) {
+                CuratedRoundTripRow(
+                    language = language,
+                    title = curatedRoundTripRowTitle(language),
+                    subtitle = "$origin → $outboundDestination · $returnOrigin → $origin",
+                    values = roundTrips,
+                    selectedID = selectedCompleteID,
+                    onSelect = onRoundTrip,
+                )
+            } else {
+                CuratedOneWayRow(language, curatedOutboundRowTitle(language), "$origin → $outboundDestination", outbound, selectedOutboundID, CuratedLegSelection.OUTBOUND, onOutbound)
+                Box(Modifier.fillMaxWidth().height(1.dp).background(MaterialTheme.colorScheme.onSurface.copy(alpha = .08f)))
+                CuratedOneWayRow(language, curatedReturnRowTitle(language), "$returnOrigin → $origin", returns, selectedReturnID, CuratedLegSelection.RETURN, onReturn)
+            }
+            if (error != null && outbound.isEmpty() && returns.isEmpty() && roundTrips.isEmpty()) {
                 Text(error, fontSize = 11.sp, color = MaterialTheme.colorScheme.error.copy(alpha = .85f))
             }
         }

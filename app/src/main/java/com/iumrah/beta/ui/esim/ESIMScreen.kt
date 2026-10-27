@@ -4,8 +4,9 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
+import android.os.Build
+import android.telephony.euicc.EuiccManager
 import android.graphics.Bitmap
-import android.net.Uri
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -27,6 +28,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -68,10 +71,18 @@ import com.iumrah.beta.ui.components.IumrahPressable
 import com.iumrah.beta.ui.components.IumrahBackButton
 import com.iumrah.beta.ui.cupertino.CupertinoSymbol
 import com.iumrah.beta.ui.cupertino.Icon
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import kotlin.math.roundToInt
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.max
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ESIMScreen(
     language: AppLanguage,
@@ -107,6 +118,16 @@ fun ESIMScreen(
         }
     }
 
+    // iOS refreshes when returning to the foreground (e.g. after opening system eSIM settings).
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
+        if (activeSession != null) scope.launch { refresh() }
+    }
+
+    PullToRefreshBox(
+        isRefreshing = refreshing,
+        onRefresh = { scope.launch { refresh() } },
+        modifier = Modifier.fillMaxSize(),
+    ) {
     LazyColumn(
         Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background),
         contentPadding = androidx.compose.foundation.layout.PaddingValues(start = IumrahDesign.PagePadding, end = IumrahDesign.PagePadding, top = 10.dp, bottom = 110.dp),
@@ -132,6 +153,7 @@ fun ESIMScreen(
             items(profiles, key = { it.id }) { ESIMProfileCard(it, language) }
         }
         item { ESIMPrivacyCard(language) }
+    }
     }
 }
 
@@ -245,6 +267,7 @@ private fun ESIMPrivacyCard(language: AppLanguage) {
 private fun ESIMProfileCard(profile: ClientESIMProfile, language: AppLanguage) {
     val context = LocalContext.current
     var showManual by remember(profile.id) { mutableStateOf(false) }
+    var activationError by remember(profile.id) { mutableStateOf<String?>(null) }
     val payload = profile.qrPayload()
     ESIMCard {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(18.dp)) {
@@ -267,11 +290,24 @@ private fun ESIMProfileCard(profile: ClientESIMProfile, language: AppLanguage) {
                 Text(esimText(language, "usage_pending"), Modifier.padding(start = 10.dp), fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
             }
         }
-        if (profile.hasActivationData) {
-            PrimaryButton(esimText(language, "activate")) {
-                val uri = runCatching { Uri.parse(payload) }.getOrNull()
-                if (uri != null) runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, uri)) }
-                    .recoverCatching { context.startActivity(Intent("android.settings.MANAGE_EMBEDDED_SUBSCRIPTIONS")) }
+        if (profile.hasActivationData && payload.isNotBlank()) {
+            PrimaryButton(esimText(language, "open_esim_settings")) {
+                val euicc = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                    context.getSystemService(Context.EUICC_SERVICE) as? EuiccManager
+                } else null
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P && euicc?.isEnabled == true) {
+                    runCatching {
+                        context.startActivity(Intent(EuiccManager.ACTION_MANAGE_EMBEDDED_SUBSCRIPTIONS))
+                    }.onSuccess { activationError = null }
+                        .onFailure { activationError = esimText(language, "settings_unavailable") }
+                } else {
+                    activationError = esimText(language, "esim_unsupported")
+                }
+            }
+            Text(esimText(language, "settings_guidance"), fontSize = 11.sp,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = .55f))
+            activationError?.let {
+                Text(it, fontSize = 12.sp, color = MaterialTheme.colorScheme.error)
             }
         }
         if (payload.isNotBlank()) {
@@ -394,11 +430,20 @@ private fun ClientESIMProfile.statusText(language: AppLanguage): String {
     }
 }
 private fun ClientESIMProfile.validityText(language: AppLanguage): String? = when {
-    !expiresAt.isNullOrBlank() -> "${esimText(language, "valid_until")} ${expiresAt.take(10)}"
+    !expiresAt.isNullOrBlank() -> {
+        // Display the date in the user's locale, as DateFormatter does in SwiftUI.
+        val raw = expiresAt.trim()
+        val day = runCatching { Instant.parse(raw).atZone(ZoneId.systemDefault()).toLocalDate() }
+            .recoverCatching { LocalDate.parse(raw.take(10)) }.getOrNull()
+        val date = day?.format(DateTimeFormatter.ofPattern("d MMM yyyy", language.locale)) ?: raw.take(10)
+        "${esimText(language, "valid_until")} $date"
+    }
     (validityDays ?: 0) > 0 -> "$validityDays ${esimText(language, "days")}"
     else -> null
 }
-private fun dataText(mb: Double): String = if (mb >= 1024) String.format("%.1f GB", mb / 1024.0) else "${max(0.0, mb).toInt()} MB"
+private fun dataText(mb: Double): String = if (mb >= 1024)
+    String.format(java.util.Locale.US, "%.1f GB", mb / 1024.0)
+else "${max(0.0, mb).roundToInt()} MB"
 private fun copy(context: Context, value: String) { (context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager)?.setPrimaryClip(ClipData.newPlainText("iumrah eSIM", value)) }
 
 private fun esimText(language: AppLanguage, key: String): String {
@@ -410,7 +455,7 @@ private fun esimText(language: AppLanguage, key: String): String {
         "refresh" to "Проверить eSIM", "no_trip_title" to "Сначала создайте Umrah-пакет", "no_trip_body" to "В этой версии отдельная продажа eSIM отключена. Добавьте eSIM вместе с вашим пакетом умры.", "build_package" to "Собрать пакет",
         "tariffs_title" to "Доступные форматы", "tariffs_subtitle" to "Тариф подбирается для вашей поездки", "preview_disclaimer" to "Показанные объёмы — варианты для интерфейса. Конкретный тариф и срок будут указаны после выдачи eSIM к вашей поездке.",
         "recommended" to "ОПТИМАЛЬНО", "in_package" to "В пакете", "days" to "дней", "privacy_title" to "Данные активации защищены", "privacy_body" to "QR, Activation Code и ICCID доступны только владельцу конкретной поездки после авторизации.",
-        "refresh_unavailable" to "Сейчас не удалось обновить eSIM. Уже загруженные данные остаются доступны.", "your_plan" to "Ваш тариф", "valid_until" to "Действует до", "remaining" to "Осталось", "used" to "Использовано", "activate" to "Активировать eSIM", "qr_help" to "Отсканируйте этот QR другим устройством, если системная установка недоступна.",
+        "refresh_unavailable" to "Сейчас не удалось обновить eSIM. Уже загруженные данные остаются доступны.", "your_plan" to "Ваш тариф", "valid_until" to "Действует до", "remaining" to "Осталось", "used" to "Использовано", "activate" to "Активировать eSIM", "open_esim_settings" to "Открыть настройки eSIM", "settings_guidance" to "Настройте eSIM в системе Android. QR-код и данные ручной установки доступны ниже.", "settings_unavailable" to "Системная страница eSIM недоступна. Используйте QR-код на другом устройстве или ручные данные.", "esim_unsupported" to "На этом устройстве eSIM не поддерживается или отключена. QR-код и ручные данные остаются доступны.", "qr_help" to "Отсканируйте этот QR другим устройством, если системная установка недоступна.",
         "activation_code" to "Код активации", "manual_install" to "Данные ручной установки", "status_active" to "Активна", "status_installed" to "Установлена", "status_expired" to "Истекла", "status_used_up" to "Трафик закончился", "status_ready" to "Готова к активации", "provider_sync" to "Остаток обновляется автоматически", "pending_sync" to "Подключаем автоматический остаток", "usage_pending" to "Получаем остаток трафика у оператора…",
     )
     val en = mapOf(
@@ -421,20 +466,20 @@ private fun esimText(language: AppLanguage, key: String): String {
         "refresh" to "Check eSIM", "no_trip_title" to "Build an Umrah package first", "no_trip_body" to "Standalone eSIM sales are disabled in this version. Add connectivity with your Umrah package.", "build_package" to "Build package",
         "tariffs_title" to "Available formats", "tariffs_subtitle" to "The plan is selected for your trip", "preview_disclaimer" to "Displayed data sizes are interface previews. Your exact plan and validity will be shown after the eSIM is assigned.",
         "recommended" to "RECOMMENDED", "in_package" to "In package", "days" to "days", "privacy_title" to "Activation data is protected", "privacy_body" to "QR, Activation Code and ICCID are available only to the owner of the specific trip after authorization.",
-        "refresh_unavailable" to "eSIM could not be refreshed right now. Previously loaded data remains available.", "your_plan" to "Your plan", "valid_until" to "Valid until", "remaining" to "Remaining", "used" to "Used", "activate" to "Activate eSIM", "qr_help" to "Scan this QR from another device if system installation is unavailable.",
+        "refresh_unavailable" to "eSIM could not be refreshed right now. Previously loaded data remains available.", "your_plan" to "Your plan", "valid_until" to "Valid until", "remaining" to "Remaining", "used" to "Used", "activate" to "Activate eSIM", "open_esim_settings" to "Open eSIM settings", "settings_guidance" to "Install the eSIM in Android system settings. QR and manual activation details are below.", "settings_unavailable" to "Android eSIM settings are unavailable. Use the QR on another device or the manual details.", "esim_unsupported" to "eSIM is unsupported or disabled on this device. QR and manual details remain available.", "qr_help" to "Scan this QR from another device if system installation is unavailable.",
         "activation_code" to "Activation code", "manual_install" to "Manual installation data", "status_active" to "Active", "status_installed" to "Installed", "status_expired" to "Expired", "status_used_up" to "Data used up", "status_ready" to "Ready to activate", "provider_sync" to "Balance updates automatically", "pending_sync" to "Connecting automatic balance", "usage_pending" to "Fetching your data balance from the carrier…",
     )
     val uz = mapOf(
         "header_subtitle" to "Saudiya Arabistonida aloqa", "package_badge" to "FAQAT PAKETDA · V1", "intro_title" to "Internet Umra paketingiz ichida", "intro_body" to "Birinchi versiyada eSIM faqat iumrah paketi tarkibida beriladi. Alohida xarid keyinroq qo‘shiladi. Faollashtirish, holat va trafik qoldig‘i ilovaning o‘zida ko‘rinadi.",
         "waiting_title" to "eSIM safaringizga biriktiriladi", "waiting_body" to "Safar tayyorlangach iumrah eSIM’ni broningizga qo‘shadi. Faollashtirish, QR-kod va internet qoldig‘i shu yerda avtomatik paydo bo‘ladi.", "not_included_title" to "eSIM bu paketga kiritilmagan", "not_included_body" to "Bu safar eSIM’siz yaratilgan. Yangi iumrah paketlari paket ichidagi eSIM uchun tayyor; alohida xarid keyinroq qo‘shiladi.",
         "refresh" to "eSIM’ni tekshirish", "no_trip_title" to "Avval Umra paketini yarating", "no_trip_body" to "Bu versiyada alohida eSIM savdosi o‘chirilgan. eSIM’ni Umra paketingiz bilan oling.", "build_package" to "Paket yaratish", "tariffs_title" to "Mavjud formatlar", "tariffs_subtitle" to "Tarif safaringiz uchun tanlanadi", "preview_disclaimer" to "Ko‘rsatilgan hajmlar interfeys namunalari. Aniq tarif va muddat eSIM biriktirilgach ko‘rsatiladi.",
-        "recommended" to "TAVSIYA", "in_package" to "Paketda", "days" to "kun", "privacy_title" to "Faollashtirish ma’lumotlari himoyalangan", "privacy_body" to "QR, Activation Code va ICCID faqat shu safar egasiga avtorizatsiyadan keyin ko‘rsatiladi.", "refresh_unavailable" to "Hozir eSIM yangilanmadi. Oldin yuklangan ma’lumotlar saqlanadi.", "your_plan" to "Tarifingiz", "valid_until" to "Amal qiladi", "remaining" to "Qoldi", "used" to "Ishlatildi", "activate" to "eSIM’ni faollashtirish", "qr_help" to "Tizimli o‘rnatish ishlamasa QR-kodni boshqa qurilmadan skanerlang.", "activation_code" to "Faollashtirish kodi", "manual_install" to "Qo‘lda o‘rnatish ma’lumotlari", "status_active" to "Faol", "status_installed" to "O‘rnatilgan", "status_expired" to "Muddati tugagan", "status_used_up" to "Trafik tugagan", "status_ready" to "Faollashtirishga tayyor", "provider_sync" to "Qoldiq avtomatik yangilanadi", "pending_sync" to "Avtomatik qoldiq ulanmoqda", "usage_pending" to "Operator orqali trafik qoldig‘i olinmoqda…",
+        "recommended" to "TAVSIYA", "in_package" to "Paketda", "days" to "kun", "privacy_title" to "Faollashtirish ma’lumotlari himoyalangan", "privacy_body" to "QR, Activation Code va ICCID faqat shu safar egasiga avtorizatsiyadan keyin ko‘rsatiladi.", "refresh_unavailable" to "Hozir eSIM yangilanmadi. Oldin yuklangan ma’lumotlar saqlanadi.", "your_plan" to "Tarifingiz", "valid_until" to "Amal qiladi", "remaining" to "Qoldi", "used" to "Ishlatildi", "activate" to "eSIM’ni faollashtirish", "open_esim_settings" to "eSIM sozlamalarini ochish", "settings_guidance" to "eSIM’ni Android tizim sozlamalarida o‘rnating. QR va qo‘lda ulash ma’lumotlari pastda.", "settings_unavailable" to "Android eSIM sozlamalari ochilmadi. QR yoki qo‘lda ulash ma’lumotlaridan foydalaning.", "esim_unsupported" to "Bu qurilmada eSIM qo‘llab-quvvatlanmaydi yoki o‘chiq. QR va qo‘lda ulash ma’lumotlari mavjud.", "qr_help" to "Tizimli o‘rnatish ishlamasa QR-kodni boshqa qurilmadan skanerlang.", "activation_code" to "Faollashtirish kodi", "manual_install" to "Qo‘lda o‘rnatish ma’lumotlari", "status_active" to "Faol", "status_installed" to "O‘rnatilgan", "status_expired" to "Muddati tugagan", "status_used_up" to "Trafik tugagan", "status_ready" to "Faollashtirishga tayyor", "provider_sync" to "Qoldiq avtomatik yangilanadi", "pending_sync" to "Avtomatik qoldiq ulanmoqda", "usage_pending" to "Operator orqali trafik qoldig‘i olinmoqda…",
     )
     val cy = mapOf(
         "header_subtitle" to "Саудия Арабистонида алоқа", "package_badge" to "ФАҚАТ ПАКЕТДА · V1", "intro_title" to "Интернет Умра пакетингиз ичида", "intro_body" to "Биринчи версияда eSIM фақат iumrah пакети таркибида берилади. Алоҳида харид кейинроқ қўшилади. Фаоллаштириш, ҳолат ва трафик қолдиғи илованинг ўзида кўринади.",
         "waiting_title" to "eSIM сафарингизга бириктирилади", "waiting_body" to "Сафар тайёрлангач iumrah eSIM’ни бронга қўшади. Фаоллаштириш, QR-код ва интернет қолдиғи шу ерда автоматик пайдо бўлади.", "not_included_title" to "eSIM бу пакетга киритилмаган", "not_included_body" to "Бу сафар eSIM’сиз яратилган. Янги iumrah пакетлари пакет ичидаги eSIM учун тайёр; алоҳида харид кейинроқ қўшилади.",
         "refresh" to "eSIM’ни текшириш", "no_trip_title" to "Аввал Умра пакетини яратинг", "no_trip_body" to "Бу версияда алоҳида eSIM савдоси ўчирилган. eSIM’ни Умра пакетингиз билан олинг.", "build_package" to "Пакет яратиш", "tariffs_title" to "Мавжуд форматлар", "tariffs_subtitle" to "Тариф сафарингиз учун танланади", "preview_disclaimer" to "Кўрсатилган ҳажмлар интерфейс намуналари. Аниқ тариф ва муддат eSIM бириктирилгач кўрсатилади.",
-        "recommended" to "ТАВСИЯ", "in_package" to "Пакетда", "days" to "кун", "privacy_title" to "Фаоллаштириш маълумотлари ҳимояланган", "privacy_body" to "QR, Activation Code ва ICCID фақат шу сафар эгасига авторизациядан кейин кўрсатилади.", "refresh_unavailable" to "Ҳозир eSIM янгиланмади. Олдин юкланган маълумотлар сақланади.", "your_plan" to "Тарифингиз", "valid_until" to "Амал қилади", "remaining" to "Қолди", "used" to "Ишлатилди", "activate" to "eSIM’ни фаоллаштириш", "qr_help" to "Тизимли ўрнатиш ишламаса QR-кодни бошқа қурилмадан сканерланг.", "activation_code" to "Фаоллаштириш коди", "manual_install" to "Қўлда ўрнатиш маълумотлари", "status_active" to "Фаол", "status_installed" to "Ўрнатилган", "status_expired" to "Муддати тугаган", "status_used_up" to "Трафик тугаган", "status_ready" to "Фаоллаштиришга тайёр", "provider_sync" to "Қолдиқ автоматик янгиланади", "pending_sync" to "Автоматик қолдиқ уланмоқда", "usage_pending" to "Оператор орқали трафик қолдиғи олинмоқда…",
+        "recommended" to "ТАВСИЯ", "in_package" to "Пакетда", "days" to "кун", "privacy_title" to "Фаоллаштириш маълумотлари ҳимояланган", "privacy_body" to "QR, Activation Code ва ICCID фақат шу сафар эгасига авторизациядан кейин кўрсатилади.", "refresh_unavailable" to "Ҳозир eSIM янгиланмади. Олдин юкланган маълумотлар сақланади.", "your_plan" to "Тарифингиз", "valid_until" to "Амал қилади", "remaining" to "Қолди", "used" to "Ишлатилди", "activate" to "eSIM’ни фаоллаштириш", "open_esim_settings" to "eSIM созламаларини очиш", "settings_guidance" to "eSIM’ни Android тизим созламаларида ўрнатинг. QR ва қўлда улаш маълумотлари пастда.", "settings_unavailable" to "Android eSIM созламалари очилмади. QR ёки қўлда улаш маълумотларидан фойдаланинг.", "esim_unsupported" to "Бу қурилмада eSIM қўллаб-қувватланмайди ёки ўчиқ. QR ва қўлда улаш маълумотлари мавжуд.", "qr_help" to "Тизимли ўрнатиш ишламаса QR-кодни бошқа қурилмадан сканерланг.", "activation_code" to "Фаоллаштириш коди", "manual_install" to "Қўлда ўрнатиш маълумотлари", "status_active" to "Фаол", "status_installed" to "Ўрнатилган", "status_expired" to "Муддати тугаган", "status_used_up" to "Трафик тугаган", "status_ready" to "Фаоллаштиришга тайёр", "provider_sync" to "Қолдиқ автоматик янгиланади", "pending_sync" to "Автоматик қолдиқ уланмоқда", "usage_pending" to "Оператор орқали трафик қолдиғи олинмоқда…",
     )
     return when (language) { AppLanguage.RUSSIAN -> ru[key]; AppLanguage.ENGLISH -> en[key] ?: ru[key]; AppLanguage.UZBEK -> uz[key] ?: ru[key]; AppLanguage.UZBEK_CYRILLIC -> cy[key] ?: ru[key] } ?: key
 }

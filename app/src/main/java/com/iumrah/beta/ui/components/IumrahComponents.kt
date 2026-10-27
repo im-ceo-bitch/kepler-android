@@ -5,6 +5,7 @@ import com.iumrah.beta.ui.cupertino.CupertinoSymbol
 
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.FiniteAnimationSpec
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -51,6 +52,9 @@ fun IumrahPressable(
     pressedBackgroundAlpha: Float = 0.88f,
     shadowElevation: Dp = 0.dp,
     haptic: Boolean = true,
+    pressAnimation: FiniteAnimationSpec<Float> = IumrahMotion.press,
+    pressedContentAlpha: Float = 1f,
+    backgroundAnimation: FiniteAnimationSpec<Color> = IumrahMotion.fastColor,
     content: @Composable () -> Unit,
 ) {
     val source = remember { MutableInteractionSource() }
@@ -58,8 +62,13 @@ fun IumrahPressable(
     val view = LocalView.current
     val scale by animateFloatAsState(
         targetValue = if (pressed && enabled) pressedScale else 1f,
-        animationSpec = IumrahMotion.press,
+        animationSpec = pressAnimation,
         label = "iumrah-press-scale",
+    )
+    val contentAlpha by animateFloatAsState(
+        targetValue = if (pressed && enabled) pressedContentAlpha else 1f,
+        animationSpec = pressAnimation,
+        label = "iumrah-press-content-alpha",
     )
     val animatedBackground by animateColorAsState(
         targetValue = if (pressed && enabled) {
@@ -67,7 +76,7 @@ fun IumrahPressable(
         } else {
             background
         },
-        animationSpec = IumrahMotion.fastColor,
+        animationSpec = backgroundAnimation,
         label = "iumrah-press-background",
     )
     val shape = RoundedCornerShape(cornerRadius)
@@ -77,6 +86,7 @@ fun IumrahPressable(
             .graphicsLayer {
                 scaleX = scale
                 scaleY = scale
+                alpha = contentAlpha
             }
             .then(if (shadowElevation > 0.dp) Modifier.shadow(shadowElevation, shape, clip = false) else Modifier)
             .clip(shape)
@@ -111,6 +121,9 @@ fun IumrahPrimaryButton(
         background = if (enabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
         pressedBackgroundAlpha = .84f,
         shadowElevation = 0.dp, // iOS primary button has no elevation
+        haptic = false, // iOS ButtonStyle itself does not emit a haptic
+        pressAnimation = IumrahMotion.iosButtonPress,
+        backgroundAnimation = IumrahMotion.iosButtonColor,
     ) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             Text(
@@ -134,7 +147,10 @@ fun IumrahSecondaryButton(
         pressedScale = 0.985f, // Matches iOS IumrahSecondaryButtonStyle
         cornerRadius = IumrahGalaxyMetrics.RadiusButton,
         background = MaterialTheme.colorScheme.surfaceVariant,
-        pressedBackgroundAlpha = .90f,
+        pressedBackgroundAlpha = 1f, // iOS fades the *entire* secondary control
+        pressedContentAlpha = .90f,
+        pressAnimation = IumrahMotion.iosButtonPress,
+        haptic = false,
     ) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             Text(title, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)

@@ -11,13 +11,15 @@ LOCALIZE="app/src/main/java/com/iumrah/beta/ui/booking/BookingItineraryLocalizat
 SERVICE="app/src/main/java/com/iumrah/beta/data/hotel/HotelCatalogService.kt"
 test -f "$FRIENDS"
 test -f "app/src/main/res/drawable/iumrah_friends_hotels_cover.jpg"
-grep -q 'iumrah Friends' "$FRIENDS"
+grep -q 'iumrah Finance' "$FRIENDS"
 grep -q 'total < 16' "$FRIENDS"
 grep -q 'ceil(maxOf(1, total) / 4.0)' "$FRIENDS"
 grep -q 'service.storefrontPackageQuote' "$FRIENDS"
 grep -q 'makkahRoomIdOverride = null' "$FRIENDS"
-grep -q 'IumrahFriendsShowcaseCard' "$HOTELS"
-grep -q 'IumrahFriendsCalculatorSheet' "$HOTELS"
+# Updated October 26 iOS reference embeds the calculator directly in Hotels.
+# The previous modal/showcase-only implementation is intentionally superseded.
+grep -q 'IumrahFriendsCalculatorCard' "$HOTELS"
+! grep -q 'IumrahFriendsCalculatorSheet' "$HOTELS"
 grep -q 'note = null' "$HOTELS"
 grep -q 'makkahRoomIdOverride: String? = snapshot.configuration?.makkahRoomId' "$SERVICE"
 python3 - "$HOME" <<'PY'

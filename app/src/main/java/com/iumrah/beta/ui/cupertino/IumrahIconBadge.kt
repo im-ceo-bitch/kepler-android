@@ -29,14 +29,41 @@ fun IumrahIconBadge(
     symbolSize: Dp = 16.dp,
     cornerRadius: Dp = 14.dp,
     circle: Boolean = false,
+    foreground: Color = if (tint == Color(0xFFFFCC00)) Color.Black.copy(alpha = 0.78f) else Color.White,
 ) {
     val shape = if (circle) CircleShape else RoundedCornerShape(cornerRadius)
-    // iOS uses dark foreground only on its yellow waiting/warning/rating roles.
-    val foreground = if (tint == Color(0xFFFFCC00)) Color.Black.copy(alpha = 0.78f) else Color.White
     Box(
         modifier = modifier.size(size).clip(shape).background(tint),
         contentAlignment = Alignment.Center,
     ) {
         CupertinoIcon(symbol, null, Modifier.size(symbolSize), foreground)
     }
+}
+
+/**
+ * Semantic SF-name entry point. Guarantees that an iOS symbol keeps its
+ * category color and badge geometry on Android, without custom-drawn icons.
+ */
+@Composable
+fun IumrahIconBadge(
+    systemName: String,
+    modifier: Modifier = Modifier,
+    role: IumrahIconRole? = null,
+    tint: Color? = null,
+    size: Dp = 42.dp,
+    symbolSize: Dp = 16.dp,
+    cornerRadius: Dp = 14.dp,
+    circle: Boolean = false,
+) {
+    val semantic = role ?: IumrahIconRole.inferred(systemName)
+    IumrahIconBadge(
+        symbol = CupertinoSfCatalog.resolve(systemName),
+        tint = tint ?: semantic.color,
+        modifier = modifier,
+        size = size,
+        symbolSize = symbolSize,
+        cornerRadius = cornerRadius,
+        circle = circle,
+        foreground = semantic.onColor,
+    )
 }

@@ -64,6 +64,7 @@ import com.iumrah.beta.models.flight.FlightSearchFilters
 import com.iumrah.beta.models.flight.FlightStopsPreference
 import com.iumrah.beta.models.flight.FlightTimeWindow
 import com.iumrah.beta.ui.components.IumrahPressable
+import com.iumrah.beta.ui.components.iumrahCard
 import com.iumrah.beta.ui.generator.generatorCardColor
 import com.iumrah.beta.ui.generator.generatorRaisedColor
 import com.iumrah.beta.ui.generator.generatorPageColor
@@ -80,16 +81,8 @@ fun FlightSearchFiltersCard(
     val rotation by animateFloatAsState(if (expanded) 180f else 0f, IumrahMotion.selection, label = "filters-chevron")
     val copy = remember(language) { FilterCopy(language) }
 
-    val cardShape = RoundedCornerShape(IumrahDesign.CardRadius)
     Column(
-        Modifier
-            .fillMaxWidth()
-            // Sources/Core/DesignSystem.swift: IumrahCardModifier.
-            .shadow(18.dp, cardShape, clip = false, ambientColor = Color.Black.copy(alpha = .045f), spotColor = Color.Black.copy(alpha = .045f))
-            .clip(cardShape)
-            .background(generatorCardColor())
-            .border(.75.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = .095f), cardShape)
-            .padding(18.dp),
+        modifier = Modifier.iumrahCard(background = generatorCardColor()),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         IumrahPressable(

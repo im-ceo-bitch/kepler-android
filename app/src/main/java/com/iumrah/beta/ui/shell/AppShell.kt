@@ -114,6 +114,7 @@ import com.iumrah.beta.ui.cupertino.CupertinoSymbol
 import com.iumrah.beta.ui.chat.BookingChatScreen
 import com.iumrah.beta.ui.notifications.NotificationsScreen
 import com.iumrah.beta.ui.home.HomeScreen
+import com.iumrah.beta.ui.home.HomeWeatherScreen
 import com.iumrah.beta.ui.home.IumrahGiftCardsScreen
 import com.iumrah.beta.ui.prayer.PrayerTimesScreen
 import com.iumrah.beta.ui.hotels.FlightFirstPackageDetailScreen
@@ -160,7 +161,7 @@ fun AppShell(
         ) { (route, tab) ->
             when (route) {
                 AppRoute.Root -> when (tab) {
-                    AppTab.HOME -> HomeScreen(language, chrome, hotelCatalog, journey, notifications)
+                    AppTab.HOME -> HomeScreen(language, chrome, hotelCatalog, journey, notifications, accountStore.bearerToken)
                     AppTab.HOTELS -> HotelsScreen(language, hotelCatalog, journey, airports, flightDiscovery, chrome, unreadCount = shellNotificationState.unreadCount)
                     AppTab.BOOKING -> BookingsHomeScreen(language, bookingStore, accountService, chatService, notifications, chrome)
                     AppTab.CARE -> CareHomeScreen(language, bookingStore, chatService, notifications, chrome)
@@ -303,6 +304,7 @@ fun AppShell(
                 AppRoute.AccountUserData -> IumrahUserDataScreen(language, accountStore, bookingStore, settingsStore, chrome)
                 is AppRoute.AccountKyc -> AccountKycScreen(route.bookingID, language, bookingStore, chrome)
                 AppRoute.PrayerTimes -> PrayerTimesScreen(language, chrome)
+                AppRoute.HomeWeather -> HomeWeatherScreen(language, chrome)
                 AppRoute.GiftCards -> IumrahGiftCardsScreen(language, accountStore, chrome)
             }
         }

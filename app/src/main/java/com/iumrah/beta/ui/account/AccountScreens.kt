@@ -12,11 +12,13 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -75,6 +77,154 @@ private fun tr(l: AppLanguage, en: String, ru: String, uz: String, cy: String) =
 
 private fun normalizedID(raw: String): String = raw.trim().uppercase().removePrefix("UMR-").let { if (it.isBlank()) "UMR —" else "UMR $it" }
 
+/** Matches the iOS activeTrip priority ordering; never pick an arbitrary stored session. */
+private fun accountTripPriority(session: StoredBookingSession): String {
+    val priority = when (session.effectiveStatus.uppercase()) {
+        "IN_TRIP" -> 0
+        "READY_TO_TRAVEL" -> 1
+        "BOOKING_CONFIRMED" -> 2
+        "PAYMENT_PENDING" -> 3
+        "AVAILABILITY_CHECK" -> 4
+        else -> 9
+    }
+    return "${priority}-${session.booking.input.startDate}"
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun AccountIdentityUnlockSheetAndroid(
+    language: AppLanguage,
+    onDismiss: () -> Unit,
+    onContinue: () -> Unit,
+) {
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        containerColor = MaterialTheme.colorScheme.background,
+    ) {
+        Column(
+            Modifier.fillMaxWidth().padding(horizontal = 24.dp).padding(bottom = 26.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
+            Box(
+                Modifier.size(width = 106.dp, height = 82.dp)
+                    .clip(RoundedCornerShape(28.dp)).background(Color.Black),
+                contentAlignment = Alignment.Center,
+            ) {
+                CupertinoIcon(CupertinoSymbol.IdentityCard, null, Modifier.size(36.dp), Color.White)
+            }
+            Spacer(Modifier.height(4.dp))
+            Text(
+                tr(language, "Unlock your iumrah ID", "Откройте свою iumrah ID", "iumrah ID kartangizni oching", "iumrah ID картангизни очинг"),
+                fontSize = 29.sp, fontWeight = FontWeight.Bold,
+                lineHeight = 34.sp, color = MaterialTheme.colorScheme.onBackground,
+            )
+            Text(
+                tr(language,
+                    "To activate your virtual iumrah ID, sign in to your account or create one with Google.",
+                    "Чтобы активировать виртуальную ID-карту iumrah, войдите в аккаунт или зарегистрируйтесь через Google.",
+                    "Virtual iumrah ID kartangizni faollashtirish uchun Google orqali kiring yoki ro‘yxatdan o‘ting.",
+                    "Виртуал iumrah ID картангизни фаоллаштириш учун Google орқали киринг ёки рўйхатдан ўтинг."),
+                fontSize = 15.sp, lineHeight = 21.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            listOf(
+                CupertinoSymbol.IdentityCard to tr(language, "Permanent eight-digit iumrah ID", "Постоянный восьмизначный iumrah ID", "Doimiy sakkiz xonali iumrah ID", "Доимий саккиз хонали iumrah ID"),
+                CupertinoSymbol.Wallet to tr(language, "Your ID and trip documents in one place", "Ваш ID и документы поездки в одном месте", "ID va safar hujjatlaringiz bir joyda", "ID ва сафар ҳужжатлари бир жойда"),
+                CupertinoSymbol.Suitcase to tr(language, "All trips linked to one ID", "Все поездки привязаны к одной ID", "Barcha safarlar bitta ID bilan bog‘lanadi", "Барча сафарлар битта ID билан боғланади"),
+            ).forEach { (icon, label) ->
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Box(Modifier.size(36.dp).clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.onSurface.copy(alpha = .055f)), contentAlignment = Alignment.Center) {
+                        CupertinoIcon(icon, null, Modifier.size(16.dp))
+                    }
+                    Text(label, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                }
+            }
+            Spacer(Modifier.height(8.dp))
+            Button(
+                onClick = onContinue,
+                modifier = Modifier.fillMaxWidth().height(56.dp),
+                shape = RoundedCornerShape(18.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Color.Black, contentColor = Color.White),
+            ) {
+                CupertinoIcon(CupertinoSymbol.PersonCircle, null, Modifier.size(19.dp), Color.White)
+                Spacer(Modifier.width(9.dp))
+                Text(tr(language, "Sign in or register", "Войти или зарегистрироваться", "Kirish yoki ro‘yxatdan o‘tish", "Кириш ёки рўйхатдан ўтиш"), fontWeight = FontWeight.Bold)
+                Spacer(Modifier.weight(1f))
+                CupertinoIcon(CupertinoSymbol.ArrowRight, null, Modifier.size(17.dp), Color.White)
+            }
+        }
+    }
+}
+
+/** Mirrors IumrahActionConfirmationSheet used for account sign-out on iOS. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun AccountSignOutConfirmationSheetAndroid(
+    language: AppLanguage,
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit,
+) {
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        containerColor = MaterialTheme.colorScheme.background,
+        shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp),
+    ) {
+        Column(Modifier.fillMaxWidth()) {
+            Image(
+                painter = painterResource(R.drawable.iumrah_logout_confirm_hero),
+                contentDescription = null,
+                modifier = Modifier.fillMaxWidth().height(188.dp),
+                contentScale = ContentScale.Crop,
+            )
+            Column(
+                Modifier.fillMaxWidth().padding(20.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp),
+            ) {
+                Text(
+                    tr(language, "Sign out of iumrah?", "Выйти из iumrah?", "iumrah akkauntidan chiqasizmi?", "iumrah аккаунтидан чиқасизми?"),
+                    fontSize = 26.sp, fontWeight = FontWeight.Bold, letterSpacing = (-.45).sp,
+                )
+                Text(
+                    tr(language,
+                        "Your trips stay safely linked to your iumrah account. You will need to sign in again on this device.",
+                        "Ваши поездки останутся безопасно привязаны к аккаунту iumrah. На этом устройстве потребуется войти снова.",
+                        "Safarlaringiz iumrah akkauntingizga xavfsiz bog‘langan holda qoladi. Bu qurilmada qayta kirishingiz kerak bo‘ladi.",
+                        "Сафарларингиз iumrah аккаунтингизга хавфсиз боғланган ҳолда қолади. Бу қурилмада қайта киришингиз керак бўлади."),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 15.5.sp, lineHeight = 21.sp,
+                )
+                Row(
+                    Modifier.fillMaxWidth().padding(top = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    Surface(
+                        onClick = onDismiss,
+                        modifier = Modifier.weight(1f).height(52.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant,
+                        shape = RoundedCornerShape(18.dp),
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Text(tr(language, "Cancel", "Отмена", "Bekor qilish", "Бекор қилиш"), fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                        }
+                    }
+                    Surface(
+                        onClick = onConfirm,
+                        modifier = Modifier.weight(1f).height(52.dp),
+                        color = Danger,
+                        contentColor = Color.White,
+                        shape = RoundedCornerShape(18.dp),
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Text(tr(language, "Sign out", "Выйти", "Chiqish", "Чиқиш"), fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 @Composable
 fun AccountRootScreen(
     language: AppLanguage,
@@ -103,9 +253,30 @@ fun AccountRootScreen(
     }
     val profile = accountState.account
     var signOutConfirm by remember { mutableStateOf(false) }
+    var unlockSheet by remember { mutableStateOf(false) }
+    var isRefreshing by remember { mutableStateOf(false) }
+    val accountListState = rememberLazyListState()
+    val activeTrip = remember(bookings.sessions) {
+        bookings.sessions.filterNot { it.isPastAccountTrip() }.minByOrNull { accountTripPriority(it) }
+    }
 
+    LaunchedEffect(accountState.account?.iumrahID) {
+        bookingStore.refreshAll()
+    }
+
+    PullToRefreshBox(
+        isRefreshing = isRefreshing,
+        onRefresh = {
+            if (!isRefreshing) scope.launch {
+                isRefreshing = true
+                try { bookingStore.refreshAll() } finally { isRefreshing = false }
+            }
+        },
+        modifier = Modifier.fillMaxSize(),
+    ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background),
+        state = accountListState,
         contentPadding = PaddingValues(start = PagePad, end = PagePad, top = 12.dp, bottom = 130.dp),
         verticalArrangement = Arrangement.spacedBy(20.dp),
     ) {
@@ -115,12 +286,12 @@ fun AccountRootScreen(
             item { IumrahUserDataEntryCardAndroid(language, profile.displayName) { chrome.openAccountUserData() } }
             item { TravelCompanionsParityCard(language) { chrome.openAccountTravelers() } }
             item { WalletSection(profile, language) }
-            bookings.sessions.firstOrNull { !it.isPastAccountTrip() }?.let { active ->
+            activeTrip?.let { active ->
                 item { IumrahTripWalletEntryAndroid(active, profile, language) }
             }
             item { TripsSection(bookings.sessions, language, chrome) }
             item { TelegramIntegrationCard(language) { chrome.openAccountTelegramIntegration() } }
-            item { PaymentSecuritySection(language, bookings.sessions.firstOrNull(), true, chrome) }
+            item { PaymentSecuritySection(language, activeTrip ?: bookings.sessions.firstOrNull(), true, chrome) }
             item { ServicesSection(language, chrome) }
             item { SettingsSection(language, settings.appearance, signalState.unreadCount, notificationDeliveryStatus, chrome, context) }
             item {
@@ -134,23 +305,33 @@ fun AccountRootScreen(
                 }
             }
         } else {
-            item { IumrahLockedIdentityCardAndroid(language) }
+            item { IumrahLockedIdentityCardAndroid(language) { unlockSheet = true } }
             item { GuestLoginCard(language, accountStore, bookingStore, chrome) }
             item { TelegramIntegrationCard(language) { chrome.openAccountTelegramIntegration() } }
             item { PaymentSecuritySection(language, bookings.sessions.firstOrNull(), false, chrome) }
             item { GuestSettingsSection(language, settings.appearance, signalState.unreadCount, notificationDeliveryStatus, chrome, context) }
         }
     }
+    }
+
+    if (unlockSheet) {
+        AccountIdentityUnlockSheetAndroid(language, onDismiss = { unlockSheet = false }) {
+            unlockSheet = false
+            scope.launch { accountListState.animateScrollToItem(2) }
+        }
+    }
 
     if (signOutConfirm) {
-        AlertDialog(
-            onDismissRequest = { signOutConfirm = false },
-            title = { Text(tr(language, "Sign out of iumrah?", "Выйти из iumrah?", "iumrah akkauntidan chiqasizmi?", "iumrah аккаунтидан чиқасизми?")) },
-            text = { Text(tr(language, "Your trips stay safely linked to your iumrah account. You will need to sign in again on this device.", "Ваши поездки останутся безопасно привязаны к аккаунту iumrah. На этом устройстве потребуется войти снова.", "Safarlaringiz iumrah akkauntingizga xavfsiz bog‘langan holda qoladi. Bu qurilmada qayta kirishingiz kerak bo‘ladi.", "Сафарларингиз iumrah аккаунтингизга хавфсиз боғланган ҳолда қолади. Бу қурилмада қайта киришингиз керак бўлади.")) },
-            confirmButton = { TextButton(onClick = { signOutConfirm = false; scope.launch { accountStore.logout() } }) { Text(tr(language, "Sign out", "Выйти", "Chiqish", "Чиқиш"), color = Danger) } },
-            dismissButton = { TextButton(onClick = { signOutConfirm = false }) { Text(tr(language, "Cancel", "Отмена", "Bekor qilish", "Бекор қилиш")) } },
+        AccountSignOutConfirmationSheetAndroid(
+            language = language,
+            onDismiss = { signOutConfirm = false },
+            onConfirm = {
+                signOutConfirm = false
+                scope.launch { accountStore.logout() }
+            },
         )
     }
+
 }
 
 @Composable
@@ -264,7 +445,11 @@ private fun ActiveTripCard(session: StoredBookingSession, language: AppLanguage,
 private fun TripsSection(sessions: List<StoredBookingSession>, language: AppLanguage, chrome: AppChromeStore) {
     var past by remember { mutableStateOf(false) }
     var expanded by remember { mutableStateOf(false) }
-    val scoped = remember(sessions, past) { sessions.filter { it.isPastAccountTrip() == past } }
+    val scoped = remember(sessions, past) {
+        sessions.filter { it.isPastAccountTrip() == past }
+            .sortedWith(compareByDescending<StoredBookingSession> { it.booking.input.startDate }
+                .thenByDescending { it.booking.createdAt })
+    }
     CardBlock {
         Row(Modifier.fillMaxWidth().clickable { chrome.openAccountTripsHistory(past) }, verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {

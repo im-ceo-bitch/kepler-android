@@ -148,17 +148,16 @@ class JourneyStore {
         returnID: String? = null,
     ) {
         _state.update { current ->
-            val routeChanged = current.trip.originCode != value.originCode ||
-                current.trip.outboundDestinationCode != value.outboundDestinationCode ||
-                current.trip.returnOriginCode != value.returnOriginCode ||
-                current.trip.scope != value.scope
-            val keepPublished = !routeChanged && current.packageFlightPath == path
+            // A commit is the authoritative selection snapshot from the active
+            // configurator. Null means *cleared*, not "keep an old selection".
+            // Otherwise a stale complete-ID can override newly chosen one-way
+            // flights when the route happens to remain the same.
             current.copy(
                 trip = value,
                 packageFlightPath = path,
-                selectedPublishedCompleteID = completeID ?: if (keepPublished) current.selectedPublishedCompleteID else null,
-                selectedPublishedOutboundID = outboundID ?: if (keepPublished) current.selectedPublishedOutboundID else null,
-                selectedPublishedReturnID = returnID ?: if (keepPublished) current.selectedPublishedReturnID else null,
+                selectedPublishedCompleteID = completeID,
+                selectedPublishedOutboundID = outboundID,
+                selectedPublishedReturnID = returnID,
                 flightResults = emptyList(),
                 selectedJourneyId = null,
                 selectedOutboundJourneyId = null,

@@ -23,6 +23,11 @@ object IumrahMotion {
     val oneUiEasing = CubicBezierEasing(0.22f, 0.25f, 0.00f, 1.00f)
 
     val press: TweenSpec<Float> = tween(durationMillis = 105, easing = oneUiEasing)
+    // IumrahPrimaryButtonStyle / IumrahSecondaryButtonStyle on iOS use
+    // .easeOut(duration: 0.16), not the 105ms Android general-purpose press.
+    val iosButtonEaseOut = CubicBezierEasing(0.0f, 0.0f, 0.58f, 1.0f)
+    val iosButtonPress: TweenSpec<Float> = tween(durationMillis = 160, easing = iosButtonEaseOut)
+    val iosButtonColor: TweenSpec<Color> = tween(durationMillis = 160, easing = iosButtonEaseOut)
     val tab: SpringSpec<Float> = spring(dampingRatio = 0.86f, stiffness = 520f)
     val sidebar: SpringSpec<Float> = spring(dampingRatio = 0.90f, stiffness = 330f)
     val softReveal: SpringSpec<Float> = spring(dampingRatio = 0.90f, stiffness = 150f)

@@ -28,3 +28,27 @@ python3 scripts/verify-signature-brand-parity.py
 
 # Header block 1 contract: iOS source geometry + Metal/AGSL fidelity guards.
 python3 scripts/verify-brand-block1-final.py
+
+# Shared iOS-origin geometry, semantics and design-system regression guard.
+python3 scripts/verify-block2-design-parity.py
+
+# Home source-driven parity: geometry, navigation, read-state and snapping.
+python3 scripts/verify-block3-home-parity.py
+
+# Hotel/Flight source parity after inline Friends and flight card geometry corrections.
+python3 scripts/verify-block4-hotels-flights-parity.py
+
+# Configurator stage 5: flight selection state + MapKit/MapLibre visual parity.
+python3 scripts/verify-block5-configurator-parity.py
+
+# Booking stage 6: identity copy, iOS payment states, itinerary and refresh parity.
+python3 scripts/verify-block6-booking-parity.py
+
+# Block 7 Care/Account entry actions, identity flows, original brand assets.
+python3 scripts/verify-block7-care-account-parity.py
+
+# Block 8 additional screens and functional safety regression.
+python3 scripts/verify-block8-integrations-parity.py
+
+# Supplemental Block 8 guard; user explicitly excluded ritual Umrah Flow.
+python3 scripts/verify-block8-reminder-center-parity.py

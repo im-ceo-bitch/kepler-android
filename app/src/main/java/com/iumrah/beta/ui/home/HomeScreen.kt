@@ -41,6 +41,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.PageSize
 import androidx.compose.foundation.pager.rememberPagerState
@@ -51,6 +52,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.collectAsState
@@ -71,6 +73,8 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -91,6 +95,7 @@ import com.iumrah.beta.models.notification.ClientSystemNotification
 import com.iumrah.beta.ui.components.IumrahPill
 import com.iumrah.beta.ui.components.IumrahPressable
 import com.iumrah.beta.ui.components.IumrahRootPageHeader
+import com.iumrah.beta.ui.cupertino.IumrahIconRole
 import com.iumrah.beta.ui.media.LoopingRawVideo
 import coil3.compose.AsyncImage
 import kotlin.math.absoluteValue
@@ -98,6 +103,7 @@ import kotlin.math.cos
 import kotlin.math.sin
 import java.util.Locale
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 @Composable
 fun HomeScreen(
@@ -106,6 +112,7 @@ fun HomeScreen(
     hotelCatalog: HotelCatalogService,
     journey: JourneyStore,
     notifications: ClientNotificationStore,
+    accountToken: String?,
 ) {
     var storyStartIndex by remember { mutableStateOf<Int?>(null) }
     val journeyState by journey.state.collectAsState()
@@ -129,8 +136,9 @@ fun HomeScreen(
             )
         }
         if (notificationState.home.isNotEmpty()) {
-            item { HomeNotificationCarousel(language, notificationState.home, chrome, notifications) }
+            item { HomeNotificationCarousel(language, notificationState.home, chrome, notifications, accountToken) }
         }
+        item { HomeTripToolsSection(language, chrome) }
         item { EmotionalPrompt(language = language, onOpen = { storyStartIndex = 0 }) }
         item { HomeVideoCarousel(language = language, isStoryPresented = storyStartIndex != null, onOpenStory = { storyStartIndex = it }) }
         item { AudienceSection(language) }
@@ -148,6 +156,81 @@ fun HomeScreen(
     }
 
     storyStartIndex?.let { start -> EmotionalJourneyFullscreen(language = language, initialPage = start, onClose = { storyStartIndex = null }) }
+}
+
+/**
+ * Source: iOS HomeDashboardView.tripToolsSection / tripToolButton.
+ * Same order, shape, icon viewport, typography and tap destinations as iOS.
+ * Existing prayer, live weather and Umrah Flow guide implementations are reused.
+ */
+@Composable
+private fun HomeTripToolsSection(language: AppLanguage, chrome: AppChromeStore) {
+    val view = LocalView.current
+    val foreground = MaterialTheme.colorScheme.onBackground
+    Column(verticalArrangement = Arrangement.spacedBy(13.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+            Icon(CupertinoSymbol.Sparkles, null, Modifier.size(17.dp), tint = foreground)
+            Text(
+                tr(language, "Инструменты паломника", "Pilgrim essentials", "Ziyoratchi uchun", "Зиёратчи учун"),
+                fontSize = 17.sp, fontWeight = FontWeight.Bold, color = foreground,
+            )
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(9.dp), modifier = Modifier.fillMaxWidth()) {
+            HomeTripTool(
+                title = tr(language, "Время молитв", "Prayer Times", "Namoz vaqtlari", "Намоз вақтлари"),
+                symbol = CupertinoSymbol.MoonStarsFill,
+                modifier = Modifier.weight(1f),
+            ) { IumrahHaptics.selection(view); chrome.openPrayerTimes() }
+            HomeTripTool(
+                title = tr(language, "Погода", "Weather", "Ob-havo", "Об-ҳаво"),
+                symbol = CupertinoSymbol.CloudSun,
+                modifier = Modifier.weight(1f),
+            ) { IumrahHaptics.selection(view); chrome.openHomeWeather() }
+            HomeTripTool(
+                title = "Umrah Flow",
+                symbol = CupertinoSymbol.SignalWave,
+                modifier = Modifier.weight(1f),
+            ) { IumrahHaptics.selection(view); chrome.openUmrahAdvisor() }
+        }
+    }
+}
+
+@Composable
+private fun HomeTripTool(
+    title: String,
+    symbol: CupertinoSymbol,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit,
+) {
+    val foreground = MaterialTheme.colorScheme.onSurface
+    IumrahPressable(
+        onClick = onClick,
+        haptic = false,
+        modifier = modifier.height(98.dp),
+        cornerRadius = 22.dp,
+        background = MaterialTheme.colorScheme.surface,
+    ) {
+        Column(
+            modifier = Modifier.fillMaxSize().padding(horizontal = 5.dp),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Box(Modifier.height(28.dp), contentAlignment = Alignment.Center) {
+                Icon(symbol, null, Modifier.size(21.dp), tint = foreground)
+            }
+            Spacer(Modifier.height(10.dp))
+            Text(
+                text = title,
+                color = foreground,
+                fontSize = 11.sp,
+                lineHeight = 13.sp,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                textAlign = TextAlign.Center,
+            )
+        }
+    }
 }
 
 @Composable
@@ -177,7 +260,9 @@ private fun HomeNotificationCarousel(
     notifications: List<ClientSystemNotification>,
     chrome: AppChromeStore,
     store: ClientNotificationStore,
+    accountToken: String?,
 ) {
+    val coroutineScope = rememberCoroutineScope()
     val visible = notifications.take(5)
     val rowState = rememberLazyListState()
     val selected by remember { derivedStateOf { rowState.firstVisibleItemIndex.coerceIn(0, (visible.size - 1).coerceAtLeast(0)) } }
@@ -187,6 +272,7 @@ private fun HomeNotificationCarousel(
     Column(verticalArrangement = Arrangement.spacedBy(11.dp)) {
         LazyRow(
             state = rowState,
+            flingBehavior = rememberSnapFlingBehavior(lazyListState = rowState),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             contentPadding = PaddingValues(horizontal = 0.dp),
             modifier = Modifier.height(188.dp),
@@ -210,6 +296,7 @@ private fun HomeNotificationCarousel(
                         .background(Brush.linearGradient(gradient))
                         .border(.8.dp, Color.White.copy(alpha = .14f), RoundedCornerShape(28.dp))
                         .clickable {
+                            coroutineScope.launch { store.markOpened(item, accountToken) }
                             when (item.destination.lowercase()) {
                                 "hotels" -> chrome.navigate(AppTab.HOTELS)
                                 "bookings" -> chrome.navigate(AppTab.BOOKING)
@@ -397,7 +484,7 @@ private fun AudienceSection(language: AppLanguage) {
                 AppLanguage.UZBEK_CYRILLIC -> "Iumrah кимлар учун"
             }
         )
-        LazyRow(state = rowState, horizontalArrangement = Arrangement.spacedBy(12.dp), contentPadding = PaddingValues(horizontal = 0.dp)) {
+        LazyRow(state = rowState, flingBehavior = rememberSnapFlingBehavior(lazyListState = rowState), horizontalArrangement = Arrangement.spacedBy(12.dp), contentPadding = PaddingValues(horizontal = 0.dp)) {
             items(values) { item ->
                 Column(
                     Modifier.width(286.dp).height(235.dp)
@@ -473,7 +560,7 @@ private fun ServicesSection(language: AppLanguage, chrome: AppChromeStore) {
                 AppLanguage.UZBEK_CYRILLIC -> "Асосий сервислар Iumrah пакетларига киритилган ва сафарни учишдан қайтишгача кузатади."
             },
         )
-        LazyRow(state = rowState, horizontalArrangement = Arrangement.spacedBy(13.dp), contentPadding = PaddingValues(horizontal = 0.dp)) {
+        LazyRow(state = rowState, flingBehavior = rememberSnapFlingBehavior(lazyListState = rowState), horizontalArrangement = Arrangement.spacedBy(13.dp), contentPadding = PaddingValues(horizontal = 0.dp)) {
             items(serviceItems) { item -> ServiceCard(item) }
         }
         HomeCarouselDots(serviceItems.size, selected)
@@ -572,7 +659,7 @@ private fun ReadyPackagesSection(
             readyEntries.isNotEmpty() -> {
                 val rowState = rememberLazyListState()
                 val selected by remember { derivedStateOf { rowState.firstVisibleItemIndex.coerceIn(0, readyEntries.size) } }
-                LazyRow(state = rowState, horizontalArrangement = Arrangement.spacedBy(13.dp), contentPadding = PaddingValues(horizontal = 1.dp)) {
+                LazyRow(state = rowState, flingBehavior = rememberSnapFlingBehavior(lazyListState = rowState), horizontalArrangement = Arrangement.spacedBy(13.dp), contentPadding = PaddingValues(horizontal = 1.dp)) {
                     items(readyEntries, key = { it.first.id }) { (option, snapshot) ->
                         ReadyPackageCard(language, option, snapshot) { chrome.openFlightPackage(snapshot.id) }
                     }
@@ -610,7 +697,7 @@ private fun ReadyPackagesSection(
 // Both carousel cards intentionally share the same footprint.  In particular,
 // 2-line airlines and multi-leg itineraries must not shift the next card.
 private val homeReadyCardWidth = 318.dp
-private val homeReadyCardHeight = 372.dp
+private val homeReadyCardHeight = 398.dp
 
 @Composable
 private fun AllFlightPackagesCard(language: AppLanguage, chrome: AppChromeStore) {
@@ -796,7 +883,7 @@ private fun ReadyPackageCard(
                     Text(
                         tr(language, "Сгенерировано Iumrah Configurator", "Generated by Iumrah Configurator", "Iumrah Configurator yaratdi", "Iumrah Configurator яратди"),
                         fontSize = 10.sp, maxLines = 1,
-                        fontWeight = FontWeight.SemiBold, color = Color(0xFF26A9C9),
+                        fontWeight = FontWeight.SemiBold, color = IumrahIconRole.UMRAH.color,
                         modifier = Modifier.clip(CircleShape).background(MaterialTheme.colorScheme.surfaceVariant)
                             .padding(horizontal = 10.dp, vertical = 7.dp),
                     )
@@ -907,7 +994,7 @@ private fun HomeIntegrationsSection(language: AppLanguage, chrome: AppChromeStor
             tr(language, "Интеграции", "Integrations", "Integratsiyalar", "Интеграциялар"),
             tr(language, "Планируйте следующую Umrah, подключайте Telegram и используйте новые возможности iumrah в одном месте.", "Plan your next Umrah, connect Telegram and access new iumrah integrations in one place.", "Keyingi Umrani rejalashtiring, Telegram’ni ulang va yangi iumrah integratsiyalaridan bir joyda foydalaning.", "Кейинги Умрани режалаштиринг, Telegram’ни уланг ва янги iumrah интеграцияларидан бир жойда фойдаланинг."),
         )
-        LazyRow(state = rowState, horizontalArrangement = Arrangement.spacedBy(14.dp), contentPadding = PaddingValues(horizontal = 1.dp)) {
+        LazyRow(state = rowState, flingBehavior = rememberSnapFlingBehavior(lazyListState = rowState), horizontalArrangement = Arrangement.spacedBy(16.dp), contentPadding = PaddingValues(horizontal = 1.dp)) {
             item { IntegrationCard(language, cardWidth, R.drawable.home_integration_calendar, tr(language, "ПЛАНИРОВАНИЕ", "PLANNING", "REJALASHTIRISH", "РЕЖАЛАШТИРИШ"), tr(language, "Запланировать Umrah", "Plan your Umrah", "Umrani rejalashtirish", "Умрани режалаштириш"), tr(language, "Выберите будущие даты и настройте напоминания за 2 месяца, месяц и последние дни перед поездкой.", "Choose future dates and set reminders for two months, one month and the final days before departure.", "Kelajakdagi sanalarni tanlang va safargacha 2 oy, 1 oy hamda so‘nggi kunlar uchun eslatmalarni sozlang.", "Келажакдаги саналарни танланг ва сафаргача 2 ой, 1 ой ҳамда сўнгги кунлар учун эслатмаларни созланг."), tr(language, "Запланировать", "Plan trip", "Rejalashtirish", "Режалаштириш")) { chrome.openUmrahPlan() } }
             item { IntegrationCard(language, cardWidth, R.drawable.telegram_integration_hero, "Telegram", tr(language, "Статус бронирования в Telegram", "Booking status in Telegram", "Bron holati Telegram’da", "Брон ҳолати Telegram’да"), tr(language, "Получайте изменения статуса, оплаты, подтверждения и документов прямо в Telegram.", "Receive status, payment, confirmation and document updates directly in Telegram.", "Status, to‘lov, tasdiq va hujjat yangilanishlarini to‘g‘ridan-to‘g‘ri Telegram’da oling.", "Статус, тўлов, тасдиқ ва ҳужжат янгиланишларини тўғридан-тўғри Telegram’да олинг."), tr(language, "Открыть Telegram", "Open Telegram", "Telegram’ni ochish", "Telegram’ни очиш")) { chrome.openTelegramIntegration() } }
             item { IntegrationCard(language, cardWidth, R.drawable.home_integration_soon, tr(language, "СКОРО", "COMING SOON", "TEZ ORADA", "ТЕЗ ОРАДА"), tr(language, "Следующая интеграция", "Next integration", "Keyingi integratsiya", "Кейинги интеграция"), tr(language, "Мы готовим ещё один способ связать iumrah с сервисами, которыми Вы пользуетесь каждый день.", "We are preparing another way to connect iumrah with the services you use every day.", "iumrah’ni har kuni foydalanadigan servislaringiz bilan bog‘lashning yana bir usulini tayyorlayapmiz.", "iumrah’ни ҳар куни фойдаланадиган сервисларингиз билан боғлашнинг яна бир усулини тайёрлаяпмиз."), null, null) }
@@ -918,29 +1005,51 @@ private fun HomeIntegrationsSection(language: AppLanguage, chrome: AppChromeStor
 
 @Composable
 private fun IntegrationCard(language: AppLanguage, width: androidx.compose.ui.unit.Dp, imageRes: Int, badge: String, title: String, body: String, cta: String?, onOpen: (() -> Unit)?) {
-    val shape = RoundedCornerShape(28.dp)
+    val shape = RoundedCornerShape(34.dp)
     val content: @Composable () -> Unit = {
         Column(
-            Modifier.width(width).height(366.dp).clip(shape).background(MaterialTheme.colorScheme.surface)
+            Modifier.width(width).height(448.dp).clip(shape).background(MaterialTheme.colorScheme.surface)
                 .border(.8.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = .06f), shape)
         ) {
-            Image(painterResource(imageRes), null, Modifier.fillMaxWidth().height(176.dp), contentScale = ContentScale.Crop)
+            Box(
+                Modifier.fillMaxWidth().height(210.dp).background(Color.White),
+                contentAlignment = Alignment.Center,
+            ) {
+                Image(
+                    painterResource(imageRes), null,
+                    Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 14.dp),
+                    contentScale = ContentScale.Fit,
+                )
+            }
             Column(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text(badge, fontSize = 12.sp, fontWeight = FontWeight.Bold, letterSpacing = .5.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = .52f))
-                Text(title, fontSize = 23.sp, lineHeight = 27.sp, fontWeight = FontWeight.Bold, letterSpacing = (-.45).sp, maxLines = 2)
+                Text(title, fontSize = 24.sp, lineHeight = 28.sp, fontWeight = FontWeight.Bold, letterSpacing = (-.45).sp, maxLines = 2)
                 Text(body, fontSize = 14.sp, lineHeight = 19.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = .58f), maxLines = 3)
                 Spacer(Modifier.weight(1f))
-                if (cta != null) {
-                    Row(Modifier.fillMaxWidth().height(46.dp).clip(RoundedCornerShape(16.dp)).background(Color.Black).padding(horizontal = 15.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text(cta, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                        Spacer(Modifier.weight(1f))
-                        Icon(CupertinoSymbol.ArrowRight, null, tint = Color.White, modifier = Modifier.size(14.dp))
-                    }
+                Row(
+                    Modifier.fillMaxWidth().height(48.dp).clip(RoundedCornerShape(16.dp))
+                        .background(if (cta == null) MaterialTheme.colorScheme.surfaceVariant else Color.Black)
+                        .padding(horizontal = 16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Text(
+                        cta ?: tr(language, "Скоро", "Coming soon", "Tez orada", "Тез орада"),
+                        color = if (cta == null) MaterialTheme.colorScheme.onSurface.copy(alpha = .55f) else Color.White,
+                        fontSize = 14.sp, fontWeight = FontWeight.Bold,
+                    )
+                    Spacer(Modifier.weight(1f))
+                    Icon(
+                        if (cta == null) CupertinoSymbol.ClockFill else CupertinoSymbol.ArrowRight,
+                        null,
+                        tint = if (cta == null) MaterialTheme.colorScheme.onSurface.copy(alpha = .55f) else Color.White,
+                        modifier = Modifier.size(14.dp),
+                    )
                 }
             }
         }
     }
-    if (onOpen != null) IumrahPressable(onClick = onOpen, modifier = Modifier.width(width).height(366.dp), cornerRadius = 28.dp, background = Color.Transparent, shadowElevation = 0.dp) { content() } else content()
+    if (onOpen != null) IumrahPressable(onClick = onOpen, modifier = Modifier.width(width).height(448.dp), cornerRadius = 34.dp, background = Color.Transparent, shadowElevation = 0.dp) { content() } else content()
 }
 
 @Composable
@@ -954,7 +1063,7 @@ private fun BuildMyUmrahSection(language: AppLanguage, chrome: AppChromeStore) {
             tr(language, "Собрать свою Умру", "Build your Umrah", "Umrangizni tuzing", "Умрангизни тузинг"),
             tr(language, "Соберите пакет сами за несколько минут или передайте подбор Iumrah Care.", "Build the package yourself in minutes or let Iumrah Care prepare it for you.", "Paketni bir necha daqiqada o‘zingiz tuzing yoki tanlovni Iumrah Care’ga topshiring.", "Пакетни бир неча дақиқада ўзингиз тузинг ёки танловни Iumrah Care’га топширинг.")
         )
-        LazyRow(state = rowState, horizontalArrangement = Arrangement.spacedBy(16.dp), contentPadding = PaddingValues(horizontal = 1.dp)) {
+        LazyRow(state = rowState, flingBehavior = rememberSnapFlingBehavior(lazyListState = rowState), horizontalArrangement = Arrangement.spacedBy(16.dp), contentPadding = PaddingValues(horizontal = 1.dp)) {
             item { ConfiguratorCard(language, chrome, cardWidth) }
             item { CareBuilderCard(language, cardWidth) { chrome.openCareRequest() } }
         }
@@ -1052,7 +1161,7 @@ private fun ProductsSection(language: AppLanguage, chrome: AppChromeStore) {
     val selected by remember { derivedStateOf { rowState.firstVisibleItemIndex.coerceIn(0, 2) } }
     Column(verticalArrangement = Arrangement.spacedBy(15.dp)) {
         SectionHeader(tr(language, "Наши продукты", "Our products", "Mahsulotlarimiz", "Маҳсулотларимиз"))
-        LazyRow(state = rowState, horizontalArrangement = Arrangement.spacedBy(16.dp), contentPadding = PaddingValues(horizontal = 1.dp)) {
+        LazyRow(state = rowState, flingBehavior = rememberSnapFlingBehavior(lazyListState = rowState), horizontalArrangement = Arrangement.spacedBy(16.dp), contentPadding = PaddingValues(horizontal = 1.dp)) {
             item { BackendSystemCard(language, chrome, cardWidth) }
             item { AdvisorCard(language, chrome, cardWidth) }
             item { SundayUmrahClubCard(language, chrome, cardWidth) }

@@ -349,6 +349,15 @@ data class StoredBookingSession(
     var documentsDeadlineAt: String? = null,
     var statusHistory: List<BookingStatusHistoryEntry>? = null,
 ) {
+    /** UI-only iOS parity: never alter the raw server pilgrimID. */
+    val displayPilgrimID: String? get() {
+        val raw = pilgrimID?.trim().orEmpty()
+        if (raw.isEmpty()) return null
+        val digits = raw.filter { it.isDigit() }
+        if (digits.isEmpty() || digits.length > 8) return null
+        return digits.padStart(8, '0')
+    }
+
     val displayBookingNumber: String get() = bookingDisplayNumber?.takeIf { it.isNotBlank() }
         ?: bookingNumber?.takeIf { it > 0 }?.let { "#%04d".format(it) } ?: "#----"
 

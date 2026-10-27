@@ -33,6 +33,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
@@ -41,6 +42,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.iumrah.beta.R
 import com.iumrah.beta.core.settings.AppLanguage
+import com.iumrah.beta.core.design.IumrahColors
 import com.iumrah.beta.data.hotel.HotelCatalogService
 import com.iumrah.beta.domain.pricing.PackageQuote
 import com.iumrah.beta.models.hotel.HotelSummary
@@ -52,79 +54,23 @@ import java.math.RoundingMode
 import kotlin.math.abs
 import kotlin.math.ceil
 import kotlinx.coroutines.delay
-
-@Composable
-internal fun IumrahFriendsShowcaseCard(language: AppLanguage, onClick: () -> Unit) {
-    IumrahPressable(
-        onClick = onClick,
-        modifier = Modifier.fillMaxWidth(),
-        cornerRadius = 28.dp,
-        background = MaterialTheme.colorScheme.surface,
-        shadowElevation = 7.dp,
-    ) {
-        Column(Modifier.fillMaxWidth()) {
-            Image(
-                painter = painterResource(R.drawable.iumrah_friends_hotels_cover),
-                contentDescription = null,
-                modifier = Modifier.fillMaxWidth(),
-                contentScale = ContentScale.FillWidth,
-            )
-            Column(Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(11.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("iumrah Friends", fontSize = 29.sp, lineHeight = 32.sp, fontWeight = FontWeight.Bold, letterSpacing = (-.5).sp)
-                    Spacer(Modifier.weight(1f))
-                    CupertinoIcon(CupertinoSymbol.ArrowUpRight, null, Modifier.size(18.dp), MaterialTheme.colorScheme.onSurface.copy(alpha = .55f))
-                }
-                Text(
-                    friendsTr(language,
-                        "Соберите друзей или близких и сразу посмотрите итоговую стоимость Umrah-пакета для всей группы — от 1 до 16 человек.",
-                        "Bring friends or family together and instantly see the total Umrah package price for a group of 1 to 16 travelers.",
-                        "Do‘stlar yoki yaqinlaringizni yig‘ing va 1 dan 16 kishigacha bo‘lgan guruh uchun Umra paketining umumiy narxini darhol ko‘ring.",
-                        "Дўстлар ёки яқинларингизни йиғинг ва 1 дан 16 кишигача бўлган гуруҳ учун Умра пакетининг умумий нархини дарҳол кўринг.",
-                    ),
-                    fontSize = 14.sp,
-                    lineHeight = 19.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    CupertinoIcon(CupertinoSymbol.Persons, null, Modifier.size(15.dp), MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text(
-                        friendsTr(language, "1–16 человек", "1–16 travelers", "1–16 kishi", "1–16 киши"),
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    Spacer(Modifier.weight(1f))
-                    Text(
-                        friendsTr(language, "Рассчитать", "Calculate", "Hisoblash", "Ҳисоблаш"),
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF26A269),
-                    )
-                }
-            }
-        }
-    }
-}
+import kotlinx.coroutines.CancellationException
 
 private data class IncludedRow(val icon: CupertinoSymbol, val title: String, val body: String)
 
 @Composable
-internal fun IumrahFriendsCalculatorSheet(
+internal fun IumrahFriendsCalculatorCard(
     language: AppLanguage,
     service: HotelCatalogService,
     flightPackages: List<StorefrontPackageSnapshot>,
     makkahHotels: List<HotelSummary>,
     madinahHotels: List<HotelSummary>,
-    onDismiss: () -> Unit,
 ) {
     var stars by remember { mutableStateOf(3) }
     var adults by remember { mutableStateOf(2) }
     var children by remember { mutableStateOf(0) }
     var quote by remember { mutableStateOf<PackageQuote?>(null) }
     var usedPreview by remember { mutableStateOf<StorefrontPackageSnapshot?>(null) }
-    var usedMakkah by remember { mutableStateOf<HotelSummary?>(null) }
-    var usedMadinah by remember { mutableStateOf<HotelSummary?>(null) }
     var calculating by remember { mutableStateOf(false) }
     var errorText by remember { mutableStateOf<String?>(null) }
     var showIncluded by remember { mutableStateOf(false) }
@@ -199,53 +145,39 @@ internal fun IumrahFriendsCalculatorSheet(
         }.onSuccess {
             quote = it
             usedPreview = preview
-            usedMakkah = makkah
-            usedMadinah = madinah
-        }.onFailure {
+        }.onFailure { failure ->
+            if (failure is CancellationException) throw failure
             errorText = friendsUnavailable(language)
         }
         calculating = false
     }
 
-    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = MaterialTheme.colorScheme.background) {
-        if (showIncluded) {
-            IncludedContent(language = language, onBack = { showIncluded = false })
-            return@ModalBottomSheet
+    // iOS embeds the live Package Engine calculator in the Hotels list.
+    // Keep the single existing pricing state/operation above; no mock prices.
+    val cardRadius = RoundedCornerShape(34.dp)
+    Column(
+        modifier = Modifier.fillMaxWidth()
+            .shadow(7.dp, cardRadius, clip = false, ambientColor = Color.Black.copy(alpha = .05f), spotColor = Color.Black.copy(alpha = .05f))
+            .clip(cardRadius)
+            .background(MaterialTheme.colorScheme.surface)
+            .border(.8.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = .07f), cardRadius)
+            .padding(15.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Image(
+            painter = painterResource(R.drawable.iumrah_friends_hotels_cover),
+            contentDescription = null,
+            modifier = Modifier.fillMaxWidth().height(124.dp).clip(RoundedCornerShape(20.dp)).background(Color.White),
+            contentScale = ContentScale.Crop,
+        )
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text("iumrah Finance", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = IumrahColors.SystemGreen)
+            Text(
+                friendsTr(language, "Калькулятор Umrah-пакета", "Umrah package calculator", "Umrah paketi kalkulyatori", "Umrah пакети калькулятори"),
+                fontSize = 22.sp, lineHeight = 26.sp, letterSpacing = (-.3).sp, fontWeight = FontWeight.Bold,
+            )
         }
-        LazyColumn(
-            modifier = Modifier.fillMaxWidth(),
-            contentPadding = androidx.compose.foundation.layout.PaddingValues(start = 18.dp, end = 18.dp, bottom = 34.dp),
-            verticalArrangement = Arrangement.spacedBy(18.dp),
-        ) {
-            item {
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Text("iumrah Friends", fontSize = 20.sp, fontWeight = FontWeight.Bold)
-                    Spacer(Modifier.weight(1f))
-                    IumrahPressable(onClick = onDismiss, modifier = Modifier.size(38.dp), cornerRadius = 19.dp, background = MaterialTheme.colorScheme.surfaceVariant, shadowElevation = 0.dp) {
-                        Box(Modifier.fillMaxWidth().height(38.dp), contentAlignment = Alignment.Center) {
-                            CupertinoIcon(CupertinoSymbol.Close, null, Modifier.size(13.dp), MaterialTheme.colorScheme.onSurface)
-                        }
-                    }
-                }
-            }
-            item {
-                FriendsCard(28.dp) {
-                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                            CupertinoIcon(CupertinoSymbol.Persons, null, Modifier.size(14.dp), MaterialTheme.colorScheme.onSurfaceVariant)
-                            Text(friendsTr(language, "КАЛЬКУЛЯТОР ГРУППЫ", "GROUP CALCULATOR", "GURUH KALKULYATORI", "ГУРУҲ КАЛЬКУЛЯТОРИ"), fontSize = 11.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                        Text(friendsTr(language, "Посмотрите выгоду поездки вместе", "See how traveling together changes the package", "Birga safar narxini ko‘ring", "Бирга сафар нархини кўринг"), fontSize = 30.sp, lineHeight = 33.sp, fontWeight = FontWeight.Bold, letterSpacing = (-.6).sp)
-                        Text(friendsTr(language,
-                            "Выберите звёздность и состав группы. iumrah возьмёт актуальные Primary Hotels и опубликованную пару прямых рейсов, затем рассчитает итог через тот же Package Engine, что используется в конфигураторе.",
-                            "Choose hotel stars and your group. iumrah uses current Primary Hotels and a published direct flight pair, then asks the same Package Engine used by the configurator for a live total.",
-                            "Yulduzlar va guruh tarkibini tanlang. iumrah amaldagi Primary Hotels va e’lon qilingan to‘g‘ridan-to‘g‘ri reyslarni olib, konfigurator ishlatadigan Package Engine orqali yakuniy narxni hisoblaydi.",
-                            "Юлдузлар ва гуруҳ таркибини танланг. iumrah амалдаги Primary Hotels ва эълон қилинган тўғридан-тўғри рейсларни олиб, конфигуратор ишлатадиган Package Engine орқали якуний нархни ҳисоблайди.",
-                        ), fontSize = 14.sp, lineHeight = 19.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                }
-            }
-            item {
+            Box(Modifier.fillMaxWidth()) {
                 FriendsCard(24.dp) {
                     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         Text(friendsTr(language, "Класс отеля", "Hotel class", "Mehmonxona klassi", "Меҳмонхона класси"), fontSize = 16.sp, fontWeight = FontWeight.Bold)
@@ -258,18 +190,15 @@ internal fun IumrahFriendsCalculatorSheet(
                                         .clickable { stars = value },
                                     contentAlignment = Alignment.Center,
                                 ) {
-                                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
-                                        val selectedColor = if (selected) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.onSurface
-                                        Text("$value", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = selectedColor)
-                                        CupertinoIcon(CupertinoSymbol.Star, null, Modifier.size(12.dp), selectedColor)
-                                    }
+                                    val selectedColor = if (selected) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.onSurface
+                                    Text("$value★", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = selectedColor)
                                 }
                             }
                         }
                     }
                 }
             }
-            item {
+            Box(Modifier.fillMaxWidth()) {
                 FriendsCard(24.dp) {
                     Column {
                         CounterRow(language, friendsTr(language, "Взрослые", "Adults", "Kattalar", "Катталар"), friendsTr(language, "До 16 человек всего", "1–16 people total", "Jami 16 kishigacha", "Жами 16 кишигача"), adults, adults > 1, total < 16, { adults = maxOf(1, adults - 1) }, { if (total < 16) adults++ })
@@ -286,7 +215,7 @@ internal fun IumrahFriendsCalculatorSheet(
                     }
                 }
             }
-            item {
+            Box(Modifier.fillMaxWidth()) {
                 FriendsCard(24.dp) {
                     when {
                         calculating -> Row(Modifier.fillMaxWidth().height(88.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -301,24 +230,26 @@ internal fun IumrahFriendsCalculatorSheet(
                             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Bottom) {
                                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                                     Text(friendsTr(language, "ИТОГО ДЛЯ ВАШЕЙ ГРУППЫ", "TOTAL FOR YOUR GROUP", "GURUH UCHUN JAMI", "ГУРУҲ УЧУН ЖАМИ"), fontSize = 11.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                    Text(money(q.totalPackagePrice.toPlainString()), fontSize = 36.sp, lineHeight = 39.sp, fontWeight = FontWeight.Bold, letterSpacing = (-.8).sp)
+                                    Text(money(q.totalPackagePrice.toPlainString()), fontSize = 33.sp, lineHeight = 37.sp, fontWeight = FontWeight.Bold, letterSpacing = (-.8).sp)
                                 }
                                 Spacer(Modifier.weight(1f))
                                 Text(perPerson(language, q.pricePerPerson.toPlainString()), fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
-                            Spacer(Modifier.height(10.dp))
-                            usedPreview?.let { p -> MetricLine(CupertinoSymbol.Airplane, friendsTr(language, "Прямые опубликованные рейсы · ${p.totalDays ?: 10} дней", "Published direct flights · ${p.totalDays ?: 10} days", "E’lon qilingan to‘g‘ridan-to‘g‘ri reyslar · ${p.totalDays ?: 10} kun", "Эълон қилинган тўғридан-тўғри рейслар · ${p.totalDays ?: 10} кун")) }
-                            usedMakkah?.let { MetricLine(CupertinoSymbol.Building, "${it.name} · $stars") }
-                            usedMadinah?.let { MetricLine(CupertinoSymbol.MoonStarsFill, it.name) }
+                            usedPreview?.let { p ->
+                                val route = "${p.outbound?.origin.orEmpty()} → ${p.outbound?.destination.orEmpty()}"
+                                val date = p.outbound?.departureAt?.take(10).orEmpty()
+                                val days = friendsTr(language, "${p.totalDays ?: 10} дней", "${p.totalDays ?: 10} days", "${p.totalDays ?: 10} kun", "${p.totalDays ?: 10} кун")
+                                Text("$route · $date · $days", fontSize = 11.sp, lineHeight = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
                         }
                         else -> Text(errorText ?: friendsUnavailable(language), fontSize = 14.sp, lineHeight = 19.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.fillMaxWidth().height(72.dp))
                     }
                 }
             }
-            item {
-                IumrahPressable(onClick = { showIncluded = true }, modifier = Modifier.fillMaxWidth(), cornerRadius = 22.dp, background = Color(0xFF26A269).copy(alpha = .10f), shadowElevation = 0.dp) {
+            Box(Modifier.fillMaxWidth()) {
+                IumrahPressable(onClick = { showIncluded = true }, modifier = Modifier.fillMaxWidth(), cornerRadius = 22.dp, background = IumrahColors.SystemGreen.copy(alpha = .09f), shadowElevation = 0.dp) {
                     Row(Modifier.fillMaxWidth().padding(17.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Box(Modifier.size(38.dp).clip(RoundedCornerShape(12.dp)).background(Color(0xFF26A269)), contentAlignment = Alignment.Center) {
+                        Box(Modifier.size(38.dp).clip(RoundedCornerShape(12.dp)).background(IumrahColors.SystemGreen), contentAlignment = Alignment.Center) {
                             CupertinoIcon(CupertinoSymbol.CheckCircleFill, null, Modifier.size(19.dp), Color.White)
                         }
                         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
@@ -329,15 +260,22 @@ internal fun IumrahFriendsCalculatorSheet(
                     }
                 }
             }
-        }
+    }
+
+    if (showIncluded) {
+        ModalBottomSheet(
+            onDismissRequest = { showIncluded = false },
+            containerColor = MaterialTheme.colorScheme.background,
+        ) { IncludedContent(language = language, onBack = { showIncluded = false }) }
     }
 }
 
 @Composable
 private fun FriendsCard(radius: androidx.compose.ui.unit.Dp, content: @Composable () -> Unit) {
-    Box(
+    Column(
         Modifier.fillMaxWidth().clip(RoundedCornerShape(radius)).background(MaterialTheme.colorScheme.surface)
             .border(.7.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = .45f), RoundedCornerShape(radius)).padding(18.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
     ) { content() }
 }
 
@@ -360,14 +298,6 @@ private fun CircleCounterButton(symbol: CupertinoSymbol, enabled: Boolean, actio
         Modifier.size(34.dp).clip(CircleShape).background(MaterialTheme.colorScheme.onSurface.copy(alpha = if (enabled) .07f else .03f)).clickable(enabled = enabled, onClick = action),
         contentAlignment = Alignment.Center,
     ) { CupertinoIcon(symbol, null, Modifier.size(12.dp), MaterialTheme.colorScheme.onSurface.copy(alpha = if (enabled) 1f else .25f)) }
-}
-
-@Composable
-private fun MetricLine(icon: CupertinoSymbol, text: String) {
-    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 6.dp)) {
-        CupertinoIcon(icon, null, Modifier.size(14.dp), MaterialTheme.colorScheme.onSurfaceVariant)
-        Text(text, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2)
-    }
 }
 
 @Composable
@@ -394,8 +324,8 @@ private fun IncludedContent(language: AppLanguage, onBack: () -> Unit) {
         }
         items(rows) { item ->
             Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(22.dp)).background(MaterialTheme.colorScheme.surface).padding(17.dp), verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                Box(Modifier.size(46.dp).clip(RoundedCornerShape(14.dp)).background(Color(0xFF26A269).copy(alpha = .10f)), contentAlignment = Alignment.Center) {
-                    CupertinoIcon(item.icon, null, Modifier.size(19.dp), Color(0xFF26A269))
+                Box(Modifier.size(46.dp).clip(RoundedCornerShape(14.dp)).background(IumrahColors.SystemGreen.copy(alpha = .09f)), contentAlignment = Alignment.Center) {
+                    CupertinoIcon(item.icon, null, Modifier.size(19.dp), IumrahColors.SystemGreen)
                 }
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
                     Text(item.title, fontSize = 16.sp, fontWeight = FontWeight.Bold)
@@ -407,8 +337,8 @@ private fun IncludedContent(language: AppLanguage, onBack: () -> Unit) {
 }
 
 private fun money(raw: String): String = runCatching {
-    java.math.BigDecimal(raw).setScale(0, RoundingMode.HALF_UP).toPlainString() + " $"
-}.getOrDefault("$raw $")
+    "$" + java.math.BigDecimal(raw).setScale(0, RoundingMode.HALF_UP).toPlainString()
+}.getOrDefault("$$raw")
 
 private fun perPerson(language: AppLanguage, raw: String): String {
     val value = money(raw)

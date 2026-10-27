@@ -9,7 +9,8 @@ f = Path('app/src/main/java/com/iumrah/beta/ui/home/HomeReadyPackageTime.kt').re
 t = Path('app/src/test/java/com/iumrah/beta/ui/home/HomeReadyPackageTimeTest.kt').read_text()
 # iOS Home Apple Store sections parity and card stability invariants.
 assert 'private val homeReadyCardWidth = 318.dp' in p
-assert 'private val homeReadyCardHeight = 372.dp' in p
+# iOS HomeAppleStoreSections.swift uses media 118 + body 280 = 398pt.
+assert 'private val homeReadyCardHeight = 398.dp' in p
 assert p.count('Modifier.width(homeReadyCardWidth).height(homeReadyCardHeight)') == 2
 assert 'items(readyEntries, key = { it.first.id })' in p, 'Each option needs its unique key'
 assert 'items(readyEntries, key = { it.second.id })' not in p

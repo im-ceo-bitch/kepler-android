@@ -9,6 +9,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -21,18 +22,21 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -48,6 +52,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.iumrah.beta.R
+import kotlinx.coroutines.launch
 import com.iumrah.beta.core.localization.L10n
 import com.iumrah.beta.core.navigation.AppChromeStore
 import com.iumrah.beta.core.settings.AppLanguage
@@ -82,67 +87,176 @@ fun CareHomeScreen(
     val activeSession = state.sessions.firstOrNull {
         it.effectiveStatus.uppercase() !in setOf("COMPLETED", "CANCELLED")
     }
+    val scope = rememberCoroutineScope()
+    var isRefreshing by remember { mutableStateOf(false) }
+    // Use the same actions in both the quick contacts and the large Care card.
+    val callCare: () -> Unit = {
+        runCatching { context.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:+998508898845"))) }
+        Unit
+    }
+    val openTelegram: () -> Unit = {
+        val raw = telegram.trim()
+        if (raw.isNotEmpty()) {
+            val url = if (raw.startsWith("https://", ignoreCase = true)) raw
+                else "https://t.me/${raw.removePrefix("@").trim('/')}"
+            runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
+        }
+        Unit
+    }
+    val openChat: () -> Unit = { activeSession?.let { chrome.openBookingChat(it.id) }; Unit }
 
     LaunchedEffect(bookingStore, chatService) {
         // Match the iOS screen's initial refresh behavior without introducing a
         // new store architecture: refresh the sessions already known locally.
-        bookingStore.state.value.sessions.map { it.id }.forEach { bookingID ->
-            runCatching { bookingStore.refresh(bookingID) }
-        }
+        bookingStore.refreshAll()
         runCatching { chatService.loadCareProfile() }.getOrNull()?.telegram
             ?.trim()
             ?.takeIf { it.isNotEmpty() }
             ?.let { telegram = it }
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(palette.page)
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 18.dp)
-            .padding(top = 10.dp, bottom = 112.dp),
+    PullToRefreshBox(
+        isRefreshing = isRefreshing,
+        onRefresh = {
+            if (!isRefreshing) scope.launch {
+                isRefreshing = true
+                try { bookingStore.refreshAll() } finally { isRefreshing = false }
+            }
+        },
+        modifier = Modifier.fillMaxSize(),
     ) {
-        IumrahRootPageHeader(
-            title = "iumrah Care",
-            chrome = chrome,
-            unreadCount = notificationState.unreadCount,
-        )
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(palette.page)
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 18.dp)
+                .padding(top = 10.dp, bottom = 112.dp),
+        ) {
+            IumrahRootPageHeader(
+                title = "iumrah Care",
+                chrome = chrome,
+                unreadCount = notificationState.unreadCount,
+            )
+            Spacer(Modifier.height(14.dp))
+            CareQuickContacts(
+                language = language,
+                palette = palette,
+                chatEnabled = activeSession != null,
+                telegramEnabled = telegram.isNotBlank(),
+                onChat = openChat,
+                onPhone = callCare,
+                onTelegram = openTelegram,
+            )
+            Spacer(Modifier.height(24.dp))
+            CareIntro(language = language, palette = palette)
+            Spacer(Modifier.height(24.dp))
 
-        Spacer(Modifier.height(14.dp))
-
-        CareIntro(language = language, palette = palette)
-
-        Spacer(Modifier.height(24.dp))
-
-        CareHero(
-            language = language,
-            activeSession = activeSession,
-            telegram = telegram,
-            palette = palette,
-            onChat = { activeSession?.let { chrome.openBookingChat(it.id) } },
-            onCall = {
-                runCatching {
-                    context.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:+998508898845")))
+            // Mirrors adaptiveLayout.isWide from SwiftUI without altering the
+            // single-column geometry on phones.
+            BoxWithConstraints(Modifier.fillMaxWidth()) {
+                if (maxWidth >= 700.dp) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(22.dp), verticalAlignment = Alignment.Top) {
+                        Box(Modifier.weight(1f), contentAlignment = Alignment.TopStart) {
+                            Box(Modifier.widthIn(max = 470.dp)) {
+                                CareHero(
+                                language, activeSession, telegram, palette,
+                                    onChat = openChat, onCall = callCare, onTelegram = openTelegram,
+                                )
+                            }
+                        }
+                        Column(Modifier.weight(1f)) {
+                            CareHelpTopics(language = language, palette = palette)
+                            Spacer(Modifier.height(30.dp))
+                            CareQuickAnswers(language = language, palette = palette)
+                        }
+                    }
+                } else {
+                    Column {
+                        CareHero(
+                            language, activeSession, telegram, palette,
+                            onChat = openChat, onCall = callCare, onTelegram = openTelegram,
+                        )
+                        Spacer(Modifier.height(28.dp))
+                        CareHelpTopics(language = language, palette = palette)
+                        Spacer(Modifier.height(30.dp))
+                        CareQuickAnswers(language = language, palette = palette)
+                    }
                 }
-            },
-            onTelegram = {
-                val raw = telegram.trim()
-                val url = if (raw.startsWith("http", ignoreCase = true)) raw
-                else "https://t.me/${raw.removePrefix("@").trim('/')}"
-                runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
-            },
+            }
+            Spacer(Modifier.height(14.dp))
+        }
+    }
+
+}
+
+/** Top-row Care shortcuts, matching CareHomeView.careQuickContacts (105 x 25). */
+@Composable
+private fun CareQuickContacts(
+    language: AppLanguage,
+    palette: CarePalette,
+    chatEnabled: Boolean,
+    telegramEnabled: Boolean,
+    onChat: () -> Unit,
+    onPhone: () -> Unit,
+    onTelegram: () -> Unit,
+) {
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(11.dp)) {
+        CareQuickContactTile(
+            modifier = Modifier.weight(1f), icon = CupertinoSymbol.Phone,
+            label = tr(language, "Call", "Позвонить", "Qo‘ng‘iroq", "Қўнғироқ"),
+            color = Color(0xFF34C759), enabled = true, palette = palette, onClick = onPhone,
         )
+        CareQuickContactTile(
+            modifier = Modifier.weight(1f), icon = CupertinoSymbol.Send,
+            label = "Telegram", color = Color(0xFF007AFF),
+            enabled = telegramEnabled, palette = palette, onClick = onTelegram,
+        )
+        CareQuickContactTile(
+            modifier = Modifier.weight(1f), icon = CupertinoSymbol.ChatBubble,
+            label = tr(language, "Chat", "Чат", "Chat", "Чат"),
+            color = palette.primary, enabled = chatEnabled, palette = palette, onClick = onChat,
+        )
+    }
+}
 
-        Spacer(Modifier.height(28.dp))
-
-        CareHelpTopics(language = language, palette = palette)
-
-        Spacer(Modifier.height(30.dp))
-
-        CareQuickAnswers(language = language, palette = palette)
-
-        Spacer(Modifier.height(14.dp))
+@Composable
+private fun CareQuickContactTile(
+    modifier: Modifier,
+    icon: CupertinoSymbol,
+    label: String,
+    color: Color,
+    enabled: Boolean,
+    palette: CarePalette,
+    onClick: () -> Unit,
+) {
+    val shape = RoundedCornerShape(25.dp)
+    Column(
+        modifier = modifier
+            .height(105.dp)
+            .clip(shape)
+            .background(palette.card)
+            .border(1.dp, color.copy(alpha = if (enabled) .22f else .06f), shape)
+            .clickable(enabled = enabled, onClick = onClick)
+            .padding(horizontal = 5.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+    ) {
+        if (icon == CupertinoSymbol.Send) {
+            Image(
+                painter = painterResource(R.drawable.iumrah_telegram_mark),
+                contentDescription = null,
+                modifier = Modifier.size(34.dp),
+            )
+        } else {
+            CupertinoIcon(icon, null, Modifier.size(24.dp), if (enabled) color else palette.secondary)
+        }
+        Spacer(Modifier.height(12.dp))
+        Text(
+            label, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
+            color = palette.primary.copy(alpha = if (enabled) 1f else .48f),
+            maxLines = 1, overflow = TextOverflow.Ellipsis,
+        )
     }
 }
 
@@ -364,7 +478,15 @@ private fun CareActionTile(
                 .background(palette.iconBackground),
             contentAlignment = Alignment.Center,
         ) {
-            CupertinoIcon(icon, null, Modifier.size(20.dp), if (enabled) palette.primary else palette.secondary.copy(alpha = 0.56f))
+            if (icon == CupertinoSymbol.Send) {
+                Image(
+                    painter = painterResource(R.drawable.iumrah_telegram_mark),
+                    contentDescription = null,
+                    modifier = Modifier.size(28.dp),
+                )
+            } else {
+                CupertinoIcon(icon, null, Modifier.size(20.dp), if (enabled) palette.primary else palette.secondary.copy(alpha = 0.56f))
+            }
         }
         Spacer(Modifier.height(9.dp))
         Text(

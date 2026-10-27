@@ -1,6 +1,13 @@
 package com.iumrah.beta.ui.planning
 
 import android.app.*
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import android.content.*
 import android.os.Build
 import androidx.compose.foundation.Image
@@ -51,6 +58,7 @@ private data class PlannedTrip(
 private class PlanStore(private val context:Context){
     private val prefs=context.getSharedPreferences("iumrah.planned-trip.v1",Context.MODE_PRIVATE)
     var trip by mutableStateOf(load()); private set
+    fun reload() { trip = load() }
     fun save(t:PlannedTrip){ trip=t; prefs.edit().putString("title",t.title).putString("start",t.start.toString()).putString("end",t.end.toString()).putString("bg",t.background).putString("days",t.reminderDays.sortedDescending().joinToString(",")).putInt("hour",t.hour).putInt("minute",t.minute).putBoolean("notifications",t.notifications).putString("language",t.language).apply(); PlanScheduler.reschedule(context,t); IumrahWidgetSync.refreshAll(context) }
     fun delete(){ trip=null; prefs.edit().clear().apply(); PlanScheduler.cancel(context); IumrahWidgetSync.refreshAll(context) }
     private fun load():PlannedTrip?{ val s=prefs.getString("start",null)?:return null; return runCatching{PlannedTrip(prefs.getString("title","Umrah")?:"Umrah",LocalDate.parse(s),LocalDate.parse(prefs.getString("end",s)),prefs.getString("bg","gradient-sunset")?:"gradient-sunset",prefs.getString("days","")!!.split(',').mapNotNull{it.toIntOrNull()}.toSet().ifEmpty{setOf(60,30,20,15,10,7,5,3,2,1)},prefs.getInt("hour",19),prefs.getInt("minute",0),prefs.getBoolean("notifications",true),prefs.getString("language","ru")?:"ru")}.getOrNull() }
@@ -83,6 +91,9 @@ private object PlanScheduler {
     }
 
     fun schedulePreview(context: Context, trip: PlannedTrip): Boolean = runCatching {
+        if (Build.VERSION.SDK_INT >= 33 &&
+            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+        ) return false
         val am = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
         val intent = Intent(context, UmrahPlanReminderReceiver::class.java)
             .putExtra("days", 20)
@@ -113,6 +124,168 @@ class UmrahPlanReminderReceiver : BroadcastReceiver() {
                 .build(),
         )
     }
+}
+
+/** Mirrors iOS UmrahPlanReminderCenterView. This is Umrah Plan, not the excluded Umrah Flow. */
+@Composable
+fun UmrahPlanReminderCenter(language: AppLanguage, onOpenPlan: () -> Unit) {
+    val context = LocalContext.current
+    val store = remember(context) { PlanStore(context) }
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { store.reload() }
+    val trip = store.trip
+    var editing by remember { mutableStateOf(false) }
+
+    if (editing && trip != null) {
+        androidx.compose.ui.window.Dialog(
+            onDismissRequest = { editing = false },
+            properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false),
+        ) {
+            Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+                ReminderEditor(language, trip, { editing = false }) {
+                    store.save(it)
+                    editing = false
+                }
+            }
+        }
+    }
+
+    Column(verticalArrangement = Arrangement.spacedBy(18.dp)) {
+        if (trip == null) {
+            val shape = RoundedCornerShape(32.dp)
+            Column(
+                Modifier.fillMaxWidth()
+                    .background(Brush.linearGradient(listOf(Color(0xFFFFFAF5), Color(0xFFFFE8D9))), shape)
+                    .border(.8.dp, Color.Black.copy(alpha = .08f), shape).padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(18.dp),
+            ) {
+                StackedPlanIcon()
+                Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(tr(language, "Запланировать Umrah", "Plan your Umrah", "Umrani rejalashtiring", "Умрани режалаштиринг"),
+                        fontSize = 30.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center, color = Color.Black)
+                    Text(tr(language,
+                        "Выберите будущие даты и iumrah будет спокойно напоминать о подготовке к поездке.",
+                        "Choose your future dates and iumrah will calmly remind you as your trip gets closer.",
+                        "Kelajakdagi sanalarni tanlang — iumrah safar yaqinlashgani sari tayyorgarlikni eslatib turadi.",
+                        "Келажакдаги саналарни танланг — iumrah сафар яқинлашгани сари тайёргарликни эслатиб туради."),
+                        fontSize = 16.sp, lineHeight = 21.sp, textAlign = TextAlign.Center, color = Color.Black.copy(alpha = .55f))
+                }
+                IumrahPressable(onOpenPlan, Modifier.fillMaxWidth().height(58.dp), cornerRadius = 20.dp, background = Color(0xFFFF520F)) {
+                    Row(Modifier.fillMaxSize().padding(horizontal = 20.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text(tr(language, "Создать план поездки", "Create trip plan", "Safar rejasini yaratish", "Сафар режасини яратиш"),
+                            modifier = Modifier.weight(1f), fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                        CupertinoIcon(CupertinoSymbol.ArrowRight, null, Modifier.size(17.dp), tint = Color.White)
+                    }
+                }
+            }
+            Text(
+                tr(language,
+                    "Сначала запланируйте следующую Umrah — после этого здесь появится расписание напоминаний.",
+                    "Plan your next Umrah first; your reminder schedule will then appear here.",
+                    "Avval keyingi Umrani rejalashtiring — so‘ng bu yerda eslatmalar jadvali paydo bo‘ladi.",
+                    "Аввал кейинги Умрани режалаштиринг — сўнг бу ерда эслатмалар жадвали пайдо бўлади."),
+                modifier = Modifier.padding(horizontal = 4.dp),
+                fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        } else {
+            val foreground = if (backgroundPrefersLight(trip.background)) Color.White else Color.Black
+            Box(
+                Modifier.fillMaxWidth().height(286.dp).clip(RoundedCornerShape(32.dp))
+                    .clickable(onClick = onOpenPlan),
+            ) {
+                PlanBackground(trip.background)
+                Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color.Black.copy(alpha = .05f), Color.Black.copy(alpha = .16f)))))
+                Column(Modifier.fillMaxSize().padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        Text(tr(language, "ПРЕДСТОЯЩАЯ", "UPCOMING", "KELGUSI", "КЕЛГУСИ"),
+                            fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp,
+                            color = foreground.copy(alpha = .86f), modifier = Modifier.weight(1f))
+                        CupertinoIcon(if (trip.notifications) CupertinoSymbol.BellFill else CupertinoSymbol.BellSlashFill,
+                            null, Modifier.size(16.dp), tint = foreground.copy(alpha = .86f))
+                    }
+                    Spacer(Modifier.weight(1f))
+                    Text(trip.title, fontSize = 32.sp, fontWeight = FontWeight.Bold, color = foreground)
+                    Text(heroCountdown(language, trip), fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
+                        color = foreground.copy(alpha = .78f))
+                    Text(formatRange(trip.start, trip.end), fontSize = 14.sp,
+                        color = foreground.copy(alpha = .72f))
+                    Spacer(Modifier.weight(1f))
+                    Row(
+                        Modifier.fillMaxWidth().height(48.dp)
+                            .background(Color.White.copy(alpha = .92f), RoundedCornerShape(17.dp))
+                            .padding(horizontal = 16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        CupertinoIcon(CupertinoSymbol.BellBadge, null, Modifier.size(16.dp), tint = Color.Black)
+                        Text(tr(language, "Напоминания настроены", "Reminders ready", "Eslatmalar tayyor", "Эслатмалар тайёр"),
+                            fontSize = 14.5.sp, fontWeight = FontWeight.Bold, color = Color.Black,
+                            modifier = Modifier.weight(1f))
+                        CupertinoIcon(CupertinoSymbol.ChevronRight, null, Modifier.size(16.dp), tint = Color.Black)
+                    }
+                }
+            }
+        }
+        if (trip != null) {
+            IosCard(radius = 28) {
+                Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.Top) {
+                        Box(
+                            Modifier.size(48.dp).background(Color(0xFF1677FF).copy(alpha = .10f), RoundedCornerShape(16.dp)),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            CupertinoIcon(CupertinoSymbol.BellBadge, null, Modifier.size(19.dp), tint = Color(0xFF1677FF))
+                        }
+                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text(tr(language,
+                                "Напоминания о следующей поездке", "Next-trip reminders",
+                                "Keyingi safar eslatmalari", "Кейинги сафар эслатмалари"),
+                                fontSize = 20.sp, fontWeight = FontWeight.Bold, lineHeight = 24.sp)
+                            Text(tr(language,
+                                "iumrah напомнит о подготовке заранее и будет делать это чаще по мере приближения поездки.",
+                                "iumrah reminds you early, then increases the cadence as your journey gets closer.",
+                                "iumrah safar yaqinlashgani sari eslatmalarni oldindan va tez-tez yuboradi.",
+                                "iumrah сафар яқинлашгани сари эслатмаларни олдиндан ва тез-тез юборади."),
+                                fontSize = 14.sp, lineHeight = 19.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                        trip.reminderDays.sortedDescending().take(4).forEach { day ->
+                            Text(
+                                reminderCenterDayLabel(language, day),
+                                modifier = Modifier.background(MaterialTheme.colorScheme.onSurface.copy(alpha = .055f), CircleShape)
+                                    .height(30.dp).wrapContentHeight(Alignment.CenterVertically)
+                                    .padding(horizontal = 9.dp),
+                                fontSize = 11.sp, fontWeight = FontWeight.Bold,
+                                maxLines = 1,
+                            )
+                        }
+                        Spacer(Modifier.weight(1f))
+                        Text("%02d:%02d".format(trip.hour, trip.minute), fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    IumrahPressable(
+                        { editing = true }, Modifier.fillMaxWidth().height(50.dp),
+                        cornerRadius = 17.dp, background = Color.Black,
+                    ) {
+                        Row(Modifier.fillMaxSize().padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Text(tr(language, "Настроить напоминания", "Edit reminders", "Eslatmalarni sozlash", "Эслатмаларни созлаш"),
+                                fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color.White,
+                                modifier = Modifier.weight(1f))
+                            CupertinoIcon(CupertinoSymbol.Sliders, null, Modifier.size(18.dp), tint = Color.White)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+private fun reminderCenterDayLabel(language: AppLanguage, day: Int): String = when (language) {
+    AppLanguage.RUSSIAN -> if (day >= 30) "${day / 30} мес." else "$day дн."
+    AppLanguage.ENGLISH -> if (day >= 30) "${day / 30} mo" else "${day}d"
+    AppLanguage.UZBEK -> if (day >= 30) "${day / 30} oy" else "$day kun"
+    AppLanguage.UZBEK_CYRILLIC -> if (day >= 30) "${day / 30} ой" else "$day кун"
 }
 
 @Composable
@@ -235,6 +408,18 @@ private fun BackgroundPicker(language: AppLanguage, selected: String, onBack: ()
     }
 }
 
+private fun reminderPermissionMessage(language: AppLanguage, success: Boolean): String = if (success)
+    tr(language,
+        "Тестовое уведомление запланировано через несколько секунд.",
+        "The test notification is scheduled in a few seconds.",
+        "Sinov bildirishnomasi bir necha soniyadan so‘ng rejalashtirildi.",
+        "Синов билдиришномаси бир неча сониядан сўнг режалаштирилди.")
+else tr(language,
+        "Для напоминаний разрешите уведомления iumrah в настройках Android.",
+        "Allow iumrah notifications in Android Settings to receive reminders.",
+        "Eslatmalar uchun Android sozlamalarida iumrah bildirishnomalariga ruxsat bering.",
+        "Эслатмалар учун Android созламаларида iumrah билдиришномаларига рухсат беринг.")
+
 @Composable
 private fun ReminderEditor(language: AppLanguage, trip: PlannedTrip, onBack: () -> Unit, onSave: (PlannedTrip) -> Unit) {
     val context = LocalContext.current
@@ -244,11 +429,38 @@ private fun ReminderEditor(language: AppLanguage, trip: PlannedTrip, onBack: () 
     var minute by remember { mutableIntStateOf(trip.minute) }
     var customDays by remember { mutableIntStateOf(12) }
     var previewMessage by remember { mutableStateOf<String?>(null) }
+    var pendingSave by remember { mutableStateOf<PlannedTrip?>(null) }
+    var pendingPreview by remember { mutableStateOf<PlannedTrip?>(null) }
+    val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        val nextSave = pendingSave
+        val nextPreview = pendingPreview
+        pendingSave = null
+        pendingPreview = null
+        if (granted) {
+            if (nextSave != null) onSave(nextSave)
+            if (nextPreview != null) {
+                previewMessage = if (PlanScheduler.schedulePreview(context, nextPreview))
+                    reminderPermissionMessage(language, true) else reminderPermissionMessage(language, false)
+            }
+        } else {
+            previewMessage = reminderPermissionMessage(language, false)
+        }
+    }
+    fun permissionGranted(): Boolean = Build.VERSION.SDK_INT < 33 ||
+        ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
+    fun configuredTrip(): PlannedTrip = trip.copy(reminderDays = days, hour = hour, minute = minute,
+        notifications = enabled, language = language.code)
     val allDays = (setOf(60, 30, 20, 15, 10, 7, 5, 3, 2, 1) + days).sortedDescending()
     Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         Row(Modifier.statusBarsPadding().height(56.dp).padding(horizontal = 18.dp), verticalAlignment = Alignment.CenterVertically) {
             Text(tr(language, "Напоминания", "Reminders", "Eslatmalar", "Эслатмалар"), fontSize = 22.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-            Text(tr(language, "Сохранить", "Save", "Saqlash", "Сақлаш"), fontWeight = FontWeight.Bold, color = Color(0xFF007AFF), modifier = Modifier.clickable { onSave(trip.copy(reminderDays = days, hour = hour, minute = minute, notifications = enabled, language = language.code)) })
+            Text(tr(language, "Сохранить", "Save", "Saqlash", "Сақлаш"), fontWeight = FontWeight.Bold, color = Color(0xFF007AFF), modifier = Modifier.clickable {
+                val result = configuredTrip()
+                if (result.notifications && !permissionGranted()) {
+                    pendingSave = result
+                    permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                } else onSave(result)
+            })
         }
         Column(Modifier.verticalScroll(rememberScrollState()).padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -283,9 +495,13 @@ private fun ReminderEditor(language: AppLanguage, trip: PlannedTrip, onBack: () 
                     }
                 }
                 IumrahPressable({
-                    val previewTrip = trip.copy(reminderDays = days, hour = hour, minute = minute, notifications = enabled, language = language.code)
-                    val ok = PlanScheduler.schedulePreview(context, previewTrip)
-                    previewMessage = if (ok) tr(language, "Тестовое уведомление придёт через несколько секунд.", "A test notification will arrive in a few seconds.", "Sinov bildirishnomasi bir necha soniyada keladi.", "Синов билдиришномаси бир неча сонияда келади.") else tr(language, "Разрешите уведомления для iumrah в настройках Android.", "Allow iumrah notifications in Android Settings.", "Android sozlamalarida iumrah bildirishnomalariga ruxsat bering.", "Android созламаларида iumrah билдиришномаларига рухсат беринг.")
+                    val previewTrip = configuredTrip()
+                    if (!permissionGranted()) {
+                        pendingPreview = previewTrip
+                        permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                    } else {
+                        previewMessage = reminderPermissionMessage(language, PlanScheduler.schedulePreview(context, previewTrip))
+                    }
                 }, Modifier.fillMaxWidth().height(56.dp), cornerRadius = 19.dp, background = MaterialTheme.colorScheme.onSurface.copy(alpha = .06f)) {
                     Row(Modifier.fillMaxSize().padding(horizontal = 17.dp), verticalAlignment = Alignment.CenterVertically) {
                         CupertinoIcon(CupertinoSymbol.BellBadge, null, Modifier.size(18.dp))

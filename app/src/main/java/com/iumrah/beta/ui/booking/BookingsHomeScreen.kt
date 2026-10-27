@@ -31,6 +31,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -40,6 +41,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -87,6 +89,7 @@ import java.time.format.DateTimeParseException
 import java.util.Currency
 import java.util.Locale
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 private enum class BookingPanel { BOOKING, STATUS, SCHEDULE }
 
@@ -116,6 +119,8 @@ fun BookingsHomeScreen(
     var itinerary by remember { mutableStateOf<List<BookingItineraryItem>>(emptyList()) }
     var deleteError by remember { mutableStateOf<String?>(null) }
     var activeGuideProfile by remember { mutableStateOf<IumrahPublicProfile?>(null) }
+    var isRefreshing by remember { mutableStateOf(false) }
+    val refreshScope = rememberCoroutineScope()
 
     val activeSessions = bookingState.sessions.filterNot {
         it.effectiveStatus.uppercase() in setOf("COMPLETED", "CANCELLED")
@@ -155,6 +160,18 @@ fun BookingsHomeScreen(
         }
     }
 
+    PullToRefreshBox(
+        isRefreshing = isRefreshing,
+        onRefresh = {
+            if (!isRefreshing) {
+                refreshScope.launch {
+                    isRefreshing = true
+                    try { refresh() } finally { isRefreshing = false }
+                }
+            }
+        },
+        modifier = Modifier.fillMaxSize(),
+    ) {
     AnimatedContent(
         targetState = activeSession?.id,
         transitionSpec = { fadeIn().togetherWith(fadeOut()) },
@@ -189,6 +206,7 @@ fun BookingsHomeScreen(
                 deleteError = deleteError,
             )
         }
+    }
     }
 }
 

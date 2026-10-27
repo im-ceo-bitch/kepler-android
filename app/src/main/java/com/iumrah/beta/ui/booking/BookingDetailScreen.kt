@@ -1,5 +1,8 @@
 package com.iumrah.beta.ui.booking
 
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.Image
@@ -82,7 +85,7 @@ fun BookingDetailScreen(
     var deletePrompt by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
 
-    LaunchedEffect(bookingID) {
+    LaunchedEffect(bookingID, language) {
         careProfile = runCatching { careService.loadCareProfile() }.getOrNull()
         val refreshed = bookingStore.refresh(bookingID) ?: return@LaunchedEffect
         itinerary = runCatching {
@@ -135,7 +138,7 @@ fun BookingDetailScreen(
             subtitle = buildString {
                 append(bookingText(language, "Бронь ", "Booking ", "Bron ", "Брон "))
                 append(session.displayBookingNumber)
-                session.pilgrimID?.takeIf { it.isNotBlank() }?.let { append(" · iumrah ID ").append(it) }
+                session.displayPilgrimID?.let { append(" · iumrah ID ").append(it) }
             },
             chrome = chrome,
         )
@@ -154,7 +157,7 @@ fun BookingDetailScreen(
                 BookingIdentityStrip(session, language)
                 IumrahBookingDomeCard(session = session, language = language)
                 BookingStatusHero(session, language, chrome)
-                if (session.effectiveStatus.uppercase() == "PAYMENT_PENDING") {
+                if (bookingNeedsCheckout(session)) {
                     BookingManualPaymentNotice(language)
                     BookingRefundPolicyCompact(language)
                     BookingInvoiceCompact(session, language)
@@ -166,6 +169,7 @@ fun BookingDetailScreen(
                     session = session,
                     remoteItems = itinerary,
                     fullScreen = false,
+                    onOpenFullSchedule = { selectedPage = BookingPrimaryPageAndroid.SCHEDULE },
                 )
 
                 BookingFlightFirstComponents(session, language, chrome)
@@ -268,14 +272,14 @@ private fun BookingIdentityStrip(session: StoredBookingSession, language: AppLan
         verticalAlignment = Alignment.CenterVertically,
     ) {
         IdentityBlock(
-            label = bookingText(language, "Booking ID", "Booking ID", "Booking ID", "Booking ID"),
+            label = bookingText(language, "Номер брони", "Booking number", "Bron raqami", "Брон рақами"),
             value = session.displayBookingNumber,
             modifier = Modifier.weight(1f),
         )
         Box(Modifier.padding(horizontal = 10.dp).width(.7.dp).height(42.dp).background(MaterialTheme.colorScheme.onBackground.copy(alpha = .11f)))
         IdentityBlock(
             label = "iumrah ID",
-            value = session.pilgrimID?.takeIf { it.isNotBlank() } ?: "—",
+            value = session.displayPilgrimID ?: "—",
             modifier = Modifier.weight(1f),
         )
     }
@@ -283,15 +287,38 @@ private fun BookingIdentityStrip(session: StoredBookingSession, language: AppLan
 
 @Composable
 private fun IdentityBlock(label: String, value: String, modifier: Modifier = Modifier) {
+    val context = LocalContext.current
     Row(modifier, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
             Text(label, fontSize = 11.sp, lineHeight = 13.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onBackground.copy(alpha = .48f))
             Text(value, fontSize = 15.sp, lineHeight = 18.sp, fontWeight = FontWeight.Bold, fontFamily = com.iumrah.beta.core.design.IumrahFontFamily, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
-        Box(Modifier.size(34.dp).clip(CircleShape).background(bookingIosCard()), contentAlignment = Alignment.Center) {
-            CupertinoIcon(CupertinoSymbol.Copy, null, Modifier.size(13.dp), MaterialTheme.colorScheme.onBackground.copy(alpha = if (value == "—") .28f else .72f))
+        IumrahPressable(
+            onClick = {
+                val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
+                clipboard?.setPrimaryClip(ClipData.newPlainText(label, value))
+            },
+            modifier = Modifier.size(34.dp),
+            enabled = value.isNotBlank() && value != "—",
+            cornerRadius = 17.dp,
+            background = bookingIosCard(),
+            pressedScale = .94f,
+        ) {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                CupertinoIcon(CupertinoSymbol.Copy, label, Modifier.size(13.dp), MaterialTheme.colorScheme.onBackground.copy(alpha = if (value == "—") .28f else .72f))
+            }
         }
     }
+}
+
+/** Matches BookingDetailView.shouldShowCheckoutEntry in the read-only iOS reference. */
+internal fun bookingNeedsCheckout(session: StoredBookingSession): Boolean {
+    val waiting = setOf(
+        "PAYMENT_PENDING", "PENDING_PAYMENT", "WAITING_PAYMENT", "AWAITING_PAYMENT",
+        "PAYMENT_AND_DATA_PENDING", "AWAITING_PAYMENT_AND_DATA",
+    )
+    return listOf(session.effectiveStatus, session.operationStatus.orEmpty(), session.booking.status)
+        .any { it.trim().replace('-', '_').uppercase(Locale.ROOT) in waiting }
 }
 
 @Composable
@@ -321,8 +348,7 @@ private fun BookingStatusHero(session: StoredBookingSession, language: AppLangua
             LifecycleTimerCard(phase, language)
         }
 
-        when (status) {
-            "PAYMENT_PENDING" -> {
+        if (bookingNeedsCheckout(session)) {
                 Spacer(Modifier.height(14.dp))
                 IumrahPressable(
                     onClick = { chrome.openBookingSecurity(session.id) },
@@ -363,8 +389,7 @@ private fun BookingStatusHero(session: StoredBookingSession, language: AppLangua
                         CupertinoIcon(CupertinoSymbol.ChevronRight, null, Modifier.size(14.dp), Color.White.copy(alpha = .88f))
                     }
                 }
-            }
-            "BOOKING_CONFIRMED", "READY_TO_TRAVEL", "IN_TRIP" -> {
+        } else if (status in setOf("BOOKING_CONFIRMED", "READY_TO_TRAVEL", "IN_TRIP")) {
                 Spacer(Modifier.height(14.dp))
                 IumrahPressable(
                     onClick = { chrome.openPilgrimCheckout(session.id) },
@@ -380,7 +405,6 @@ private fun BookingStatusHero(session: StoredBookingSession, language: AppLangua
                         CupertinoIcon(CupertinoSymbol.ChevronRight, null, Modifier.size(13.dp), MaterialTheme.colorScheme.onBackground.copy(alpha = .34f))
                     }
                 }
-            }
         }
     }
 }

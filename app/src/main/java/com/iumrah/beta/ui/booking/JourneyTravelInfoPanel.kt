@@ -359,7 +359,7 @@ private class JourneyTravelInfoService(context: Context) {
 }
 
 @Composable
-fun JourneyTravelInfoPanel(language: AppLanguage) {
+fun JourneyTravelInfoPanel(language: AppLanguage, initialPage: Int = 0) {
     val context = LocalContext.current
     val prefs = remember { context.applicationContext.getSharedPreferences("iumrah_travel_info", Context.MODE_PRIVATE) }
     val service = remember { JourneyTravelInfoService(context) }
@@ -371,7 +371,7 @@ fun JourneyTravelInfoPanel(language: AppLanguage) {
         )
     }
     var state by remember { mutableStateOf(TravelInfoState(refreshing = true)) }
-    val pager = rememberPagerState(pageCount = { TravelInfoPage.entries.size })
+    val pager = rememberPagerState(initialPage = initialPage.coerceIn(0, TravelInfoPage.entries.lastIndex), pageCount = { TravelInfoPage.entries.size })
 
     suspend fun refresh(force: Boolean) {
         state = state.copy(refreshing = true, unavailable = false)

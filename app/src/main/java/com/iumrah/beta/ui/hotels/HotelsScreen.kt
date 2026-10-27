@@ -109,7 +109,7 @@ import com.iumrah.beta.ui.components.iumrahSignatureBleed
 import com.iumrah.beta.ui.components.IumrahSignatureWorldBackground
 import com.iumrah.beta.ui.cupertino.CupertinoIcon
 import com.iumrah.beta.ui.cupertino.CupertinoSymbol
-import com.iumrah.beta.ui.cupertino.CupertinoRatingStars
+import com.iumrah.beta.ui.cupertino.IumrahIconRole
 import com.iumrah.beta.ui.trip.IumrahAirportMapDialog
 import java.time.OffsetDateTime
 import java.time.format.DateTimeFormatter
@@ -174,7 +174,6 @@ fun HotelsScreen(
     var locatingAirport by remember { mutableStateOf(false) }
     var flightOriginFilter by rememberSaveable { mutableStateOf<String?>(null) }
     var flightDestinationFilter by rememberSaveable { mutableStateOf<String?>(null) }
-    var friendsCalculatorPresented by remember { mutableStateOf(false) }
     val previews = remember { mutableStateMapOf<String, HotelPreview>() }
     // Public hotel listings may be displayed offline. Package prices are never
     // restored from disk; they must be validated by the server for this session.
@@ -360,7 +359,15 @@ fun HotelsScreen(
                         imageBackground = Color.Black,
                     )
                 }
-                item { IumrahFriendsShowcaseCard(language) { friendsCalculatorPresented = true } }
+                item {
+                    IumrahFriendsCalculatorCard(
+                        language = language,
+                        service = service,
+                        flightPackages = flightPackages,
+                        makkahHotels = makkah,
+                        madinahHotels = madinah,
+                    )
+                }
 
                 if (makkah.isNotEmpty()) {
                     item { StorefrontSectionHeader(L10n.text("hotels_makkah", language), L10n.text("hotels_selected_badge", language)) }
@@ -520,16 +527,7 @@ fun HotelsScreen(
     if (carePresented) {
         HotelCareContactSheet(language = language, onDismiss = { carePresented = false })
     }
-    if (friendsCalculatorPresented) {
-        IumrahFriendsCalculatorSheet(
-            language = language,
-            service = service,
-            flightPackages = flightPackages,
-            makkahHotels = makkah,
-            madinahHotels = madinah,
-            onDismiss = { friendsCalculatorPresented = false },
-        )
-    }
+
     packageShareError?.let { message ->
         AlertDialog(
             onDismissRequest = { packageShareError = null },
@@ -835,7 +833,8 @@ private fun HotelStorefrontCard(
                 Text(hotel.name, fontSize = 18.sp, lineHeight = 21.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.2).sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 Row(horizontalArrangement = Arrangement.spacedBy(7.dp), verticalAlignment = Alignment.CenterVertically) {
                     hotel.stars?.let { stars ->
-                        CupertinoRatingStars(stars)
+                        // iOS uses five simple star characters, not individually spaced glyph icons.
+                        Text("★".repeat(stars.coerceIn(1, 5)), fontSize = 12.sp, fontWeight = FontWeight.Bold, color = IumrahIconRole.RATING.color)
                     }
                     hotel.rating?.let { Text(String.format(Locale.US, "%.1f", it), fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface.copy(alpha = .55f)) }
                 }
@@ -972,7 +971,11 @@ private fun StorefrontFlightCard(
 ) {
     val shape = RoundedCornerShape(28.dp)
     Column(
-        Modifier.fillMaxWidth().clip(shape).background(MaterialTheme.colorScheme.surface).border(.7.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = .06f), shape).clickable(enabled = packageSnapshot != null) { onClick() },
+        Modifier.fillMaxWidth()
+            .shadow(14.dp, shape, clip = false, ambientColor = Color.Black.copy(alpha = .035f), spotColor = Color.Black.copy(alpha = .035f))
+            .clip(shape).background(MaterialTheme.colorScheme.surface)
+            .border(.7.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = .06f), shape)
+            .clickable(enabled = packageSnapshot != null) { onClick() },
     ) {
         Box(Modifier.fillMaxWidth().height(118.dp)) {
             val media = packageSnapshot?.imageUrl?.takeIf { it.isNotBlank() }
@@ -989,7 +992,14 @@ private fun StorefrontFlightCard(
             }
             Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = .58f)))))
             Row(Modifier.align(Alignment.BottomStart).fillMaxWidth().padding(13.dp), verticalAlignment = Alignment.Bottom) {
-                StorefrontAirlineLogo(option.outbound.airlineCode, 40)
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.Bottom) {
+                    StorefrontAirlineLogo(option.outbound.airlineCode, 40)
+                    // iOS displays both airline logos when the return carrier differs.
+                    val inboundCode = packageSnapshot?.inbound?.airlineCode
+                    if (!inboundCode.isNullOrBlank() && !inboundCode.equals(option.outbound.airlineCode, ignoreCase = true)) {
+                        StorefrontAirlineLogo(inboundCode, 40)
+                    }
+                }
                 Spacer(Modifier.weight(1f))
                 packageSnapshot?.let {
                     Text(packageTypeText(it, language), color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold, modifier = Modifier.clip(RoundedCornerShape(99.dp)).background(Color.Black.copy(alpha = .36f)).padding(horizontal = 10.dp, vertical = 7.dp))
@@ -1013,14 +1023,14 @@ private fun StorefrontFlightCard(
             }
             packageSnapshot?.let {
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-                    CupertinoIcon(CupertinoSymbol.Suitcase, null, Modifier.size(13.dp), MaterialTheme.colorScheme.onSurface.copy(alpha = .5f))
+                    CupertinoIcon(CupertinoSymbol.PackageBox, null, Modifier.size(13.dp), MaterialTheme.colorScheme.onSurface.copy(alpha = .5f))
                     Text(packageRouteText(it, language), fontSize = 10.sp, lineHeight = 13.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface.copy(alpha = .52f), maxLines = 2)
                 }
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Row(Modifier.clip(RoundedCornerShape(99.dp)).background(MaterialTheme.colorScheme.surfaceVariant).padding(horizontal = 10.dp, vertical = 7.dp), horizontalArrangement = Arrangement.spacedBy(5.dp), verticalAlignment = Alignment.CenterVertically) {
-                    CupertinoIcon(CupertinoSymbol.ShieldCheck, null, Modifier.size(12.dp), if (packageSnapshot == null) MaterialTheme.colorScheme.onSurface.copy(alpha=.5f) else Color(0xFF30B0C7))
-                    Text(if (packageSnapshot == null) "iumrah Flights Scanner" else generatedText(language), fontSize = 10.sp, fontWeight = FontWeight.SemiBold, color = if (packageSnapshot == null) MaterialTheme.colorScheme.onSurface.copy(alpha=.52f) else Color(0xFF30B0C7))
+                    CupertinoIcon(CupertinoSymbol.CheckCircleFill, null, Modifier.size(12.dp), if (packageSnapshot == null) MaterialTheme.colorScheme.onSurface.copy(alpha=.5f) else IumrahIconRole.UMRAH.color)
+                    Text(if (packageSnapshot == null) "iumrah Flights Scanner" else generatedText(language), fontSize = 10.sp, fontWeight = FontWeight.SemiBold, color = if (packageSnapshot == null) MaterialTheme.colorScheme.onSurface.copy(alpha=.52f) else IumrahIconRole.UMRAH.color)
                 }
                 Spacer(Modifier.weight(1f))
                 if (packageSnapshot != null) CupertinoIcon(CupertinoSymbol.ChevronRight, null, Modifier.size(13.dp), MaterialTheme.colorScheme.onSurface.copy(alpha=.27f))

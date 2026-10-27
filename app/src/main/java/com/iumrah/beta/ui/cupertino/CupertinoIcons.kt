@@ -1,6 +1,7 @@
 package com.iumrah.beta.ui.cupertino
 
 import android.graphics.Paint
+import android.graphics.Rect
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.LocalContentColor
@@ -30,20 +31,20 @@ import com.iumrah.beta.R
  * Apple SF Symbols are NOT copied into Android (Apple SDK licensing).
  */
 enum class CupertinoSymbol {
-    Home, Hotel, Suitcase, SuitcaseFill, TrayFill, Heart, HeartFill, PersonCircle,
+    Home, Hotel, Suitcase, SuitcaseFill, TrayFill, Heart, HeartFill, PersonCircle, PersonCircleFill,
     Menu, ChevronRight, ChevronLeft, ArrowRight,
     ChatBubble, Phone, Send, Lock, LockShield, ShieldCheck,
-    CreditCard, UndoCircle, HandRaised, IdentityCard,
+    CreditCard, UndoCircle, HandRaised, HandRaisedFill, IdentityCard,
     Gear, Globe, HalfCircle, Bell, BellSignal, BellBadge,
-    Persons, Wallet, Airplane, AirplaneTakeoff, AirplaneLand, Location, Building,
-    CheckCircle, CheckCircleFill, ExclamationCircle, Passport, Key,
+    Persons, PersonsFill, Wallet, Airplane, AirplaneTakeoff, AirplaneLand, Location, Building, BuildingFill,
+    CheckCircle, CheckCircleFill, ExclamationCircle, ExclamationCircleFill, Passport, Key,
     SignOut, Sun, SunMaxFill, Moon, MoonStarsFill, Device, Mail, Apple,
     InfoCircle, Message, TrashSlash, Document, NumberSquare,
     CalendarClock, Hourglass, Close, Copy, Eye, EyeSlash, Sparkles, CupSaucerFill,
     Route, Car, Refresh, PlusPerson, Lightbulb, Checkmark, SignalWave,
     Star, StarFill, Sliders, Speaker, SpeakerSlash, ChevronDown, ChevronUp, Plus, Minus,
-    ArrowUpRight, ArrowUp, ArrowDown, ArrowLeftRight, Paperclip, Bed, Play, ForkKnife, Share, LeafFill, Checklist, CrownFill, Grid,
-    Calendar, Clock, Map, QrCode, Gift, WarningTriangle, Photo, Pencil, Person, Microphone, PackageBox, Trash,
+    ArrowUpRight, ArrowUp, ArrowDown, ArrowLeftRight, Paperclip, Bed, BedFill, Play, ForkKnife, Share, LeafFill, Checklist, CrownFill, Grid,
+    Calendar, Clock, ClockFill, Map, MapFill, QrCode, Gift, WarningTriangle, Photo, Pencil, Person, Microphone, PackageBox, Trash,
     Download, LockOpen, SimCard, Safari, Book, Timer, Seatbelt, Bag, Ellipsis,
     Search, QuestionCircle, ChartBar, Cart, Ticket, SosCircle, ArrowUpDown,
     Wifi, WifiSlash, WifiWarning, Sunrise, CloudSun, Scan, Link,
@@ -82,9 +83,14 @@ fun CupertinoIcon(
     Canvas(modifier = accessible) {
         paint.color = resolvedTint.toArgb()
         paint.textSize = size.minDimension
-        val metrics = paint.fontMetrics
-        val baseline = size.height / 2f - (metrics.ascent + metrics.descent) / 2f
-        drawIntoCanvas { it.nativeCanvas.drawText(glyph, size.width / 2f, baseline, paint) }
+        // Flutter Cupertino font glyphs have different intrinsic side bearings.
+        // Center the *visible glyph bounds*, not font-wide ascender/descender
+        // metrics (which shifted some glyphs relative to iOS SF Symbols).
+        val bounds = Rect()
+        paint.getTextBounds(glyph, 0, glyph.length, bounds)
+        val x = size.width / 2f - (bounds.left + bounds.right) / 2f
+        val baseline = size.height / 2f - (bounds.top + bounds.bottom) / 2f
+        drawIntoCanvas { it.nativeCanvas.drawText(glyph, x, baseline, paint) }
     }
 }
 

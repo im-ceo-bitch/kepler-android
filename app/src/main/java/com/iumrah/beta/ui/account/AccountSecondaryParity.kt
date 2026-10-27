@@ -13,6 +13,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -46,6 +47,9 @@ import com.iumrah.beta.ui.cupertino.CupertinoIcon
 import com.iumrah.beta.ui.cupertino.CupertinoSymbol
 import com.iumrah.beta.ui.media.LoopingRawVideo
 import java.time.LocalDate
+import java.time.Instant
+import java.time.ZoneId
+import java.time.OffsetDateTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 import kotlinx.coroutines.launch
@@ -651,6 +655,7 @@ private fun PolicyCard(block: PolicyBlock) {
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AccountSignalsParityScreen(
     language: AppLanguage,
@@ -661,8 +666,20 @@ fun AccountSignalsParityScreen(
     val state by notifications.state.collectAsState()
     val scope = rememberCoroutineScope()
     var page by remember { mutableIntStateOf(0) }
+    var refreshing by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { notifications.refresh(accountStore.bearerToken) }
 
+    PullToRefreshBox(
+        isRefreshing = refreshing,
+        onRefresh = {
+            if (!refreshing) scope.launch {
+                refreshing = true
+                try { notifications.refresh(accountStore.bearerToken) }
+                finally { refreshing = false }
+            }
+        },
+        modifier = Modifier.fillMaxSize(),
+    ) {
     ApNavPage("iumrah Signal", chrome) {
         SignalPageSwitcher(language, page) { page = it }
         when (page) {
@@ -688,20 +705,7 @@ fun AccountSignalsParityScreen(
                     apTr(language,"Next-trip reminders","Напоминания о следующей поездке","Keyingi safar eslatmalari","Кейинги сафар эслатмалари"),
                     apTr(language,"Plan your Umrah and choose exactly when iumrah should remind you as the journey gets closer.","Запланируйте Umrah и выберите, когда именно iumrah должен напоминать Вам по мере приближения поездки.","Umrani rejalashtiring va safar yaqinlashgani sari iumrah qachon eslatishini o‘zingiz belgilang.","Умрани режалаштиринг ва сафар яқинлашгани сари iumrah қачон эслатишини ўзингиз белгиланг.")
                 )
-                ApCard(radius = 26.dp) {
-                    Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(13.dp)) {
-                        ApBadge(CupertinoSymbol.CalendarClock, ApOrange, 48.dp, 19.dp, 16.dp)
-                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                            Text(apTr(language,"Umrah Plan reminders","Напоминания Umrah Plan","Umrah Plan eslatmalari","Umrah Plan эслатмалари"), fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                            Text(apTr(language,"60, 30, 20, 15, 10, 7, 5, 3, 2 and 1 day before departure — configure the exact schedule in your Umrah Plan.","60, 30, 20, 15, 10, 7, 5, 3, 2 и 1 день до вылета — точное расписание настраивается в Umrah Plan.","Safargacha 60, 30, 20, 15, 10, 7, 5, 3, 2 va 1 kun — aniq jadval Umrah Plan ichida sozlanadi.","Сафаргача 60, 30, 20, 15, 10, 7, 5, 3, 2 ва 1 кун — аниқ жадвал Umrah Plan ичида созланади."), fontSize = 13.sp, lineHeight = 18.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                    }
-                    Spacer(Modifier.height(16.dp))
-                    Button(onClick = { chrome.openUmrahPlan() }, modifier = Modifier.fillMaxWidth().height(52.dp), shape = RoundedCornerShape(17.dp), colors = ButtonDefaults.buttonColors(containerColor = Color.Black)) {
-                        Text(apTr(language,"Open Umrah Plan","Открыть Umrah Plan","Umrah Plan’ni ochish","Umrah Plan’ни очиш"), Modifier.weight(1f), fontWeight = FontWeight.Bold)
-                        CupertinoIcon(CupertinoSymbol.ArrowRight, null, Modifier.size(16.dp), Color.White)
-                    }
-                }
+                com.iumrah.beta.ui.planning.UmrahPlanReminderCenter(language) { chrome.openUmrahPlan() }
             }
             else -> {
                 SignalPageHeading(
@@ -725,6 +729,7 @@ fun AccountSignalsParityScreen(
             }
         }
     }
+    }
 }
 
 @Composable
@@ -738,7 +743,11 @@ private fun SignalPageSwitcher(language: AppLanguage, selected: Int, onSelect: (
         labels.forEach { (title, icon, index) ->
             Surface(onClick = { onSelect(index) }, modifier = Modifier.weight(1f).height(45.dp), shape = RoundedCornerShape(17.dp), color = if (selected == index) MaterialTheme.colorScheme.surface.copy(alpha=.96f) else Color.Transparent, shadowElevation = if (selected == index) 1.dp else 0.dp) {
                 Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-                    CupertinoIcon(icon, null, Modifier.size(13.dp), if (selected == index) MaterialTheme.colorScheme.onSurface else ApGray)
+                    if (index == 2) {
+                        Image(painterResource(R.drawable.iumrah_telegram_mark), null, Modifier.size(20.dp))
+                    } else {
+                        CupertinoIcon(icon, null, Modifier.size(13.dp), if (selected == index) MaterialTheme.colorScheme.onSurface else ApGray)
+                    }
                     Spacer(Modifier.height(3.dp))
                     Text(title, fontSize = 11.5.sp, fontWeight = FontWeight.SemiBold, color = if (selected == index) MaterialTheme.colorScheme.onSurface else ApGray, maxLines = 1)
                 }
@@ -805,6 +814,38 @@ private fun SignalSection(
     }
 }
 
+// Mirrors AccountNotificationsView.destinationIcon and its locale-sensitive date formatter.
+private fun signalDestinationIcon(destination: String): CupertinoSymbol = when (destination) {
+    "hotels" -> CupertinoSymbol.BuildingFill
+    "bookings", "booking" -> CupertinoSymbol.SuitcaseFill
+    "care" -> CupertinoSymbol.HeartFill
+    "account" -> CupertinoSymbol.PersonCircleFill
+    else -> CupertinoSymbol.Home
+}
+
+private fun signalDestinationTitle(language: AppLanguage, destination: String): String = when (destination) {
+    "hotels" -> apTr(language,"Hotels","Отели","Mehmonxonalar","Меҳмонхоналар")
+    "bookings" -> apTr(language,"Trips","Поездки","Safarlar","Сафарлар")
+    "booking" -> apTr(language,"Trip details","Детали поездки","Safar tafsilotlari","Сафар тафсилотлари")
+    "care" -> "iumrah Care"
+    "account" -> "Account"
+    else -> apTr(language,"Home","Главная","Asosiy","Асосий")
+}
+
+private fun signalTimestamp(language: AppLanguage, raw: String): String {
+    val instant = runCatching { Instant.parse(raw) }
+        .recoverCatching { OffsetDateTime.parse(raw).toInstant() }.getOrNull() ?: return raw
+    val local = instant.atZone(ZoneId.systemDefault())
+    val locale = language.locale
+    val day = local.toLocalDate()
+    val time = local.format(DateTimeFormatter.ofPattern("HH:mm", locale))
+    return when (day) {
+        LocalDate.now() -> "${apTr(language,"Today","Сегодня","Bugun","Бугун")}, $time"
+        LocalDate.now().minusDays(1) -> "${apTr(language,"Yesterday","Вчера","Kecha","Кеча")}, $time"
+        else -> local.format(DateTimeFormatter.ofPattern("d MMM · HH:mm", locale))
+    }
+}
+
 @Composable
 private fun SignalParityCard(language: AppLanguage, n: ClientSystemNotification, hidden: Boolean, notifications: ClientNotificationStore, accountStore: IumrahAccountStore, chrome: AppChromeStore, scope: kotlinx.coroutines.CoroutineScope) {
     val unread = !n.isRead
@@ -812,15 +853,21 @@ private fun SignalParityCard(language: AppLanguage, n: ClientSystemNotification,
     Surface(shape = RoundedCornerShape(26.dp), color = if(unread) ApBlue.copy(alpha=.065f) else MaterialTheme.colorScheme.surface, border = androidx.compose.foundation.BorderStroke(1.dp, if(unread) ApBlue.copy(alpha=.18f) else MaterialTheme.colorScheme.onSurface.copy(alpha=.055f))) {
         Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(13.dp)) {
             Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                ApBadge(CupertinoSymbol.BellBadge, tint, 44.dp, 16.dp, 14.dp)
+                ApBadge(signalDestinationIcon(n.destination), tint, 44.dp, 16.dp, 14.dp)
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
                     Row { Text(n.title, Modifier.weight(1f), fontSize = 17.sp, lineHeight = 20.sp, fontWeight = if(unread) FontWeight.Bold else FontWeight.SemiBold); if(unread){Spacer(Modifier.width(8.dp));Box(Modifier.padding(top=6.dp).size(8.dp).clip(CircleShape).background(ApBlue))} }
-                    Text(n.sentAt ?: n.createdAt, fontSize = 11.sp, color = ApGray)
+                    Text(signalTimestamp(language, n.sentAt ?: n.createdAt), fontSize = 11.sp, color = ApGray)
                 }
             }
             Text(n.body, fontSize = 14.sp, lineHeight = 20.sp, color = if(unread) MaterialTheme.colorScheme.onSurface.copy(alpha=.78f) else ApGray)
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(if(hidden) apTr(language,"Hidden on Home","Скрыто на главной","Asosiyda yashirilgan","Асосийда яширилган") else "", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = ApGray)
+                Text(signalDestinationTitle(language, n.destination), fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = ApGray)
+                if (hidden) {
+                    Spacer(Modifier.width(8.dp))
+                    Text(apTr(language,"Hidden on Home","Скрыто на главной","Asosiyda yashirilgan","Асосийда яширилган"), fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold, color = ApGray,
+                        modifier = Modifier.clip(CircleShape).background(ApGray.copy(alpha = .10f)).padding(horizontal = 8.dp, vertical = 5.dp))
+                }
                 Spacer(Modifier.weight(1f))
                 Surface(onClick = { if(hidden) notifications.restoreToHome(n.id) else notifications.dismissFromHome(n.id) }, shape = CircleShape, color = MaterialTheme.colorScheme.onSurface.copy(alpha=.055f)) { Box(Modifier.size(36.dp), contentAlignment = Alignment.Center) { CupertinoIcon(if(hidden) CupertinoSymbol.Eye else CupertinoSymbol.EyeSlash, null, Modifier.size(14.dp), ApGray) } }
             }

@@ -1,12 +1,7 @@
 package com.iumrah.beta.ui.packageflow
 
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -46,11 +41,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -149,13 +141,11 @@ private fun TransferSearchScreen(
     includesMadinah: Boolean,
     currentPrice: String?,
 ) {
-    val pulse = rememberInfiniteTransition(label = "transfer-pulse")
-    val phase by pulse.animateFloat(0f, 1f, infiniteRepeatable(tween(1600), RepeatMode.Restart), label = "pulse")
     val page = generatorPageColor()
     val fg = if (page == Color.White) Color.Black else Color.White
 
     Box(Modifier.fillMaxSize().background(page)) {
-        TransferMapCanvas(phase, page == Color.White)
+        TransferSearchLiveMap(second, duration, language)
         Box(
             Modifier.fillMaxSize().background(
                 Brush.verticalGradient(
@@ -265,29 +255,6 @@ private fun searchStatus(language: AppLanguage, second: Int): String = when (sec
     else -> transferTr(language, "Закрепляем лучший доступный вариант", "Securing the best available match", "Eng mos variant biriktirilmoqda", "Энг мос вариант бириктирилмоқда")
 }
 
-@Composable
-private fun TransferMapCanvas(phase: Float, light: Boolean) {
-    Canvas(Modifier.fillMaxSize()) {
-        val w = size.width
-        val h = size.height
-        val road = if (light) Color(0xFFD8D4CC) else Color.White.copy(alpha = .10f)
-        for (i in 0..9) drawLine(road, Offset(0f, h * (i / 10f)), Offset(w, h * (((i + 3) % 10) / 10f)), strokeWidth = 1.2f)
-        val path = Path().apply {
-            moveTo(w * .12f, h * .70f)
-            cubicTo(w * .30f, h * .52f, w * .52f, h * .64f, w * .72f, h * .40f)
-            cubicTo(w * .80f, h * .30f, w * .86f, h * .34f, w * .92f, h * .20f)
-        }
-        drawPath(path, if (light) Color.Black.copy(alpha = .17f) else Color.White.copy(alpha = .16f), style = Stroke(width = 5f))
-        val center = Offset(w * .53f, h * .54f)
-        drawCircle(Color(0xFF007AFF).copy(alpha = .12f * (1f - phase)), radius = 38f + phase * 100f, center = center)
-        drawCircle(Color(0xFF007AFF), radius = 12f, center = center)
-        listOf(Offset(w * .25f, h * .60f), Offset(w * .68f, h * .48f), Offset(w * .77f, h * .31f), Offset(w * .37f, h * .43f)).forEachIndexed { index, point ->
-            val active = ((phase + index * .23f) % 1f)
-            drawCircle(if (light) Color.White else Color(0xFF2C2C2E), radius = 18f, center = point)
-            drawCircle(if (light) Color.Black.copy(alpha = .78f) else Color.White.copy(alpha = .82f), radius = 8f + active * 2f, center = point)
-        }
-    }
-}
 
 @Composable
 private fun TransferMatchedScreen(language: AppLanguage, journey: JourneyStore, generator: PackageGenerator, chrome: AppChromeStore) {

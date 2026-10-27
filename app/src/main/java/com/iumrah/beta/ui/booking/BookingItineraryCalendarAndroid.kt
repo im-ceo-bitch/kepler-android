@@ -43,6 +43,7 @@ internal fun BookingItineraryCalendarAndroid(
     remoteItems: List<BookingItineraryItem>,
     modifier: Modifier = Modifier,
     fullScreen: Boolean = true,
+    onOpenFullSchedule: (() -> Unit)? = null,
 ) {
     val items = remember(session.booking.updatedAt, remoteItems, language) {
         itinerarySource(session, remoteItems, language)
@@ -60,7 +61,8 @@ internal fun BookingItineraryCalendarAndroid(
         items.filter { it.dateLocal == selectedDay }
             .sortedWith(compareBy<BookingItineraryItem> { it.sortOrder }.thenBy { it.title })
     }
-    val detailed = selectedDay == today && dayItems.any { !it.timeLocal.isNullOrBlank() }
+    val visibleDayItems = if (fullScreen) dayItems else dayItems.take(4)
+    val detailed = selectedDay == today && visibleDayItems.any { !it.timeLocal.isNullOrBlank() }
 
     Column(
         modifier = modifier
@@ -93,11 +95,35 @@ internal fun BookingItineraryCalendarAndroid(
                     color = MaterialTheme.colorScheme.onBackground.copy(alpha = .52f),
                 )
             }
-            Box(
-                Modifier.size(44.dp).clip(CircleShape).background(bookingIosRaised()),
-                contentAlignment = Alignment.Center,
-            ) {
-                CupertinoIcon(CupertinoSymbol.CalendarClock, null, Modifier.size(18.dp), MaterialTheme.colorScheme.onBackground.copy(alpha = .68f))
+            if (!fullScreen && onOpenFullSchedule != null) {
+                IumrahPressable(
+                    onClick = onOpenFullSchedule,
+                    cornerRadius = 20.dp,
+                    background = bookingIosRaised(),
+                    modifier = Modifier.height(40.dp),
+                    pressedScale = .94f,
+                ) {
+                    Row(
+                        modifier = Modifier.padding(start = 10.dp, end = 10.dp).fillMaxHeight(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Text(
+                            scheduleText(language, "Полностью", "Full", "To‘liq", "Тўлиқ"),
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onBackground.copy(alpha = .65f),
+                        )
+                        CupertinoIcon(CupertinoSymbol.ArrowUpRight, null, Modifier.size(16.dp), MaterialTheme.colorScheme.onBackground)
+                    }
+                }
+            } else {
+                Box(
+                    Modifier.size(44.dp).clip(CircleShape).background(bookingIosRaised()),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    CupertinoIcon(CupertinoSymbol.CalendarClock, null, Modifier.size(18.dp), MaterialTheme.colorScheme.onBackground.copy(alpha = .68f))
+                }
             }
         }
 
@@ -155,7 +181,7 @@ internal fun BookingItineraryCalendarAndroid(
             }
         }
 
-        if (dayItems.isEmpty()) {
+        if (visibleDayItems.isEmpty()) {
             Text(
                 scheduleText(language, "На этот день событий пока нет.", "There are no events for this day yet.", "Bu kun uchun hozircha voqealar yo‘q.", "Бу кун учун ҳозирча воқеалар йўқ."),
                 fontSize = 14.sp,
@@ -164,8 +190,8 @@ internal fun BookingItineraryCalendarAndroid(
             )
         } else {
             Column(verticalArrangement = Arrangement.spacedBy(if (detailed) 14.dp else 10.dp)) {
-                dayItems.forEachIndexed { index, item ->
-                    if (detailed) TimedScheduleRow(language, item, selectedDay == today, index == dayItems.lastIndex)
+                visibleDayItems.forEachIndexed { index, item ->
+                    if (detailed) TimedScheduleRow(language, item, selectedDay == today, index == visibleDayItems.lastIndex)
                     else CompactScheduleRow(language, item)
                 }
             }

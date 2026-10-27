@@ -66,6 +66,9 @@
     "briefcase",
     "circle"
   ],
+  "BedFill": [
+    "bed_double_fill"
+  ],
   "Bell": [
     "bell",
     "circle"
@@ -101,6 +104,9 @@
     "house",
     "square",
     "circle"
+  ],
+  "BuildingFill": [
+    "building_2_fill"
   ],
   "Calendar": [
     "calendar",
@@ -173,6 +179,9 @@
     "clock",
     "circle"
   ],
+  "ClockFill": [
+    "clock_fill"
+  ],
   "Close": [
     "xmark",
     "clear",
@@ -231,6 +240,9 @@
     "exclamationmark_circle_fill",
     "circle"
   ],
+  "ExclamationCircleFill": [
+    "exclamationmark_circle_fill"
+  ],
   "Eye": [
     "eye",
     "circle"
@@ -274,6 +286,9 @@
     "hand_raised",
     "hand_raised_fill",
     "circle"
+  ],
+  "HandRaisedFill": [
+    "hand_raised_fill"
   ],
   "Heart": [
     "heart",
@@ -372,6 +387,9 @@
     "map_fill",
     "circle"
   ],
+  "MapFill": [
+    "map_fill"
+  ],
   "Menu": [
     "line_horizontal_3",
     "bars",
@@ -440,10 +458,16 @@
     "profile_circled",
     "circle"
   ],
+  "PersonCircleFill": [
+    "person_crop_circle_fill"
+  ],
   "Persons": [
     "person_2",
     "person_2_fill",
     "circle"
+  ],
+  "PersonsFill": [
+    "person_2_fill"
   ],
   "Phone": [
     "phone",

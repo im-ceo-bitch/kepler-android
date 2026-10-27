@@ -56,8 +56,10 @@ object IumrahColors {
 
     val DarkPage = Color(0xFF000000)
     val DarkCard = Color(0xFF1C1C1E)
-    val DarkRaised = Color(0xFF2C2C2E)
-    val DarkRaisedStrong = Color(0xFF3A3A3C)
+    // Matches UIColor.tertiarySystemGroupedBackground in iOS dark appearance.
+    // #2C2C2E is secondarySystemBackground, not tertiary grouped.
+    val DarkRaised = Color(0xFF3A3A3C)
+    val DarkRaisedStrong = Color(0xFF48484A)
 
     val Graphite = Color(0xFF17191D)
     // iOS signature header and active navigation surface: 0.035 sRGB linear fraction.
@@ -65,6 +67,12 @@ object IumrahColors {
     val SoftGraphite = Color(0xFF2A2B2F)
     val CareDark = Color(0xFF0E2422)
     val CareLight = Color(0xFF74A187)
+
+    // iOS content chrome constants from Sources/Core/DesignSystem.swift.
+    val PhotoCardLight = Color.White.copy(alpha = 0.975f)
+    val PhotoCardDark = Color(0xFF1B1B1B).copy(alpha = 0.975f)
+    val PhotoRaisedLight = Color(0xFFF2F2F2).copy(alpha = 0.96f)
+    val PhotoRaisedDark = Color(0xFF292929).copy(alpha = 0.96f)
 
     val SystemBlue = Color(0xFF007AFF)
     val SystemIndigo = Color(0xFF5856D6)
@@ -143,25 +151,25 @@ val IumrahFontFamily = FontFamily(
 
 private val IumrahTypography = Typography(
     displayLarge = TextStyle(
-                fontSize = 38.sp,
+        fontSize = 38.sp,
         lineHeight = 42.sp,
         fontWeight = FontWeight.Bold,
         letterSpacing = (-1.0).sp,
     ),
     headlineLarge = TextStyle(
-                fontSize = 31.sp,
+        fontSize = 31.sp,
         lineHeight = 36.sp,
         fontWeight = FontWeight.Bold,
         letterSpacing = (-0.8).sp,
     ),
     headlineMedium = TextStyle(
-                fontSize = 28.sp,
+        fontSize = 28.sp,
         lineHeight = 33.sp,
         fontWeight = FontWeight.Bold,
         letterSpacing = (-0.7).sp,
     ),
     headlineSmall = TextStyle(
-                fontSize = 23.sp,
+        fontSize = 23.sp,
         lineHeight = 28.sp,
         fontWeight = FontWeight.Bold,
         letterSpacing = (-0.45).sp,
