@@ -387,21 +387,21 @@ fun GeneratorPrimaryButton(
 
 private fun stepPrefix(language: AppLanguage): String = when (language) {
     AppLanguage.RUSSIAN -> "Шаг"
-    AppLanguage.ENGLISH -> "Step"
+    AppLanguage.ENGLISH, AppLanguage.ARABIC, AppLanguage.TURKISH, AppLanguage.INDONESIAN, AppLanguage.MALAY -> "Step"
     AppLanguage.UZBEK -> "Bosqich"
     AppLanguage.UZBEK_CYRILLIC -> "Босқич"
 }
 
 private fun currentTotalLabel(language: AppLanguage): String = when (language) {
     AppLanguage.RUSSIAN -> "ТЕКУЩАЯ ЦЕНА"
-    AppLanguage.ENGLISH -> "CURRENT TOTAL"
+    AppLanguage.ENGLISH, AppLanguage.ARABIC, AppLanguage.TURKISH, AppLanguage.INDONESIAN, AppLanguage.MALAY -> "CURRENT TOTAL"
     AppLanguage.UZBEK -> "JORIY NARX"
     AppLanguage.UZBEK_CYRILLIC -> "ЖОРИЙ НАРХ"
 }
 
 private fun backLabel(language: AppLanguage): String = when (language) {
     AppLanguage.RUSSIAN -> "Назад"
-    AppLanguage.ENGLISH -> "Back"
+    AppLanguage.ENGLISH, AppLanguage.ARABIC, AppLanguage.TURKISH, AppLanguage.INDONESIAN, AppLanguage.MALAY -> "Back"
     AppLanguage.UZBEK -> "Orqaga"
     AppLanguage.UZBEK_CYRILLIC -> "Орқага"
 }

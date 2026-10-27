@@ -343,7 +343,7 @@ private fun IumrahBottomBar(
         Triple(AppTab.ACCOUNT, CupertinoSymbol.PersonCircle, when (language) {
             AppLanguage.RUSSIAN, AppLanguage.UZBEK_CYRILLIC -> "Аккаунт"
             AppLanguage.UZBEK -> "Akkaunt"
-            AppLanguage.ENGLISH -> "Account"
+            AppLanguage.ENGLISH, AppLanguage.ARABIC, AppLanguage.TURKISH, AppLanguage.INDONESIAN, AppLanguage.MALAY -> "Account"
         }),
     )
     val black = com.iumrah.beta.core.design.IumrahColors.SignatureBlack

@@ -312,7 +312,7 @@ private fun durationLabel(item: BookingItineraryItem, language: AppLanguage): St
     val m = minutes % 60
     return when (language) {
         AppLanguage.RUSSIAN -> if (h > 0 && m > 0) "≈ $h ч $m мин" else if (h > 0) "≈ $h ч" else "≈ $m мин"
-        AppLanguage.ENGLISH -> if (h > 0 && m > 0) "~ ${h}h ${m}m" else if (h > 0) "~ ${h}h" else "~ ${m}m"
+        AppLanguage.ENGLISH, AppLanguage.ARABIC, AppLanguage.TURKISH, AppLanguage.INDONESIAN, AppLanguage.MALAY -> if (h > 0 && m > 0) "~ ${h}h ${m}m" else if (h > 0) "~ ${h}h" else "~ ${m}m"
         AppLanguage.UZBEK -> if (h > 0 && m > 0) "≈ $h soat $m daq" else if (h > 0) "≈ $h soat" else "≈ $m daq"
         AppLanguage.UZBEK_CYRILLIC -> if (h > 0 && m > 0) "≈ $h соат $m дақ" else if (h > 0) "≈ $h соат" else "≈ $m дақ"
     }
@@ -376,7 +376,7 @@ private fun fullDate(raw: String, language: AppLanguage): String {
 }
 private fun scheduleText(language: AppLanguage, ru: String, en: String, uz: String, cy: String): String = when (language) {
     AppLanguage.RUSSIAN -> ru
-    AppLanguage.ENGLISH -> en
+    AppLanguage.ENGLISH -> en; AppLanguage.ARABIC, AppLanguage.TURKISH, AppLanguage.INDONESIAN, AppLanguage.MALAY -> com.iumrah.beta.core.localization.L10n.phrase(en, language)
     AppLanguage.UZBEK -> uz
     AppLanguage.UZBEK_CYRILLIC -> cy
 }

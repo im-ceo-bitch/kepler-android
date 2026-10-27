@@ -283,7 +283,7 @@ fun UmrahPlanReminderCenter(language: AppLanguage, onOpenPlan: () -> Unit) {
 
 private fun reminderCenterDayLabel(language: AppLanguage, day: Int): String = when (language) {
     AppLanguage.RUSSIAN -> if (day >= 30) "${day / 30} мес." else "$day дн."
-    AppLanguage.ENGLISH -> if (day >= 30) "${day / 30} mo" else "${day}d"
+    AppLanguage.ENGLISH, AppLanguage.ARABIC, AppLanguage.TURKISH, AppLanguage.INDONESIAN, AppLanguage.MALAY -> if (day >= 30) "${day / 30} mo" else "${day}d"
     AppLanguage.UZBEK -> if (day >= 30) "${day / 30} oy" else "$day kun"
     AppLanguage.UZBEK_CYRILLIC -> if (day >= 30) "${day / 30} ой" else "$day кун"
 }
@@ -522,7 +522,7 @@ private fun backgroundPrefersLight(id:String)=id !in setOf("gradient-gold","grad
 @Composable private fun OrangeButton(title:String,onClick:()->Unit){IumrahPressable(onClick,Modifier.fillMaxWidth().height(58.dp),cornerRadius=20.dp,background=Color(0xFFFF520F)){Box(Modifier.fillMaxSize(),contentAlignment=Alignment.Center){Text(title,color=Color.White,fontWeight=FontWeight.Bold,fontSize=16.sp)}}}
 private fun formatRange(a:LocalDate,b:LocalDate)="${a.format(DateTimeFormatter.ofPattern("d MMM"))} — ${b.format(DateTimeFormatter.ofPattern("d MMM yyyy"))}"
 private fun shortDate(d:LocalDate)=d.format(DateTimeFormatter.ofPattern("d MMM"))
-private fun heroCountdown(language:AppLanguage,t:PlannedTrip):String{val days=max(0,ChronoUnit.DAYS.between(LocalDate.now(),t.start).toInt());val duration=ChronoUnit.DAYS.between(t.start,t.end).toInt()+1;return when(language){AppLanguage.ENGLISH->if(days>0)"Starts in $days days · $duration-day trip" else "Starts today · $duration-day trip";AppLanguage.RUSSIAN->if(days>0)"Начнётся через $days дней · $duration дней поездки" else "Начинается сегодня · $duration дней поездки";AppLanguage.UZBEK->if(days>0)"$days kundan keyin boshlanadi · $duration kun" else "Bugun boshlanadi · $duration kun";AppLanguage.UZBEK_CYRILLIC->if(days>0)"$days кундан кейин бошланади · $duration кун" else "Бугун бошланади · $duration кун"}}
+private fun heroCountdown(language:AppLanguage,t:PlannedTrip):String{val days=max(0,ChronoUnit.DAYS.between(LocalDate.now(),t.start).toInt());val duration=ChronoUnit.DAYS.between(t.start,t.end).toInt()+1;return when(language){AppLanguage.ENGLISH, AppLanguage.ARABIC, AppLanguage.TURKISH, AppLanguage.INDONESIAN, AppLanguage.MALAY ->if(days>0)"Starts in $days days · $duration-day trip" else "Starts today · $duration-day trip";AppLanguage.RUSSIAN->if(days>0)"Начнётся через $days дней · $duration дней поездки" else "Начинается сегодня · $duration дней поездки";AppLanguage.UZBEK->if(days>0)"$days kundan keyin boshlanadi · $duration kun" else "Bugun boshlanadi · $duration kun";AppLanguage.UZBEK_CYRILLIC->if(days>0)"$days кундан кейин бошланади · $duration кун" else "Бугун бошланади · $duration кун"}}
 private fun daysBefore(l:AppLanguage,d:Int)=tr(l,"За $d дней","$d days before","$d kun oldin","$d кун олдин")
 private fun notificationTitle(languageRaw: String, days: Int): String {
     val l = when {
@@ -533,7 +533,7 @@ private fun notificationTitle(languageRaw: String, days: Int): String {
     }
     return when (l) {
         AppLanguage.RUSSIAN -> if (days == 1) "Umrah уже завтра" else "До Umrah осталось $days дней"
-        AppLanguage.ENGLISH -> if (days == 1) "Your Umrah starts tomorrow" else "$days days until your Umrah"
+        AppLanguage.ENGLISH, AppLanguage.ARABIC, AppLanguage.TURKISH, AppLanguage.INDONESIAN, AppLanguage.MALAY -> if (days == 1) "Your Umrah starts tomorrow" else "$days days until your Umrah"
         AppLanguage.UZBEK -> if (days == 1) "Umrangiz ertaga boshlanadi" else "Umragacha $days kun qoldi"
         AppLanguage.UZBEK_CYRILLIC -> if (days == 1) "Умрангиз эртага бошланади" else "Умрагача $days кун қолди"
     }
@@ -548,7 +548,7 @@ private fun notificationBodyRaw(languageRaw: String, days: Int): String {
     }
     return when (l) {
         AppLanguage.RUSSIAN -> when { days >= 60 -> "План уже создан. Начните спокойно готовить документы, даты и бюджет поездки."; days >= 30 -> "До поездки месяц. Проверьте паспорт, перелёт и отель — всё важное будет в одном плане iumrah."; days >= 15 -> "Поездка становится ближе. Проверьте документы, трансфер и список подготовки."; days >= 7 -> "Umrah уже скоро. Проверьте финальные детали поездки и всё необходимое в дороге."; else -> "Финальная подготовка к Umrah. Откройте план и проверьте даты, документы и маршрут." }
-        AppLanguage.ENGLISH -> when { days >= 60 -> "Your plan is saved. Start preparing documents, dates and budget at your own pace."; days >= 30 -> "One month to go. Check your passport, flight and hotel in your iumrah plan."; days >= 15 -> "Your trip is getting close. Review documents, transfers and preparation."; days >= 7 -> "Your Umrah is close. Review the final trip details and what you need to take."; else -> "Final Umrah preparation. Open your plan and check dates, documents and route." }
+        AppLanguage.ENGLISH, AppLanguage.ARABIC, AppLanguage.TURKISH, AppLanguage.INDONESIAN, AppLanguage.MALAY -> when { days >= 60 -> "Your plan is saved. Start preparing documents, dates and budget at your own pace."; days >= 30 -> "One month to go. Check your passport, flight and hotel in your iumrah plan."; days >= 15 -> "Your trip is getting close. Review documents, transfers and preparation."; days >= 7 -> "Your Umrah is close. Review the final trip details and what you need to take."; else -> "Final Umrah preparation. Open your plan and check dates, documents and route." }
         AppLanguage.UZBEK -> when { days >= 60 -> "Rejangiz saqlandi. Hujjatlar, sanalar va safar byudjetini xotirjam tayyorlashni boshlang."; days >= 30 -> "Safargacha bir oy. Pasport, parvoz va mehmonxonani iumrah rejangizda tekshiring."; days >= 15 -> "Safar yaqinlashmoqda. Hujjatlar, transfer va tayyorgarlik ro‘yxatini tekshiring."; days >= 7 -> "Umra yaqin. Safarning yakuniy tafsilotlarini va kerakli narsalarni tekshiring."; else -> "Umraga yakuniy tayyorgarlik. Rejangizni ochib sana, hujjat va yo‘nalishni tekshiring." }
         AppLanguage.UZBEK_CYRILLIC -> when { days >= 60 -> "Режангиз сақланди. Ҳужжатлар, саналар ва сафар бюджетини хотиржам тайёрлашни бошланг."; days >= 30 -> "Сафаргача бир ой. Паспорт, парвоз ва меҳмонхонани iumrah режангизда текширинг."; days >= 15 -> "Сафар яқинлашмоқда. Ҳужжатлар, трансфер ва тайёргарлик рўйхатини текширинг."; days >= 7 -> "Умра яқин. Сафарнинг якуний тафсилотларини ва керакли нарсаларни текширинг."; else -> "Умрага якуний тайёргарлик. Режангизни очиб сана, ҳужжат ва йўналишни текширинг." }
     }

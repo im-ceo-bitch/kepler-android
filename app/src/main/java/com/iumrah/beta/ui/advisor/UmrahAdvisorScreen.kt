@@ -70,7 +70,7 @@ enum class UmrahGuideLanguage(val code: String, val nativeName: String) {
     companion object {
         fun preferred(language: AppLanguage) = when (language) {
             AppLanguage.RUSSIAN -> RUSSIAN
-            AppLanguage.ENGLISH -> ENGLISH
+            AppLanguage.ENGLISH, AppLanguage.ARABIC, AppLanguage.TURKISH, AppLanguage.INDONESIAN, AppLanguage.MALAY -> ENGLISH
             AppLanguage.UZBEK, AppLanguage.UZBEK_CYRILLIC -> UZBEK
         }
     }
@@ -390,7 +390,7 @@ private fun LanguagePicker(selection: UmrahGuideLanguage, appLanguage: AppLangua
         AppLanguage.RUSSIAN -> listOf("Язык iumrah Advisor", "Выберите язык голосового гида перед началом Умры.", "Начать Умру", "Закрыть")
         AppLanguage.UZBEK -> listOf("iumrah Advisor tili", "Umrani boshlashdan oldin ovozli gid tilini tanlang.", "Umrani boshlash", "Yopish")
         AppLanguage.UZBEK_CYRILLIC -> listOf("iumrah Advisor тили", "Умрани бошлашдан олдин овозли гид тилини танланг.", "Умрани бошлаш", "Ёпиш")
-        AppLanguage.ENGLISH -> listOf("iumrah Advisor language", "Choose the voice-guide language before you begin Umrah.", "Start Umrah", "Close")
+        AppLanguage.ENGLISH, AppLanguage.ARABIC, AppLanguage.TURKISH, AppLanguage.INDONESIAN, AppLanguage.MALAY -> listOf("iumrah Advisor language", "Choose the voice-guide language before you begin Umrah.", "Start Umrah", "Close")
     }
     Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).statusBarsPadding().padding(20.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {

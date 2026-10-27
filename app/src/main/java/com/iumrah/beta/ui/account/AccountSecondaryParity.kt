@@ -63,7 +63,7 @@ private val ApBlue = Color(0xFF1677FF)
 private val ApPad = 18.dp
 
 private fun apTr(l: AppLanguage, en: String, ru: String, uz: String, cy: String): String = when (l) {
-    AppLanguage.ENGLISH -> en
+    AppLanguage.ENGLISH -> en; AppLanguage.ARABIC, AppLanguage.TURKISH, AppLanguage.INDONESIAN, AppLanguage.MALAY -> com.iumrah.beta.core.localization.L10n.phrase(en, l)
     AppLanguage.RUSSIAN -> ru
     AppLanguage.UZBEK -> uz
     AppLanguage.UZBEK_CYRILLIC -> cy
@@ -175,7 +175,7 @@ private fun prettyDate(raw: String, language: AppLanguage): String {
         AppLanguage.RUSSIAN -> Locale("ru", "RU")
         AppLanguage.UZBEK -> Locale.forLanguageTag("uz-Latn-UZ")
         AppLanguage.UZBEK_CYRILLIC -> Locale.forLanguageTag("uz-Cyrl-UZ")
-        AppLanguage.ENGLISH -> Locale.ENGLISH
+        AppLanguage.ENGLISH, AppLanguage.ARABIC, AppLanguage.TURKISH, AppLanguage.INDONESIAN, AppLanguage.MALAY -> language.locale
     }
     return date.format(DateTimeFormatter.ofPattern("d MMM yyyy", locale))
 }

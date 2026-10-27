@@ -487,7 +487,7 @@ private fun WeekendDatesSummary(
 ) {
     val locale = when (language) {
         AppLanguage.RUSSIAN -> Locale("ru", "RU")
-        AppLanguage.ENGLISH -> Locale.US
+        AppLanguage.ENGLISH, AppLanguage.ARABIC, AppLanguage.TURKISH, AppLanguage.INDONESIAN, AppLanguage.MALAY -> language.locale
         AppLanguage.UZBEK -> Locale.forLanguageTag("uz-Latn-UZ")
         AppLanguage.UZBEK_CYRILLIC -> Locale.forLanguageTag("uz-Cyrl-UZ")
     }
@@ -1027,4 +1027,5 @@ private fun curatedLoadingLabel(l: AppLanguage) = tr(l, "Ищем рейсы ч�
 private fun curatedEmptyRowLabel(l: AppLanguage) = tr(l, "Для этого направления пока не найдено подходящих прямых рейсов.", "No suitable direct flights found for this route yet.", "Bu yo‘nalish uchun hozircha mos to‘g‘ridan-to‘g‘ri reys topilmadi.", "Бу йўналиш учун ҳозирча мос тўғридан-тўғри рейс топилмади.")
 private fun curatedAirlineFallback(l: AppLanguage) = tr(l, "Авиакомпания", "Airline", "Aviakompaniya", "Авиакомпания")
 
-private fun tr(l: AppLanguage, ru: String, en: String, uz: String, uzCy: String) = when (l) { AppLanguage.RUSSIAN -> ru; AppLanguage.ENGLISH -> en; AppLanguage.UZBEK -> uz; AppLanguage.UZBEK_CYRILLIC -> uzCy }
+private fun tr(l: AppLanguage, ru: String, en: String, uz: String, uzCy: String) = when (l) { AppLanguage.RUSSIAN -> ru; AppLanguage.ENGLISH -> en
+    AppLanguage.ARABIC, AppLanguage.TURKISH, AppLanguage.INDONESIAN, AppLanguage.MALAY -> com.iumrah.beta.core.localization.L10n.phrase(en, l); AppLanguage.UZBEK -> uz; AppLanguage.UZBEK_CYRILLIC -> uzCy }

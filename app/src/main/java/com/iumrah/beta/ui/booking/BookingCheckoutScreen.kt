@@ -157,4 +157,4 @@ fun BookingCheckoutScreen(
 @Composable private fun CheckoutStep(number:String,text:String){Row(verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(12.dp)){Box(Modifier.size(30.dp).clip(CircleShape).background(generatorRaisedColor()),contentAlignment=Alignment.Center){Text(number,fontSize=10.sp,fontWeight=FontWeight.Bold)};Text(text,fontSize=13.sp,modifier=Modifier.weight(1f))}}
 
 @Composable private fun BookingField(label:String,value:String,onChange:(String)->Unit){OutlinedTextField(value=value,onValueChange=onChange,label={Text(label)},modifier=Modifier.fillMaxWidth(),singleLine=true,shape=RoundedCornerShape(20.dp))}
-private fun checkoutTr(l:AppLanguage,ru:String,en:String,uz:String,uzCy:String)=when(l){AppLanguage.RUSSIAN->ru;AppLanguage.ENGLISH->en;AppLanguage.UZBEK->uz;AppLanguage.UZBEK_CYRILLIC->uzCy}
+private fun checkoutTr(l:AppLanguage,ru:String,en:String,uz:String,uzCy:String)=when(l){AppLanguage.RUSSIAN->ru;AppLanguage.ENGLISH, AppLanguage.ARABIC, AppLanguage.TURKISH, AppLanguage.INDONESIAN, AppLanguage.MALAY ->en;AppLanguage.UZBEK->uz;AppLanguage.UZBEK_CYRILLIC->uzCy}

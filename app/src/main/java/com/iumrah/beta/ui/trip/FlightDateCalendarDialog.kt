@@ -404,7 +404,7 @@ private fun CalendarDay(
 }
 
 private fun calendarLocale(language: AppLanguage) = when (language) {
-    AppLanguage.ENGLISH -> Locale.forLanguageTag("en-US")
+    AppLanguage.ENGLISH, AppLanguage.ARABIC, AppLanguage.TURKISH, AppLanguage.INDONESIAN, AppLanguage.MALAY -> language.locale
     AppLanguage.RUSSIAN -> Locale.forLanguageTag("ru-RU")
     AppLanguage.UZBEK -> Locale.forLanguageTag("uz-Latn-UZ")
     AppLanguage.UZBEK_CYRILLIC -> Locale.forLanguageTag("uz-Cyrl-UZ")
@@ -415,7 +415,7 @@ private fun calendarCopy(l: AppLanguage, key: CalendarCopy): String = when (l) {
     AppLanguage.RUSSIAN -> when (key) {
         CalendarCopy.TITLE -> "Выберите даты"; CalendarCopy.SUBTITLE -> "Зелёные дни — опубликованные прямые рейсы iumrah"; CalendarCopy.RECOMMENDED -> "Рекомендует iumrah AI"; CalendarCopy.LOADING -> "Проверяем опубликованные прямые рейсы…"; CalendarCopy.DIRECT_HINT -> "Зелёные дни доступны в базе iumrah: это прямые рейсы, которые обычно удобнее и выгоднее вариантов с пересадками."; CalendarCopy.RETRY -> "Обновить"; CalendarCopy.NO_DIRECT_TITLE -> "На эти даты нет прямых рейсов"; CalendarCopy.NO_DIRECT_INLINE -> "Можно продолжить с гибкими датами, но система может предложить рейсы с одной или двумя пересадками и более высокой стоимостью. Это повлияет на итоговую цену пакета."; CalendarCopy.NO_DIRECT_POPUP -> "В iumrah сейчас нет опубликованной пары прямых рейсов на выбранные даты. При гибком поиске могут появиться варианты с 1–2 пересадками и более высокой ценой, которая увеличит итоговую стоимость вашего пакета."; CalendarCopy.INVENTORY_NOTE -> "Зелёные дни берутся только из опубликованных рейсов в базе iumrah. Другие дни не помечаются как прямые автоматически."; CalendarCopy.RESET -> "Сбросить"; CalendarCopy.CONTINUE -> "Продолжить"; CalendarCopy.CHOOSE_DIRECT -> "Выбрать даты с прямым рейсом"; CalendarCopy.CONTINUE_FLEXIBLE -> "Продолжить с гибкими датами"; CalendarCopy.CLOSE -> "Закрыть"
     }
-    AppLanguage.ENGLISH -> when (key) {
+    AppLanguage.ENGLISH, AppLanguage.ARABIC, AppLanguage.TURKISH, AppLanguage.INDONESIAN, AppLanguage.MALAY -> when (key) {
         CalendarCopy.TITLE -> "Choose your dates"; CalendarCopy.SUBTITLE -> "Green days are iumrah-published direct flights"; CalendarCopy.RECOMMENDED -> "Recommended by iumrah AI"; CalendarCopy.LOADING -> "Checking published direct flights…"; CalendarCopy.DIRECT_HINT -> "Green days are available in iumrah inventory: direct flights that are usually more convenient and better value than connecting options."; CalendarCopy.RETRY -> "Refresh"; CalendarCopy.NO_DIRECT_TITLE -> "No direct flights on these dates"; CalendarCopy.NO_DIRECT_INLINE -> "You can continue with flexible dates, but the system may offer one- or two-stop flights at a higher fare. This affects your final package total."; CalendarCopy.NO_DIRECT_POPUP -> "iumrah currently has no published direct-flight pair for these dates. Flexible search may return one- or two-stop options at a higher fare, increasing your final package total."; CalendarCopy.INVENTORY_NOTE -> "Green days come only from flights published in the iumrah database. Other dates are never marked direct automatically."; CalendarCopy.RESET -> "Reset"; CalendarCopy.CONTINUE -> "Continue"; CalendarCopy.CHOOSE_DIRECT -> "Choose direct-flight dates"; CalendarCopy.CONTINUE_FLEXIBLE -> "Continue with flexible dates"; CalendarCopy.CLOSE -> "Close"
     }
     AppLanguage.UZBEK -> when (key) {

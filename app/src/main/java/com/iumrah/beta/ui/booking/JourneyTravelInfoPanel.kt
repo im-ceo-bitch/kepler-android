@@ -94,13 +94,13 @@ private enum class IumrahHolyCity(
     fun title(language: AppLanguage): String = when (this) {
         MAKKAH -> when (language) {
             AppLanguage.RUSSIAN -> "Мекка"
-            AppLanguage.ENGLISH -> "Makkah"
+            AppLanguage.ENGLISH, AppLanguage.ARABIC, AppLanguage.TURKISH, AppLanguage.INDONESIAN, AppLanguage.MALAY -> "Makkah"
             AppLanguage.UZBEK -> "Makka"
             AppLanguage.UZBEK_CYRILLIC -> "Макка"
         }
         MADINAH -> when (language) {
             AppLanguage.RUSSIAN -> "Медина"
-            AppLanguage.ENGLISH -> "Madinah"
+            AppLanguage.ENGLISH, AppLanguage.ARABIC, AppLanguage.TURKISH, AppLanguage.INDONESIAN, AppLanguage.MALAY -> "Madinah"
             AppLanguage.UZBEK -> "Madina"
             AppLanguage.UZBEK_CYRILLIC -> "Мадина"
         }
@@ -963,6 +963,7 @@ private fun offsetText(language: AppLanguage, holyZone: ZoneId, localZone: ZoneI
 private fun tr(language: AppLanguage, ru: String, en: String, uz: String, cyrl: String): String = when (language) {
     AppLanguage.RUSSIAN -> ru
     AppLanguage.ENGLISH -> en
+    AppLanguage.ARABIC, AppLanguage.TURKISH, AppLanguage.INDONESIAN, AppLanguage.MALAY -> com.iumrah.beta.core.localization.L10n.phrase(en, language)
     AppLanguage.UZBEK -> uz
     AppLanguage.UZBEK_CYRILLIC -> cyrl
 }

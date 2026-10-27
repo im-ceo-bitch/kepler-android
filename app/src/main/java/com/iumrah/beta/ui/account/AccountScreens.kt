@@ -70,6 +70,7 @@ private val PagePad = 18.dp
 
 private fun tr(l: AppLanguage, en: String, ru: String, uz: String, cy: String) = when (l) {
     AppLanguage.ENGLISH -> en
+    AppLanguage.ARABIC, AppLanguage.TURKISH, AppLanguage.INDONESIAN, AppLanguage.MALAY -> com.iumrah.beta.core.localization.L10n.phrase(en, l)
     AppLanguage.RUSSIAN -> ru
     AppLanguage.UZBEK -> uz
     AppLanguage.UZBEK_CYRILLIC -> cy
@@ -341,7 +342,7 @@ private fun AccountHeader(language: AppLanguage, authenticated: Boolean, unread:
             title = when (language) {
                 AppLanguage.RUSSIAN, AppLanguage.UZBEK_CYRILLIC -> "Аккаунт"
                 AppLanguage.UZBEK -> "Akkaunt"
-                AppLanguage.ENGLISH -> "Account"
+                AppLanguage.ENGLISH, AppLanguage.ARABIC, AppLanguage.TURKISH, AppLanguage.INDONESIAN, AppLanguage.MALAY -> "Account"
             },
             chrome = chrome,
             unreadCount = unread,
@@ -920,20 +921,85 @@ fun AccountAppearanceScreen(language:AppLanguage,settingsStore:AppSettingsStore,
 
 @Composable
 fun AccountLanguageScreen(language: AppLanguage, settingsStore: AppSettingsStore, chrome: AppChromeStore) {
-    val current by settingsStore.state.collectAsState()
-    AccountPage(tr(language, "Language", "Язык", "Til", "Тил"), chrome) {
+    val settings by settingsStore.state.collectAsState()
+    var pending by remember(settings.language) { mutableStateOf(settings.language) }
+    val choices = listOf(
+        Triple(AppLanguage.ENGLISH, "EN", "Global · Latin"),
+        Triple(AppLanguage.ARABIC, "AR", "العالم العربي · من اليمين إلى اليسار"),
+        Triple(AppLanguage.RUSSIAN, "RU", "Россия · Кириллица"),
+        Triple(AppLanguage.TURKISH, "TR", "Türkiye · Latin"),
+        Triple(AppLanguage.INDONESIAN, "ID", "Indonesia · Latin"),
+        Triple(AppLanguage.MALAY, "MY", "Malaysia · Rumi"),
+        Triple(AppLanguage.UZBEK, "UZ", "O‘zbekiston · Lotin"),
+        Triple(AppLanguage.UZBEK_CYRILLIC, "ЎЗ", "Ўзбекистон · Кирилл"),
+    )
+    // Pending selection mirrors SwiftUI: only the explicit confirmation commits settings.
+    AccountPage(com.iumrah.beta.core.localization.L10n.phrase("Language", pending), chrome) {
+        Image(
+            painter = painterResource(R.drawable.iumrah_language_selection_hero),
+            contentDescription = null,
+            modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(28.dp))
+                .border(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = .06f), RoundedCornerShape(28.dp)),
+            contentScale = ContentScale.FillWidth,
+        )
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(com.iumrah.beta.core.localization.L10n.phrase("iumrah International Umrah Platform", pending), fontSize = 30.sp, lineHeight = 34.sp, fontWeight = FontWeight.Bold)
+            Text(com.iumrah.beta.core.localization.L10n.phrase("A world united by intention", pending), fontSize = 15.sp, color = IosGray)
+        }
+        Text(com.iumrah.beta.core.localization.L10n.phrase("Choose your app language", pending).uppercase(pending.locale),
+            fontSize = 12.sp, fontWeight = FontWeight.Bold, letterSpacing = .9.sp, color = IosGray)
         CardBlock {
-            AppLanguage.entries.forEachIndexed { index, item ->
-                if (index > 0) HorizontalDivider(Modifier.padding(start = 54.dp))
+            choices.forEachIndexed { index, (option, flag, subtitle) ->
+                if (index > 0) HorizontalDivider(Modifier.padding(start = 70.dp))
                 Row(
-                    Modifier.fillMaxWidth().clickable { settingsStore.setLanguage(item) }.padding(vertical = 12.dp),
+                    Modifier.fillMaxWidth().clickable { pending = option }.padding(vertical = 12.dp),
                     verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(13.dp),
                 ) {
-                    IconBadge(CupertinoSymbol.Globe, Care, 40.dp, 16.dp)
-                    Spacer(Modifier.width(12.dp))
-                    Text(languageTitle(item), Modifier.weight(1f), fontWeight = FontWeight.SemiBold)
-                    if (current.language == item) CupertinoIcon(CupertinoSymbol.CheckCircle, null, Modifier.size(21.dp), Care)
+                    Box(Modifier.size(42.dp).clip(RoundedCornerShape(13.dp))
+                        .background(MaterialTheme.colorScheme.onSurface.copy(alpha = .055f)), contentAlignment = Alignment.Center) {
+                        Text(flag, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    }
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Text(option.nativeTitle, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                        Text(subtitle, fontSize = 12.sp, color = IosGray)
+                    }
+                    if (pending == option) {
+                        CupertinoIcon(CupertinoSymbol.CheckCircleFill, null, Modifier.size(21.dp), com.iumrah.beta.core.design.IumrahColors.CareLight)
+                    } else if (settings.language == option) {
+                        Text(com.iumrah.beta.core.localization.L10n.phrase("CURRENT", pending),
+                            fontSize = 10.sp, fontWeight = FontWeight.Bold, color = IosGray)
+                    } else {
+                        CupertinoIcon(CupertinoSymbol.ChevronRight, null, Modifier.size(14.dp), IosGray)
+                    }
                 }
+            }
+        }
+        Text(com.iumrah.beta.core.localization.L10n.phrase(
+            "After confirmation, the iumrah interface switches to the language you selected.", pending),
+            fontSize = 13.sp, color = IosGray)
+        Surface(
+            onClick = { settingsStore.setLanguage(pending); chrome.back() },
+            enabled = pending != settings.language,
+            color = if (pending == settings.language) MaterialTheme.colorScheme.onSurface.copy(alpha = .055f) else MaterialTheme.colorScheme.onSurface,
+            shape = RoundedCornerShape(20.dp),
+        ) {
+            Box(Modifier.fillMaxWidth().height(56.dp), contentAlignment = Alignment.Center) {
+                Text(
+                    if (pending == settings.language) com.iumrah.beta.core.localization.L10n.phrase("Current language already selected", pending)
+                    else when (pending) {
+                        AppLanguage.ARABIC -> "التغيير إلى العربية"
+                        AppLanguage.TURKISH -> "Türkçe’ye geç"
+                        AppLanguage.INDONESIAN -> "Ganti ke Bahasa Indonesia"
+                        AppLanguage.MALAY -> "Tukar kepada Bahasa Melayu"
+                        AppLanguage.RUSSIAN -> "Переключить на Русский"
+                        AppLanguage.ENGLISH -> "Change to English"
+                        AppLanguage.UZBEK -> "O‘zbekchaga o‘tish"
+                        AppLanguage.UZBEK_CYRILLIC -> "Ўзбекчага ўтиш"
+                    },
+                    fontWeight = FontWeight.Bold,
+                    color = if (pending == settings.language) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.surface,
+                )
             }
         }
     }
@@ -1125,6 +1191,6 @@ private fun Segmented(labels: List<String>, selected: Int, onSelect: (Int) -> Un
         }
     }
 }
-private fun languageTitle(l:AppLanguage)=when(l){AppLanguage.ENGLISH->"English";AppLanguage.RUSSIAN->"Русский";AppLanguage.UZBEK->"O‘zbekcha";AppLanguage.UZBEK_CYRILLIC->"Ўзбекча"}
+private fun languageTitle(l: AppLanguage) = l.nativeTitle
 private fun appearanceTitle(a:AppAppearance,l:AppLanguage)=when(a){AppAppearance.SYSTEM->tr(l,"System","Системная","Tizim","Тизим");AppAppearance.LIGHT->tr(l,"Light","Светлая","Yorug‘","Ёруғ");AppAppearance.DARK->tr(l,"Dark","Тёмная","Qorong‘i","Қоронғи")}
 

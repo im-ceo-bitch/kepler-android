@@ -1937,8 +1937,17 @@ object L10n {
         )
     )
 
-    fun text(key: String, language: AppLanguage): String =
-        dictionary[language.code]?.get(key) ?: dictionary["en"]?.get(key) ?: key
+    fun text(key: String, language: AppLanguage): String {
+        val english = dictionary["en"]?.get(key) ?: key
+        return IumrahInternationalTranslations.byKey(language.code, key)
+            ?: IumrahInternationalTranslations.byPhrase(language.code, english)
+            ?: dictionary[language.code]?.get(key)
+            ?: english
+    }
+
+    /** iOS' ArabicLocalization.phrase / TurkishLocalization.phrase equivalent. */
+    fun phrase(english: String, language: AppLanguage): String =
+        IumrahInternationalTranslations.byPhrase(language.code, english) ?: english
 
     fun format(key: String, language: AppLanguage, vararg args: Any): String {
         // Swift/Foundation uses %@ for object interpolation; java.util.Formatter uses %s.

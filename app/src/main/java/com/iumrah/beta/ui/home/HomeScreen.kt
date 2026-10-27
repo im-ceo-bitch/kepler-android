@@ -452,7 +452,7 @@ private fun audienceItems(language: AppLanguage): List<AudienceItem> {
             AudienceItem(CupertinoSymbol.Persons, "Семья и близкие", "Организуйте Умру для семьи или друзей вместе, сохраняя приватность и удобный темп поездки.", greenBg, greenFg),
             AudienceItem(CupertinoSymbol.Sparkles, "Индивидуальный и VIP", "Премиальные отели, приватный транспорт, индивидуальный сервис и максимум личного пространства.", sandBg, sandFg),
         )
-        AppLanguage.ENGLISH -> listOf(
+        AppLanguage.ENGLISH, AppLanguage.ARABIC, AppLanguage.TURKISH, AppLanguage.INDONESIAN, AppLanguage.MALAY -> listOf(
             AudienceItem(CupertinoSymbol.Sliders, "Build it your way", "Flights, hotels, transfer and services in one personal Umrah package you configure for yourself.", blueBg, blueFg),
             AudienceItem(CupertinoSymbol.Persons, "Family & friends", "Organize Umrah together while keeping the journey private, comfortable and paced around your group.", greenBg, greenFg),
             AudienceItem(CupertinoSymbol.Sparkles, "Private & VIP", "Premium hotels, private transport, individual service and more personal space throughout the journey.", sandBg, sandFg),
@@ -479,7 +479,7 @@ private fun AudienceSection(language: AppLanguage) {
         SectionHeader(
             when (language) {
                 AppLanguage.RUSSIAN -> "Для кого создан Iumrah"
-                AppLanguage.ENGLISH -> "Who Iumrah is for"
+                AppLanguage.ENGLISH, AppLanguage.ARABIC, AppLanguage.TURKISH, AppLanguage.INDONESIAN, AppLanguage.MALAY -> "Who Iumrah is for"
                 AppLanguage.UZBEK -> "Iumrah kimlar uchun"
                 AppLanguage.UZBEK_CYRILLIC -> "Iumrah кимлар учун"
             }
@@ -520,7 +520,7 @@ private fun ServicesSection(language: AppLanguage, chrome: AppChromeStore) {
             ServiceItem(listOf(R.drawable.iumrah_flights_home_card), "Iumrah Flights", "Статус Вашего рейса в реальном времени: изменения времени, задержки и важные обновления поездки в одном месте.", "Live status", CupertinoSymbol.Airplane, chrome::openLiveFlights),
             ServiceItem(listOf(R.drawable.iumrah_care_showcase), "Iumrah Care", "Человеческая поддержка, когда она действительно нужна: до поездки, в Саудовской Аравии и во время возвращения домой.", "Поддержка", CupertinoSymbol.HeartFill) { chrome.navigate(AppTab.CARE) },
         )
-        AppLanguage.ENGLISH -> listOf(
+        AppLanguage.ENGLISH, AppLanguage.ARABIC, AppLanguage.TURKISH, AppLanguage.INDONESIAN, AppLanguage.MALAY -> listOf(
             ServiceItem(transferImages, "Iumrah Transfer", "Airport pickup and private rides between key stops, with the right vehicle for your journey.", "Included", CupertinoSymbol.Car, chrome::openTransferService),
             ServiceItem(ziyaratImages, "Iumrah Ziyarat", "Makkah and Madinah places in one route, with context, navigation and a clear visit sequence.", "Routes", CupertinoSymbol.Location, chrome::openZiyarats),
             ServiceItem(listOf(R.drawable.iumrah_esim_home_card), "Iumrah eSIM", "Saudi internet ready from arrival, without having to search for a local SIM card at the airport.", "Connectivity", CupertinoSymbol.SignalWave, chrome::openESIM),
@@ -549,13 +549,13 @@ private fun ServicesSection(language: AppLanguage, chrome: AppChromeStore) {
         SectionHeader(
             title = when (language) {
                 AppLanguage.RUSSIAN -> "Что входит в Iumrah Services"
-                AppLanguage.ENGLISH -> "What’s inside Iumrah Services"
+                AppLanguage.ENGLISH, AppLanguage.ARABIC, AppLanguage.TURKISH, AppLanguage.INDONESIAN, AppLanguage.MALAY -> "What’s inside Iumrah Services"
                 AppLanguage.UZBEK -> "Iumrah Services nimalarni o‘z ichiga oladi"
                 AppLanguage.UZBEK_CYRILLIC -> "Iumrah Services нималарни ўз ичига олади"
             },
             subtitle = when (language) {
                 AppLanguage.RUSSIAN -> "Основные сервисы уже встроены в пакеты Iumrah и сопровождают поездку от вылета до возвращения."
-                AppLanguage.ENGLISH -> "Core services are built into Iumrah packages and stay with the journey from departure to return."
+                AppLanguage.ENGLISH, AppLanguage.ARABIC, AppLanguage.TURKISH, AppLanguage.INDONESIAN, AppLanguage.MALAY -> "Core services are built into Iumrah packages and stay with the journey from departure to return."
                 AppLanguage.UZBEK -> "Asosiy servislar Iumrah paketlariga kiritilgan va safarni uchishdan qaytishgacha kuzatadi."
                 AppLanguage.UZBEK_CYRILLIC -> "Асосий сервислар Iumrah пакетларига киритилган ва сафарни учишдан қайтишгача кузатади."
             },
@@ -1437,7 +1437,7 @@ private fun faqItems(language: AppLanguage): List<FAQItem> = when (language) {
         FAQItem("Можно поехать только с семьёй или друзьями?", "Да. Пакет можно собрать для одного человека, пары, семьи или друзей. В поездке остаются только те люди, которых вы сами добавили."),
         FAQItem("А если я не хочу собирать всё самостоятельно?", "Обратитесь в iumrah Care. Мы поможем подобрать вариант, проверить детали и оформить поездку, сохранив персональный формат без обязательной большой группы."),
     )
-    AppLanguage.ENGLISH -> listOf(
+    AppLanguage.ENGLISH, AppLanguage.ARABIC, AppLanguage.TURKISH, AppLanguage.INDONESIAN, AppLanguage.MALAY -> listOf(
         FAQItem("What is iumrah?", "iumrah is a platform for independent, personal Umrah. It brings flights, hotel, transfer and services into one clear package and then keeps the journey in one app."),
         FAQItem("Why was iumrah created?", "So a pilgrim does not have to depend on a large tour group or manage many disconnected bookings. iumrah is built around more control, transparency and care throughout the journey."),
         FAQItem("What does ‘personal Umrah’ mean?", "The journey is built around your dates, budget, hotel level and chosen services. There is no required group of 30–50 strangers — you decide who travels with you."),
@@ -1551,6 +1551,7 @@ private fun LightCTA(title: String) {
 private fun tr(language: AppLanguage, ru: String, en: String, uz: String, uzCy: String): String = when (language) {
     AppLanguage.RUSSIAN -> ru
     AppLanguage.ENGLISH -> en
+    AppLanguage.ARABIC, AppLanguage.TURKISH, AppLanguage.INDONESIAN, AppLanguage.MALAY -> com.iumrah.beta.core.localization.L10n.phrase(en, language)
     AppLanguage.UZBEK -> uz
     AppLanguage.UZBEK_CYRILLIC -> uzCy
 }

@@ -2338,7 +2338,7 @@ private fun cancelledStage(language: AppLanguage): ProgressStage = ProgressStage
 private fun progressCounter(language: AppLanguage, current: Int, total: Int): String =
     when (language) {
         AppLanguage.RUSSIAN -> "${current + 1} из $total"
-        AppLanguage.ENGLISH -> "${current + 1} of $total"
+        AppLanguage.ENGLISH, AppLanguage.ARABIC, AppLanguage.TURKISH, AppLanguage.INDONESIAN, AppLanguage.MALAY -> "${current + 1} of $total"
         else -> "${current + 1} / $total"
     }
 
@@ -2376,7 +2376,7 @@ private fun compactTimestamp(raw: String, language: AppLanguage): String {
     val instant = runCatching { Instant.parse(raw) }.getOrNull() ?: return raw.take(10)
     val locale = when (language) {
         AppLanguage.RUSSIAN -> Locale("ru")
-        AppLanguage.ENGLISH -> Locale.ENGLISH
+        AppLanguage.ENGLISH, AppLanguage.ARABIC, AppLanguage.TURKISH, AppLanguage.INDONESIAN, AppLanguage.MALAY -> language.locale
         AppLanguage.UZBEK -> Locale("uz")
         AppLanguage.UZBEK_CYRILLIC -> Locale("uz", "Cyrl")
     }
@@ -2468,7 +2468,7 @@ private fun compactDate(raw: String, language: AppLanguage): String {
     val date = runCatching { LocalDate.parse(raw) }.getOrNull() ?: return raw
     val locale = when (language) {
         AppLanguage.RUSSIAN -> Locale("ru")
-        AppLanguage.ENGLISH -> Locale.ENGLISH
+        AppLanguage.ENGLISH, AppLanguage.ARABIC, AppLanguage.TURKISH, AppLanguage.INDONESIAN, AppLanguage.MALAY -> language.locale
         AppLanguage.UZBEK -> Locale("uz")
         AppLanguage.UZBEK_CYRILLIC -> Locale("uz", "Cyrl")
     }
@@ -2490,7 +2490,7 @@ private fun safeItineraryIcon(raw: String): CupertinoSymbol {
 
 private fun shortBookingNumber(language: AppLanguage, number: String): String = when (language) {
     AppLanguage.RUSSIAN -> "Бронь $number"
-    AppLanguage.ENGLISH -> "Booking $number"
+    AppLanguage.ENGLISH, AppLanguage.ARABIC, AppLanguage.TURKISH, AppLanguage.INDONESIAN, AppLanguage.MALAY -> "Booking $number"
     AppLanguage.UZBEK -> "Bron $number"
     AppLanguage.UZBEK_CYRILLIC -> "Брон $number"
 }
@@ -2502,7 +2502,7 @@ private fun formatPrice(amount: Double): String = NumberFormat.getCurrencyInstan
 
 private fun pilgrimCount(language: AppLanguage, count: Int): String = when (language) {
     AppLanguage.RUSSIAN -> "$count паломн."
-    AppLanguage.ENGLISH -> if (count == 1) "1 pilgrim" else "$count pilgrims"
+    AppLanguage.ENGLISH, AppLanguage.ARABIC, AppLanguage.TURKISH, AppLanguage.INDONESIAN, AppLanguage.MALAY -> if (count == 1) "1 pilgrim" else "$count pilgrims"
     AppLanguage.UZBEK -> "$count ziyoratchi"
     AppLanguage.UZBEK_CYRILLIC -> "$count зиёратчи"
 }
@@ -2528,7 +2528,7 @@ private fun makkahTime(nowMs: Long): String = DateTimeFormatter.ofPattern("HH:mm
 
 private fun t(language: AppLanguage, ru: String, en: String, uz: String, cy: String): String = when (language) {
     AppLanguage.RUSSIAN -> ru
-    AppLanguage.ENGLISH -> en
+    AppLanguage.ENGLISH -> en; AppLanguage.ARABIC, AppLanguage.TURKISH, AppLanguage.INDONESIAN, AppLanguage.MALAY -> com.iumrah.beta.core.localization.L10n.phrase(en, language)
     AppLanguage.UZBEK -> uz
     AppLanguage.UZBEK_CYRILLIC -> cy
 }

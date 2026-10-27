@@ -667,7 +667,7 @@ private fun transferDateRangeTitle(language: AppLanguage, departure: LocalDate, 
 private fun shortTransferDate(language: AppLanguage, date: LocalDate): String {
     val locale = when (language) {
         AppLanguage.RUSSIAN -> Locale("ru", "RU")
-        AppLanguage.ENGLISH -> Locale.US
+        AppLanguage.ENGLISH, AppLanguage.ARABIC, AppLanguage.TURKISH, AppLanguage.INDONESIAN, AppLanguage.MALAY -> language.locale
         AppLanguage.UZBEK -> Locale.forLanguageTag("uz-Latn-UZ")
         AppLanguage.UZBEK_CYRILLIC -> Locale.forLanguageTag("uz-Cyrl-UZ")
     }
@@ -831,7 +831,7 @@ private fun currentFg(selected: TransferVehicleKind) = if (selected == TransferV
 
 private fun transferTr(l: AppLanguage, ru: String, en: String, uz: String, uzCy: String) = when (l) {
     AppLanguage.RUSSIAN -> ru
-    AppLanguage.ENGLISH -> en
+    AppLanguage.ENGLISH -> en; AppLanguage.ARABIC, AppLanguage.TURKISH, AppLanguage.INDONESIAN, AppLanguage.MALAY -> com.iumrah.beta.core.localization.L10n.phrase(en, l)
     AppLanguage.UZBEK -> uz
     AppLanguage.UZBEK_CYRILLIC -> uzCy
 }

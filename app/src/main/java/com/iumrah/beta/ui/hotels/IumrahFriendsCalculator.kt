@@ -344,7 +344,7 @@ private fun perPerson(language: AppLanguage, raw: String): String {
     val value = money(raw)
     return when (language) {
         AppLanguage.RUSSIAN -> "$value / чел."
-        AppLanguage.ENGLISH -> "$value / person"
+        AppLanguage.ENGLISH, AppLanguage.ARABIC, AppLanguage.TURKISH, AppLanguage.INDONESIAN, AppLanguage.MALAY -> "$value / person"
         AppLanguage.UZBEK -> "$value / kishi"
         AppLanguage.UZBEK_CYRILLIC -> "$value / киши"
     }
@@ -359,7 +359,7 @@ private fun friendsUnavailable(language: AppLanguage): String = friendsTr(langua
 
 private fun friendsTr(language: AppLanguage, ru: String, en: String, uz: String, cy: String): String = when (language) {
     AppLanguage.RUSSIAN -> ru
-    AppLanguage.ENGLISH -> en
+    AppLanguage.ENGLISH -> en; AppLanguage.ARABIC, AppLanguage.TURKISH, AppLanguage.INDONESIAN, AppLanguage.MALAY -> com.iumrah.beta.core.localization.L10n.phrase(en, language)
     AppLanguage.UZBEK -> uz
     AppLanguage.UZBEK_CYRILLIC -> cy
 }

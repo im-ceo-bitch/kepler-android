@@ -415,19 +415,19 @@ private fun AnimatedConnectivityIndicator(
             AppLanguage.RUSSIAN -> "Проверка"
             AppLanguage.UZBEK -> "Tekshirilmoqda"
             AppLanguage.UZBEK_CYRILLIC -> "Текширилмоқда"
-            AppLanguage.ENGLISH -> "Checking"
+            AppLanguage.ENGLISH, AppLanguage.ARABIC, AppLanguage.TURKISH, AppLanguage.INDONESIAN, AppLanguage.MALAY -> "Checking"
         }
         IumrahConnectivityStatus.ONLINE -> when(language) {
             AppLanguage.RUSSIAN -> "В сети"
             AppLanguage.UZBEK -> "Onlayn"
             AppLanguage.UZBEK_CYRILLIC -> "Онлайн"
-            AppLanguage.ENGLISH -> "Online"
+            AppLanguage.ENGLISH, AppLanguage.ARABIC, AppLanguage.TURKISH, AppLanguage.INDONESIAN, AppLanguage.MALAY -> "Online"
         }
         IumrahConnectivityStatus.OFFLINE -> when(language) {
             AppLanguage.RUSSIAN -> "Не в сети"
             AppLanguage.UZBEK -> "Oflayn"
             AppLanguage.UZBEK_CYRILLIC -> "Офлайн"
-            AppLanguage.ENGLISH -> "Offline"
+            AppLanguage.ENGLISH, AppLanguage.ARABIC, AppLanguage.TURKISH, AppLanguage.INDONESIAN, AppLanguage.MALAY -> "Offline"
         }
     }
     var expanded by remember(status) { mutableStateOf(false) }

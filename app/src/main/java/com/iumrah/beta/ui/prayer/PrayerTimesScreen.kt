@@ -70,6 +70,7 @@ private val midnight = Color(0xFF16223A)
 private fun tr(lang: AppLanguage, ru: String, en: String, uz: String, cy: String) = when (lang) {
     AppLanguage.RUSSIAN -> ru
     AppLanguage.ENGLISH -> en
+    AppLanguage.ARABIC, AppLanguage.TURKISH, AppLanguage.INDONESIAN, AppLanguage.MALAY -> com.iumrah.beta.core.localization.L10n.phrase(en, lang)
     AppLanguage.UZBEK -> uz
     AppLanguage.UZBEK_CYRILLIC -> cy
 }

@@ -17,6 +17,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.rememberCoroutineScope
@@ -133,6 +136,9 @@ fun IumrahApp() {
         }
     }
 
+    CompositionLocalProvider(LocalLayoutDirection provides
+        if (settings.language.isRightToLeft) LayoutDirection.Rtl else LayoutDirection.Ltr
+    ) {
     IumrahTheme(appearance = settings.appearance) {
         if (!settings.isLoaded) {
             LaunchSurface()
@@ -181,6 +187,7 @@ fun IumrahApp() {
                 )
             }
         }
+    }
     }
 }
 

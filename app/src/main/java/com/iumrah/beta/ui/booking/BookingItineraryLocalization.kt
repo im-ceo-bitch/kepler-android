@@ -58,7 +58,7 @@ private fun localizeServerSubtitle(value: String, language: AppLanguage): String
             val minutes = normalized.removeSuffix(suffix).trim().toIntOrNull() ?: continue
             return when (language) {
                 AppLanguage.RUSSIAN -> "$minutes мин"
-                AppLanguage.ENGLISH -> "$minutes min"
+                AppLanguage.ENGLISH, AppLanguage.ARABIC, AppLanguage.TURKISH, AppLanguage.INDONESIAN, AppLanguage.MALAY -> "$minutes min"
                 AppLanguage.UZBEK -> "$minutes daq"
                 AppLanguage.UZBEK_CYRILLIC -> "$minutes дақ"
             }
@@ -78,7 +78,7 @@ private fun containsAny(value: String, vararg needles: String): Boolean = needle
 
 private fun scheduleTr(language: AppLanguage, ru: String, en: String, uz: String, cy: String): String = when (language) {
     AppLanguage.RUSSIAN -> ru
-    AppLanguage.ENGLISH -> en
+    AppLanguage.ENGLISH -> en; AppLanguage.ARABIC, AppLanguage.TURKISH, AppLanguage.INDONESIAN, AppLanguage.MALAY -> com.iumrah.beta.core.localization.L10n.phrase(en, language)
     AppLanguage.UZBEK -> uz
     AppLanguage.UZBEK_CYRILLIC -> cy
 }

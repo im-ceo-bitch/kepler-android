@@ -82,7 +82,7 @@ class FlightFavoritesStore(context: Context) {
         val route = offer.routeTitle
         val title = when (language) {
             AppLanguage.RUSSIAN -> if (newPrice < oldPrice) "Авиабилет подешевел" else "Цена авиабилета изменилась"
-            AppLanguage.ENGLISH -> if (newPrice < oldPrice) "Flight price dropped" else "Flight price changed"
+            AppLanguage.ENGLISH, AppLanguage.ARABIC, AppLanguage.TURKISH, AppLanguage.INDONESIAN, AppLanguage.MALAY -> if (newPrice < oldPrice) "Flight price dropped" else "Flight price changed"
             AppLanguage.UZBEK -> if (newPrice < oldPrice) "Aviachipta arzonlashdi" else "Aviachipta narxi o‘zgardi"
             AppLanguage.UZBEK_CYRILLIC -> if (newPrice < oldPrice) "Авиачипта арзонлашди" else "Авиачипта нархи ўзгарди"
         }

@@ -300,7 +300,7 @@ private fun OnboardingTopBar(
 
 private fun languageTitle(language: AppLanguage): String = when (language) {
     AppLanguage.RUSSIAN -> "Русский"
-    AppLanguage.ENGLISH -> "English"
+    AppLanguage.ENGLISH, AppLanguage.ARABIC, AppLanguage.TURKISH, AppLanguage.INDONESIAN, AppLanguage.MALAY -> "English"
     AppLanguage.UZBEK -> "O‘zbekcha"
     AppLanguage.UZBEK_CYRILLIC -> "Ўзбекча"
 }

@@ -52,3 +52,6 @@ python3 scripts/verify-block8-integrations-parity.py
 
 # Supplemental Block 8 guard; user explicitly excluded ritual Umrah Flow.
 python3 scripts/verify-block8-reminder-center-parity.py
+
+# Global v14 internationalization and design-regression checks.
+python3 scripts/verify-global-parity-v14.py

@@ -31,7 +31,7 @@ import com.iumrah.beta.ui.cupertino.CupertinoSymbol
 fun HomeWeatherScreen(language: AppLanguage, chrome: AppChromeStore) {
     val title = when (language) {
         AppLanguage.RUSSIAN -> "Погода"
-        AppLanguage.ENGLISH -> "Weather"
+        AppLanguage.ENGLISH, AppLanguage.ARABIC, AppLanguage.TURKISH, AppLanguage.INDONESIAN, AppLanguage.MALAY -> "Weather"
         AppLanguage.UZBEK -> "Ob-havo"
         AppLanguage.UZBEK_CYRILLIC -> "Об-ҳаво"
     }

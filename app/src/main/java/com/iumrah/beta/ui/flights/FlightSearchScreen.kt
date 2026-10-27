@@ -809,7 +809,7 @@ private fun formatInstant(instant: java.time.Instant, zoneId: String?): String {
 }
 private fun formatDate(value: String, language: AppLanguage): String = runCatching {
     val date = java.time.LocalDate.parse(value)
-    val locale = when (language) { AppLanguage.RUSSIAN -> Locale("ru"); AppLanguage.ENGLISH -> Locale.ENGLISH; else -> Locale("uz") }
+    val locale = when (language) { AppLanguage.RUSSIAN -> Locale("ru"); AppLanguage.ENGLISH, AppLanguage.ARABIC, AppLanguage.TURKISH, AppLanguage.INDONESIAN, AppLanguage.MALAY -> language.locale; else -> Locale("uz") }
     DateTimeFormatter.ofPattern("d MMM yyyy", locale).format(date)
 }.getOrDefault(value)
 private fun arrivesNextDay(leg: LiveFlightCandidate): Boolean {
@@ -820,7 +820,7 @@ private fun durationText(language: AppLanguage, minutes: Int): String {
     val h = minutes.coerceAtLeast(0) / 60; val m = minutes.coerceAtLeast(0) % 60
     return when (language) {
         AppLanguage.RUSSIAN -> if (m == 0) "${h}ч" else "${h}ч ${m}м"
-        AppLanguage.ENGLISH -> if (m == 0) "${h}h" else "${h}h ${m}m"
+        AppLanguage.ENGLISH, AppLanguage.ARABIC, AppLanguage.TURKISH, AppLanguage.INDONESIAN, AppLanguage.MALAY -> if (m == 0) "${h}h" else "${h}h ${m}m"
         AppLanguage.UZBEK -> if (m == 0) "${h}soat" else "${h}soat ${m}d"
         AppLanguage.UZBEK_CYRILLIC -> if (m == 0) "${h}соат" else "${h}соат ${m}д"
     }
@@ -828,7 +828,7 @@ private fun durationText(language: AppLanguage, minutes: Int): String {
 private fun stopRouteLabel(language: AppLanguage, leg: LiveFlightCandidate): String {
     val stop = when (language) {
         AppLanguage.RUSSIAN -> if (leg.stops == 0) "прямой" else if (leg.stops == 1) "1 пересадка" else "${leg.stops} пересадки"
-        AppLanguage.ENGLISH -> if (leg.stops == 0) "nonstop" else if (leg.stops == 1) "1 stop" else "${leg.stops} stops"
+        AppLanguage.ENGLISH, AppLanguage.ARABIC, AppLanguage.TURKISH, AppLanguage.INDONESIAN, AppLanguage.MALAY -> if (leg.stops == 0) "nonstop" else if (leg.stops == 1) "1 stop" else "${leg.stops} stops"
         AppLanguage.UZBEK -> if (leg.stops == 0) "to‘g‘ridan-to‘g‘ri" else "${leg.stops} ta to‘xtash"
         AppLanguage.UZBEK_CYRILLIC -> if (leg.stops == 0) "тўғридан-тўғри" else "${leg.stops} та тўхташ"
     }
@@ -845,8 +845,9 @@ private fun cabinLabel(language: AppLanguage, value: String?): String {
 private fun searchGateFallback(language: AppLanguage) = tr(language, "Поиск завершён без рейса, который прошёл все проверки iumrah.", "Search completed without a flight that passed all iumrah checks.", "Qidiruv iumrah tekshiruvlaridan o‘tgan reyssiz yakunlandi.", "Қидирув iumrah текширувларидан ўтган рейссиз якунланди.")
 private fun searchMessages(language: AppLanguage): List<String> = when (language) {
     AppLanguage.RUSSIAN -> listOf("Ищем лучшие варианты для вашей поездки", "Проверяем доступные рейсы", "Сравниваем комбинации перелёта туда и обратно", "Сравниваем расположение, условия и стоимость", "Проверяем маршруты на выбранные даты", "Подбираем оптимальные варианты трансфера", "Собираем всё в одну поездку", "Сравниваем доступные комбинации", "Сравниваем цены маршрутов туда и обратно", "Выбираем наиболее подходящие варианты", "Почти готово — завершаем подбор", "Готовим вашу поездку…", "Мы продолжаем поиск — это может занять немного времени", "Проверяем больше вариантов, чтобы не торопиться с выбором", "Ещё немного — завершаем сравнение предложений", "Ваши варианты почти готовы")
-    AppLanguage.ENGLISH -> listOf("Searching for the best options for your trip", "Checking available flights", "Comparing return and open-jaw fare combinations", "Comparing location, conditions and cost", "Checking matching itineraries for your dates", "Selecting suitable transfer options", "Bringing everything into one trip", "Comparing available combinations", "Comparing complete journey fares", "Choosing the most suitable options", "Almost ready — finishing the search", "Preparing your trip…", "We are still searching — this can take a little longer", "Checking more options so we do not rush your choice", "Just a little more — finishing the comparison", "Your options are almost ready")
+    AppLanguage.ENGLISH, AppLanguage.ARABIC, AppLanguage.TURKISH, AppLanguage.INDONESIAN, AppLanguage.MALAY -> listOf("Searching for the best options for your trip", "Checking available flights", "Comparing return and open-jaw fare combinations", "Comparing location, conditions and cost", "Checking matching itineraries for your dates", "Selecting suitable transfer options", "Bringing everything into one trip", "Comparing available combinations", "Comparing complete journey fares", "Choosing the most suitable options", "Almost ready — finishing the search", "Preparing your trip…", "We are still searching — this can take a little longer", "Checking more options so we do not rush your choice", "Just a little more — finishing the comparison", "Your options are almost ready")
     AppLanguage.UZBEK -> listOf("Safaringiz uchun eng yaxshi variantlarni izlayapmiz", "Mavjud reyslarni tekshiryapmiz", "Borish-qaytish kombinatsiyalarini solishtiryapmiz", "Joylashuv, shartlar va narxni solishtiryapmiz", "Tanlangan sanalarga mos yo‘nalishlarni tekshiryapmiz", "Mos transfer variantlarini tanlayapmiz", "Barchasini bitta safarga birlashtiryapmiz", "Mavjud kombinatsiyalarni solishtiryapmiz", "Borish-qaytish yo‘nalishlari narxlarini solishtiryapmiz", "Eng mos variantlarni tanlayapmiz", "Deyarli tayyor — tanlovni yakunlayapmiz", "Safaringizni tayyorlayapmiz…", "Qidiruv davom etmoqda — biroz ko‘proq vaqt ketishi mumkin", "Tanlovga shoshilmaslik uchun ko‘proq variantlarni tekshiryapmiz", "Yana ozgina — takliflarni solishtirishni yakunlayapmiz", "Variantlaringiz deyarli tayyor")
     AppLanguage.UZBEK_CYRILLIC -> listOf("Сафарингиз учун энг яхши вариантларни излаяпмиз", "Мавжуд рейсларни текширяпмиз", "Бориш-қайтиш комбинацияларини солиштиряпмиз", "Жойлашув, шартлар ва нархни солиштиряпмиз", "Танланган саналарга мос йўналишларни текширяпмиз", "Мос трансфер вариантларини танлаяпмиз", "Барчасини битта сафарга бирлаштиряпмиз", "Мавжуд комбинацияларни солиштиряпмиз", "Бориш-қайтиш йўналишлари нархларини солиштиряпмиз", "Энг мос вариантларни танлаяпмиз", "Деярли тайёр — танловни якунлаяпмиз", "Сафарингизни тайёрлаяпмиз…", "Қидирув давом этмоқда — бироз кўпроқ вақт кетиши мумкин", "Танловга шошилмаслик учун кўпроқ вариантларни текширяпмиз", "Яна озгина — таклифларни солиштиришни якунлаяпмиз", "Вариантларингиз деярли тайёр")
 }
-private fun tr(language: AppLanguage, ru: String, en: String, uz: String, uzCy: String): String = when (language) { AppLanguage.RUSSIAN -> ru; AppLanguage.ENGLISH -> en; AppLanguage.UZBEK -> uz; AppLanguage.UZBEK_CYRILLIC -> uzCy }
+private fun tr(language: AppLanguage, ru: String, en: String, uz: String, uzCy: String): String = when (language) { AppLanguage.RUSSIAN -> ru; AppLanguage.ENGLISH -> en
+    AppLanguage.ARABIC, AppLanguage.TURKISH, AppLanguage.INDONESIAN, AppLanguage.MALAY -> com.iumrah.beta.core.localization.L10n.phrase(en, language); AppLanguage.UZBEK -> uz; AppLanguage.UZBEK_CYRILLIC -> uzCy }

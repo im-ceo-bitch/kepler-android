@@ -772,7 +772,7 @@ private fun categoryIcon(raw: String): CupertinoSymbol = when (raw) {
 private fun cityTitle(language: AppLanguage, city: JourneyCity): String = if (city == JourneyCity.MADINAH) zt(language, "Медина", "Madinah", "Madina", "Мадина") else zt(language, "Мекка", "Makkah", "Makka", "Макка")
 private fun zt(language: AppLanguage, ru: String, en: String, uz: String, cy: String): String = when (language) {
     AppLanguage.RUSSIAN -> ru
-    AppLanguage.ENGLISH -> en
+    AppLanguage.ENGLISH -> en; AppLanguage.ARABIC, AppLanguage.TURKISH, AppLanguage.INDONESIAN, AppLanguage.MALAY -> com.iumrah.beta.core.localization.L10n.phrase(en, language)
     AppLanguage.UZBEK -> uz
     AppLanguage.UZBEK_CYRILLIC -> cy
 }

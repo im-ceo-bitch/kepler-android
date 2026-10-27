@@ -50,7 +50,7 @@ data class ZiyaratPlace(
     fun localized(language: AppLanguage): ZiyaratPlaceTranslation {
         val locale = when (language) {
             AppLanguage.RUSSIAN -> "ru"
-            AppLanguage.ENGLISH -> "en"
+            AppLanguage.ENGLISH, AppLanguage.ARABIC, AppLanguage.TURKISH, AppLanguage.INDONESIAN, AppLanguage.MALAY -> "en"
             AppLanguage.UZBEK -> "uz"
             AppLanguage.UZBEK_CYRILLIC -> "uz-cyrl"
         }

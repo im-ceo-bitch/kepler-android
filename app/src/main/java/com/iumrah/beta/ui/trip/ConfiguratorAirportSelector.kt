@@ -634,46 +634,46 @@ private suspend fun requestConfiguratorLocation(manager: LocationManager): Locat
 
 
 private fun airportMapTapHint(language: AppLanguage) = when (language) {
-    AppLanguage.RUSSIAN -> "Коснитесь аэропорта на карте"; AppLanguage.ENGLISH -> "Tap an airport on the map"; AppLanguage.UZBEK -> "Xaritadagi aeroportni bosing"; AppLanguage.UZBEK_CYRILLIC -> "Харитадаги аэропортни босинг"
+    AppLanguage.RUSSIAN -> "Коснитесь аэропорта на карте"; AppLanguage.ENGLISH, AppLanguage.ARABIC, AppLanguage.TURKISH, AppLanguage.INDONESIAN, AppLanguage.MALAY -> "Tap an airport on the map"; AppLanguage.UZBEK -> "Xaritadagi aeroportni bosing"; AppLanguage.UZBEK_CYRILLIC -> "Харитадаги аэропортни босинг"
 }
 private fun airportMapResolving(language: AppLanguage) = when (language) {
-    AppLanguage.RUSSIAN -> "Определяем аэропорт…"; AppLanguage.ENGLISH -> "Resolving airport…"; AppLanguage.UZBEK -> "Aeroport aniqlanmoqda…"; AppLanguage.UZBEK_CYRILLIC -> "Аэропорт аниқланмоқда…"
+    AppLanguage.RUSSIAN -> "Определяем аэропорт…"; AppLanguage.ENGLISH, AppLanguage.ARABIC, AppLanguage.TURKISH, AppLanguage.INDONESIAN, AppLanguage.MALAY -> "Resolving airport…"; AppLanguage.UZBEK -> "Aeroport aniqlanmoqda…"; AppLanguage.UZBEK_CYRILLIC -> "Аэропорт аниқланмоқда…"
 }
 private fun airportMapLoading(language: AppLanguage) = when (language) {
-    AppLanguage.RUSSIAN -> "Загружаем аэропорты…"; AppLanguage.ENGLISH -> "Loading airports…"; AppLanguage.UZBEK -> "Aeroportlar yuklanmoqda…"; AppLanguage.UZBEK_CYRILLIC -> "Аэропортлар юкланмоқда…"
+    AppLanguage.RUSSIAN -> "Загружаем аэропорты…"; AppLanguage.ENGLISH, AppLanguage.ARABIC, AppLanguage.TURKISH, AppLanguage.INDONESIAN, AppLanguage.MALAY -> "Loading airports…"; AppLanguage.UZBEK -> "Aeroportlar yuklanmoqda…"; AppLanguage.UZBEK_CYRILLIC -> "Аэропортлар юкланмоқда…"
 }
 
 private fun airportMapTitle(language: AppLanguage) = when (language) {
-    AppLanguage.RUSSIAN -> "Выбрать на карте"; AppLanguage.ENGLISH -> "Choose on map"; AppLanguage.UZBEK -> "Xaritadan tanlash"; AppLanguage.UZBEK_CYRILLIC -> "Харитадан танлаш"
+    AppLanguage.RUSSIAN -> "Выбрать на карте"; AppLanguage.ENGLISH, AppLanguage.ARABIC, AppLanguage.TURKISH, AppLanguage.INDONESIAN, AppLanguage.MALAY -> "Choose on map"; AppLanguage.UZBEK -> "Xaritadan tanlash"; AppLanguage.UZBEK_CYRILLIC -> "Харитадан танлаш"
 }
 private fun airportGlobeHintTitle(language: AppLanguage) = when (language) {
-    AppLanguage.RUSSIAN -> "Выберите аэропорт на карте"; AppLanguage.ENGLISH -> "Choose an airport on the map"; AppLanguage.UZBEK -> "Xaritadan aeroport tanlang"; AppLanguage.UZBEK_CYRILLIC -> "Харитадан аэропорт танланг"
+    AppLanguage.RUSSIAN -> "Выберите аэропорт на карте"; AppLanguage.ENGLISH, AppLanguage.ARABIC, AppLanguage.TURKISH, AppLanguage.INDONESIAN, AppLanguage.MALAY -> "Choose an airport on the map"; AppLanguage.UZBEK -> "Xaritadan aeroport tanlang"; AppLanguage.UZBEK_CYRILLIC -> "Харитадан аэропорт танланг"
 }
 private fun airportGlobeZoomHint(language: AppLanguage) = when (language) {
-    AppLanguage.RUSSIAN -> "Перемещайте и масштабируйте карту. Можно нажать прямо на нужную точку."; AppLanguage.ENGLISH -> "Pan and zoom the map, then tap the airport location."; AppLanguage.UZBEK -> "Xaritani suring va kattalashtiring, so‘ng aeroport joyini bosing."; AppLanguage.UZBEK_CYRILLIC -> "Харитани суринг ва катталаштиринг, сўнг аэропорт жойини босинг."
+    AppLanguage.RUSSIAN -> "Перемещайте и масштабируйте карту. Можно нажать прямо на нужную точку."; AppLanguage.ENGLISH, AppLanguage.ARABIC, AppLanguage.TURKISH, AppLanguage.INDONESIAN, AppLanguage.MALAY -> "Pan and zoom the map, then tap the airport location."; AppLanguage.UZBEK -> "Xaritani suring va kattalashtiring, so‘ng aeroport joyini bosing."; AppLanguage.UZBEK_CYRILLIC -> "Харитани суринг ва катталаштиринг, сўнг аэропорт жойини босинг."
 }
 private fun airportMapClose(language: AppLanguage) = when (language) {
     AppLanguage.RUSSIAN -> "Закрыть"
     AppLanguage.UZBEK -> "Yopish"
     AppLanguage.UZBEK_CYRILLIC -> "Ёпиш"
-    AppLanguage.ENGLISH -> "Close"
+    AppLanguage.ENGLISH, AppLanguage.ARABIC, AppLanguage.TURKISH, AppLanguage.INDONESIAN, AppLanguage.MALAY -> "Close"
 }
 
 private fun airportMapChoose(language: AppLanguage, code: String) = when (language) {
-    AppLanguage.RUSSIAN -> "Выбрать $code"; AppLanguage.ENGLISH -> "Choose $code"; AppLanguage.UZBEK -> "$code ni tanlash"; AppLanguage.UZBEK_CYRILLIC -> "$code ни танлаш"
+    AppLanguage.RUSSIAN -> "Выбрать $code"; AppLanguage.ENGLISH, AppLanguage.ARABIC, AppLanguage.TURKISH, AppLanguage.INDONESIAN, AppLanguage.MALAY -> "Choose $code"; AppLanguage.UZBEK -> "$code ni tanlash"; AppLanguage.UZBEK_CYRILLIC -> "$code ни танлаш"
 }
 
 private fun airportTitle(language: AppLanguage) = when (language) {
-    AppLanguage.RUSSIAN -> "Аэропорт вылета"; AppLanguage.ENGLISH -> "Departure airport"; AppLanguage.UZBEK -> "Jo‘nash aeroporti"; AppLanguage.UZBEK_CYRILLIC -> "Жўнаш аэропорти"
+    AppLanguage.RUSSIAN -> "Аэропорт вылета"; AppLanguage.ENGLISH, AppLanguage.ARABIC, AppLanguage.TURKISH, AppLanguage.INDONESIAN, AppLanguage.MALAY -> "Departure airport"; AppLanguage.UZBEK -> "Jo‘nash aeroporti"; AppLanguage.UZBEK_CYRILLIC -> "Жўнаш аэропорти"
 }
 private fun airportSearchTitle(language: AppLanguage) = when (language) {
-    AppLanguage.RUSSIAN -> "Выберите аэропорт"; AppLanguage.ENGLISH -> "Choose an airport"; AppLanguage.UZBEK -> "Aeroportni tanlang"; AppLanguage.UZBEK_CYRILLIC -> "Аэропортни танланг"
+    AppLanguage.RUSSIAN -> "Выберите аэропорт"; AppLanguage.ENGLISH, AppLanguage.ARABIC, AppLanguage.TURKISH, AppLanguage.INDONESIAN, AppLanguage.MALAY -> "Choose an airport"; AppLanguage.UZBEK -> "Aeroportni tanlang"; AppLanguage.UZBEK_CYRILLIC -> "Аэропортни танланг"
 }
 private fun airportSearchHint(language: AppLanguage) = when (language) {
-    AppLanguage.RUSSIAN -> "Найдите город или код аэропорта"; AppLanguage.ENGLISH -> "Search by city or airport code"; AppLanguage.UZBEK -> "Shahar yoki aeroport kodi bo‘yicha qidiring"; AppLanguage.UZBEK_CYRILLIC -> "Шаҳар ёки аэропорт коди бўйича қидиринг"
+    AppLanguage.RUSSIAN -> "Найдите город или код аэропорта"; AppLanguage.ENGLISH, AppLanguage.ARABIC, AppLanguage.TURKISH, AppLanguage.INDONESIAN, AppLanguage.MALAY -> "Search by city or airport code"; AppLanguage.UZBEK -> "Shahar yoki aeroport kodi bo‘yicha qidiring"; AppLanguage.UZBEK_CYRILLIC -> "Шаҳар ёки аэропорт коди бўйича қидиринг"
 }
 private fun airportSearchPlaceholder(language: AppLanguage) = when (language) {
-    AppLanguage.RUSSIAN -> "Например, TAS или Ташкент"; AppLanguage.ENGLISH -> "For example, TAS or Tashkent"; AppLanguage.UZBEK -> "Masalan, TAS yoki Toshkent"; AppLanguage.UZBEK_CYRILLIC -> "Масалан, TAS ёки Тошкент"
+    AppLanguage.RUSSIAN -> "Например, TAS или Ташкент"; AppLanguage.ENGLISH, AppLanguage.ARABIC, AppLanguage.TURKISH, AppLanguage.INDONESIAN, AppLanguage.MALAY -> "For example, TAS or Tashkent"; AppLanguage.UZBEK -> "Masalan, TAS yoki Toshkent"; AppLanguage.UZBEK_CYRILLIC -> "Масалан, TAS ёки Тошкент"
 }
 
 private enum class AirportRouteSelectionMode { ORIGIN, DESTINATION }
@@ -980,8 +980,8 @@ private fun AirportRouteMapLibreSurface(
     }
 }
 
-private fun routeMapTitle(language: AppLanguage) = when (language) { AppLanguage.RUSSIAN -> "Маршрут на карте"; AppLanguage.ENGLISH -> "Route on map"; AppLanguage.UZBEK -> "Xaritadagi yo‘nalish"; AppLanguage.UZBEK_CYRILLIC -> "Харитадаги йўналиш" }
-private fun routeMapFrom(language: AppLanguage) = when (language) { AppLanguage.RUSSIAN -> "Откуда"; AppLanguage.ENGLISH -> "From"; AppLanguage.UZBEK -> "Qayerdan"; AppLanguage.UZBEK_CYRILLIC -> "Қаердан" }
-private fun routeMapTo(language: AppLanguage) = when (language) { AppLanguage.RUSSIAN -> "Куда"; AppLanguage.ENGLISH -> "To"; AppLanguage.UZBEK -> "Qayerga"; AppLanguage.UZBEK_CYRILLIC -> "Қаерга" }
-private fun routeMapUse(language: AppLanguage) = when (language) { AppLanguage.RUSSIAN -> "Использовать маршрут"; AppLanguage.ENGLISH -> "Use route"; AppLanguage.UZBEK -> "Yo‘nalishni tanlash"; AppLanguage.UZBEK_CYRILLIC -> "Йўналишни танлаш" }
-private fun routeMapChooseAirport(language: AppLanguage) = when (language) { AppLanguage.RUSSIAN -> "Выберите аэропорт"; AppLanguage.ENGLISH -> "Choose airport"; AppLanguage.UZBEK -> "Aeroportni tanlang"; AppLanguage.UZBEK_CYRILLIC -> "Аэропортни танланг" }
+private fun routeMapTitle(language: AppLanguage) = when (language) { AppLanguage.RUSSIAN -> "Маршрут на карте"; AppLanguage.ENGLISH, AppLanguage.ARABIC, AppLanguage.TURKISH, AppLanguage.INDONESIAN, AppLanguage.MALAY -> "Route on map"; AppLanguage.UZBEK -> "Xaritadagi yo‘nalish"; AppLanguage.UZBEK_CYRILLIC -> "Харитадаги йўналиш" }
+private fun routeMapFrom(language: AppLanguage) = when (language) { AppLanguage.RUSSIAN -> "Откуда"; AppLanguage.ENGLISH, AppLanguage.ARABIC, AppLanguage.TURKISH, AppLanguage.INDONESIAN, AppLanguage.MALAY -> "From"; AppLanguage.UZBEK -> "Qayerdan"; AppLanguage.UZBEK_CYRILLIC -> "Қаердан" }
+private fun routeMapTo(language: AppLanguage) = when (language) { AppLanguage.RUSSIAN -> "Куда"; AppLanguage.ENGLISH, AppLanguage.ARABIC, AppLanguage.TURKISH, AppLanguage.INDONESIAN, AppLanguage.MALAY -> "To"; AppLanguage.UZBEK -> "Qayerga"; AppLanguage.UZBEK_CYRILLIC -> "Қаерга" }
+private fun routeMapUse(language: AppLanguage) = when (language) { AppLanguage.RUSSIAN -> "Использовать маршрут"; AppLanguage.ENGLISH, AppLanguage.ARABIC, AppLanguage.TURKISH, AppLanguage.INDONESIAN, AppLanguage.MALAY -> "Use route"; AppLanguage.UZBEK -> "Yo‘nalishni tanlash"; AppLanguage.UZBEK_CYRILLIC -> "Йўналишни танлаш" }
+private fun routeMapChooseAirport(language: AppLanguage) = when (language) { AppLanguage.RUSSIAN -> "Выберите аэропорт"; AppLanguage.ENGLISH, AppLanguage.ARABIC, AppLanguage.TURKISH, AppLanguage.INDONESIAN, AppLanguage.MALAY -> "Choose airport"; AppLanguage.UZBEK -> "Aeroportni tanlang"; AppLanguage.UZBEK_CYRILLIC -> "Аэропортни танланг" }

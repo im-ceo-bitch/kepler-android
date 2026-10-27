@@ -62,7 +62,7 @@ import kotlinx.coroutines.launch
 
 private fun t(language: AppLanguage, ru: String, en: String, uz: String, cy: String): String = when (language) {
     AppLanguage.RUSSIAN -> ru
-    AppLanguage.ENGLISH -> en
+    AppLanguage.ENGLISH -> en; AppLanguage.ARABIC, AppLanguage.TURKISH, AppLanguage.INDONESIAN, AppLanguage.MALAY -> com.iumrah.beta.core.localization.L10n.phrase(en, language)
     AppLanguage.UZBEK -> uz
     AppLanguage.UZBEK_CYRILLIC -> cy
 }
@@ -272,7 +272,7 @@ private fun FlightDetailLegV46(language: AppLanguage, icon: CupertinoSymbol, tit
         Text("${from.uppercase()} → ${to.uppercase()}",fontSize=24.sp,fontWeight=FontWeight.Bold)
         val locale = when (language) {
             AppLanguage.RUSSIAN -> Locale("ru")
-            AppLanguage.ENGLISH -> Locale.ENGLISH
+            AppLanguage.ENGLISH, AppLanguage.ARABIC, AppLanguage.TURKISH, AppLanguage.INDONESIAN, AppLanguage.MALAY -> language.locale
             AppLanguage.UZBEK -> Locale.forLanguageTag("uz-Latn-UZ")
             AppLanguage.UZBEK_CYRILLIC -> Locale.forLanguageTag("uz-Cyrl-UZ")
         }

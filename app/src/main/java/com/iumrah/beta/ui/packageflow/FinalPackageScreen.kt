@@ -1176,7 +1176,7 @@ private fun mealsDetail(language: AppLanguage, state: JourneyState): String {
 
 private fun mealsPerDay(language: AppLanguage, count: Int): String = when (language) {
     AppLanguage.RUSSIAN -> if (count == 1) "1 раз в день" else "$count раза в день"
-    AppLanguage.ENGLISH -> "$count meals/day"
+    AppLanguage.ENGLISH, AppLanguage.ARABIC, AppLanguage.TURKISH, AppLanguage.INDONESIAN, AppLanguage.MALAY -> "$count meals/day"
     AppLanguage.UZBEK -> "kuniga $count mahal"
     AppLanguage.UZBEK_CYRILLIC -> "кунига $count маҳал"
 }
@@ -1192,7 +1192,7 @@ private fun money(amount: BigDecimal, currencyCode: String, language: AppLanguag
 
 private fun finalText(language: AppLanguage, ru: String, en: String, uz: String, uzCyrl: String): String = when (language) {
     AppLanguage.RUSSIAN -> ru
-    AppLanguage.ENGLISH -> en
+    AppLanguage.ENGLISH -> en; AppLanguage.ARABIC, AppLanguage.TURKISH, AppLanguage.INDONESIAN, AppLanguage.MALAY -> com.iumrah.beta.core.localization.L10n.phrase(en, language)
     AppLanguage.UZBEK -> uz
     AppLanguage.UZBEK_CYRILLIC -> uzCyrl
 }

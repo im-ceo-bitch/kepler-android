@@ -747,7 +747,7 @@ private fun packageDateRange(item: StorefrontPackageSnapshot, language: AppLangu
 
 private fun packageTravelersLabel(language: AppLanguage) = when (language) {
     AppLanguage.RUSSIAN -> "паломников"
-    AppLanguage.ENGLISH -> "travelers"
+    AppLanguage.ENGLISH, AppLanguage.ARABIC, AppLanguage.TURKISH, AppLanguage.INDONESIAN, AppLanguage.MALAY -> "travelers"
     AppLanguage.UZBEK -> "ziyoratchi"
     AppLanguage.UZBEK_CYRILLIC -> "зиёратчи"
 }
@@ -756,7 +756,7 @@ private fun packageTotalForText(total: Double?, travelers: Int, language: AppLan
     val amount = money(total)
     return when (language) {
         AppLanguage.RUSSIAN -> "$amount за пакет на $travelers паломников"
-        AppLanguage.ENGLISH -> "$amount total for $travelers pilgrims"
+        AppLanguage.ENGLISH, AppLanguage.ARABIC, AppLanguage.TURKISH, AppLanguage.INDONESIAN, AppLanguage.MALAY -> "$amount total for $travelers pilgrims"
         AppLanguage.UZBEK -> "$amount · $travelers kishi uchun jami"
         AppLanguage.UZBEK_CYRILLIC -> "$amount · $travelers киши учун жами"
     }
@@ -1353,13 +1353,13 @@ private fun ZoomableHotelImage(image: HotelImage, contentDescription: String) {
 private fun galleryCategoryTitle(category: String, language: AppLanguage): String {
     if (category == "all") return when (language) {
         AppLanguage.RUSSIAN -> "Все фото"
-        AppLanguage.ENGLISH -> "All photos"
+        AppLanguage.ENGLISH, AppLanguage.ARABIC, AppLanguage.TURKISH, AppLanguage.INDONESIAN, AppLanguage.MALAY -> "All photos"
         AppLanguage.UZBEK -> "Barcha rasmlar"
         AppLanguage.UZBEK_CYRILLIC -> "Барча расмлар"
     }
     val normalized = category.lowercase(Locale.US)
     fun tr(ru: String, en: String, uz: String, uzCy: String) = when (language) {
-        AppLanguage.RUSSIAN -> ru; AppLanguage.ENGLISH -> en; AppLanguage.UZBEK -> uz; AppLanguage.UZBEK_CYRILLIC -> uzCy
+        AppLanguage.RUSSIAN -> ru; AppLanguage.ENGLISH -> en; AppLanguage.ARABIC, AppLanguage.TURKISH, AppLanguage.INDONESIAN, AppLanguage.MALAY -> com.iumrah.beta.core.localization.L10n.phrase(en, language); AppLanguage.UZBEK -> uz; AppLanguage.UZBEK_CYRILLIC -> uzCy
     }
     return when {
         "room" in normalized -> tr("Номера", "Rooms", "Xonalar", "Хоналар")
@@ -1538,10 +1538,10 @@ private fun variantTitle(value: String?, index: Int, language: AppLanguage): Str
 }
 
 private fun localizedTier(raw: String?, language: AppLanguage): String = when (raw?.lowercase(Locale.US)) {
-    "economy" -> when(language){ AppLanguage.RUSSIAN->"Эконом"; AppLanguage.ENGLISH->"Economy"; AppLanguage.UZBEK->"Ekonom"; AppLanguage.UZBEK_CYRILLIC->"Эконом" }
-    "comfort" -> when(language){ AppLanguage.RUSSIAN->"Комфорт"; AppLanguage.ENGLISH->"Comfort"; AppLanguage.UZBEK->"Komfort"; AppLanguage.UZBEK_CYRILLIC->"Комфорт" }
-    "luxury" -> when(language){ AppLanguage.RUSSIAN->"Люкс"; AppLanguage.ENGLISH->"Luxury"; AppLanguage.UZBEK->"Lyuks"; AppLanguage.UZBEK_CYRILLIC->"Люкс" }
-    else -> when(language){ AppLanguage.RUSSIAN->"Стандарт"; AppLanguage.ENGLISH->"Standard"; AppLanguage.UZBEK->"Standart"; AppLanguage.UZBEK_CYRILLIC->"Стандарт" }
+    "economy" -> when(language){ AppLanguage.RUSSIAN->"Эконом"; AppLanguage.ENGLISH, AppLanguage.ARABIC, AppLanguage.TURKISH, AppLanguage.INDONESIAN, AppLanguage.MALAY ->"Economy"; AppLanguage.UZBEK->"Ekonom"; AppLanguage.UZBEK_CYRILLIC->"Эконом" }
+    "comfort" -> when(language){ AppLanguage.RUSSIAN->"Комфорт"; AppLanguage.ENGLISH, AppLanguage.ARABIC, AppLanguage.TURKISH, AppLanguage.INDONESIAN, AppLanguage.MALAY ->"Comfort"; AppLanguage.UZBEK->"Komfort"; AppLanguage.UZBEK_CYRILLIC->"Комфорт" }
+    "luxury" -> when(language){ AppLanguage.RUSSIAN->"Люкс"; AppLanguage.ENGLISH, AppLanguage.ARABIC, AppLanguage.TURKISH, AppLanguage.INDONESIAN, AppLanguage.MALAY ->"Luxury"; AppLanguage.UZBEK->"Lyuks"; AppLanguage.UZBEK_CYRILLIC->"Люкс" }
+    else -> when(language){ AppLanguage.RUSSIAN->"Стандарт"; AppLanguage.ENGLISH, AppLanguage.ARABIC, AppLanguage.TURKISH, AppLanguage.INDONESIAN, AppLanguage.MALAY ->"Standard"; AppLanguage.UZBEK->"Standart"; AppLanguage.UZBEK_CYRILLIC->"Стандарт" }
 }
 
 private fun ratingTitle(rating: Double, language: AppLanguage): String = detailText(
@@ -1557,34 +1557,34 @@ private fun ratingTitle(rating: Double, language: AppLanguage): String = detailT
 private fun localizedCity(city: String, language: AppLanguage): String {
     val c = city.lowercase(Locale.US)
     return when {
-        c.contains("makk") || c.contains("mecc") -> when(language){AppLanguage.RUSSIAN->"Мекка";AppLanguage.ENGLISH->"Makkah";AppLanguage.UZBEK->"Makka";AppLanguage.UZBEK_CYRILLIC->"Макка"}
-        c.contains("mad") -> when(language){AppLanguage.RUSSIAN->"Медина";AppLanguage.ENGLISH->"Madinah";AppLanguage.UZBEK->"Madina";AppLanguage.UZBEK_CYRILLIC->"Мадина"}
+        c.contains("makk") || c.contains("mecc") -> when(language){AppLanguage.RUSSIAN->"Мекка";AppLanguage.ENGLISH, AppLanguage.ARABIC, AppLanguage.TURKISH, AppLanguage.INDONESIAN, AppLanguage.MALAY ->"Makkah";AppLanguage.UZBEK->"Makka";AppLanguage.UZBEK_CYRILLIC->"Макка"}
+        c.contains("mad") -> when(language){AppLanguage.RUSSIAN->"Медина";AppLanguage.ENGLISH, AppLanguage.ARABIC, AppLanguage.TURKISH, AppLanguage.INDONESIAN, AppLanguage.MALAY ->"Madinah";AppLanguage.UZBEK->"Madina";AppLanguage.UZBEK_CYRILLIC->"Мадина"}
         else -> city
     }
 }
 
 private fun roomCategoryName(category: IumrahRoomCategory, language: AppLanguage): String = when(category) {
-    IumrahRoomCategory.DOUBLE -> when(language){AppLanguage.RUSSIAN->"Двухместный номер";AppLanguage.ENGLISH->"Double room";AppLanguage.UZBEK->"Ikki kishilik xona";AppLanguage.UZBEK_CYRILLIC->"Икки кишилик хона"}
-    IumrahRoomCategory.TRIPLE -> when(language){AppLanguage.RUSSIAN->"Трёхместный номер";AppLanguage.ENGLISH->"Triple room";AppLanguage.UZBEK->"Uch kishilik xona";AppLanguage.UZBEK_CYRILLIC->"Уч кишилик хона"}
-    IumrahRoomCategory.QUADRUPLE -> when(language){AppLanguage.RUSSIAN->"Четырёхместный номер";AppLanguage.ENGLISH->"Quadruple room";AppLanguage.UZBEK->"To‘rt kishilik xona";AppLanguage.UZBEK_CYRILLIC->"Тўрт кишилик хона"}
+    IumrahRoomCategory.DOUBLE -> when(language){AppLanguage.RUSSIAN->"Двухместный номер";AppLanguage.ENGLISH, AppLanguage.ARABIC, AppLanguage.TURKISH, AppLanguage.INDONESIAN, AppLanguage.MALAY ->"Double room";AppLanguage.UZBEK->"Ikki kishilik xona";AppLanguage.UZBEK_CYRILLIC->"Икки кишилик хона"}
+    IumrahRoomCategory.TRIPLE -> when(language){AppLanguage.RUSSIAN->"Трёхместный номер";AppLanguage.ENGLISH, AppLanguage.ARABIC, AppLanguage.TURKISH, AppLanguage.INDONESIAN, AppLanguage.MALAY ->"Triple room";AppLanguage.UZBEK->"Uch kishilik xona";AppLanguage.UZBEK_CYRILLIC->"Уч кишилик хона"}
+    IumrahRoomCategory.QUADRUPLE -> when(language){AppLanguage.RUSSIAN->"Четырёхместный номер";AppLanguage.ENGLISH, AppLanguage.ARABIC, AppLanguage.TURKISH, AppLanguage.INDONESIAN, AppLanguage.MALAY ->"Quadruple room";AppLanguage.UZBEK->"To‘rt kishilik xona";AppLanguage.UZBEK_CYRILLIC->"Тўрт кишилик хона"}
 }
 
 private fun roomCategoryBody(category: IumrahRoomCategory, language: AppLanguage): String = when(category) {
-    IumrahRoomCategory.DOUBLE -> when(language){AppLanguage.RUSSIAN->"Для двух паломников";AppLanguage.ENGLISH->"Prepared for two pilgrims";AppLanguage.UZBEK->"Ikki ziyoratchi uchun";AppLanguage.UZBEK_CYRILLIC->"Икки зиёратчи учун"}
-    IumrahRoomCategory.TRIPLE -> when(language){AppLanguage.RUSSIAN->"Для трёх паломников";AppLanguage.ENGLISH->"Prepared for three pilgrims";AppLanguage.UZBEK->"Uch ziyoratchi uchun";AppLanguage.UZBEK_CYRILLIC->"Уч зиёратчи учун"}
-    IumrahRoomCategory.QUADRUPLE -> when(language){AppLanguage.RUSSIAN->"Для четырёх паломников";AppLanguage.ENGLISH->"Prepared for four pilgrims";AppLanguage.UZBEK->"To‘rt ziyoratchi uchun";AppLanguage.UZBEK_CYRILLIC->"Тўрт зиёратчи учун"}
+    IumrahRoomCategory.DOUBLE -> when(language){AppLanguage.RUSSIAN->"Для двух паломников";AppLanguage.ENGLISH, AppLanguage.ARABIC, AppLanguage.TURKISH, AppLanguage.INDONESIAN, AppLanguage.MALAY ->"Prepared for two pilgrims";AppLanguage.UZBEK->"Ikki ziyoratchi uchun";AppLanguage.UZBEK_CYRILLIC->"Икки зиёратчи учун"}
+    IumrahRoomCategory.TRIPLE -> when(language){AppLanguage.RUSSIAN->"Для трёх паломников";AppLanguage.ENGLISH, AppLanguage.ARABIC, AppLanguage.TURKISH, AppLanguage.INDONESIAN, AppLanguage.MALAY ->"Prepared for three pilgrims";AppLanguage.UZBEK->"Uch ziyoratchi uchun";AppLanguage.UZBEK_CYRILLIC->"Уч зиёратчи учун"}
+    IumrahRoomCategory.QUADRUPLE -> when(language){AppLanguage.RUSSIAN->"Для четырёх паломников";AppLanguage.ENGLISH, AppLanguage.ARABIC, AppLanguage.TURKISH, AppLanguage.INDONESIAN, AppLanguage.MALAY ->"Prepared for four pilgrims";AppLanguage.UZBEK->"To‘rt ziyoratchi uchun";AppLanguage.UZBEK_CYRILLIC->"Тўрт зиёратчи учун"}
 }
 
 private fun localizedBeds(category: IumrahRoomCategory, language: AppLanguage): String = when(category) {
-    IumrahRoomCategory.DOUBLE -> when(language){AppLanguage.RUSSIAN->"2 места";AppLanguage.ENGLISH->"2 beds";AppLanguage.UZBEK->"2 joy";AppLanguage.UZBEK_CYRILLIC->"2 жой"}
-    IumrahRoomCategory.TRIPLE -> when(language){AppLanguage.RUSSIAN->"3 места";AppLanguage.ENGLISH->"3 beds";AppLanguage.UZBEK->"3 joy";AppLanguage.UZBEK_CYRILLIC->"3 жой"}
-    IumrahRoomCategory.QUADRUPLE -> when(language){AppLanguage.RUSSIAN->"4 места";AppLanguage.ENGLISH->"4 beds";AppLanguage.UZBEK->"4 joy";AppLanguage.UZBEK_CYRILLIC->"4 жой"}
+    IumrahRoomCategory.DOUBLE -> when(language){AppLanguage.RUSSIAN->"2 места";AppLanguage.ENGLISH, AppLanguage.ARABIC, AppLanguage.TURKISH, AppLanguage.INDONESIAN, AppLanguage.MALAY ->"2 beds";AppLanguage.UZBEK->"2 joy";AppLanguage.UZBEK_CYRILLIC->"2 жой"}
+    IumrahRoomCategory.TRIPLE -> when(language){AppLanguage.RUSSIAN->"3 места";AppLanguage.ENGLISH, AppLanguage.ARABIC, AppLanguage.TURKISH, AppLanguage.INDONESIAN, AppLanguage.MALAY ->"3 beds";AppLanguage.UZBEK->"3 joy";AppLanguage.UZBEK_CYRILLIC->"3 жой"}
+    IumrahRoomCategory.QUADRUPLE -> when(language){AppLanguage.RUSSIAN->"4 места";AppLanguage.ENGLISH, AppLanguage.ARABIC, AppLanguage.TURKISH, AppLanguage.INDONESIAN, AppLanguage.MALAY ->"4 beds";AppLanguage.UZBEK->"4 joy";AppLanguage.UZBEK_CYRILLIC->"4 жой"}
 }
 
 private fun localizeRoomName(raw: String, language: AppLanguage): String {
     val normalized = raw.lowercase(Locale.US).replace(Regex("\\s+"), " ").trim()
     fun tr(ru: String, en: String, uz: String, uzCy: String) = when (language) {
-        AppLanguage.RUSSIAN -> ru; AppLanguage.ENGLISH -> en; AppLanguage.UZBEK -> uz; AppLanguage.UZBEK_CYRILLIC -> uzCy
+        AppLanguage.RUSSIAN -> ru; AppLanguage.ENGLISH -> en; AppLanguage.ARABIC, AppLanguage.TURKISH, AppLanguage.INDONESIAN, AppLanguage.MALAY -> com.iumrah.beta.core.localization.L10n.phrase(en, language); AppLanguage.UZBEK -> uz; AppLanguage.UZBEK_CYRILLIC -> uzCy
     }
     return when {
         "twin" in normalized && "city view" in normalized -> tr("Twin · Вид на город", "Twin Room · City View", "Twin xona · Shahar manzarasi", "Twin хона · Шаҳар манзараси")
@@ -1662,12 +1662,12 @@ private fun shareHotelDetail(context: Context, hotel: HotelDetail) {
 }
 
 private fun selectionText(language: AppLanguage, key: String): String = when (key) {
-    "selected_room" -> when(language){ AppLanguage.RUSSIAN->"Выбранный номер"; AppLanguage.ENGLISH->"Selected room"; AppLanguage.UZBEK->"Tanlangan xona"; AppLanguage.UZBEK_CYRILLIC->"Танланган хона" }
-    "done" -> when(language){ AppLanguage.RUSSIAN->"Готово"; AppLanguage.ENGLISH->"Done"; AppLanguage.UZBEK->"Tayyor"; AppLanguage.UZBEK_CYRILLIC->"Тайёр" }
-    "room_chosen" -> when(language){ AppLanguage.RUSSIAN->"Номер выбран"; AppLanguage.ENGLISH->"Room chosen"; AppLanguage.UZBEK->"Xona tanlandi"; AppLanguage.UZBEK_CYRILLIC->"Хона танланди" }
-    "choose_room" -> when(language){ AppLanguage.RUSSIAN->"Выбрать номер"; AppLanguage.ENGLISH->"Choose room"; AppLanguage.UZBEK->"Xonani tanlash"; AppLanguage.UZBEK_CYRILLIC->"Хонани танлаш" }
-    "refund_policy" -> when(language){ AppLanguage.RUSSIAN->"Условия отеля"; AppLanguage.ENGLISH->"Hotel refund policy"; AppLanguage.UZBEK->"Mehmonxona qaytarish siyosati"; AppLanguage.UZBEK_CYRILLIC->"Меҳмонхона қайтариш сиёсати" }
-    else -> when(language){ AppLanguage.RUSSIAN->"Условия возврата показываются до оплаты пакета."; AppLanguage.ENGLISH->"Refund terms are shown before package payment."; AppLanguage.UZBEK->"Qaytarish shartlari paket to‘lovidan oldin ko‘rsatiladi."; AppLanguage.UZBEK_CYRILLIC->"Қайтариш шартлари пакет тўловидан олдин кўрсатилади." }
+    "selected_room" -> when(language){ AppLanguage.RUSSIAN->"Выбранный номер"; AppLanguage.ENGLISH, AppLanguage.ARABIC, AppLanguage.TURKISH, AppLanguage.INDONESIAN, AppLanguage.MALAY ->"Selected room"; AppLanguage.UZBEK->"Tanlangan xona"; AppLanguage.UZBEK_CYRILLIC->"Танланган хона" }
+    "done" -> when(language){ AppLanguage.RUSSIAN->"Готово"; AppLanguage.ENGLISH, AppLanguage.ARABIC, AppLanguage.TURKISH, AppLanguage.INDONESIAN, AppLanguage.MALAY ->"Done"; AppLanguage.UZBEK->"Tayyor"; AppLanguage.UZBEK_CYRILLIC->"Тайёр" }
+    "room_chosen" -> when(language){ AppLanguage.RUSSIAN->"Номер выбран"; AppLanguage.ENGLISH, AppLanguage.ARABIC, AppLanguage.TURKISH, AppLanguage.INDONESIAN, AppLanguage.MALAY ->"Room chosen"; AppLanguage.UZBEK->"Xona tanlandi"; AppLanguage.UZBEK_CYRILLIC->"Хона танланди" }
+    "choose_room" -> when(language){ AppLanguage.RUSSIAN->"Выбрать номер"; AppLanguage.ENGLISH, AppLanguage.ARABIC, AppLanguage.TURKISH, AppLanguage.INDONESIAN, AppLanguage.MALAY ->"Choose room"; AppLanguage.UZBEK->"Xonani tanlash"; AppLanguage.UZBEK_CYRILLIC->"Хонани танлаш" }
+    "refund_policy" -> when(language){ AppLanguage.RUSSIAN->"Условия отеля"; AppLanguage.ENGLISH, AppLanguage.ARABIC, AppLanguage.TURKISH, AppLanguage.INDONESIAN, AppLanguage.MALAY ->"Hotel refund policy"; AppLanguage.UZBEK->"Mehmonxona qaytarish siyosati"; AppLanguage.UZBEK_CYRILLIC->"Меҳмонхона қайтариш сиёсати" }
+    else -> when(language){ AppLanguage.RUSSIAN->"Условия возврата показываются до оплаты пакета."; AppLanguage.ENGLISH, AppLanguage.ARABIC, AppLanguage.TURKISH, AppLanguage.INDONESIAN, AppLanguage.MALAY ->"Refund terms are shown before package payment."; AppLanguage.UZBEK->"Qaytarish shartlari paket to‘lovidan oldin ko‘rsatiladi."; AppLanguage.UZBEK_CYRILLIC->"Қайтариш шартлари пакет тўловидан олдин кўрсатилади." }
 }
 
 private fun detailText(language: AppLanguage, key: String, vararg args: Any): String {
@@ -1683,7 +1683,7 @@ private fun detailText(language: AppLanguage, key: String, vararg args: Any): St
             "hotel_rooms" to "Номера отеля", "hotel_rooms_body" to "Фактические варианты из каталога отеля.", "rooms_empty" to "В каталоге пока нет вариантов номеров.", "about" to "Об отеле", "location" to "Расположение", "open_map" to "Открыть карту", "practical" to "Полезная информация", "checkin" to "Заезд", "checkout" to "Выезд", "property_type" to "Тип размещения",
             "care_title" to "Поддержка по этому отелю", "care_body" to "Если нужен совет по отелю до бронирования, iumrah Care поможет с выбором.", "care_dialog" to "Свяжитесь с iumrah Care по вопросу этого отеля.", "call" to "Позвонить", "close" to "Закрыть", "done" to "Готово", "share_unavailable" to "Не удалось подготовить пакет для отправки. Обновите цены и попробуйте ещё раз.", "share_error_title" to "Не удалось поделиться", "share_error_ok" to "Понятно", "loading" to "Загружаем данные отеля…",
         )[key]
-        AppLanguage.ENGLISH -> mapOf(
+        AppLanguage.ENGLISH, AppLanguage.ARABIC, AppLanguage.TURKISH, AppLanguage.INDONESIAN, AppLanguage.MALAY -> mapOf(
             "load_error" to "Could not load hotel details.", "room_error" to "Could not load room categories.",
             "preparing_price" to "Preparing the current package price…", "trip_options" to "Trip options", "ready_packages" to "%d ready packages with this hotel", "counter" to "%d of %d",
             "your_umrah" to "Your Umrah with this hotel", "days_short" to "days", "nights_short" to "nights", "ready_variant" to "Ready %d-day package · its composition and price are fixed to this Package ID.",

@@ -1341,6 +1341,7 @@ private fun playCareTone(success: Boolean) {
 
 private fun tr(language: AppLanguage, en: String, ru: String, uz: String, cyrl: String): String = when (language) {
     AppLanguage.ENGLISH -> en
+    AppLanguage.ARABIC, AppLanguage.TURKISH, AppLanguage.INDONESIAN, AppLanguage.MALAY -> com.iumrah.beta.core.localization.L10n.phrase(en, language)
     AppLanguage.RUSSIAN -> ru
     AppLanguage.UZBEK -> uz
     AppLanguage.UZBEK_CYRILLIC -> cyrl

@@ -459,7 +459,7 @@ private fun saudiArrivalText(session: StoredBookingSession, language: AppLanguag
         ?: return null
     val locale = when (language) {
         AppLanguage.RUSSIAN -> Locale("ru")
-        AppLanguage.ENGLISH -> Locale.ENGLISH
+        AppLanguage.ENGLISH, AppLanguage.ARABIC, AppLanguage.TURKISH, AppLanguage.INDONESIAN, AppLanguage.MALAY -> language.locale
         AppLanguage.UZBEK, AppLanguage.UZBEK_CYRILLIC -> Locale("uz")
     }
     val time = DateTimeFormatter.ofPattern("HH:mm", locale).withZone(ZoneId.of("Asia/Riyadh")).format(instant)
@@ -468,7 +468,7 @@ private fun saudiArrivalText(session: StoredBookingSession, language: AppLanguag
 
 private fun guideTr(language: AppLanguage, ru: String, en: String, uz: String, cy: String): String = when (language) {
     AppLanguage.RUSSIAN -> ru
-    AppLanguage.ENGLISH -> en
+    AppLanguage.ENGLISH -> en; AppLanguage.ARABIC, AppLanguage.TURKISH, AppLanguage.INDONESIAN, AppLanguage.MALAY -> com.iumrah.beta.core.localization.L10n.phrase(en, language)
     AppLanguage.UZBEK -> uz
     AppLanguage.UZBEK_CYRILLIC -> cy
 }

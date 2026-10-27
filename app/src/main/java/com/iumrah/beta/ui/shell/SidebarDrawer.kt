@@ -112,7 +112,7 @@ private fun SidebarDrawer(language: AppLanguage, chrome: AppChromeStore) {
         DrawerRow(CupertinoSymbol.PersonCircle, sidebarCopy(language).account) { chrome.navigate(AppTab.ACCOUNT) }
         DrawerRow(CupertinoSymbol.MoonStarsFill, when (language) {
             AppLanguage.RUSSIAN -> "Времена молитв"
-            AppLanguage.ENGLISH -> "Prayer Times"
+            AppLanguage.ENGLISH, AppLanguage.ARABIC, AppLanguage.TURKISH, AppLanguage.INDONESIAN, AppLanguage.MALAY -> "Prayer Times"
             AppLanguage.UZBEK -> "Namoz vaqtlari"
             AppLanguage.UZBEK_CYRILLIC -> "Намоз вақтлари"
         }) { chrome.openPrayerTimes() }
@@ -138,13 +138,13 @@ private fun DrawerRow(icon: CupertinoSymbol, title: String, onClick: () -> Unit)
 private fun SidebarESIMCard(language: AppLanguage, chrome: AppChromeStore) {
     val body = when (language) {
         AppLanguage.RUSSIAN -> "Интернет для поездки и данные активации — прямо внутри Вашего пакета."
-        AppLanguage.ENGLISH -> "Trip connectivity and activation data live directly inside your package."
+        AppLanguage.ENGLISH, AppLanguage.ARABIC, AppLanguage.TURKISH, AppLanguage.INDONESIAN, AppLanguage.MALAY -> "Trip connectivity and activation data live directly inside your package."
         AppLanguage.UZBEK -> "Safar interneti va faollashtirish ma’lumotlari to‘g‘ridan-to‘g‘ri paketingiz ichida."
         AppLanguage.UZBEK_CYRILLIC -> "Сафар интернети ва фаоллаштириш маълумотлари тўғридан-тўғри пакетингиз ичида."
     }
     val badge = when (language) {
         AppLanguage.RUSSIAN -> "ВНУТРИ ПАКЕТА"
-        AppLanguage.ENGLISH -> "INSIDE PACKAGE"
+        AppLanguage.ENGLISH, AppLanguage.ARABIC, AppLanguage.TURKISH, AppLanguage.INDONESIAN, AppLanguage.MALAY -> "INSIDE PACKAGE"
         AppLanguage.UZBEK -> "PAKET ICHIDA"
         AppLanguage.UZBEK_CYRILLIC -> "ПАКЕТ ИЧИДА"
     }
@@ -183,7 +183,7 @@ private fun SidebarESIMCard(language: AppLanguage, chrome: AppChromeStore) {
 private data class SidebarCopy(val subtitle: String, val home: String, val trips: String, val account: String)
 private fun sidebarCopy(language: AppLanguage): SidebarCopy = when (language) {
     AppLanguage.RUSSIAN -> SidebarCopy("Ваша умра — в одном месте", "Главная", "Поездки", "Аккаунт")
-    AppLanguage.ENGLISH -> SidebarCopy("Your Umrah in one place", "Home", "Trips", "Account")
+    AppLanguage.ENGLISH, AppLanguage.ARABIC, AppLanguage.TURKISH, AppLanguage.INDONESIAN, AppLanguage.MALAY -> SidebarCopy("Your Umrah in one place", "Home", "Trips", "Account")
     AppLanguage.UZBEK -> SidebarCopy("Umrangiz — bir joyda", "Bosh sahifa", "Safarlar", "Akkaunt")
     AppLanguage.UZBEK_CYRILLIC -> SidebarCopy("Умрангиз — бир жойда", "Бош саҳифа", "Сафарлар", "Аккаунт")
 }

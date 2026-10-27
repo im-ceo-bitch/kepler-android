@@ -89,7 +89,7 @@ private val IdentityBottom = Color(0xFF08080A)
 private val IdentityShape = RoundedCornerShape(22.dp)
 
 private fun awTr(language: AppLanguage, en: String, ru: String, uz: String, cy: String) = when (language) {
-    AppLanguage.ENGLISH -> en
+    AppLanguage.ENGLISH -> en; AppLanguage.ARABIC, AppLanguage.TURKISH, AppLanguage.INDONESIAN, AppLanguage.MALAY -> com.iumrah.beta.core.localization.L10n.phrase(en, language)
     AppLanguage.RUSSIAN -> ru
     AppLanguage.UZBEK -> uz
     AppLanguage.UZBEK_CYRILLIC -> cy

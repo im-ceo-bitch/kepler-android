@@ -47,7 +47,7 @@ object IumrahPackageShare {
         val rooms = snapshot.configuration?.rooms ?: 1
         return when (language) {
             AppLanguage.RUSSIAN -> "Пакет Умры · iumrah Configurator\n$hotel · ${snapshot.tier.orEmpty()}\n$route\n${dateRange(snapshot, language)}\n$days дн. · $people паломн. · $rooms комн.\n${money(total)} за пакет · ${money(per)} на человека\n$link"
-            AppLanguage.ENGLISH -> "Umrah package · iumrah Configurator\n$hotel · ${snapshot.tier.orEmpty()}\n$route\n${dateRange(snapshot, language)}\n$days days · $people pilgrims · $rooms rooms\n${money(total)} package · ${money(per)} per person\n$link"
+            AppLanguage.ENGLISH, AppLanguage.ARABIC, AppLanguage.TURKISH, AppLanguage.INDONESIAN, AppLanguage.MALAY -> "Umrah package · iumrah Configurator\n$hotel · ${snapshot.tier.orEmpty()}\n$route\n${dateRange(snapshot, language)}\n$days days · $people pilgrims · $rooms rooms\n${money(total)} package · ${money(per)} per person\n$link"
             AppLanguage.UZBEK -> "Umra paketi · iumrah Configurator\n$hotel · ${snapshot.tier.orEmpty()}\n$route\n${dateRange(snapshot, language)}\n$days kun · $people ziyoratchi · $rooms xona\n${money(total)} paket · ${money(per)} kishi boshiga\n$link"
             AppLanguage.UZBEK_CYRILLIC -> "Умра пакети · iumrah Configurator\n$hotel · ${snapshot.tier.orEmpty()}\n$route\n${dateRange(snapshot, language)}\n$days кун · $people зиёратчи · $rooms хона\n${money(total)} пакет · ${money(per)} киши бошига\n$link"
         }
@@ -69,11 +69,11 @@ object IumrahPackageShare {
         draw(context, canvas, paint, "${snapshot.tier.orEmpty()} · ${snapshot.totalDays ?: 0} days · $people pilgrims", 72f, 500f, 28f, Color.DKGRAY, false)
         draw(context, canvas, paint, dateRange(snapshot, language), 72f, 550f, 24f, Color.GRAY, false)
         draw(context, canvas, paint, money(quote?.pricePerPerson?.toDouble() ?: snapshot.pricePerPerson), 72f, 700f, 88f, Color.BLACK, true)
-        draw(context, canvas, paint, when(language){ AppLanguage.RUSSIAN -> "на человека"; AppLanguage.ENGLISH -> "per person"; AppLanguage.UZBEK -> "kishi boshiga"; AppLanguage.UZBEK_CYRILLIC -> "киши бошига" }, 72f, 750f, 27f, Color.GRAY, false)
+        draw(context, canvas, paint, when(language){ AppLanguage.RUSSIAN -> "на человека"; AppLanguage.ENGLISH, AppLanguage.ARABIC, AppLanguage.TURKISH, AppLanguage.INDONESIAN, AppLanguage.MALAY -> "per person"; AppLanguage.UZBEK -> "kishi boshiga"; AppLanguage.UZBEK_CYRILLIC -> "киши бошига" }, 72f, 750f, 27f, Color.GRAY, false)
         draw(context, canvas, paint, "${money(quote?.totalPackagePrice?.toDouble() ?: snapshot.totalPackagePrice)} · full package", 72f, 835f, 34f, Color.DKGRAY, true)
         paint.color = Color.BLACK
         canvas.drawRoundRect(72f, 1126f, 1008f, 1238f, 34f, 34f, paint)
-        draw(context, canvas, paint, when(language){ AppLanguage.RUSSIAN -> "Открыть в iumrah"; AppLanguage.ENGLISH -> "Open in iumrah"; AppLanguage.UZBEK -> "iumrah’da ochish"; AppLanguage.UZBEK_CYRILLIC -> "iumrah’да очиш" }, 112f, 1194f, 34f, Color.WHITE, true)
+        draw(context, canvas, paint, when(language){ AppLanguage.RUSSIAN -> "Открыть в iumrah"; AppLanguage.ENGLISH, AppLanguage.ARABIC, AppLanguage.TURKISH, AppLanguage.INDONESIAN, AppLanguage.MALAY -> "Open in iumrah"; AppLanguage.UZBEK -> "iumrah’da ochish"; AppLanguage.UZBEK_CYRILLIC -> "iumrah’да очиш" }, 112f, 1194f, 34f, Color.WHITE, true)
         draw(context, canvas, paint, "iumrah.app", 72f, 1302f, 20f, Color.GRAY, false)
         FileOutputStream(file).use { bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) }
         bitmap.recycle()
@@ -113,7 +113,7 @@ object IumrahPackageShare {
         fun format(raw: String?): String {
             if (raw.isNullOrBlank()) return "—"
             return runCatching {
-                val locale = when(language){ AppLanguage.RUSSIAN -> Locale("ru"); AppLanguage.ENGLISH -> Locale.ENGLISH; AppLanguage.UZBEK -> Locale.forLanguageTag("uz-Latn"); AppLanguage.UZBEK_CYRILLIC -> Locale.forLanguageTag("uz-Cyrl") }
+                val locale = when(language){ AppLanguage.RUSSIAN -> Locale("ru"); AppLanguage.ENGLISH, AppLanguage.ARABIC, AppLanguage.TURKISH, AppLanguage.INDONESIAN, AppLanguage.MALAY -> language.locale; AppLanguage.UZBEK -> Locale.forLanguageTag("uz-Latn"); AppLanguage.UZBEK_CYRILLIC -> Locale.forLanguageTag("uz-Cyrl") }
                 OffsetDateTime.parse(raw).format(DateTimeFormatter.ofPattern("d MMM yyyy", locale))
             }.getOrElse { raw.take(10) }
         }

@@ -44,7 +44,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 
 private fun text(language:AppLanguage,ru:String,en:String,uz:String,cy:String)=when(language){
-    AppLanguage.RUSSIAN->ru; AppLanguage.ENGLISH->en; AppLanguage.UZBEK->uz; AppLanguage.UZBEK_CYRILLIC->cy
+    AppLanguage.RUSSIAN->ru; AppLanguage.ENGLISH, AppLanguage.ARABIC, AppLanguage.TURKISH, AppLanguage.INDONESIAN, AppLanguage.MALAY ->en; AppLanguage.UZBEK->uz; AppLanguage.UZBEK_CYRILLIC->cy
 }
 
 @Composable
