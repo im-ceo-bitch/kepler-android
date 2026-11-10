@@ -81,6 +81,7 @@ import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import coil3.compose.AsyncImage
 import com.iumrah.beta.R
+import com.iumrah.beta.core.analytics.IumrahIntelligence
 import com.iumrah.beta.core.config.AppConfig
 import com.iumrah.beta.core.localization.L10n
 import com.iumrah.beta.core.design.IumrahHaptics
@@ -203,6 +204,7 @@ fun HotelsScreen(
     }
 
     suspend fun load(originCode: String) {
+        IumrahIntelligence.record("search_started", "hotels", "catalog")
         loading = true
         error = null
         val normalizedOrigin = originCode.trim().uppercase()
@@ -243,6 +245,11 @@ fun HotelsScreen(
         initial.flightPackages.getOrNull()?.let { flightPackages = it }
         if (initial.makkah.isFailure && initial.madinah.isFailure && makkah.isEmpty() && madinah.isEmpty()) {
             error = hotelText(language, "load_error")
+        }
+        if (initial.makkah.isFailure && initial.madinah.isFailure) {
+            IumrahIntelligence.record("error", "hotels", "catalog_load")
+        } else {
+            IumrahIntelligence.record("search_results", "hotels", if (makkah.isEmpty() && madinah.isEmpty()) "empty" else "available")
         }
         loading = false
 
@@ -391,7 +398,7 @@ fun HotelsScreen(
                                 favoritePrefs.edit().putStringSet("hotel_ids", favorites).apply()
                             },
                             onShare = { quote?.let { IumrahPackageShare.share(context, it, null, language) } ?: run { packageShareError = hotelText(language, "share_unavailable") } },
-                            onOpen = { chrome.openHotel(hotel.id) },
+                            onOpen = { IumrahIntelligence.record("tap", "hotels", "hotel_card"); chrome.openHotel(hotel.id) },
                         )
                     }
                 }
@@ -418,7 +425,7 @@ fun HotelsScreen(
                                 favoritePrefs.edit().putStringSet("hotel_ids", favorites).apply()
                             },
                             onShare = { quote?.let { IumrahPackageShare.share(context, it, null, language) } ?: run { packageShareError = hotelText(language, "share_unavailable") } },
-                            onOpen = { chrome.openHotel(hotel.id) },
+                            onOpen = { IumrahIntelligence.record("tap", "hotels", "hotel_card"); chrome.openHotel(hotel.id) },
                         )
                     }
                 }

@@ -27,7 +27,8 @@ import sys
 s=open(sys.argv[1], encoding='utf-8').read()
 aud=s.index('item { AudienceSection(language) }')
 build=s.index('item { BuildMyUmrahSection(language, chrome) }')
-services=s.index('item { ServicesSection(language, chrome) }')
+services=s.index('item { IumrahServicesCarousel(language, chrome) }')
+assert 'item { ServicesSection(language, chrome) }' not in s, 'Legacy services must not be displayed'
 assert aud < build < services, 'Build my Umrah must sit directly after audience and before services'
 PY
 grep -q 'isStoryPresented = storyStartIndex != null' "$HOME"

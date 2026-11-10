@@ -21,11 +21,14 @@ account = (src/'ui/account/AccountScreens.kt').read_text()
 booking = (src/'ui/booking/BookingsHomeScreen.kt').read_text()
 theme = (src/'core/design/IumrahTheme.kt').read_text()
 assert 'val SignatureBlack = Color(0xFF090909)' in theme
-assert 'IumrahSignatureWorldBackground(Modifier.matchParentSize())' in header
+assert 'IumrahSignatureWorldBackground(Modifier.matchParentSize(), mapOpacity = .33f)' in header
 assert 'drawsSignatureBackground: Boolean = true' in header
-assert '34.sp' in header and '42.dp' in header and 'Color.White.copy(alpha = .105f)' in header
+assert 'SignatureHeaderButton(CupertinoSymbol.Menu, 48.dp, 0, chrome::openSidebar)' in header
+assert 'val bottomRadius = if (roundedBottom) IumrahDesign.SignatureBottomRadius else 0.dp' in header
+assert 'IumrahDesign.SignatureLogoWidth' in header and 'IumrahDesign.SignatureLogoHeight' in header
+assert 'Color.White.copy(alpha = .105f)' in header
 assert 'clearAndSetSemantics { }' in brand and '.clipToBounds()' in brand
-print('PASS: common signature header / animated decorative map / 42dp controls')
+print('PASS: iOS black signature header / world atlas / 48dp brand controls, curved Home and straight other tabs')
 assert '.height(65.dp)' in nav and '.padding(5.dp)' in nav and '.border(.8.dp, Color.Black.copy(alpha = .10f)' in nav
 assert 'selectedTint = Color.White' in nav and 'unselectedTint = Color.Black.copy(alpha = .75f)' in nav
 assert 'Modifier.size(21.dp)' in nav and 'fontSize = 10.5.sp' in nav

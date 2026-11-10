@@ -70,6 +70,8 @@ sealed interface AppRoute {
     data object PrayerTimes : AppRoute
     data object HomeWeather : AppRoute
     data object GiftCards : AppRoute
+    data class IumrahServices(val initialService: String = "visa") : AppRoute
+    data object AccountAnalytics : AppRoute
 }
 
 data class AppChromeState(
@@ -138,6 +140,8 @@ class AppChromeStore {
     fun openPrayerTimes() = push(AppRoute.PrayerTimes, tab = AppTab.HOME)
     fun openHomeWeather() = push(AppRoute.HomeWeather, tab = AppTab.HOME)
     fun openGiftCards() = push(AppRoute.GiftCards, tab = AppTab.HOME)
+    fun openIumrahServices(initial: String = "visa") = push(AppRoute.IumrahServices(initial), tab = AppTab.HOME)
+    fun openAccountAnalytics() = push(AppRoute.AccountAnalytics, tab = AppTab.ACCOUNT)
 
     private fun push(route: AppRoute, tab: AppTab? = null) {
         _state.update { current ->

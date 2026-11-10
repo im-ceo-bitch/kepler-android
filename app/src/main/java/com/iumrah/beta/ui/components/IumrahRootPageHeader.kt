@@ -58,6 +58,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.iumrah.beta.R
 import com.iumrah.beta.core.design.IumrahColors
+import com.iumrah.beta.core.design.IumrahDesign
 import com.iumrah.beta.IumrahApplication
 import com.iumrah.beta.core.settings.AppLanguage
 import com.iumrah.beta.core.localization.L10n
@@ -84,6 +85,7 @@ fun IumrahRootPageHeader(
     showsMakkahTime: Boolean = false,
     lightStyle: Boolean = false,
     drawsSignatureBackground: Boolean = true,
+    roundedBottom: Boolean = false,
     language: AppLanguage = AppLanguage.ENGLISH,
 ) {
     BoxWithConstraints(
@@ -92,75 +94,53 @@ fun IumrahRootPageHeader(
             .statusBarsPadding(),
     ) {
         if (!lightStyle) {
-            // Mirror SwiftUI ViewThatFits: choose the first ROW that fits,
-            // not a hardcoded device breakpoint. maxWidth here is the inner
-            // content width (screen width minus 36dp horizontal gutters).
-            // SwiftUI HStack includes explicit spacing on EITHER side of
-            // Spacer(minLength:0), so count 4 gaps when status is present.
-            // Wide:   132+88+42+42+4*9=340; medium: 105+88+38+38+4*7=297.
-            // No status: 132+42+42+3*9=243; medium: 105+38+38+3*7=202.
-            val wideNeeded = if (showsConnectivityStatus) 340.dp else 243.dp
-            val mediumNeeded = if (showsConnectivityStatus) 297.dp else 202.dp
-            val rowMode = when {
-                maxWidth >= wideNeeded -> 0
-                maxWidth >= mediumNeeded -> 1
-                else -> 2
-            }
-            val brandWidth = when (rowMode) {
-                0 -> 132.dp
-                1 -> 105.dp
-                else -> 84.dp
-            }
-            val controlSize = when (rowMode) {
-                0 -> 42.dp
-                1 -> 38.dp
-                else -> 36.dp
-            }
-            val spacing = when (rowMode) {
-                0 -> 9.dp
-                1 -> 7.dp
-                else -> 5.dp
-            }
-            // iOS uses .padding(.horizontal, -18) around the signature header.
-            // Expand the header BOTH ways, instead of spilling only to the right.
-            // Hotels already owns the expanded shared surface; do not expand twice.
-            Box(
-                if (drawsSignatureBackground) Modifier.iumrahSignatureBleed()
+            // Exact iOS IumrahPrimaryHeaderBrandRow hierarchy:
+            // menu (48) | flexible space | centered wordmark | flexible space | bell (48).
+            // No app-specific connectivity caption and no second wordmark.
+            val headerWidth = maxWidth
+            val logoWidth = minOf(IumrahDesign.SignatureLogoWidth, (headerWidth - 108.dp).coerceAtLeast(112.dp))
+            val bottomRadius = if (roundedBottom) IumrahDesign.SignatureBottomRadius else 0.dp
+            val container = if (drawsSignatureBackground) Modifier.iumrahSignatureBleed()
                 else Modifier.fillMaxWidth()
-            ) {
+            Box(container.height(IumrahDesign.SignatureHeaderHeight)
+                .clip(RoundedCornerShape(bottomStart = bottomRadius,
+                    bottomEnd = bottomRadius))) {
                 if (drawsSignatureBackground) {
-                    IumrahSignatureWorldBackground(Modifier.matchParentSize())
+                    IumrahSignatureWorldBackground(Modifier.matchParentSize(), mapOpacity = .33f)
+                } else {
+                    Box(Modifier.matchParentSize().background(IumrahColors.SignatureBlack))
                 }
                 androidx.compose.foundation.layout.Column(
-                    modifier = Modifier.fillMaxWidth()
-                        .padding(horizontal = 18.dp)
-                        .padding(top = 14.dp, bottom = if (showsConnectivityStatus) 22.dp else 25.dp),
-                    verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(18.dp),
+                    Modifier.fillMaxWidth()
+                        .padding(horizontal = IumrahDesign.PagePadding)
+                        .padding(top = IumrahDesign.SignatureHeaderTop),
                 ) {
                     Row(
+                        Modifier.fillMaxWidth().height(IumrahDesign.SignatureLogoHeight),
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(spacing),
+                        horizontalArrangement = Arrangement.SpaceBetween,
                     ) {
-                        BrandWordmark(brandWidth, 1f, lightStyle = true, fixedHeight = 42.dp)
+                        SignatureHeaderButton(CupertinoSymbol.Menu, 48.dp, 0, chrome::openSidebar)
                         Spacer(Modifier.weight(1f))
-                        if (showsConnectivityStatus) {
-                            AnimatedConnectivityIndicator(
-                                lightStyle = true,
-                                language = language,
-                            )
-                        }
-                        SignatureHeaderButton(if (unreadCount > 0) CupertinoSymbol.BellBadge else CupertinoSymbol.Bell, controlSize, unreadCount, chrome::openNotifications)
-                        SignatureHeaderButton(CupertinoSymbol.Menu, controlSize, 0, chrome::openSidebar)
+                        Image(
+                            painterResource(R.drawable.iumrah_header_wordmark_dark),
+                            contentDescription = "iumrah",
+                            modifier = Modifier.width(logoWidth).height(IumrahDesign.SignatureLogoHeight),
+                            contentScale = ContentScale.Fit,
+                        )
+                        Spacer(Modifier.weight(1f))
+                        SignatureHeaderButton(
+                            if (unreadCount > 0) CupertinoSymbol.BellBadge else CupertinoSymbol.Bell,
+                            48.dp, unreadCount, chrome::openNotifications,
+                        )
                     }
-                    if (!showsConnectivityStatus) {
+                    if (!usesBrandLogo) {
                         Text(
                             title,
-                            fontSize = 34.sp,
-                            lineHeight = 39.sp,
-                            fontWeight = FontWeight.Bold,
-                            letterSpacing = (-.8).sp,
-                            color = Color.White,
-                            maxLines = 2,
+                            modifier = Modifier.padding(top = 7.dp),
+                            fontSize = 28.sp, lineHeight = 34.sp,
+                            fontWeight = FontWeight.Bold, color = Color.White,
+                            maxLines = 1,
                         )
                     }
                 }

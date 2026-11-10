@@ -1,5 +1,7 @@
 package com.iumrah.beta.ui.hotels
 
+import com.iumrah.beta.core.analytics.IumrahIntelligence
+
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -49,6 +51,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.collectAsState
@@ -170,6 +173,17 @@ fun HotelDetailScreen(
     var selectedPackage by remember(hotelId) { mutableIntStateOf(0) }
     var selectionSummary by remember(hotelId, selectionRole) { mutableStateOf<HotelSummary?>(null) }
     var didAutoOpenConfigurator by remember(hotelId, autoOpenConfigurator) { mutableStateOf(false) }
+    var priceTelemetrySent by remember(hotelId) { mutableStateOf(false) }
+    DisposableEffect(hotelId) {
+        IumrahIntelligence.detailAppeared("hotel_details")
+        onDispose { IumrahIntelligence.detailDisappeared("hotel_details") }
+    }
+    LaunchedEffect(categories, packages) {
+        if (!priceTelemetrySent && (categories.isNotEmpty() || packages.isNotEmpty())) {
+            priceTelemetrySent = true
+            IumrahIntelligence.record("price_viewed", "hotel_details", "room_rates")
+        }
+    }
 
     suspend fun loadAll() {
         loading = detail == null

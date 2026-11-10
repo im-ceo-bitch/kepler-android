@@ -77,6 +77,7 @@ fun FlightDateCalendarDialog(
     initialDeparture: LocalDate,
     initialReturn: LocalDate,
     curatedFlights: CuratedFlightRecommendationService,
+    publishedOnly: Boolean = false,
     onDismiss: () -> Unit,
     onApply: (FlightDateCalendarResult) -> Unit,
 ) {
@@ -165,6 +166,8 @@ fun FlightDateCalendarDialog(
             ?: !recommendedOutboundKeys().contains(out.toString())
     } ?: false
     val hasValidRange = departure?.let { out -> returnDate?.isAfter(out) == true } == true
+    // iOS home uses publishedOnly=true: do not offer an unlisted fare as bookable.
+    val canApply = hasValidRange && (!publishedOnly || selectedPublished != null)
     val locale = calendarLocale(language)
     val page = generatorPageColor()
     val card = generatorCardColor()
@@ -268,13 +271,13 @@ fun FlightDateCalendarDialog(
                         val out = departure; val back = returnDate
                         if (out != null && back != null && back.isAfter(out)) {
                             val published = publishedSelection(out, back)
-                            if (published != null) onApply(FlightDateCalendarResult(out, back, published)) else showFlexibleWarning = true
+                            if (published != null) onApply(FlightDateCalendarResult(out, back, published)) else if (!publishedOnly) showFlexibleWarning = true
                         }
                     },
-                    enabled = hasValidRange,
+                    enabled = canApply,
                     modifier = Modifier.weight(1f).height(60.dp),
                     cornerRadius = 22.dp,
-                    background = primary.copy(alpha = if (hasValidRange) .92f else .38f),
+                    background = primary.copy(alpha = if (canApply) .92f else .38f),
                 ) {
                     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text(calendarCopy(language, CalendarCopy.CONTINUE), fontSize = 16.sp, fontWeight = FontWeight.Bold, color = card) }
                 }

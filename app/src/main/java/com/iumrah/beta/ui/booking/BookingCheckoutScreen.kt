@@ -36,6 +36,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.iumrah.beta.core.analytics.IumrahIntelligence
+import androidx.compose.runtime.DisposableEffect
 import com.iumrah.beta.core.navigation.AppChromeStore
 import com.iumrah.beta.core.settings.AppLanguage
 import com.iumrah.beta.data.account.IumrahAccountStore
@@ -76,6 +78,12 @@ fun BookingCheckoutScreen(
     var showProfile by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
+    DisposableEffect(Unit) {
+        IumrahIntelligence.detailAppeared("checkout")
+        IumrahIntelligence.record("checkout_started", "checkout")
+        if (quote != null) IumrahIntelligence.record("price_viewed", "checkout", "package_total")
+        onDispose { IumrahIntelligence.detailDisappeared("checkout") }
+    }
     val validIdentity = firstName.trim().isNotEmpty() && lastName.trim().isNotEmpty() && (telegram.trim().isNotEmpty() || whatsapp.trim().isNotEmpty())
 
     Column(
@@ -91,7 +99,7 @@ fun BookingCheckoutScreen(
         GeneratorPrimaryButton(
             title = if (busy) checkoutTr(language,"Создаём бронирование…","Creating booking…","Bron yaratilmoqda…","Брон яратилмоқда…") else checkoutTr(language,"Создать бронирование","Create booking","Bron yaratish","Брон яратиш"),
             enabled = quote != null && !busy,
-        ) { showProfile = true }
+        ) { IumrahIntelligence.record("tap", "checkout", "continue_booking"); showProfile = true }
         Spacer(Modifier.height(34.dp))
     }
 
@@ -115,6 +123,7 @@ fun BookingCheckoutScreen(
                     if (currentQuote != null && !busy) {
                         busy = true
                         error = null
+                        IumrahIntelligence.record("tap", "checkout", "submit_booking")
                         scope.launch {
                             runCatching {
                                 bookingStore.create(
@@ -123,8 +132,8 @@ fun BookingCheckoutScreen(
                                     language=language,
                                     pilgrimProfile=BookingPilgrimProfile(firstName.trim(),lastName.trim(),telegram.trim(),whatsapp.trim()),
                                 )
-                            }.onSuccess { session -> busy=false;showProfile=false;chrome.openBookingCelebration(session.id) }
-                                .onFailure { cause -> busy=false;error=cause.message ?: checkoutTr(language,"Не удалось создать бронирование.","Booking could not be created.","Bron yaratilmadi.","Брон яратилмади.") }
+                            }.onSuccess { session -> IumrahIntelligence.record("booking_submitted", "checkout"); busy=false;showProfile=false;chrome.openBookingCelebration(session.id) }
+                                .onFailure { cause -> IumrahIntelligence.record("error", "checkout", "booking_submit"); busy=false;error=cause.message ?: checkoutTr(language,"Не удалось создать бронирование.","Booking could not be created.","Bron yaratilmadi.","Брон яратилмади.") }
                         }
                     }
                 }

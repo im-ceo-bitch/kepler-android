@@ -36,6 +36,8 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.iumrah.beta.core.widget.IumrahWidgetSync
+import com.iumrah.beta.core.analytics.IumrahIntelligence
+import com.iumrah.beta.core.navigation.AppRoute
 import com.iumrah.beta.core.design.IumrahMotion
 import com.iumrah.beta.core.design.IumrahTheme
 import com.iumrah.beta.core.navigation.AppTab
@@ -57,6 +59,27 @@ fun IumrahApp() {
     val pushState by container.pushManager.state.collectAsState()
     val scope = rememberCoroutineScope()
     var permissionRevision by remember { mutableIntStateOf(0) }
+    val telemetryScreen = if (!settings.hasCompletedOnboarding) "onboarding" else when (chrome.route) {
+        AppRoute.Root -> when (chrome.currentTab) {
+            AppTab.HOME -> "home"
+            AppTab.HOTELS -> "hotels"
+            AppTab.BOOKING -> "bookings"
+            AppTab.CARE -> "care"
+            AppTab.ACCOUNT -> "account"
+        }
+        AppRoute.BookingCheckout -> "checkout"
+        AppRoute.TripBuilder -> "flight_builder"
+        is AppRoute.HotelDetail -> "hotel_details"
+        else -> "navigation"
+    }
+    LaunchedEffect(settings.isLoaded) {
+        if (settings.isLoaded) IumrahIntelligence.start(app, telemetryScreen, settings.hasCompletedOnboarding)
+    }
+    LaunchedEffect(settings.isLoaded, telemetryScreen) {
+        if (settings.isLoaded) IumrahIntelligence.screenChanged(telemetryScreen)
+    }
+    LifecycleEventEffect(Lifecycle.Event.ON_STOP) { IumrahIntelligence.enterBackground() }
+
     val notificationPermissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
         container.pushManager.markNotificationPermissionRequested()
         permissionRevision += 1
@@ -122,6 +145,7 @@ fun IumrahApp() {
     }
 
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
+        IumrahIntelligence.resume(telemetryScreen)
         if (!settings.hasCompletedOnboarding) return@LifecycleEventEffect
         container.pushManager.refreshToken()
         scope.launch {
@@ -183,7 +207,7 @@ fun IumrahApp() {
                 OnboardingFlow(
                     language = settings.language,
                     onLanguageChange = container.settingsStore::setLanguage,
-                    onFinished = container.settingsStore::completeOnboarding,
+                    onFinished = { IumrahIntelligence.record("onboarding_completed", "onboarding"); container.settingsStore.completeOnboarding() },
                 )
             }
         }

@@ -32,6 +32,15 @@ object IumrahDesign {
     val CompactRadius = 19.dp
     val ControlHeight = 56.dp
     val GlassIconSize = 46.dp
+    // Sources/Core/Components/IumrahSignatureHeaders.swift, 2026-11-10.
+    val SignatureLogoWidth = 187.2f.dp
+    val SignatureLogoHeight = 57.6f.dp
+    val SignatureHeaderTop = 14.dp
+    val SignatureHeaderBottom = 100.dp
+    val SignatureHeaderHeight = 171.6f.dp
+    val SignatureBottomRadius = 30.dp
+    val SearchOverlap = 40.dp
+    val FullPill = RoundedCornerShape(50)
 }
 
 object IumrahBookingStatusVisual {
@@ -61,6 +70,9 @@ object IumrahColors {
     val DarkRaised = Color(0xFF3A3A3C)
     val DarkRaisedStrong = Color(0xFF48484A)
 
+    // The current iOS repo uses black signature chrome and retains the
+    // royal-violet token for targeted accents rather than repainting all surfaces.
+    val RoyalViolet = Color(0xFF6636D9)
     val Graphite = Color(0xFF17191D)
     // iOS signature header and active navigation surface: 0.035 sRGB linear fraction.
     val SignatureBlack = Color(0xFF090909)
@@ -99,7 +111,7 @@ object IumrahGalaxyMetrics {
 
     val RadiusSmall = 14.dp
     val RadiusControl = IumrahDesign.CompactRadius
-    val RadiusButton = IumrahDesign.CompactRadius
+    val RadiusButton = 28.dp // CTA buttons must remain capsules at 56dp height
     val RadiusTile = 22.dp
     val RadiusCard = IumrahDesign.CardRadius
     val RadiusLarge = IumrahDesign.HeroRadius

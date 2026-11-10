@@ -1,3 +1,4 @@
+@file:OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 package com.iumrah.beta.ui.home
 import com.iumrah.beta.ui.cupertino.Icon
 
@@ -48,6 +49,7 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -57,6 +59,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -69,6 +72,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
@@ -87,7 +91,10 @@ import com.iumrah.beta.core.navigation.AppChromeStore
 import com.iumrah.beta.core.navigation.AppTab
 import com.iumrah.beta.core.settings.AppLanguage
 import com.iumrah.beta.data.hotel.HotelCatalogService
+import com.iumrah.beta.data.flight.AirportSearchService
+import com.iumrah.beta.data.flight.CuratedFlightRecommendationService
 import com.iumrah.beta.data.notification.ClientNotificationStore
+import com.iumrah.beta.data.booking.BookingStore
 import com.iumrah.beta.domain.journey.JourneyStore
 import com.iumrah.beta.models.hotel.StorefrontFlightOption
 import com.iumrah.beta.models.hotel.StorefrontPackageSnapshot
@@ -111,6 +118,9 @@ fun HomeScreen(
     chrome: AppChromeStore,
     hotelCatalog: HotelCatalogService,
     journey: JourneyStore,
+    airports: AirportSearchService,
+    curatedFlights: CuratedFlightRecommendationService,
+    bookingStore: BookingStore,
     notifications: ClientNotificationStore,
     accountToken: String?,
 ) {
@@ -118,34 +128,70 @@ fun HomeScreen(
     val journeyState by journey.state.collectAsState()
     val notificationState by notifications.state.collectAsState()
     val storefrontOrigin = journeyState.trip.originCode.ifBlank { "TAS" }.uppercase()
+    val refreshScope = rememberCoroutineScope()
+    var refreshing by remember { mutableStateOf(false) }
+    var refreshVersion by remember { mutableIntStateOf(0) }
 
+    // Mirrors HomeDashboardView.onRefresh using existing *real* stores. The
+    // refreshed storefront carousel is reloaded; no fabricated package prices.
+    PullToRefreshBox(
+        isRefreshing = refreshing,
+        onRefresh = {
+            if (!refreshing) refreshScope.launch {
+                refreshing = true
+                try {
+                    kotlinx.coroutines.coroutineScope {
+                        val booking = launch { runCatching { bookingStore.refreshAll() } }
+                        val signals = launch { runCatching { notifications.refresh(accountToken) } }
+                        booking.join()
+                        signals.join()
+                    }
+                    refreshVersion += 1
+                } finally { refreshing = false }
+            }
+        },
+        modifier = Modifier.fillMaxSize(),
+    ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background),
         contentPadding = PaddingValues(start = 18.dp, end = 18.dp, top = 12.dp, bottom = 118.dp),
         verticalArrangement = Arrangement.spacedBy(30.dp),
     ) {
         item {
-            IumrahRootPageHeader(
-                title = L10n.text("tab_home", language),
-                chrome = chrome,
-                usesBrandLogo = true,
-                brandScale = 1.25f,
-                showsConnectivityStatus = true,
-                language = language,
-                unreadCount = notificationState.unreadCount,
-            )
+            Column {
+                IumrahRootPageHeader(
+                    title = L10n.text("tab_home", language),
+                    chrome = chrome,
+                    usesBrandLogo = true,
+                    brandScale = 1.0f,
+                    showsConnectivityStatus = false,
+                    roundedBottom = true,
+                    language = language,
+                    unreadCount = notificationState.unreadCount,
+                )
+                // Compose offset alone reserves an extra invisible 40dp below search.
+                // Instead report 40dp less height and paint the card over the masthead.
+                Box(Modifier.layout { measurable, constraints ->
+                    val child = measurable.measure(constraints)
+                    val overlap = 40.dp.roundToPx()
+                    layout(child.width, (child.height - overlap).coerceAtLeast(0)) {
+                        child.placeRelative(0, -overlap)
+                    }
+                }) {
+                    IumrahHomeSearchHero(language, journeyState.trip, journey, airports, curatedFlights, chrome)
+                }
+            }
         }
+        item { IumrahHomeHelpCard(language) }
         if (notificationState.home.isNotEmpty()) {
             item { HomeNotificationCarousel(language, notificationState.home, chrome, notifications, accountToken) }
         }
-        item { HomeTripToolsSection(language, chrome) }
         item { EmotionalPrompt(language = language, onOpen = { storyStartIndex = 0 }) }
         item { HomeVideoCarousel(language = language, isStoryPresented = storyStartIndex != null, onOpenStory = { storyStartIndex = it }) }
         item { AudienceSection(language) }
         item { BuildMyUmrahSection(language, chrome) }
-        item { ServicesSection(language, chrome) }
-        item { ReadyPackagesSection(language, chrome, hotelCatalog, storefrontOrigin) }
-        item { HotelFirstPackagesSection(language, chrome, hotelCatalog, storefrontOrigin) }
+        item { IumrahServicesCarousel(language, chrome) }
+        item { ReadyPackagesSection(language, chrome, hotelCatalog, storefrontOrigin, refreshVersion) }
         item { HomeIntegrationsSection(language, chrome) }
         item { ProductsSection(language, chrome) }
         item { ConfidenceStrip(language) }
@@ -154,6 +200,8 @@ fun HomeScreen(
         item { PersonalUmrahFAQ(language) }
         item { AboutFooter(language, chrome) }
     }
+
+    } // PullToRefreshBox
 
     storyStartIndex?.let { start -> EmotionalJourneyFullscreen(language = language, initialPage = start, onClose = { storyStartIndex = null }) }
 }
@@ -613,13 +661,14 @@ private fun ReadyPackagesSection(
     chrome: AppChromeStore,
     service: HotelCatalogService,
     origin: String,
+    refreshVersion: Int,
 ) {
     var options by remember(origin) { mutableStateOf<List<StorefrontFlightOption>>(emptyList()) }
     var packages by remember(origin) { mutableStateOf<List<StorefrontPackageSnapshot>>(emptyList()) }
     var loading by remember(origin) { mutableStateOf(true) }
     var failed by remember(origin) { mutableStateOf(false) }
 
-    LaunchedEffect(origin) {
+    LaunchedEffect(origin, refreshVersion) {
         loading = true
         failed = false
         val board = runCatching { service.storefrontFlightBoard(origin) }

@@ -113,6 +113,8 @@ import com.iumrah.beta.ui.cupertino.CupertinoIcon
 import com.iumrah.beta.ui.cupertino.CupertinoSymbol
 import com.iumrah.beta.ui.chat.BookingChatScreen
 import com.iumrah.beta.ui.notifications.NotificationsScreen
+import com.iumrah.beta.ui.home.IumrahServicesScreen
+import com.iumrah.beta.ui.account.AccountAnalyticsScreen
 import com.iumrah.beta.ui.home.HomeScreen
 import com.iumrah.beta.ui.home.HomeWeatherScreen
 import com.iumrah.beta.ui.home.IumrahGiftCardsScreen
@@ -161,12 +163,15 @@ fun AppShell(
         ) { (route, tab) ->
             when (route) {
                 AppRoute.Root -> when (tab) {
-                    AppTab.HOME -> HomeScreen(language, chrome, hotelCatalog, journey, notifications, accountStore.bearerToken)
+                    AppTab.HOME -> HomeScreen(language, chrome, hotelCatalog, journey, airports, curatedFlights, bookingStore, notifications, accountStore.bearerToken)
                     AppTab.HOTELS -> HotelsScreen(language, hotelCatalog, journey, airports, flightDiscovery, chrome, unreadCount = shellNotificationState.unreadCount)
                     AppTab.BOOKING -> BookingsHomeScreen(language, bookingStore, accountService, chatService, notifications, chrome)
                     AppTab.CARE -> CareHomeScreen(language, bookingStore, chatService, notifications, chrome)
                     AppTab.ACCOUNT -> AccountRootScreen(language, accountStore, bookingStore, settingsStore, notifications, chrome)
                 }
+
+                is AppRoute.IumrahServices -> IumrahServicesScreen(language, route.initialService, chrome)
+                AppRoute.AccountAnalytics -> AccountAnalyticsScreen(language, chrome)
 
                 AppRoute.TripBuilder -> TripBuilderScreen(
                     language = language,

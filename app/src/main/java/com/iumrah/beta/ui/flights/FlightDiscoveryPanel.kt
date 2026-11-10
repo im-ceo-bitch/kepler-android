@@ -58,6 +58,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
+import com.iumrah.beta.core.analytics.IumrahIntelligence
 import com.iumrah.beta.core.navigation.AppChromeStore
 import com.iumrah.beta.core.settings.AppLanguage
 import com.iumrah.beta.data.flight.AirportSearchService
@@ -150,6 +151,7 @@ fun FlightDiscoveryPanel(
         if (originCode.length != 3 || destinationCode.length != 3 || originCode.equals(destinationCode, true)) {
             offers = emptyList(); calendar = emptyList(); return
         }
+        IumrahIntelligence.record("search_started", "flights", "global")
         loading = true
         error = null
         val departure = departureDate.toString()
@@ -172,9 +174,11 @@ fun FlightDiscoveryPanel(
             cal.days.firstOrNull { it.date == departure }?.offer?.let(selectedDayRows::add)
             offers = selectedDayRows.distinctBy { listOf(it.originAirport, it.destinationAirport, it.airlineCode, it.flightNumber, it.departureAt, it.price.toInt()).joinToString("|") }
             favorites = favoritesStore.reconcile(offers, currency, language)
+            IumrahIntelligence.record("search_results", "flights", if (offers.isEmpty()) "empty" else "available")
         }.onFailure {
             if (it is CancellationException) throw it
             error = discoveryText(language, "load_error")
+            IumrahIntelligence.record("error", "flights", "search")
         }
         loading = false
     }
@@ -450,6 +454,7 @@ fun FlightDiscoveryPanel(
                     // Do not call updateTrip() here: it recreates JourneyState and
                     // deletes the previously selected outbound when adding a return.
                     journey.stageAviasalesFlight(current, adults = adults, children = children, infants = infants)
+                    IumrahIntelligence.record("flight_selected", "flights", "search_result")
                     selectedOffer = null
                 }
             },

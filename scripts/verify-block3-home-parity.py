@@ -26,14 +26,12 @@ def main():
     panel=(PKG/'ui/booking/JourneyTravelInfoPanel.kt').read_text()
 
     ordering=[
-        'item { HomeTripToolsSection(language, chrome) }',
         'item { EmotionalPrompt(',
         'item { HomeVideoCarousel(',
         'item { AudienceSection(',
         'item { BuildMyUmrahSection(',
-        'item { ServicesSection(',
+        'item { IumrahServicesCarousel(',
         'item { ReadyPackagesSection(',
-        'item { HotelFirstPackagesSection(',
         'item { HomeIntegrationsSection(',
         'item { ProductsSection(',
         'item { ConfidenceStrip(',
@@ -42,7 +40,10 @@ def main():
         'item { PersonalUmrahFAQ(',
         'item { AboutFooter(',
     ]
-    check(all(x in home for x in ordering) and [home.index(x) for x in ordering]==sorted(home.index(x) for x in ordering),'Home sections preserve original SwiftUI marketing order')
+    check(all(x in home for x in ordering) and [home.index(x) for x in ordering]==sorted(home.index(x) for x in ordering),'Home sections preserve current SwiftUI marketing order')
+    check('IumrahHomeSearchHero(language, journeyState.trip, journey, airports, curatedFlights, chrome)' in home, 'iOS collapsed journey search uses real JourneyStore and published catalog')
+    check('IumrahServicesCarousel(language, chrome)' in home, 'Nine services carousel replaces legacy product-only cards')
+    check('item { HotelFirstPackagesSection(' not in home, 'Home omits historical Hotel-First cards like current iOS')
     check('private fun HomeTripToolsSection' in home and 'Arrangement.spacedBy(13.dp)' in home,'Pilgrim tools block present with 13dp section spacing')
     check('modifier = modifier.height(98.dp)' in home and 'cornerRadius = 22.dp' in home and 'Modifier.height(28.dp)' in home and 'Modifier.height(10.dp)' in home,'Three tool tiles have iOS 98/22/28/10 geometry')
     check('fontSize = 11.sp' in home and 'textAlign = TextAlign.Center' in home, 'Tools text uses centered compact caption')
@@ -50,7 +51,7 @@ def main():
         check(action in home,'Trip tool destination '+action)
     check('AppRoute.HomeWeather -> HomeWeatherScreen(language, chrome)' in shell and 'fun openHomeWeather()' in nav,'Weather tool routes to working screen')
     check('JourneyTravelInfoPanel(language, initialPage = 1)' in weather and 'initialPage: Int = 0' in panel,'Weather view opens real travel weather forecast, existing Booking keeps default prayer tab')
-    check('HomeScreen(language, chrome, hotelCatalog, journey, notifications, accountStore.bearerToken)' in shell,'Home receives account token for notification-read API')
+    check('HomeScreen(language, chrome, hotelCatalog, journey, airports, curatedFlights, bookingStore, notifications, accountStore.bearerToken)' in shell,'Home receives real airport/flight data, bookings and notification token')
     check('coroutineScope.launch { store.markOpened(item, accountToken) }' in home,'Home open event marks notification as read')
     check('private val homeReadyCardWidth = 318.dp' in home and 'private val homeReadyCardHeight = 398.dp' in home,'Ready package carousel footprint 318x398dp matches iOS')
     check(home.count('Modifier.width(homeReadyCardWidth).height(homeReadyCardHeight)')==2,'Both ready flight package cards share 318x398 footprint')
@@ -65,7 +66,7 @@ def main():
         ios=a.ios/'Sources'
         source=(ios/'Views/Home/HomeDashboardView.swift').read_text()
         flight=(ios/'Views/Home/HomeAppleStoreSections.swift').read_text()
-        check('tripToolsSection' in source and 'HomeEmotionalJourneyPrompt()' in source and source.index('tripToolsSection')<source.index('HomeEmotionalJourneyPrompt()'),'Original iOS Home has tools before emotional journey')
+        check('IumrahHomeJourneySearchHero' in source and 'HomeEmotionalJourneyPrompt()' in source, 'Current iOS Home has collapsed search before emotional journey')
         check('.frame(height: 98)' in source and 'cornerRadius: 22' in source and 'HStack(spacing: 9)' in source,'iOS trip tiles geometry compared directly')
         check('showPrayerTimes = true' in source and 'showTravelInfo = true' in source and 'openGuideLanguages()' in source,'iOS tool navigation baseline inspected')
         check('.frame(width: 318, height: 398' in source and '.frame(height: 398' in flight,'iOS flight cards really use 318x398pt')

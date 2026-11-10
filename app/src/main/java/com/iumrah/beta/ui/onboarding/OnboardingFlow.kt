@@ -54,6 +54,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.iumrah.beta.R
+import com.iumrah.beta.core.analytics.IumrahIntelligence
 import com.iumrah.beta.core.design.IumrahHaptics
 import com.iumrah.beta.core.design.IumrahMotion
 import com.iumrah.beta.core.localization.L10n
@@ -102,7 +103,7 @@ fun OnboardingFlow(
         showIntro = false
     }
     LaunchedEffect(pager.currentPage, showIntro) {
-        if (!showIntro) IumrahHaptics.selection(hapticView)
+        if (!showIntro) { IumrahHaptics.selection(hapticView); IumrahIntelligence.record("onboarding_step", "onboarding", "step_${pager.currentPage}") }
     }
 
     Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {

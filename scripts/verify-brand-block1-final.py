@@ -34,16 +34,21 @@ check('shader.setFloatUniform("width", size.width)' in world and 'shader.setFloa
 check('width * .94f' in world and '.coerceIn(300.dp, 920.dp)' in world and '.offset(x = width * .07f)' in world and '.25f to Color.White.copy(alpha = .32f)' in world and '.61f to Color.White' in world, 'geographic framing and fixed opacity mask use iOS exact constants')
 check('.clearAndSetSemantics { }' in world and 'contentDescription = null' in world, 'atlas cannot intercept touch and is hidden from accessibility')
 check('if (drawsSignatureBackground) Modifier.iumrahSignatureBleed()' in header and 'Modifier.iumrahSignatureBleed()' in hotels and 'placeable.placeRelative(-bleedPx, 0)' in world and 'maxWidth + bleedPx * 2' in world, 'header and Hotels map use deterministic two-sided 18dp bleed, without double expansion')
-check('horizontalArrangement = Arrangement.spacedBy(spacing)' in header and 'wideNeeded = if (showsConnectivityStatus) 340.dp else 243.dp' in header and 'mediumNeeded = if (showsConnectivityStatus) 297.dp else 202.dp' in header, 'ViewThatFits sizes chosen by content width, not device class')
-for screen, mode in ((320,'small'),(360,'medium'),(375,'medium'),(390,'wide'),(414,'wide')):
-    available = screen-36
-    actual = 'wide' if available>=340 else ('medium' if available>=297 else 'small')
-    check(actual==mode, f'Header {screen}dp: {actual} preset')
-check('fixedHeight = 42.dp' in header and 'Color.White.copy(alpha = .105f)' in header and 'BorderStroke(.8.dp, Color.White.copy(alpha = .25f))' in header, 'wordmark 42dp and button fills/borders match iOS')
+# The November iOS source supersedes the older small/medium/wide brand row.
+# It uses two matching 48dp slots with a centered 187.2dp wordmark.
+check('SignatureHeaderButton(CupertinoSymbol.Menu, 48.dp, 0, chrome::openSidebar)' in header
+      and 'IumrahDesign.SignatureLogoWidth' in header
+      and 'IumrahDesign.SignatureLogoHeight' in header
+      and 'IumrahDesign.SignatureHeaderTop' in header,
+      'Current iOS 48dp slot and centered 187.2dp logo geometry used on Home')
+check('val bottomRadius = if (roundedBottom) IumrahDesign.SignatureBottomRadius else 0.dp' in header,
+      'Home header curved / other root tabs straight, matching current iOS')
+check('Color.White.copy(alpha = .105f)' in header and 'BorderStroke(.8.dp, Color.White.copy(alpha = .25f))' in header,
+      'Native tappable header buttons retain iOS translucent surface')
 check('unreadCount > 9) 26.dp else 16.dp' in header and '.offset(x = 3.dp, y = (-4).dp)' in header and 'if (unreadCount > 9) "9+"' in header, 'notification badge displays numbered 16dp or 9+ capsule, not a 7dp dot')
 check('val gradientStops = listOf(' in header and 'Color.White.copy(alpha = .55f)' in header and 'Color.White.copy(alpha = .98f)' in header and 'Brush.sweepGradient(*rotatedStops.toTypedArray())' in header and 'tween(1550, easing = LinearEasing)' in header, 'connectivity pill uses moving WHITE/GRAY angular gradient at reference speed')
 check('spring(dampingRatio = .82f, stiffness = 220f)' in header and 'delay(1_650)' in header and 'delay(3_650)' in header and 'delay(620)' in header, 'pill spring and cycle approximate iOS response and timing')
-check('language = language' in home and all(word in header for word in ('"В сети"', '"Onlayn"', '"Онлайн"', '"Online"')), 'Home connectivity status localized to 4 Android languages')
+check('showsConnectivityStatus = false' in home and 'language = language' in home, 'Home follows current iOS: no redundant connectivity subtitle')
 for label, path in (('Home','ui/home/HomeScreen.kt'),('Hotels','ui/hotels/HotelsScreen.kt'),('Booking','ui/booking/BookingsHomeScreen.kt'),('Care','ui/care/CareHomeScreen.kt'),('Account','ui/account/AccountScreens.kt')):
     check('IumrahRootPageHeader(' in (src/path).read_text(), f'{label} uses global signature header')
 check('.height(65.dp)' in nav and '.padding(5.dp)' in nav and 'RoundedCornerShape(25.dp)' in nav and 'Color.White.copy(alpha = .96f)' in nav and '.padding(start = 16.dp, end = 16.dp, top = 5.dp, bottom = 2.dp)' in nav, 'five-slot bottom bar geometry matches iOS')

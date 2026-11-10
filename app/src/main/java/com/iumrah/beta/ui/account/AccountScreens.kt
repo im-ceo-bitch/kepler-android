@@ -653,6 +653,7 @@ private fun SettingsSection(language: AppLanguage, appearance: AppAppearance, un
         SettingsRow(CupertinoSymbol.Globe,tr(language,"Language","Язык","Til","Тил"),languageTitle(language)){chrome.openAccountLanguage()}
         HorizontalDivider(Modifier.padding(start=54.dp))
         SettingsRow(CupertinoSymbol.HalfCircle,tr(language,"Appearance","Оформление","Ko‘rinish","Кўриниш"),appearanceTitle(appearance,language)){chrome.openAccountAppearance()}
+        SettingsRow(CupertinoSymbol.ChartBar,tr(language,"Usage analytics","Аналитика использования","Foydalanish tahlili","Фойдаланиш таҳлили"),tr(language,"Privacy controls","Управление конфиденциальностью","Maxfiylik sozlamalari","Махфийлик созламалари")){chrome.openAccountAnalytics()}
         HorizontalDivider(Modifier.padding(start=54.dp))
         SettingsRow(CupertinoSymbol.BellSignal,tr(language,"Umrah status signal","Umra статус сигнал","Umra holat signali","Умра ҳолат сигнали"),if(unread>0) tr(language,"$unread new","$unread новых","$unread yangi","$unread янги") else tr(language,"All caught up","Новых нет","Yangi yo‘q","Янги йўқ")){chrome.openAccountSignals()}
         HorizontalDivider(Modifier.padding(start=54.dp))
@@ -673,6 +674,7 @@ private fun GuestSettingsSection(language: AppLanguage, appearance: AppAppearanc
         SettingsRow(CupertinoSymbol.Globe,tr(language,"Language","Язык","Til","Тил"),languageTitle(language)){chrome.openAccountLanguage()}
         HorizontalDivider(Modifier.padding(start=54.dp))
         SettingsRow(CupertinoSymbol.HalfCircle,tr(language,"Appearance","Оформление","Ko‘rinish","Кўриниш"),appearanceTitle(appearance,language)){chrome.openAccountAppearance()}
+        SettingsRow(CupertinoSymbol.ChartBar,tr(language,"Usage analytics","Аналитика использования","Foydalanish tahlili","Фойдаланиш таҳлили"),tr(language,"Privacy controls","Управление конфиденциальностью","Maxfiylik sozlamalari","Махфийлик созламалари")){chrome.openAccountAnalytics()}
         HorizontalDivider(Modifier.padding(start=54.dp))
         SettingsRow(CupertinoSymbol.BellSignal,tr(language,"Umrah status signal","Umra статус сигнал","Umra holat signali","Умра ҳолат сигнали"),if(unread>0) tr(language,"$unread new","$unread новых","$unread yangi","$unread янги") else tr(language,"All caught up","Новых нет","Yangi yo‘q","Янги йўқ")){chrome.openAccountSignals()}
         HorizontalDivider(Modifier.padding(start=54.dp))
