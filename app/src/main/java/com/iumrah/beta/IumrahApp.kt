@@ -68,7 +68,9 @@ fun IumrahApp() {
             AppTab.ACCOUNT -> "account"
         }
         AppRoute.BookingCheckout -> "checkout"
-        AppRoute.TripBuilder -> "flight_builder"
+        AppRoute.TripBuilder, AppRoute.GuidedFlights -> "flight_builder"
+        AppRoute.NuiteeJourneyHotels -> "hotel_builder"
+        AppRoute.NuiteeJourneyReview -> "journey_review"
         is AppRoute.HotelDetail -> "hotel_details"
         else -> "navigation"
     }

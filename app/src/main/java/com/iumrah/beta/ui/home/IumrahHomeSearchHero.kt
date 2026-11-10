@@ -257,7 +257,7 @@ fun IumrahHomeSearchHero(
                                 )
                                 expanded = false
                                 IumrahIntelligence.record("tap", "home", "start_trip_search")
-                                chrome.openFlights()
+                                chrome.openGuidedFlights()
                             },
                         contentAlignment = Alignment.Center,
                     ) {

@@ -22,6 +22,12 @@ import com.iumrah.beta.models.flight.LiveFlightJourneyCandidate
 import com.iumrah.beta.models.flight.FlightDirection
 import com.iumrah.beta.models.flight.FlightAirportSnapshot
 import com.iumrah.beta.models.hotel.HotelRoom
+import com.iumrah.beta.domain.nuitee.NuiteeJourneyDraft
+import com.iumrah.beta.domain.nuitee.NuiteeFlightSnapshot
+import com.iumrah.beta.domain.nuitee.NuiteeRoomSelection
+import com.iumrah.beta.domain.nuitee.NuiteePendingHotel
+import com.iumrah.beta.domain.nuitee.NuiteeRules
+import com.iumrah.beta.domain.trip.TripStayPlanner
 import com.iumrah.beta.models.hotel.HotelSummary
 import com.iumrah.beta.models.hotel.IumrahRoomCategoryOption
 import java.time.ZoneId
@@ -60,6 +66,7 @@ data class JourneyState(
     val isSearchingFlights: Boolean = false,
     val flightError: String? = null,
     val packageError: String? = null,
+    val nuitee: NuiteeJourneyDraft? = null,
 ) {
     val selectedJourney: LiveFlightJourneyCandidate? get() = flightResults.firstOrNull { it.id == selectedJourneyId }
     val selectedOutboundJourney: LiveFlightJourneyCandidate? get() = flightResults.firstOrNull { it.id == selectedOutboundJourneyId }
@@ -115,6 +122,83 @@ class JourneyStore {
 
     private val _state = MutableStateFlow(JourneyState())
     val state: StateFlow<JourneyState> = _state
+
+    /** Flight-first Nuitee request path, independent of server-signed PackageEngine quotes. */
+    fun startNuiteeJourney(flights: List<NuiteeFlightSnapshot>) {
+        require(flights.size == 2)
+        _state.update { current ->
+            // Arrival at JED/MED may be after midnight. Hotel check-in must use
+            // the local Saudi arrival date, not blindly the origin departure date.
+            val saudiArrivalDay = flights.first().arrivalAt?.let { value ->
+                runCatching { java.time.OffsetDateTime.parse(value)
+                    .atZoneSameInstant(ZoneId.of("Asia/Riyadh")).toLocalDate() }.getOrNull()
+            }?.takeIf { !it.isBefore(current.trip.departureDate) && it.isBefore(current.trip.returnDate) }
+            current.copy(
+                trip = current.trip.copy(saudiArrivalDate = saudiArrivalDay),
+                nuitee = NuiteeJourneyDraft(flights = flights), quote = null,
+                packageError = null, transferSelectionConfirmed = false,
+            )
+        }
+    }
+
+    fun chooseNuiteeRoom(selection: NuiteeRoomSelection) {
+        _state.update { current ->
+            val draft = current.nuitee ?: return@update current
+            val windows = TripStayPlanner.windows(current.trip)
+            val expected = if (selection.city == "madinah") windows.madinah else windows.makkah
+            if (expected == null || selection.roomIndex !in 0 until current.trip.rooms ||
+                selection.key != "${selection.city}:${selection.roomIndex}" ||
+                selection.checkin != expected.checkIn || selection.checkout != expected.checkOut ||
+                !NuiteeRules.validStay(selection.checkin, selection.checkout, selection.adults, selection.childrenAges) ||
+                !NuiteeRules.validRoomRate(selection.rate)) return@update current
+            current.copy(nuitee = draft.copy(rooms = draft.rooms + (selection.key to selection),
+                pending = draft.pending - selection.key), quote = null, transferSelectionConfirmed = false)
+        }
+    }
+
+    fun chooseNuiteePending(selection: NuiteePendingHotel) {
+        _state.update { current ->
+            val draft = current.nuitee ?: return@update current
+            val windows = TripStayPlanner.windows(current.trip)
+            val expected = if (selection.city == "madinah") windows.madinah else windows.makkah
+            if (expected == null || selection.roomIndex !in 0 until current.trip.rooms ||
+                selection.key != "${selection.city}:${selection.roomIndex}" ||
+                selection.checkin != expected.checkIn || selection.checkout != expected.checkOut ||
+                !NuiteeRules.validStay(selection.checkin, selection.checkout, selection.adults, selection.childrenAges)) return@update current
+            current.copy(nuitee = draft.copy(pending = draft.pending + (selection.key to selection),
+                rooms = draft.rooms - selection.key), quote = null, transferSelectionConfirmed = false)
+        }
+    }
+
+    fun changeNuiteeRoomCount(count: Int) {
+        _state.update { current ->
+            if (current.nuitee == null || count !in 1..current.trip.adults) current else current.copy(
+                trip = current.trip.copy(rooms = count),
+                nuitee = current.nuitee.copy(rooms = emptyMap(), pending = emptyMap()),
+                quote = null, transferSelectionConfirmed = false,
+            )
+        }
+    }
+
+    fun clearNuiteeRooms() {
+        _state.update { current -> current.copy(
+            nuitee = current.nuitee?.copy(rooms = emptyMap(), pending = emptyMap()), quote = null,
+            transferSelectionConfirmed = false,
+        ) }
+    }
+
+    /** Revalidation failure removes ONLY the original unchanged offer; it never installs a stale rate. */
+    fun revalidateNuiteeRoom(key: String, originalOfferId: String, originalRoomId: String,
+                             refreshed: com.iumrah.beta.models.nuitee.NuiteeRoomRate?) {
+        _state.update { current ->
+            val draft = current.nuitee ?: return@update current
+            val previous = draft.rooms[key] ?: return@update current
+            if (previous.rate.offerId != originalOfferId || previous.rate.roomId != originalRoomId) return@update current
+            val replacement = refreshed?.takeIf { NuiteeRules.validRoomRate(it) && NuiteeRules.sameOffer(previous.rate, it) }
+            current.copy(nuitee = draft.copy(rooms = if (replacement != null) draft.rooms +
+                (key to previous.copy(rate = replacement)) else draft.rooms - key), quote = null)
+        }
+    }
 
     fun updateTrip(value: TripDraft) {
         _state.update { current ->

@@ -12,6 +12,7 @@ data class IumrahCarePackageRequest(
     val priority:String, val hotelClass:Int, val transferPreference:String, val directFlightsPreferred:Boolean,
     val checkedBaggagePreferred:Boolean, val includeZiyarat:Boolean, val includeESIM:Boolean, val guidePreference:String,
     val budgetUSD:Int?=null, val notes:String,
+    val configuration: NuiteeCareConfiguration? = null,
 )
 @Serializable data class IumrahCarePackageRequestResponse(val ok:Boolean=false,val requestID:String,val status:String="",val createdAt:String="",val responseDueAt:String="")
 class IumrahCareRequestService(private val api:APIClient=APIClient()){

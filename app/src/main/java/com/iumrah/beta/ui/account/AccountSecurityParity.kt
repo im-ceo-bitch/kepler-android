@@ -109,6 +109,8 @@ internal fun AccountSecurityParityContent(
     var emailChallenge by remember { mutableStateOf<String?>(null) }
     var emailCode by remember { mutableStateOf("") }
     var emailBusy by remember { mutableStateOf(false) }
+    var emailAuthorizationPassword by remember { mutableStateOf("") }
+    var emailSecurityProof by remember { mutableStateOf<String?>(null) }
     var pendingTermination by remember { mutableStateOf<IumrahSecuritySession?>(null) }
     var pendingTerminateOthers by remember { mutableStateOf(false) }
     var workingSessionID by remember { mutableStateOf<String?>(null) }
@@ -226,12 +228,26 @@ internal fun AccountSecurityParityContent(
                         email = value.loginEmail?.email.orEmpty()
                         emailChallenge = null
                         emailCode = ""
+                        emailAuthorizationPassword = ""
+                        emailSecurityProof = null
                         error = null
                         emailDialog = true
                     }
                     if (!value.currentDeviceIsPrimary) {
                         Spacer(Modifier.height(10.dp))
                         SecurityLockedNote(language, secTr(language, "Only the primary device can change the sign-in email.", "Почту для входа может изменить только основное устройство.", "Kirish emailini faqat asosiy qurilma o‘zgartira oladi.", "Кириш emailини фақат асосий қурилма ўзгартира олади."))
+                    }
+                }
+            }
+
+            item {
+                SecurityCard {
+                    SecuritySectionTitle(CupertinoSymbol.Key, secTr(language, "Password", "Пароль", "Parol", "Парол"), SecurityCare)
+                    Spacer(Modifier.height(10.dp))
+                    Text(secTr(language, "Update your password and end other active sessions.", "Обновите пароль и завершите остальные активные сеансы.", "Parolni yangilang va qolgan faol seanslarni tugating.", "Паролни янгиланг ва қолган фаол сеансларни тугатинг."), fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(Modifier.height(12.dp))
+                    SecuritySecondaryButton(title = secTr(language, "Change password", "Изменить пароль", "Parolni o‘zgartirish", "Паролни ўзгартириш"), icon = CupertinoSymbol.Key) {
+                        chrome.openAccountPasswordSecurity()
                     }
                 }
             }
@@ -394,7 +410,7 @@ internal fun AccountSecurityParityContent(
 
     if (emailDialog) {
         AlertDialog(
-            onDismissRequest = { if (!emailBusy) emailDialog = false },
+            onDismissRequest = { if (!emailBusy) { emailDialog = false; emailSecurityProof = null; emailAuthorizationPassword = "" } },
             icon = { CupertinoIcon(CupertinoSymbol.Mail, null, Modifier.size(30.dp), SecurityBlue) },
             title = { Text(secTr(language, "Email security", "Безопасность почты", "Email xavfsizligi", "Email хавфсизлиги"), fontWeight = FontWeight.Bold) },
             text = {
@@ -404,7 +420,26 @@ internal fun AccountSecurityParityContent(
                         fontSize = 13.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
-                    if (emailChallenge == null) {
+                    if (emailSecurityProof == null) {
+                        Text(secTr(language, "Confirm your identity with your password or linked Google account.", "Подтвердите личность паролем или привязанным Google-аккаунтом.", "Parol yoki ulangan Google akkaunti orqali tasdiqlang.", "Парол ёки уланган Google аккаунти орқали тасдиқланг."), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        OutlinedTextField(value = emailAuthorizationPassword, onValueChange = { emailAuthorizationPassword = it }, modifier = Modifier.fillMaxWidth(), singleLine = true, label = { Text(secTr(language, "Current password", "Текущий пароль", "Joriy parol", "Жорий парол")) }, visualTransformation = PasswordVisualTransformation())
+                        if (overview?.google?.linked == true && activity != null) {
+                            TextButton(
+                                enabled = !emailBusy,
+                                onClick = {
+                                    emailBusy = true
+                                    scope.launch {
+                                        runCatching {
+                                            val credential = GoogleSignInSupport.signIn(activity)
+                                            accountStore.authorizeSensitiveActionWithGoogle(credential)
+                                        }.onSuccess { proof -> emailSecurityProof = proof.securityProof; emailAuthorizationPassword = ""; error = null }
+                                            .onFailure { error = securityErrorMessage(language, it) }
+                                        emailBusy = false
+                                    }
+                                },
+                            ) { Text(secTr(language, "Authorize with Google", "Подтвердить через Google", "Google orqali tasdiqlash", "Google орқали тасдиқлаш")) }
+                        }
+                    } else if (emailChallenge == null) {
                         OutlinedTextField(value = email, onValueChange = { email = it }, modifier = Modifier.fillMaxWidth(), singleLine = true, label = { Text("Email") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email))
                     } else {
                         OutlinedTextField(value = emailCode, onValueChange = { emailCode = it.filter(Char::isDigit).take(8) }, modifier = Modifier.fillMaxWidth(), singleLine = true, label = { Text(secTr(language, "Verification code", "Код подтверждения", "Tasdiqlash kodi", "Тасдиқлаш коди")) }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
@@ -416,22 +451,26 @@ internal fun AccountSecurityParityContent(
                     onClick = {
                         emailBusy = true
                         scope.launch {
-                            if (emailChallenge == null) {
-                                runCatching { accountStore.startEmailVerification(email.trim(), language.localeTag) }
+                            if (emailSecurityProof == null) {
+                                runCatching { accountStore.authorizeSensitiveAction(emailAuthorizationPassword) }
+                                    .onSuccess { response -> emailSecurityProof = response.securityProof; emailAuthorizationPassword = ""; error = null }
+                                    .onFailure { error = securityErrorMessage(language, it) }
+                            } else if (emailChallenge == null) {
+                                runCatching { accountStore.startEmailVerification(email.trim(), language.localeTag, emailSecurityProof!!) }
                                     .onSuccess { emailChallenge = it.challengeID; error = null }
                                     .onFailure { error = securityErrorMessage(language, it) }
                             } else {
-                                runCatching { accountStore.confirmEmailVerification(emailChallenge!!, emailCode.trim()) }
-                                    .onSuccess { error = null; emailDialog = false; reload() }
+                                runCatching { accountStore.confirmEmailVerification(emailChallenge!!, emailCode.trim(), emailSecurityProof!!) }
+                                    .onSuccess { error = null; emailDialog = false; emailSecurityProof = null; emailAuthorizationPassword = ""; reload() }
                                     .onFailure { error = securityErrorMessage(language, it) }
                             }
                             emailBusy = false
                         }
                     },
-                    enabled = !emailBusy && if (emailChallenge == null) email.contains('@') else emailCode.length >= 4,
-                ) { if (emailBusy) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp) else Text(if (emailChallenge == null) secTr(language, "Send code", "Отправить код", "Kod yuborish", "Код юбориш") else secTr(language, "Verify", "Подтвердить", "Tasdiqlash", "Тасдиқлаш")) }
+                    enabled = !emailBusy && if (emailSecurityProof == null) emailAuthorizationPassword.length >= 8 else if (emailChallenge == null) email.contains('@') else emailCode.length == 6,
+                ) { if (emailBusy) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp) else Text(if (emailSecurityProof == null) secTr(language, "Authorize", "Подтвердить доступ", "Tasdiqlash", "Тасдиқлаш") else if (emailChallenge == null) secTr(language, "Send code", "Отправить код", "Kod yuborish", "Код юбориш") else secTr(language, "Verify", "Подтвердить", "Tasdiqlash", "Тасдиқлаш")) }
             },
-            dismissButton = { TextButton(onClick = { emailDialog = false }, enabled = !emailBusy) { Text(secTr(language, "Close", "Закрыть", "Yopish", "Ёпиш")) } },
+            dismissButton = { TextButton(onClick = { emailDialog = false; emailSecurityProof = null; emailAuthorizationPassword = "" }, enabled = !emailBusy) { Text(secTr(language, "Close", "Закрыть", "Yopish", "Ёпиш")) } },
         )
     }
 

@@ -16,6 +16,24 @@ class IumrahAccountService(
     suspend fun login(identifier: String, password: String, locale: String): IumrahAccountAuthResponse =
         api.post(IumrahAccountRoutes.LOGIN, IumrahAccountLoginRequest(identifier, password, deviceIdentity.current(locale)))
 
+    suspend fun startEmailLogin(email: String, locale: String): IumrahEmailChallengeStartResponse =
+        api.post(IumrahAccountRoutes.EMAIL_LOGIN_START, IumrahEmailLoginStartRequest(email, locale))
+
+    suspend fun confirmEmailLogin(challengeID: String, code: String, locale: String): IumrahAccountAuthResponse =
+        api.post(IumrahAccountRoutes.EMAIL_LOGIN_CONFIRM, IumrahEmailLoginConfirmRequest(challengeID, code, deviceIdentity.current(locale)))
+
+    suspend fun startActivationEmail(bookingID: String, bookingToken: String, email: String, locale: String): IumrahEmailChallengeStartResponse =
+        api.post(IumrahAccountRoutes.ACTIVATE_EMAIL_START, IumrahAccountActivationEmailStartRequest(bookingID, email, locale), mapOf("x-booking-token" to bookingToken))
+
+    suspend fun confirmActivationEmail(bookingID: String, bookingToken: String, challengeID: String, code: String, locale: String): IumrahAccountAuthResponse =
+        api.post(IumrahAccountRoutes.ACTIVATE_EMAIL_CONFIRM, IumrahAccountActivationEmailConfirmRequest(bookingID, challengeID, code, deviceIdentity.current(locale)), mapOf("x-booking-token" to bookingToken))
+
+    suspend fun startActivationSMS(bookingID: String, bookingToken: String, phone: String, locale: String): IumrahPhoneLoginStartResponse =
+        api.post(IumrahAccountRoutes.ACTIVATE_SMS_START, IumrahAccountActivationSMSStartRequest(bookingID, phone, locale), mapOf("x-booking-token" to bookingToken))
+
+    suspend fun confirmActivationSMS(bookingID: String, bookingToken: String, challengeID: String, code: String, locale: String): IumrahAccountAuthResponse =
+        api.post(IumrahAccountRoutes.ACTIVATE_SMS_CONFIRM, IumrahAccountActivationSMSConfirmRequest(bookingID, challengeID, code, deviceIdentity.current(locale)), mapOf("x-booking-token" to bookingToken))
+
     suspend fun startPhoneLogin(phone: String, locale: String): IumrahPhoneLoginStartResponse =
         api.post(IumrahAccountRoutes.PHONE_LOGIN_START, IumrahPhoneLoginStartRequest(phone, locale))
 
@@ -25,19 +43,19 @@ class IumrahAccountService(
     suspend fun startPhoneRegistration(phone: String, firstName: String, lastName: String, locale: String): IumrahPhoneLoginStartResponse =
         api.post(IumrahAccountRoutes.REGISTER_SMS_START, IumrahPhoneRegistrationStartRequest(phone, firstName, lastName, locale))
 
-    suspend fun confirmPhoneRegistration(challengeID: String, code: String, password: String, locale: String): IumrahAccountAuthResponse =
+    suspend fun confirmPhoneRegistration(challengeID: String, code: String, locale: String): IumrahAccountAuthResponse =
         api.post(
             IumrahAccountRoutes.REGISTER_SMS_CONFIRM,
-            IumrahPhoneRegistrationConfirmRequest(challengeID, code, password, deviceIdentity.current(locale)),
+            IumrahPhoneRegistrationConfirmRequest(challengeID, code, deviceIdentity.current(locale)),
         )
 
     suspend fun startEmailRegistration(email: String, locale: String): IumrahEmailChallengeStartResponse =
         api.post(IumrahAccountRoutes.REGISTER_EMAIL_START, IumrahEmailChallengeStartRequest(email, locale))
 
-    suspend fun confirmEmailRegistration(challengeID: String, code: String, password: String, firstName: String, lastName: String, locale: String): IumrahAccountAuthResponse =
+    suspend fun confirmEmailRegistration(challengeID: String, code: String, firstName: String, lastName: String, locale: String): IumrahAccountAuthResponse =
         api.post(
             IumrahAccountRoutes.REGISTER_EMAIL_CONFIRM,
-            IumrahRegistrationEmailConfirmRequest(challengeID, code, password, firstName, lastName, deviceIdentity.current(locale)),
+            IumrahRegistrationEmailConfirmRequest(challengeID, code, firstName, lastName, deviceIdentity.current(locale)),
         )
 
     suspend fun session(token: String): IumrahAccountProfile {
@@ -67,6 +85,21 @@ class IumrahAccountService(
 
     suspend fun checkout(bookingID: String, authorizationHeaders: Map<String, String>): IumrahCheckoutResponse =
         api.get(IumrahAccountRoutes.checkout(bookingID), headers = authorizationHeaders)
+
+    /** iOS parity: booking proof wins; permanent account is only the auth/not-found fallback. */
+    suspend fun checkoutWithFallback(bookingID: String, bookingToken: String?, accountToken: String?): IumrahCheckoutResponse {
+        val bookingProof = bookingToken?.trim().orEmpty()
+        val bearerToken = accountToken?.trim().orEmpty()
+        if (bookingProof.isNotEmpty()) {
+            try {
+                return checkout(bookingID, mapOf("x-booking-token" to bookingProof))
+            } catch (error: Throwable) {
+                if (bearerToken.isEmpty() || !com.iumrah.beta.domain.booking.BookingAuthFallbackPolicy.mayRetryWithAccount(error)) throw error
+            }
+        }
+        if (bearerToken.isNotEmpty()) return checkout(bookingID, mapOf("Authorization" to "Bearer $bearerToken"))
+        throw com.iumrah.beta.core.network.APIException.MissingBookingToken
+    }
 
     suspend fun saveTraveler(bookingID: String, position: Int, form: IumrahTravelerForm, token: String): IumrahTravelerForm {
         val value: IumrahTravelerSaveResponse = api.put(IumrahAccountRoutes.traveler(bookingID, position), IumrahTravelerSaveRequest(form), bearer(token))
@@ -111,11 +144,25 @@ class IumrahAccountService(
     suspend fun linkGoogle(credential: IumrahGoogleCredential, token: String): IumrahGoogleLinkResponse =
         api.post(IumrahAccountRoutes.GOOGLE_LINK, IumrahGoogleRequest(credential.identityToken, credential.nonce), deviceIdentity.securityHeaders(token))
 
-    suspend fun startEmailVerification(email: String, locale: String, token: String): IumrahEmailChallengeStartResponse =
-        api.post(IumrahAccountRoutes.EMAIL_START, IumrahEmailChallengeStartRequest(email, locale), deviceIdentity.securityHeaders(token))
+    suspend fun authorizeSensitiveAction(password: String, token: String): IumrahSensitiveAuthorizationResponse =
+        api.post(IumrahAccountRoutes.SECURITY_AUTHORIZE_PASSWORD, IumrahClaimPrimaryRequest(password), deviceIdentity.securityHeaders(token))
 
-    suspend fun confirmEmailVerification(challengeID: String, code: String, token: String): IumrahEmailChallengeConfirmResponse =
-        api.post(IumrahAccountRoutes.EMAIL_CONFIRM, IumrahEmailChallengeConfirmRequest(challengeID, code), deviceIdentity.securityHeaders(token))
+    suspend fun authorizeSensitiveActionWithGoogle(credential: IumrahGoogleCredential, token: String): IumrahSensitiveAuthorizationResponse =
+        api.post(IumrahAccountRoutes.SECURITY_AUTHORIZE_GOOGLE, IumrahGoogleRequest(credential.identityToken, credential.nonce), deviceIdentity.securityHeaders(token))
+
+    suspend fun changePassword(currentPassword: String, newPassword: String, token: String): IumrahPasswordChangeResponse =
+        api.post(IumrahAccountRoutes.SECURITY_CHANGE_PASSWORD, IumrahPasswordChangeRequest(currentPassword, newPassword), deviceIdentity.securityHeaders(token))
+
+    suspend fun startEmailVerification(email: String, locale: String, securityProof: String, token: String): IumrahEmailChallengeStartResponse =
+        api.post(IumrahAccountRoutes.EMAIL_START, IumrahEmailChallengeStartRequest(email, locale), deviceIdentity.securityHeaders(token) + ("x-iumrah-security-proof" to securityProof))
+
+    suspend fun confirmEmailVerification(challengeID: String, code: String, securityProof: String, token: String): IumrahEmailChallengeConfirmResponse =
+        api.post(IumrahAccountRoutes.EMAIL_CONFIRM, IumrahEmailChallengeConfirmRequest(challengeID, code), deviceIdentity.securityHeaders(token) + ("x-iumrah-security-proof" to securityProof))
+
+    suspend fun publicIdentityLink(token: String): IumrahPublicIdentityLinkResponse =
+        api.get(IumrahAccountRoutes.PUBLIC_IDENTITY, headers = bearer(token))
+
+    suspend fun walletPass(token: String): ByteArray = api.fetchData(IumrahAccountRoutes.WALLET_PASS, bearer(token))
 
     suspend fun startPasswordRecovery(email: String, locale: String): IumrahEmailChallengeStartResponse =
         api.post(IumrahAccountRoutes.PASSWORD_RECOVERY_START, IumrahEmailChallengeStartRequest(email, locale))

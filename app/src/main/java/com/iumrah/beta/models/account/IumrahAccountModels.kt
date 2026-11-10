@@ -58,6 +58,17 @@ data class IumrahClientDevice(
 @Serializable
 data class IumrahAccountLoginRequest(val identifier: String, val password: String, val device: IumrahClientDevice)
 
+@Serializable data class IumrahEmailLoginStartRequest(val email: String, val locale: String)
+@Serializable data class IumrahEmailLoginConfirmRequest(val challengeID: String, val code: String, val device: IumrahClientDevice)
+@Serializable data class IumrahAccountActivationEmailStartRequest(val bookingID: String, val email: String, val locale: String)
+@Serializable data class IumrahAccountActivationEmailConfirmRequest(val bookingID: String, val challengeID: String, val code: String, val device: IumrahClientDevice)
+@Serializable data class IumrahAccountActivationSMSStartRequest(val bookingID: String, val phone: String, val locale: String)
+@Serializable data class IumrahAccountActivationSMSConfirmRequest(val bookingID: String, val challengeID: String, val code: String, val device: IumrahClientDevice)
+@Serializable data class IumrahSensitiveAuthorizationResponse(val ok: Boolean, val securityProof: String, val proofExpiresAt: String, val overview: IumrahSecurityOverview)
+@Serializable data class IumrahPasswordChangeRequest(val currentPassword: String, val newPassword: String)
+@Serializable data class IumrahPasswordChangeResponse(val ok: Boolean, val sessionsRevoked: Boolean)
+@Serializable data class IumrahPublicIdentityLinkResponse(val ok: Boolean, val iumrahID: String, val url: String)
+
 @Serializable data class IumrahPhoneLoginStartRequest(val phone: String, val locale: String)
 @Serializable data class IumrahPhoneLoginStartResponse(val ok: Boolean, val challengeID: String, val expiresAt: String? = null, val debugCode: String? = null)
 @Serializable data class IumrahPhoneLoginConfirmRequest(val challengeID: String, val code: String, val device: IumrahClientDevice)
@@ -70,13 +81,11 @@ data class IumrahAccountLoginRequest(val identifier: String, val password: Strin
 @Serializable data class IumrahPhoneRegistrationConfirmRequest(
     val challengeID: String,
     val code: String,
-    val password: String,
     val device: IumrahClientDevice,
 )
 @Serializable data class IumrahRegistrationEmailConfirmRequest(
     val challengeID: String,
     val code: String,
-    val password: String,
     val firstName: String,
     val lastName: String,
     val device: IumrahClientDevice,

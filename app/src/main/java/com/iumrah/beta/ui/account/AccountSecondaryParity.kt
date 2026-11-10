@@ -70,7 +70,7 @@ private fun apTr(l: AppLanguage, en: String, ru: String, uz: String, cy: String)
 }
 
 @Composable
-private fun ApNavPage(
+internal fun ApNavPage(
     title: String,
     chrome: AppChromeStore,
     largeTitle: Boolean = false,

@@ -9,6 +9,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -90,13 +92,15 @@ internal fun PilgrimCheckoutEmbedded(
     var confirmPassword by remember { mutableStateOf("") }
     var loginPassword by remember { mutableStateOf("") }
     var activationMethod by remember { mutableStateOf(CheckoutActivationMethod.IUMRAH_ID) }
+    var activationContact by remember(bookingID) { mutableStateOf("") }
+    var activationChallenge by remember(bookingID) { mutableStateOf<String?>(null) }
+    var activationCode by remember(bookingID) { mutableStateOf("") }
     var travelerEditor by remember { mutableStateOf<IumrahTravelerForm?>(null) }
 
     suspend fun load(showLoader: Boolean = true) {
         if (showLoader) loading = true
         error = null
-        val headers = accountStore.authorizationHeaders(session.accessToken)
-        runCatching { accountService.checkout(bookingID, headers) }
+        runCatching { accountService.checkoutWithFallback(bookingID, session.accessToken, accountStore.bearerToken) }
             .onSuccess { checkout = it }
             .onFailure { error = it.message }
         loading = false
@@ -170,18 +174,41 @@ internal fun PilgrimCheckoutEmbedded(
                         language = language,
                         value = value,
                         method = activationMethod,
-                        onMethod = { activationMethod = it },
+                        onMethod = { activationMethod = it; activationChallenge = null; activationContact = ""; activationCode = ""; error = null },
+                        contact = activationContact,
+                        onContact = { activationContact = it },
+                        challenge = activationChallenge,
+                        code = activationCode,
+                        onCode = { activationCode = it.filter(Char::isDigit).take(6) },
                         password = password,
                         onPassword = { password = it },
                         confirm = confirmPassword,
                         onConfirm = { confirmPassword = it },
                         busy = busy,
                         onActivate = {
-                            if (password.length < 8 || password != confirmPassword) return@CheckoutActivationCard
+                            if (busy) return@CheckoutActivationCard
                             busy = true
                             scope.launch {
-                                runCatching { accountStore.activate(bookingID, session.accessToken, password) }
-                                    .onSuccess { load(showLoader = false) }
+                                runCatching {
+                                    when (activationMethod) {
+                                        CheckoutActivationMethod.IUMRAH_ID -> {
+                                            require(password.length >= 8 && password == confirmPassword)
+                                            accountStore.activate(bookingID, session.accessToken, password, language.localeTag)
+                                        }
+                                        CheckoutActivationMethod.EMAIL -> {
+                                            if (activationChallenge == null) {
+                                                activationChallenge = accountStore.startActivationEmail(bookingID, session.accessToken, activationContact.trim().lowercase(), language.localeTag).challengeID
+                                                null
+                                            } else accountStore.confirmActivationEmail(bookingID, session.accessToken, activationChallenge!!, activationCode, language.localeTag)
+                                        }
+                                        CheckoutActivationMethod.SMS -> {
+                                            if (activationChallenge == null) {
+                                                activationChallenge = accountStore.startActivationSMS(bookingID, session.accessToken, activationContact.trim(), language.localeTag).challengeID
+                                                null
+                                            } else accountStore.confirmActivationSMS(bookingID, session.accessToken, activationChallenge!!, activationCode, language.localeTag)
+                                        }
+                                    }
+                                }.onSuccess { activated -> if (activated != null) load(showLoader = false) }
                                     .onFailure { error = it.message }
                                 busy = false
                             }
@@ -266,6 +293,11 @@ private fun CheckoutActivationCard(
     value: IumrahCheckoutResponse,
     method: CheckoutActivationMethod,
     onMethod: (CheckoutActivationMethod) -> Unit,
+    contact: String,
+    onContact: (String) -> Unit,
+    challenge: String?,
+    code: String,
+    onCode: (String) -> Unit,
     password: String,
     onPassword: (String) -> Unit,
     confirm: String,
@@ -320,16 +352,43 @@ private fun CheckoutActivationCard(
             )
         } else {
             BookingRaisedCard {
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.Top) {
-                    CupertinoIcon(if (method == CheckoutActivationMethod.EMAIL) CupertinoSymbol.Mail else CupertinoSymbol.Message, null, Modifier.size(19.dp), MaterialTheme.colorScheme.onBackground.copy(alpha = .65f))
-                    Text(
-                        if (method == CheckoutActivationMethod.EMAIL)
-                            bookingText(language, "Email-подтверждение остаётся доступно в iOS-потоке. Для этой Android-сборки используйте iumrah ID — он уже привязан к бронированию.", "Email confirmation remains available in the iOS flow. In this Android build, use the iumrah ID already linked to the booking.", "Email tasdiqlash iOS oqimida mavjud. Androidda bron bilan bog‘langan iumrah ID dan foydalaning.", "Email тасдиқлаш iOS оқимида мавжуд. Androidда брон билан боғланган iumrah ID дан фойдаланинг.")
-                        else bookingText(language, "SMS-подтверждение доступно для +998 в основном потоке. Здесь используйте iumrah ID, уже созданный для поездки.", "SMS confirmation is available for +998 in the main flow. Here, use the iumrah ID already created for the trip.", "SMS tasdiqlash +998 uchun asosiy oqimda mavjud. Bu yerda safar uchun yaratilgan iumrah ID dan foydalaning.", "SMS тасдиқлаш +998 учун асосий оқимда мавжуд. Бу ерда сафар учун яратилган iumrah ID дан фойдаланинг."),
-                        fontSize = 13.sp,
-                        lineHeight = 18.sp,
-                        color = MaterialTheme.colorScheme.onBackground.copy(alpha = .58f),
+                Text(
+                    bookingText(language, "Подтвердите контакт, чтобы активировать iumrah ID для этой поездки.", "Verify your contact to activate this trip's iumrah ID.", "Safar iumrah ID sini faollashtirish uchun kontaktingizni tasdiqlang.", "Сафар iumrah ID сини фаоллаштириш учун контактингизни тасдиқланг."),
+                    fontSize = 13.sp, lineHeight = 18.sp, color = MaterialTheme.colorScheme.onBackground.copy(alpha = .58f),
+                )
+                Spacer(Modifier.height(12.dp))
+                if (challenge == null) {
+                    OutlinedTextField(
+                        value = contact,
+                        onValueChange = onContact,
+                        modifier = Modifier.fillMaxWidth(),
+                        label = { Text(if (method == CheckoutActivationMethod.EMAIL) "Email" else "+998") },
+                        keyboardOptions = KeyboardOptions(keyboardType = if (method == CheckoutActivationMethod.EMAIL) KeyboardType.Email else KeyboardType.Phone),
+                        singleLine = true,
+                        shape = RoundedCornerShape(18.dp),
                     )
+                } else {
+                    Text(contact, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                    OutlinedTextField(
+                        value = code,
+                        onValueChange = onCode,
+                        modifier = Modifier.fillMaxWidth(),
+                        label = { Text(bookingText(language, "Шестизначный код", "Six-digit code", "Olti xonali kod", "Олти хонали код")) },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        singleLine = true,
+                        shape = RoundedCornerShape(18.dp),
+                    )
+                }
+                Spacer(Modifier.height(12.dp))
+                Button(
+                    onClick = onActivate,
+                    enabled = !busy && if (challenge == null) {
+                        if (method == CheckoutActivationMethod.EMAIL) contact.contains('@') else contact.trim().startsWith("+998")
+                    } else code.length == 6,
+                    modifier = Modifier.fillMaxWidth().height(52.dp),
+                    shape = RoundedCornerShape(26.dp),
+                ) {
+                    Text(if (challenge == null) bookingText(language, "Отправить код", "Send code", "Kod yuborish", "Код юбориш") else bookingText(language, "Подтвердить и активировать", "Verify & activate", "Tasdiqlash va faollashtirish", "Тасдиқлаш ва фаоллаштириш"))
                 }
             }
         }

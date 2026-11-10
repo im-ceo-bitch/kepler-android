@@ -69,10 +69,13 @@ import com.iumrah.beta.data.hotel.HotelCatalogService
 import com.iumrah.beta.data.hotel.RemotePackageEngineClient
 import com.iumrah.beta.domain.journey.JourneyStore
 import com.iumrah.beta.domain.pricing.PackageGenerator
+import com.iumrah.beta.ui.flights.IumrahGuidedFlightsScreen
 import com.iumrah.beta.ui.flights.FlightSearchScreen
 import com.iumrah.beta.ui.flights.ReturnFlightScreen
 import com.iumrah.beta.ui.flights.FlightDetailsScreen
 import com.iumrah.beta.ui.packageflow.TransferSelectionScreen
+import com.iumrah.beta.ui.packageflow.NuiteeJourneyReviewScreen
+import com.iumrah.beta.ui.trip.NuiteeJourneyHotelsScreen
 import com.iumrah.beta.ui.packageflow.FinalPackageScreen
 import com.iumrah.beta.ui.booking.BookingCheckoutScreen
 import com.iumrah.beta.ui.booking.IumrahBookingCelebrationScreen
@@ -259,6 +262,12 @@ fun AppShell(
                     unreadCount = shellNotificationState.unreadCount,
                 )
 
+                AppRoute.GuidedFlights -> IumrahGuidedFlightsScreen(
+                    language = language, journey = journey, curated = curatedFlights,
+                    discovery = flightDiscovery, airports = airports, chrome = chrome,
+                )
+                AppRoute.NuiteeJourneyHotels -> NuiteeJourneyHotelsScreen(language, journey, chrome)
+                AppRoute.NuiteeJourneyReview -> NuiteeJourneyReviewScreen(language, journey, accountStore, chrome)
                 AppRoute.Flights -> FlightSearchScreen(
                     language = language,
                     journey = journey,
@@ -300,6 +309,7 @@ fun AppShell(
                 AppRoute.AccountTravelers -> AccountTravelCompanionsParityScreen(language, accountStore, bookingStore, accountService, chrome)
                 is AppRoute.AccountTripsHistory -> AccountTripsHistoryScreen(language, bookingStore, chrome, route.initialPast)
                 AppRoute.AccountPasswordRecovery -> AccountPasswordRecoveryScreen(language, accountStore, chrome)
+                AppRoute.AccountPasswordSecurity -> AccountPasswordSecurityScreen(language, accountStore, chrome)
                 is AppRoute.AccountPolicy -> AccountPolicyParityScreen(route.kind, language, chrome)
                 AppRoute.AccountSecurity -> AccountSecurityScreen(language, accountStore, chrome)
                 AppRoute.AccountAppearance -> AccountAppearanceParityScreen(language, settingsStore, chrome)

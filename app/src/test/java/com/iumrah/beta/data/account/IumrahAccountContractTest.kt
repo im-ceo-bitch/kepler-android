@@ -54,6 +54,26 @@ class IumrahAccountContractTest {
         assertFalse(value.isConfirmed)
     }
 
+    @Test fun passwordlessVerificationMatchesCurrentIOS() {
+        val device = IumrahClientDevice("install", "device-secret", "Samsung", "S24", platform="Android", osVersion="16", appVersion="3", locale="ru-UZ")
+        val sms = json.parseToJsonElement(json.encodeToString(IumrahPhoneRegistrationConfirmRequest("challenge", "123456", device))).jsonObject
+        val email = json.parseToJsonElement(json.encodeToString(IumrahRegistrationEmailConfirmRequest("challenge", "123456", "A", "B", device))).jsonObject
+        assertFalse(sms.containsKey("password"))
+        assertFalse(email.containsKey("password"))
+        assertEquals("123456", sms.getValue("code").jsonPrimitive.content)
+        assertEquals("A", email.getValue("firstName").jsonPrimitive.content)
+    }
+
+    @Test fun loginActivationAndSecurityRoutesMatchIOS() {
+        assertEquals("/api/package/client/account/login/email/start", IumrahAccountRoutes.EMAIL_LOGIN_START)
+        assertEquals("/api/package/client/account/login/email/confirm", IumrahAccountRoutes.EMAIL_LOGIN_CONFIRM)
+        assertEquals("/api/package/client/account/activate/sms/start", IumrahAccountRoutes.ACTIVATE_SMS_START)
+        assertEquals("/api/package/client/account/activate/email/confirm", IumrahAccountRoutes.ACTIVATE_EMAIL_CONFIRM)
+        assertEquals("/api/package/client/account/security/authorize/password", IumrahAccountRoutes.SECURITY_AUTHORIZE_PASSWORD)
+        assertEquals("/api/package/client/account/security/password/change", IumrahAccountRoutes.SECURITY_CHANGE_PASSWORD)
+        assertEquals("/api/package/client/account/public-card", IumrahAccountRoutes.PUBLIC_IDENTITY)
+    }
+
     @Test fun routesAreExactlyTheExistingBackendRoutes() {
         assertEquals("/api/package/client/account/login", IumrahAccountRoutes.LOGIN)
         assertEquals("/api/package/client/account/security/register", IumrahAccountRoutes.SECURITY_REGISTER)

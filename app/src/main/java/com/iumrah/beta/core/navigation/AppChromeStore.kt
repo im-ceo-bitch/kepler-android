@@ -30,6 +30,9 @@ sealed interface AppRoute {
     data class ConfiguratorHotelSelection(val role: String) : AppRoute
     data class ConfiguratorHotelDetail(val hotelId: String, val role: String) : AppRoute
     data class FlightPackageDetail(val packageId: String, val sharedConfiguration: HotelConfiguratorDeepLink? = null) : AppRoute
+    data object GuidedFlights : AppRoute
+    data object NuiteeJourneyHotels : AppRoute
+    data object NuiteeJourneyReview : AppRoute
     data object Flights : AppRoute
     data object StorefrontFlights : AppRoute
     data object StorefrontSunday : AppRoute
@@ -59,6 +62,7 @@ sealed interface AppRoute {
     data object AccountTravelers : AppRoute
     data class AccountTripsHistory(val initialPast: Boolean = false) : AppRoute
     data object AccountPasswordRecovery : AppRoute
+    data object AccountPasswordSecurity : AppRoute
     data class AccountPolicy(val kind: String) : AppRoute
     data object AccountSecurity : AppRoute
     data object AccountAppearance : AppRoute
@@ -95,6 +99,9 @@ class AppChromeStore {
     fun openConfiguratorHotelSelection(role: String) = push(AppRoute.ConfiguratorHotelSelection(role), tab = AppTab.BOOKING)
     fun openConfiguratorHotelDetail(id: String, role: String) = push(AppRoute.ConfiguratorHotelDetail(id, role), tab = AppTab.BOOKING)
     fun openFlightPackage(id: String, sharedConfiguration: HotelConfiguratorDeepLink? = null) = push(AppRoute.FlightPackageDetail(id, sharedConfiguration), tab = AppTab.HOTELS)
+    fun openGuidedFlights() = push(AppRoute.GuidedFlights, tab = AppTab.BOOKING)
+    fun openNuiteeJourneyHotels() = push(AppRoute.NuiteeJourneyHotels, tab = AppTab.BOOKING)
+    fun openNuiteeJourneyReview() = push(AppRoute.NuiteeJourneyReview, tab = AppTab.BOOKING)
     fun openFlights() = push(AppRoute.Flights, tab = AppTab.BOOKING)
     fun openStorefrontFlights() = push(AppRoute.StorefrontFlights, tab = AppTab.HOTELS)
     fun openSundayClub() = push(AppRoute.StorefrontSunday, tab = AppTab.HOTELS)
@@ -126,6 +133,7 @@ class AppChromeStore {
     fun openAccountTravelers() = push(AppRoute.AccountTravelers, tab = AppTab.ACCOUNT)
     fun openAccountTripsHistory(initialPast: Boolean = false) = push(AppRoute.AccountTripsHistory(initialPast), tab = AppTab.ACCOUNT)
     fun openAccountPasswordRecovery() = push(AppRoute.AccountPasswordRecovery, tab = AppTab.ACCOUNT)
+    fun openAccountPasswordSecurity() = push(AppRoute.AccountPasswordSecurity, tab = AppTab.ACCOUNT)
     fun openPasswordRecovery() = push(AppRoute.AccountPasswordRecovery)
     fun openAccountPolicy(kind: String) = push(AppRoute.AccountPolicy(kind), tab = AppTab.ACCOUNT)
     fun openBookingPolicy(kind: String) = push(AppRoute.AccountPolicy(kind), tab = AppTab.BOOKING)

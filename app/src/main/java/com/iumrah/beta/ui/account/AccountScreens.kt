@@ -691,6 +691,7 @@ private fun GuestLoginCard(language:AppLanguage,accountStore:IumrahAccountStore,
     val bookings by bookingStore.state.collectAsState()
     val scope=rememberCoroutineScope(); val activity = LocalActivity.current; var register by remember{mutableStateOf(false)}; var method by remember{mutableStateOf("sms")}
     var identifier by remember{mutableStateOf("")};var password by remember{mutableStateOf("")};var code by remember{mutableStateOf("")};var challenge by remember{mutableStateOf<String?>(null)}
+    var emailCodeLogin by remember { mutableStateOf(false) }
     var first by remember{mutableStateOf("")};var last by remember{mutableStateOf("")};var busy by remember{mutableStateOf(false)};var error by remember{mutableStateOf<String?>(null)}
     CardBlock{
         SectionHeader(
@@ -705,23 +706,33 @@ private fun GuestLoginCard(language:AppLanguage,accountStore:IumrahAccountStore,
             AccountField(first,{first=it},tr(language,"First name","Имя","Ism","Исм"));Spacer(Modifier.height(9.dp));AccountField(last,{last=it},tr(language,"Last name","Фамилия","Familiya","Фамилия"));Spacer(Modifier.height(9.dp))
         }
         AccountField(identifier,{identifier=it},when(method){"sms"->"+998";"email"->"Email";else->"UMR ID"},if(method=="sms") KeyboardType.Phone else KeyboardType.Email)
-        if(method=="id" || (!register && method=="email") || (register && (method=="email" || method=="sms") && challenge!=null)){Spacer(Modifier.height(9.dp));AccountField(password,{password=it},tr(language,"Password","Пароль","Parol","Пароль"),password=true)}
-        if(challenge!=null){Spacer(Modifier.height(9.dp));AccountField(code,{code=it},tr(language,"Verification code","Код подтверждения","Tasdiqlash kodi","Тасдиқлаш коди"),KeyboardType.Number)}
+        // Match the current iOS default: Email/password login, with a real OTP alternative
+        // for accounts created without a password. Registration itself uses only OTP.
+        if(!register && method=="email") {
+            TextButton(onClick = { emailCodeLogin = !emailCodeLogin; challenge = null; code = ""; error = null }, modifier = Modifier.fillMaxWidth()) {
+                Text(if(emailCodeLogin) tr(language,"Sign in with password","Войти с паролем","Parol bilan kirish","Парол билан кириш") else tr(language,"Sign in with email code","Войти по коду Email","Email kodi orqali kirish","Email коди орқали кириш"), fontSize = 13.sp)
+            }
+        }
+        if(!register && (method=="id" || (method=="email" && !emailCodeLogin))) {Spacer(Modifier.height(9.dp));AccountField(password,{password=it},tr(language,"Password","Пароль","Parol","Пароль"),password=true)}
+        if(challenge!=null){Spacer(Modifier.height(9.dp));AccountField(code,{code=it.filter(Char::isDigit).take(6)},tr(language,"Six-digit code","Шестизначный код","Olti xonali kod","Олти хонали код"),KeyboardType.Number)}
         error?.let{Spacer(Modifier.height(10.dp));Text(it,color=Danger,fontSize=12.sp)}
         Spacer(Modifier.height(14.dp))
         Button(onClick={busy=true;error=null;scope.launch{runCatching{
             when{
                 register && method=="sms" && challenge==null -> challenge=accountStore.startPhoneRegistration(identifier.trim(),first.trim(),last.trim(),language.localeTag).challengeID
-                register && method=="sms" -> accountStore.confirmPhoneRegistration(challenge!!,code.trim(),password,language.localeTag)
+                register && method=="sms" -> accountStore.confirmPhoneRegistration(challenge!!,code.trim(),language.localeTag)
                 register && method=="email" && challenge==null -> challenge=accountStore.startEmailRegistration(identifier.trim(),language.localeTag).challengeID
-                register && method=="email" -> accountStore.confirmEmailRegistration(challenge!!,code.trim(),password,first.trim(),last.trim(),language.localeTag)
+                register && method=="email" -> accountStore.confirmEmailRegistration(challenge!!,code.trim(),first.trim(),last.trim(),language.localeTag)
                 !register && method=="sms" && challenge==null -> challenge=accountStore.startPhoneLogin(identifier.trim(),language.localeTag).challengeID
                 !register && method=="sms" -> accountStore.confirmPhoneLogin(challenge!!,code.trim(),language.localeTag)
-                !register && (method=="email" || method=="id") -> accountStore.login(identifier.trim(),password,language.localeTag)
+                !register && method=="email" && !emailCodeLogin -> accountStore.login(identifier.trim().lowercase(),password,language.localeTag)
+                !register && method=="email" && challenge==null -> challenge=accountStore.startEmailLogin(identifier.trim().lowercase(),language.localeTag).challengeID
+                !register && method=="email" -> accountStore.confirmEmailLogin(challenge!!,code.trim(),language.localeTag)
+                !register && method=="id" -> accountStore.login(identifier.trim(),password,language.localeTag)
                 else -> throw IllegalStateException(tr(language,"iumrah ID registration is completed from an active booking.","Регистрация по iumrah ID завершается из активного бронирования.","iumrah ID orqali ro‘yxatdan o‘tish faol bron ichida yakunlanadi.","iumrah ID орқали рўйхатдан ўтиш фаол брон ичида якунланади."))
             }
         }.onFailure{error=it.message ?: "Error"};busy=false}},modifier=Modifier.fillMaxWidth().height(56.dp),shape=RoundedCornerShape(19.dp),enabled=!busy,colors=ButtonDefaults.buttonColors(containerColor=Color.Black)){if(busy) CircularProgressIndicator(Modifier.size(20.dp),strokeWidth=2.dp,color=Color.White) else Text(if(challenge==null) tr(language,"Continue","Продолжить","Davom etish","Давом этиш") else tr(language,"Confirm","Подтвердить","Tasdiqlash","Тасдиқлаш"),fontWeight=FontWeight.Bold)}
-        if(!register && (method=="email" || method=="id")){Spacer(Modifier.height(8.dp));TextButton(onClick={chrome.openAccountPasswordRecovery()},modifier=Modifier.fillMaxWidth()){Text(tr(language,"Forgot password?","Забыли пароль?","Parolni unutdingizmi?","Паролни унутдингизми?"),fontSize=14.sp,fontWeight=FontWeight.SemiBold)}}
+        if(!register && (method=="id" || (method=="email" && !emailCodeLogin))){Spacer(Modifier.height(8.dp));TextButton(onClick={chrome.openAccountPasswordRecovery()},modifier=Modifier.fillMaxWidth()){Text(tr(language,"Forgot password?","Забыли пароль?","Parolni unutdingizmi?","Паролни унутдингизми?"),fontSize=14.sp,fontWeight=FontWeight.SemiBold)}}
         if(register && method=="id" && bookings.sessions.isNotEmpty()){Spacer(Modifier.height(10.dp));Text(tr(language,"Use the active booking to finish creating this account.","Используйте активную бронь, чтобы завершить создание аккаунта.","Akkaunt yaratishni yakunlash uchun faol brondan foydalaning.","Аккаунт яратишни якунлаш учун фаол брондан фойдаланинг."),fontSize=12.sp,color=IosGray)}
         Spacer(Modifier.height(16.dp))
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {

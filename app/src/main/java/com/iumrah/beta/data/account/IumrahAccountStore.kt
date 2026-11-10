@@ -64,6 +64,36 @@ class IumrahAccountStore(
         return response.account
     }
 
+    suspend fun startEmailLogin(email: String, locale: String): IumrahEmailChallengeStartResponse =
+        service.startEmailLogin(email, locale)
+
+    suspend fun confirmEmailLogin(challengeID: String, code: String, locale: String): IumrahAccountProfile {
+        val response = service.confirmEmailLogin(challengeID, code, locale)
+        setSession(response)
+        runCatching { service.registerCurrentSession(response.session.token, locale) }
+        return response.account
+    }
+
+    suspend fun startActivationEmail(bookingID: String, bookingToken: String, email: String, locale: String): IumrahEmailChallengeStartResponse =
+        service.startActivationEmail(bookingID, bookingToken, email, locale)
+
+    suspend fun confirmActivationEmail(bookingID: String, bookingToken: String, challengeID: String, code: String, locale: String): IumrahAccountProfile {
+        val response = service.confirmActivationEmail(bookingID, bookingToken, challengeID, code, locale)
+        setSession(response)
+        runCatching { service.registerCurrentSession(response.session.token, locale) }
+        return response.account
+    }
+
+    suspend fun startActivationSMS(bookingID: String, bookingToken: String, phone: String, locale: String): IumrahPhoneLoginStartResponse =
+        service.startActivationSMS(bookingID, bookingToken, phone, locale)
+
+    suspend fun confirmActivationSMS(bookingID: String, bookingToken: String, challengeID: String, code: String, locale: String): IumrahAccountProfile {
+        val response = service.confirmActivationSMS(bookingID, bookingToken, challengeID, code, locale)
+        setSession(response)
+        runCatching { service.registerCurrentSession(response.session.token, locale) }
+        return response.account
+    }
+
     suspend fun login(identifier: String, password: String, locale: String = Locale.getDefault().toLanguageTag()): IumrahAccountProfile {
         val response = service.login(identifier, password, locale)
         setSession(response)
@@ -83,8 +113,8 @@ class IumrahAccountStore(
     suspend fun startPhoneRegistration(phone: String, firstName: String, lastName: String, locale: String): IumrahPhoneLoginStartResponse =
         service.startPhoneRegistration(phone, firstName, lastName, locale)
 
-    suspend fun confirmPhoneRegistration(challengeID: String, code: String, password: String, locale: String): IumrahAccountProfile {
-        val response = service.confirmPhoneRegistration(challengeID, code, password, locale)
+    suspend fun confirmPhoneRegistration(challengeID: String, code: String, locale: String): IumrahAccountProfile {
+        val response = service.confirmPhoneRegistration(challengeID, code, locale)
         setSession(response)
         runCatching { service.registerCurrentSession(response.session.token, locale) }
         return response.account
@@ -93,8 +123,8 @@ class IumrahAccountStore(
     suspend fun startEmailRegistration(email: String, locale: String): IumrahEmailChallengeStartResponse =
         service.startEmailRegistration(email, locale)
 
-    suspend fun confirmEmailRegistration(challengeID: String, code: String, password: String, firstName: String, lastName: String, locale: String): IumrahAccountProfile {
-        val response = service.confirmEmailRegistration(challengeID, code, password, firstName, lastName, locale)
+    suspend fun confirmEmailRegistration(challengeID: String, code: String, firstName: String, lastName: String, locale: String): IumrahAccountProfile {
+        val response = service.confirmEmailRegistration(challengeID, code, firstName, lastName, locale)
         setSession(response)
         runCatching { service.registerCurrentSession(response.session.token, locale) }
         return response.account
@@ -157,12 +187,25 @@ class IumrahAccountStore(
 
     suspend fun linkGoogle(credential: IumrahGoogleCredential): IumrahGoogleLinkResponse = service.linkGoogle(credential, requireToken())
 
-    suspend fun startEmailVerification(email: String, locale: String): IumrahEmailChallengeStartResponse =
-        service.startEmailVerification(email, locale, requireToken())
+    suspend fun authorizeSensitiveAction(password: String): IumrahSensitiveAuthorizationResponse =
+        service.authorizeSensitiveAction(password, requireToken())
 
-    suspend fun confirmEmailVerification(challengeID: String, code: String): IumrahEmailChallengeConfirmResponse {
+    suspend fun authorizeSensitiveActionWithGoogle(credential: IumrahGoogleCredential): IumrahSensitiveAuthorizationResponse =
+        service.authorizeSensitiveActionWithGoogle(credential, requireToken())
+
+    suspend fun changePassword(currentPassword: String, newPassword: String): IumrahPasswordChangeResponse =
+        service.changePassword(currentPassword, newPassword, requireToken())
+
+    suspend fun publicIdentityLink(): IumrahPublicIdentityLinkResponse = service.publicIdentityLink(requireToken())
+
+    suspend fun walletPass(): ByteArray = service.walletPass(requireToken())
+
+    suspend fun startEmailVerification(email: String, locale: String, securityProof: String): IumrahEmailChallengeStartResponse =
+        service.startEmailVerification(email, locale, securityProof, requireToken())
+
+    suspend fun confirmEmailVerification(challengeID: String, code: String, securityProof: String): IumrahEmailChallengeConfirmResponse {
         val current = requireToken()
-        val response = service.confirmEmailVerification(challengeID, code, current)
+        val response = service.confirmEmailVerification(challengeID, code, securityProof, current)
         val profile = _state.value.account
         if (profile != null) {
             val updated = profile.copy(email = response.email)

@@ -30,6 +30,9 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.MaterialTheme
@@ -118,6 +121,8 @@ fun BookingsHomeScreen(
     var checkout by remember { mutableStateOf<IumrahCheckoutResponse?>(null) }
     var itinerary by remember { mutableStateOf<List<BookingItineraryItem>>(emptyList()) }
     var deleteError by remember { mutableStateOf<String?>(null) }
+    var pendingDeleteID by remember { mutableStateOf<String?>(null) }
+    var isDeleting by remember { mutableStateOf(false) }
     var activeGuideProfile by remember { mutableStateOf<IumrahPublicProfile?>(null) }
     var isRefreshing by remember { mutableStateOf(false) }
     val refreshScope = rememberCoroutineScope()
@@ -128,12 +133,17 @@ fun BookingsHomeScreen(
     val activeSession = activeSessions.firstOrNull()
 
     suspend fun refresh() {
-        bookingState.sessions.toList().forEach { session ->
-            runCatching { bookingStore.refresh(session.id) }
-        }
-        activeSession?.let { session ->
+        bookingStore.refreshAll()
+        // Read the latest persisted session after server refresh, never the stale captured Compose object.
+        bookingStore.state.value.sessions.firstOrNull {
+            it.effectiveStatus.uppercase() !in setOf("COMPLETED", "CANCELLED")
+        }?.let { session ->
             checkout = runCatching {
-                accountService.checkout(session.id, bookingStore.headersFor(session))
+                accountService.checkoutWithFallback(
+                    bookingID = session.id,
+                    bookingToken = session.accessToken,
+                    accountToken = bookingStore.accountBearerToken(),
+                )
             }.getOrNull()
             itinerary = runCatching {
                 bookingStore.service.fetchItinerary(session.id, bookingStore.headersFor(session))
@@ -144,7 +154,7 @@ fun BookingsHomeScreen(
         }
     }
 
-    LaunchedEffect(activeSession?.id, bookingState.sessions.size) {
+    LaunchedEffect(activeSession?.id, bookingState.sessions.size, language) {
         refresh()
         while (true) {
             delay(60_000)
@@ -198,15 +208,33 @@ fun BookingsHomeScreen(
                 unreadCount = notificationState.unreadCount,
                 activeGuideProfile = activeGuideProfile,
                 chrome = chrome,
-                onDelete = { id ->
-                    deleteError = null
-                    runCatching { bookingStore.deleteBooking(id) }
-                        .onFailure { deleteError = it.message }
-                },
+                onDelete = { id -> pendingDeleteID = id },
                 deleteError = deleteError,
             )
         }
     }
+    }
+
+    pendingDeleteID?.let { id ->
+        AlertDialog(
+            onDismissRequest = { if (!isDeleting) pendingDeleteID = null },
+            title = { Text(t(language, "Удалить бронирование?", "Delete this booking?", "Bron o‘chirilsinmi?", "Брон ўчирилсинми?")) },
+            text = { Text(t(language, "Это действие удалит бронирование. Восстановить его из приложения не получится.", "This will delete the booking. It cannot be restored from the app.", "Bu bronni o‘chiradi. Uni ilovadan tiklab bo‘lmaydi.", "Бу бронни ўчиради. Уни иловадан тиклаб бўлмайди.")) },
+            confirmButton = {
+                TextButton(enabled = !isDeleting, onClick = {
+                    isDeleting = true
+                    refreshScope.launch {
+                        runCatching { bookingStore.deleteBooking(id) }
+                            .onSuccess { deleteError = null; pendingDeleteID = null }
+                            .onFailure { deleteError = it.message }
+                        isDeleting = false
+                    }
+                }) { Text(t(language, "Удалить", "Delete", "O‘chirish", "Ўчириш"), color = iOSRed) }
+            },
+            dismissButton = {
+                TextButton(enabled = !isDeleting, onClick = { pendingDeleteID = null }) { Text(t(language, "Отмена", "Cancel", "Bekor qilish", "Бекор қилиш")) }
+            },
+        )
     }
 }
 
@@ -222,7 +250,7 @@ private fun ActiveBookingHome(
     unreadCount: Int,
     activeGuideProfile: IumrahPublicProfile?,
     chrome: AppChromeStore,
-    onDelete: suspend (String) -> Unit,
+    onDelete: (String) -> Unit,
     deleteError: String?,
 ) {
     LazyColumn(
@@ -1851,7 +1879,7 @@ private fun CompactBookingCard(
     language: AppLanguage,
     session: StoredBookingSession,
     chrome: AppChromeStore,
-    onDelete: suspend (String) -> Unit,
+    onDelete: (String) -> Unit,
 ) {
     val shape = RoundedCornerShape(22.dp)
     IumrahPressable(
@@ -1889,6 +1917,14 @@ private fun CompactBookingCard(
             }
             CupertinoIcon(CupertinoSymbol.ChevronRight, null, Modifier.size(13.dp), MaterialTheme.colorScheme.onBackground.copy(alpha = .30f))
         }
+    }
+    TextButton(
+        onClick = { onDelete(session.id) },
+        modifier = Modifier.padding(start = 8.dp),
+    ) {
+        CupertinoIcon(CupertinoSymbol.Trash, null, Modifier.size(15.dp), iOSRed)
+        Spacer(Modifier.width(7.dp))
+        Text(t(language, "Удалить бронирование", "Delete booking", "Bronni o‘chirish", "Бронни ўчириш"), fontSize = 12.sp, color = iOSRed)
     }
 }
 

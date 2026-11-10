@@ -40,6 +40,9 @@ class BookingStore(
 
     fun booking(id: String): StoredBookingSession? = _state.value.sessions.firstOrNull { it.id == id }
 
+    /** Read-only account proof for fallback, not persisted with individual bookings. */
+    fun accountBearerToken(): String? = accountStore.bearerToken
+
     fun esimProfiles(bookingID: String): List<ClientESIMProfile> = _state.value.esimProfilesByBooking[bookingID].orEmpty()
     fun primaryESIM(bookingID: String): ClientESIMProfile? = esimProfiles(bookingID).firstOrNull()
 
@@ -244,8 +247,16 @@ class BookingStore(
 
     suspend fun refresh(id: String): StoredBookingSession? {
         val current = booking(id) ?: return null
-        val remote = runCatching { service.fetchBooking(id, current.accessToken) }.getOrNull()
-        val operational = runCatching { service.fetchOperationalTrip(id, headersFor(current)) }.getOrNull()
+        // Account-linked trips can have no booking token. Use the account's own trip endpoint
+        // instead of making a request with an empty x-booking-token proof.
+        val accountDetail = if (current.accessToken.isBlank() && !accountStore.bearerToken.isNullOrBlank()) {
+            runCatching { accountStore.tripDetail(id) }.getOrNull()
+        } else null
+        val remote = accountDetail?.booking ?: current.accessToken.takeIf { it.isNotBlank() }?.let {
+            runCatching { service.fetchBooking(id, it) }.getOrNull()
+        }
+        val operational = if (accountDetail != null) null else
+            runCatching { service.fetchOperationalTrip(id, headersFor(current)) }.getOrNull()
         var next = current
         if (remote != null) {
             next = next.copy(
@@ -256,6 +267,12 @@ class BookingStore(
                 hotelSelection = remote.hotelSelection ?: next.hotelSelection,
                 madinahHotelSelection = remote.madinahHotelSelection ?: next.madinahHotelSelection,
             )
+        }
+        if (accountDetail != null) {
+            next = next.mergeOperationalTrip(accountDetail.trip, accountDetail.statusHistory, accountDetail.assignment)
+            accountDetail.esims?.let { profiles ->
+                _state.update { state -> state.copy(esimProfilesByBooking = if (profiles.isEmpty()) state.esimProfilesByBooking - id else state.esimProfilesByBooking + (id to profiles)) }
+            }
         }
         if (operational != null) {
             operational.esims?.let { profiles ->

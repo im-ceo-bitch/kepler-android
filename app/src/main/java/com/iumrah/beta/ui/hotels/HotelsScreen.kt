@@ -159,6 +159,13 @@ fun HotelsScreen(
     val origin = journeyState.trip.originCode.ifBlank { "TAS" }.uppercase()
 
     var board by rememberSaveable { mutableStateOf(initialBoard) }
+    // iOS November 2026: the Hotels tab is supplier-backed Nuitee, not legacy
+    // generated-package storefront. Keep the existing Flights/Sunday boards intact.
+    if (board == HotelsBoard.HOTELS) {
+        NuiteeHotelsCatalogScreen(language, chrome, onBoard = { board = it }, unreadCount = unreadCount)
+        return
+    }
+
     var refreshSeed by remember { mutableIntStateOf(0) }
     var assemblyExpanded by rememberSaveable { mutableStateOf(false) }
     var displayedOrigin by remember { mutableStateOf(origin) }
