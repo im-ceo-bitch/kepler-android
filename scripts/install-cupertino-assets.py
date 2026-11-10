@@ -8,11 +8,13 @@ registry, and builds an exhaustive Kotlin lookup table. It NEVER draws icons.
 Network is required on the first build, thereafter all outputs are cached.
 """
 import argparse
+import http.client
 import io
 import json
 import pathlib
 import re
 import sys
+import time
 import tarfile
 import urllib.error
 import urllib.request
@@ -38,10 +40,85 @@ ARCHIVE = f"https://pub.dev/api/archives/cupertino_icons-{PACKAGE_VERSION}.tar.g
 DART = f"https://raw.githubusercontent.com/flutter/flutter/{FLUTTER_VERSION}/packages/flutter/lib/src/cupertino/icons.dart"
 
 
-def request(url: str) -> bytes:
-    req = urllib.request.Request(url, headers={"User-Agent": "iumrah-android-cupertino-bootstrap/1.0"})
-    with urllib.request.urlopen(req, timeout=45) as response:
-        return response.read(2_000_000)
+# The pub.dev archive is larger than the old 2,000,000-byte read limit.
+# That limit silently truncated a valid .tar.gz, causing EOFError in CI.
+MAX_DOWNLOAD_BYTES = 32 * 1024 * 1024
+DOWNLOAD_ATTEMPTS = 3
+
+
+def request(url: str, max_bytes: int = MAX_DOWNLOAD_BYTES) -> bytes:
+    """Download the COMPLETE asset, with a size ceiling and transient retries.
+
+    A successful HTTP status alone is not enough: a truncated response can
+    otherwise look like success until gzip/tar parsing starts.
+    """
+    req = urllib.request.Request(
+        url,
+        headers={
+            "User-Agent": "iumrah-android-cupertino-bootstrap/2.0",
+            "Accept-Encoding": "identity",
+        },
+    )
+    for attempt in range(1, DOWNLOAD_ATTEMPTS + 1):
+        try:
+            with urllib.request.urlopen(req, timeout=60) as response:
+                advertised = response.headers.get("Content-Length")
+                if advertised and advertised.isdigit() and int(advertised) > max_bytes:
+                    raise ValueError(f"Asset too large ({advertised} bytes): {url}")
+                data = response.read(max_bytes + 1)
+                if len(data) > max_bytes:
+                    raise ValueError(f"Asset exceeds {max_bytes} bytes: {url}")
+                if not data:
+                    raise OSError(f"Empty download: {url}")
+                if advertised and advertised.isdigit() and len(data) != int(advertised):
+                    raise OSError(
+                        f"Truncated download: expected {advertised} bytes, "
+                        f"received {len(data)} bytes: {url}"
+                    )
+                return data
+        except (OSError, urllib.error.URLError, EOFError, http.client.HTTPException) as exc:
+            if attempt == DOWNLOAD_ATTEMPTS:
+                raise OSError(f"Failed to download {url} after {attempt} attempts: {exc}") from exc
+            print(f"Retry {attempt}/{DOWNLOAD_ATTEMPTS - 1} for {url}: {exc}", file=sys.stderr)
+            time.sleep(attempt)
+    raise AssertionError("Unreachable")
+
+
+def fetch_cupertino_package() -> tuple[bytes, bytes]:
+    """Retry the complete download if the compressed tar stream is corrupt."""
+    for attempt in range(1, DOWNLOAD_ATTEMPTS + 1):
+        try:
+            binary = request(ARCHIVE)
+            with tarfile.open(fileobj=io.BytesIO(binary), mode="r:gz") as pkg:
+                # Streaming a partial gzip may be detected only at getmembers().
+                members = pkg.getmembers()
+                font_member = next(
+                    (x for x in members if x.isfile() and x.name.endswith("assets/CupertinoIcons.ttf")), None
+                )
+                license_member = next(
+                    (x for x in members if x.isfile() and x.name.endswith("LICENSE")), None
+                )
+                if font_member is None or license_member is None:
+                    raise ValueError("Invalid Cupertino archive: missing font or LICENSE")
+                if font_member.size > 8 * 1024 * 1024 or license_member.size > 1 * 1024 * 1024:
+                    raise ValueError("Invalid Cupertino archive: unexpected asset size")
+                font_stream = pkg.extractfile(font_member)
+                license_stream = pkg.extractfile(license_member)
+                if font_stream is None or license_stream is None:
+                    raise ValueError("Invalid Cupertino archive: unreadable assets")
+                font_data = font_stream.read()
+                license_data = license_stream.read()
+            if len(font_data) < 10_000 or font_data[:4] not in (b"\x00\x01\x00\x00", b"OTTO", b"true"):
+                raise ValueError("CupertinoIcons.ttf is invalid")
+            return font_data, license_data
+        except (OSError, EOFError, ValueError, tarfile.TarError) as exc:
+            if attempt == DOWNLOAD_ATTEMPTS:
+                raise ValueError(
+                    f"Cupertino archive invalid after {attempt} attempts: {exc}"
+                ) from exc
+            print(f"Retry Cupertino archive {attempt}/{DOWNLOAD_ATTEMPTS - 1}: {exc}", file=sys.stderr)
+            time.sleep(attempt)
+    raise AssertionError("Unreachable")
 
 
 def parse_dart_symbols(contents: str) -> dict[str, int]:
@@ -93,16 +170,7 @@ def main() -> int:
         return main_verify(symbols)
 
     print(f"Fetching official cupertino_icons {PACKAGE_VERSION} + Flutter {FLUTTER_VERSION} icon registry")
-    binary = request(ARCHIVE)
-    with tarfile.open(fileobj=io.BytesIO(binary), mode="r:gz") as pkg:
-        font_member = next((x for x in pkg.getmembers() if x.name.endswith("assets/CupertinoIcons.ttf")), None)
-        license_member = next((x for x in pkg.getmembers() if x.name.endswith("LICENSE")), None)
-        if font_member is None or license_member is None:
-            raise ValueError("Invalid package: missing font or LICENSE")
-        font_data = pkg.extractfile(font_member).read()
-        license_data = pkg.extractfile(license_member).read()
-    if len(font_data) < 10_000 or font_data[:4] not in (b"\x00\x01\x00\x00", b"OTTO", b"true"):
-        raise ValueError("CupertinoIcons.ttf is invalid")
+    font_data, license_data = fetch_cupertino_package()
     codepoints = parse_dart_symbols(request(DART).decode("utf-8"))
     resolved = {}
     fallback_selections = {}
@@ -166,7 +234,7 @@ def main_verify(symbols: list[str]) -> int:
 if __name__ == "__main__":
     try:
         raise SystemExit(main())
-    except (OSError, urllib.error.URLError, ValueError, AssertionError) as exc:
+    except (OSError, urllib.error.URLError, ValueError, AssertionError, EOFError) as exc:
         print(f"Cupertino icon bootstrap FAILED: {exc}", file=sys.stderr)
         print("Requires Internet on first build. This project deliberately does NOT fall back to handmade icons.", file=sys.stderr)
         raise SystemExit(1)
