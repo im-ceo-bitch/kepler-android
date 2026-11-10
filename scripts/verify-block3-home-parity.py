@@ -47,8 +47,8 @@ def main():
     check('private fun HomeTripToolsSection' in home and 'Arrangement.spacedBy(13.dp)' in home,'Pilgrim tools block present with 13dp section spacing')
     check('modifier = modifier.height(98.dp)' in home and 'cornerRadius = 22.dp' in home and 'Modifier.height(28.dp)' in home and 'Modifier.height(10.dp)' in home,'Three tool tiles have iOS 98/22/28/10 geometry')
     check('fontSize = 11.sp' in home and 'textAlign = TextAlign.Center' in home, 'Tools text uses centered compact caption')
-    for action in ('chrome.openPrayerTimes()', 'chrome.openHomeWeather()', 'chrome.openUmrahAdvisor()'):
-        check(action in home,'Trip tool destination '+action)
+    for action in ('chrome.openPrayerTimes()', 'chrome.openHomeWeather()', 'chrome.openUmrahFlow()'):
+        check(action in home,'Trip tool destination (current iOS Umrah Flow) '+action)
     check('AppRoute.HomeWeather -> HomeWeatherScreen(language, chrome)' in shell and 'fun openHomeWeather()' in nav,'Weather tool routes to working screen')
     check('JourneyTravelInfoPanel(language, initialPage = 1)' in weather and 'initialPage: Int = 0' in panel,'Weather view opens real travel weather forecast, existing Booking keeps default prayer tab')
     check('HomeScreen(language, chrome, hotelCatalog, journey, airports, curatedFlights, bookingStore, notifications, accountStore.bearerToken)' in shell,'Home receives real airport/flight data, bookings and notification token')

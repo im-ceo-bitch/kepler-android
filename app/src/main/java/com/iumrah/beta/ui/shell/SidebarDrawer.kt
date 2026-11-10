@@ -116,6 +116,11 @@ private fun SidebarDrawer(language: AppLanguage, chrome: AppChromeStore) {
             AppLanguage.UZBEK -> "Namoz vaqtlari"
             AppLanguage.UZBEK_CYRILLIC -> "Намоз вақтлари"
         }) { chrome.openPrayerTimes() }
+        DrawerRow(CupertinoSymbol.SignalWave, when (language) {
+            AppLanguage.RUSSIAN -> "Umrah Flow · Гид"
+            AppLanguage.UZBEK, AppLanguage.UZBEK_CYRILLIC -> "Umrah Flow · Yo‘riqnoma"
+            else -> "Umrah Flow · Guide"
+        }) { chrome.openUmrahFlow() }
         SidebarESIMCard(language, chrome)
         Spacer(Modifier.weight(1f))
         Text("Independent Umrah · iumrah", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurface.copy(alpha = .35f))

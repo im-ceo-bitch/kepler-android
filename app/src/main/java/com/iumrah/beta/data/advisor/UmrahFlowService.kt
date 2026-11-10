@@ -12,6 +12,9 @@ import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.builtins.MapSerializer
 import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
+import com.iumrah.beta.domain.umrahflow.UmrahFlowAudioUrlPolicy
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.net.URLEncoder
@@ -41,7 +44,20 @@ class UmrahFlowService(
         .build(),
 ) {
     private val json = Json { ignoreUnknownKeys = true }
-    private val cache = context?.applicationContext?.getSharedPreferences("iumrah.umrahFlow", Context.MODE_PRIVATE)
+    private val applicationContext = context?.applicationContext
+    private val cache = applicationContext?.getSharedPreferences("iumrah.umrahFlow", Context.MODE_PRIVATE)
+    private val offlineCatalog by lazy {
+        runCatching {
+            applicationContext?.assets?.open("umrah_flow_catalog.json")?.bufferedReader()?.use {
+                json.parseToJsonElement(it.readText()).jsonObject
+            }
+        }.getOrNull()
+    }
+
+    private fun bundled(type: String, language: String): Map<String, String> = runCatching {
+        offlineCatalog?.get(type)?.jsonObject?.get(language)?.jsonObject
+            ?.mapValues { (_, item) -> item.jsonPrimitive.content } ?: emptyMap()
+    }.getOrDefault(emptyMap())
     private val mapSerializer = MapSerializer(String.serializer(), String.serializer())
 
     fun cached(language: String): UmrahFlowContent {
@@ -51,9 +67,10 @@ class UmrahFlowService(
             return try { json.decodeFromString(mapSerializer, raw) }
             catch (_: Exception) { emptyMap() }
         }
+        // Audited bundled copy takes precedence over an older on-device cache.
         return UmrahFlowContent(
-            translations = read("translations").filterKeys { it in UmrahFlowKeys.all },
-            audio = read("audio").filterValues(::validAudioUrl),
+            translations = (read("translations") + bundled("translations", language)).filterKeys { it in UmrahFlowKeys.all },
+            audio = (read("audio") + bundled("audio", language)).filterValues(UmrahFlowAudioUrlPolicy::isAllowed),
         )
     }
 
@@ -63,10 +80,11 @@ class UmrahFlowService(
         val freshText = async(Dispatchers.IO) { safeFetch { loadTranslations(language) } }
         val freshAudio = async(Dispatchers.IO) { safeFetch { loadAudio(language) } }
         val requestedText = freshText.await().orEmpty()
-        val requestedAudio = freshAudio.await().orEmpty().filterValues(::validAudioUrl)
+        val requestedAudio = freshAudio.await().orEmpty().filterValues(UmrahFlowAudioUrlPolicy::isAllowed)
 
-        var translations = requestedText.ifEmpty { snapshot.translations }
-        val audio = requestedAudio.ifEmpty { snapshot.audio }
+        // Never discard the reviewed offline content when the live API returns a partial table.
+        var translations = snapshot.translations + requestedText
+        val audio = snapshot.audio + requestedAudio
         // As on iOS, use English only if no text rows exist for the selected language.
         if (translations.isEmpty() && language != "en") {
             val englishSnapshot = cached("en").translations
@@ -92,12 +110,6 @@ class UmrahFlowService(
         cache?.edit()?.putString("$type.$language", json.encodeToString(mapSerializer, values))?.apply()
     }
 
-    private fun validAudioUrl(url: String): Boolean =
-        runCatching {
-            val parsed = java.net.URI(url)
-            parsed.scheme.equals("https", ignoreCase = true) && !parsed.host.isNullOrBlank() &&
-                parsed.userInfo == null && url.length <= 2048
-        }.getOrDefault(false)
 
     private fun loadTranslations(language: String): Map<String, String> {
         for (table in listOf("translations2", "translations")) {

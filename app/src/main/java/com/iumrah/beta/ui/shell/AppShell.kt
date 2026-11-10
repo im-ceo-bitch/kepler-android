@@ -90,6 +90,7 @@ import com.iumrah.beta.ui.ziyarats.BookingZiyaratCatalogScreen
 import com.iumrah.beta.ui.esim.ESIMScreen
 import com.iumrah.beta.ui.liveflights.IumrahFlightsScreen
 import com.iumrah.beta.ui.planning.UmrahPlanScreen
+import com.iumrah.beta.ui.umrahflow.UmrahFlowScreen
 import com.iumrah.beta.ui.telegram.TelegramIntegrationScreen
 import com.iumrah.beta.ui.carerequest.IumrahCareRequestScreen
 import com.iumrah.beta.ui.transferservice.IumrahTransferServiceScreen
@@ -300,6 +301,7 @@ fun AppShell(
                 AppRoute.LiveFlights -> IumrahFlightsScreen(language, bookingStore, chrome)
                 AppRoute.UmrahPlan -> UmrahPlanScreen(language, chrome)
                 AppRoute.UmrahAdvisor -> UmrahAdvisorScreen(language, chrome)
+                AppRoute.UmrahFlow -> UmrahFlowScreen(language, chrome)
                 AppRoute.TelegramIntegration -> TelegramIntegrationScreen(language, bookingStore, accountStore, chrome)
                 AppRoute.CareRequest -> IumrahCareRequestScreen(language, airports, accountStore, settingsStore, chrome)
                 AppRoute.TransferService -> IumrahTransferServiceScreen(language, chrome)

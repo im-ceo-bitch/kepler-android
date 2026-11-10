@@ -53,6 +53,7 @@ sealed interface AppRoute {
     data object LiveFlights : AppRoute
     data object UmrahPlan : AppRoute
     data object UmrahAdvisor : AppRoute
+    data object UmrahFlow : AppRoute
     data object TelegramIntegration : AppRoute
     data object CareRequest : AppRoute
     data object TransferService : AppRoute
@@ -122,6 +123,7 @@ class AppChromeStore {
     fun openLiveFlights() = push(AppRoute.LiveFlights, tab = AppTab.HOME)
     fun openUmrahPlan() = push(AppRoute.UmrahPlan, tab = AppTab.HOME)
     fun openUmrahAdvisor() = push(AppRoute.UmrahAdvisor, tab = AppTab.HOME)
+    fun openUmrahFlow() = push(AppRoute.UmrahFlow, tab = AppTab.HOME)
     fun openTelegramIntegration() = push(AppRoute.TelegramIntegration, tab = AppTab.HOME)
     fun openAccountTelegramIntegration() = push(AppRoute.TelegramIntegration, tab = AppTab.ACCOUNT)
     fun openBookingTelegramIntegration() = push(AppRoute.TelegramIntegration, tab = AppTab.BOOKING)
