@@ -1,0 +1,149 @@
+name: iumrah APK Test Build
+
+# Manual test build of the Android application. Does not publish to Play Store.
+# Fix: setup-android@v3 requested deprecated Android SDK "tools" and failed before compilation.
+on:
+  workflow_dispatch:
+    inputs:
+      run_unit_tests:
+        description: 'Run Android JVM unit tests after building the APK'
+        required: true
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: iumrah-apk-test-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  debug-apk:
+    name: Build and test debug APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 65
+    env:
+      GRADLE_OPTS: -Dorg.gradle.daemon=false
+
+    steps:
+      - name: Checkout current branch
+        uses: actions/checkout@v4
+
+      - name: Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      # setup-android@v3 tries to install Google's removed legacy "tools" package.
+      # v4.0.2+ fixes this. No need to request the legacy package at all.
+      - name: Configure Android SDK (no deprecated tools package)
+        uses: android-actions/setup-android@v4.0.4
+        with:
+          packages: ''
+
+      - name: Install Android SDK 36 and Build Tools 36.0.0
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/apk-test
+          command -v sdkmanager
+          sdkmanager --version | tee artifacts/apk-test/sdkmanager-version.txt
+          sdkmanager --install 'platform-tools' 'platforms;android-36' 'build-tools;36.0.0' \
+            2>&1 | tee artifacts/apk-test/android-sdk-install.log
+          test -d "${ANDROID_HOME}/platforms/android-36"
+          test -x "${ANDROID_HOME}/build-tools/36.0.0/aapt"
+
+      # This repository has no gradlew wrapper. AGP 9.4.0 requires Gradle 9.6.0.
+      - name: Configure Gradle 9.6.0
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.6.0'
+
+      - name: Check project environment
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s settings.gradle.kts
+          test -s build.gradle.kts
+          test -s app/build.gradle.kts
+          test -s app/src/main/AndroidManifest.xml
+          mkdir -p artifacts/apk-test
+          gradle --version | tee artifacts/apk-test/gradle-version.txt
+          if [[ -f scripts/verify-build-env.sh ]]; then
+            bash scripts/verify-build-env.sh | tee artifacts/apk-test/environment-check.txt
+          fi
+
+      - name: Assemble installable debug APK
+        id: apk
+        shell: bash
+        run: |
+          set -euo pipefail
+          gradle --no-daemon --stacktrace --console=plain :app:assembleDebug \
+            2>&1 | tee artifacts/apk-test/assemble-debug.log
+
+      - name: Run Android JVM unit tests
+        id: tests
+        if: ${{ inputs.run_unit_tests }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gradle --no-daemon --stacktrace --console=plain :app:testDebugUnitTest \
+            2>&1 | tee artifacts/apk-test/unit-tests.log
+
+      - name: Verify APK and print package details
+        id: validate
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK='app/build/outputs/apk/debug/app-debug.apk'
+          test -s "$APK" || { echo "APK missing: $APK"; exit 1; }
+          AAPT="$ANDROID_HOME/build-tools/36.0.0/aapt"
+          test -x "$AAPT" || { echo "Android aapt missing: $AAPT"; exit 1; }
+          "$AAPT" dump badging "$APK" | tee artifacts/apk-test/apk-package.txt
+          grep -q "package: name='com.iumrah.beta'" artifacts/apk-test/apk-package.txt || {
+            echo 'Unexpected application ID; this must be the test build com.iumrah.beta.'
+            exit 1
+          }
+          sha256sum "$APK" | tee artifacts/apk-test/apk-sha256.txt
+          ls -lh "$APK"
+
+      # Upload the APK even when tests fail: that helps diagnose device-only defects.
+      - name: Upload test APK
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: iumrah-debug-apk-${{ github.run_number }}
+          path: app/build/outputs/apk/debug/*.apk
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Upload build logs and test reports
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: iumrah-build-reports-${{ github.run_number }}
+          path: |
+            artifacts/apk-test/
+            app/build/reports/tests/
+            app/build/test-results/
+            app/build/reports/problems/
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Workflow summary
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          {
+            echo '## iumrah Android APK test'
+            echo ''
+            echo "- Commit: \`${GITHUB_SHA}\`"
+            echo "- Debug APK build: \`${{ steps.apk.outcome }}\`"
+            echo "- JVM unit tests: \`${{ steps.tests.outcome }}\`"
+            echo "- APK verification: \`${{ steps.validate.outcome }}\`"
+            echo ''
+            echo 'When the APK step succeeds, download **iumrah-debug-apk** from this run’s Artifacts section.'
+            echo 'The APK is a DEBUG build for installation/testing, not a Play Store release.'
+          } >> "$GITHUB_STEP_SUMMARY"
