@@ -61,3 +61,6 @@ python3 scripts/verify-ios-ui-v8.py
 
 # V9 production hardening source guards.
 python3 scripts/verify-ios-production-v9.py
+
+# V10 offline release gate. The real signed-artifact tests run in release CI.
+python3 scripts/verify-release-v10.py

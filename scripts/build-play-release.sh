@@ -6,15 +6,12 @@ cd "$ROOT"
 
 VERSION_CODE="${1:-${PLAY_VERSION_CODE:-}}"
 VERSION_NAME="${2:-${PLAY_VERSION_NAME:-2.0.3}}"
-if [[ -z "$VERSION_CODE" || ! "$VERSION_CODE" =~ ^[0-9]+$ ]]; then
-  echo "Usage: $0 <PLAY_VERSION_CODE> [PLAY_VERSION_NAME]"
-  echo "Example: $0 15 2.0.3"
-  exit 2
-fi
-if (( VERSION_CODE < 15 )); then
-  echo 'STOP: versionCode must be greater than the archived Google Play version 14.'
-  exit 1
-fi
+# A failed run must never leave an earlier candidate looking current.
+rm -rf artifacts/play-release
+mkdir -p artifacts/play-release
+REPORTS="$ROOT/artifacts/play-release"
+# Validate before using version input in paths or shell arithmetic.
+python3 scripts/release_input.py "$VERSION_CODE" "$VERSION_NAME"
 
 required=(PLAY_KEYSTORE_PATH PLAY_STORE_PASSWORD PLAY_KEY_ALIAS PLAY_KEY_PASSWORD)
 for name in "${required[@]}"; do
@@ -22,7 +19,8 @@ for name in "${required[@]}"; do
 done
 [[ -f "$PLAY_KEYSTORE_PATH" ]] || { echo "STOP: upload keystore not found: $PLAY_KEYSTORE_PATH"; exit 1; }
 
-ACTUAL_CERT="$(keytool -exportcert -alias "$PLAY_KEY_ALIAS" -keystore "$PLAY_KEYSTORE_PATH" -storepass "$PLAY_STORE_PASSWORD" 2>/dev/null | sha256sum | awk '{print toupper($1)}')"
+ACTUAL_CERT="$(keytool -exportcert -alias "$PLAY_KEY_ALIAS" -keystore "$PLAY_KEYSTORE_PATH" -storepass:env PLAY_STORE_PASSWORD 2>/dev/null | sha256sum | awk '{print toupper($1)}')"
+: "${PLAY_UPLOAD_CERT_SHA256:?Set the Google Play Console upload certificate SHA-256 (not the app signing certificate)}"
 if [[ -n "${PLAY_UPLOAD_CERT_SHA256:-}" ]]; then
   EXPECTED_CERT="$(printf '%s' "$PLAY_UPLOAD_CERT_SHA256" | tr -d '[:space:]:' | tr '[:lower:]' '[:upper:]')"
   [[ "$ACTUAL_CERT" == "$EXPECTED_CERT" ]] || {
@@ -32,7 +30,7 @@ if [[ -n "${PLAY_UPLOAD_CERT_SHA256:-}" ]]; then
     exit 1
   }
 fi
-printf '%s\n' "$ACTUAL_CERT" > artifacts-upload-cert.tmp
+printf '%s\n' "$ACTUAL_CERT" > "$REPORTS/upload-key-sha256.txt"
 
 if [[ -x ./gradlew ]]; then
   GRADLE="$ROOT/gradlew"
@@ -44,9 +42,18 @@ fi
 bash scripts/verify-stage25.sh
 bash scripts/verify-build-env.sh
 
-rm -rf artifacts/play-release
-mkdir -p artifacts/play-release
-mv artifacts-upload-cert.tmp artifacts/play-release/upload-key-sha256.txt
+# The final decoded bundle manifest is a mandatory release gate.
+: "${BUNDLETOOL_JAR:?Set BUNDLETOOL_JAR to the official bundletool executable JAR}"
+[[ -s "$BUNDLETOOL_JAR" ]] || { echo 'STOP: bundletool JAR missing'; exit 1; }
+SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}"
+TOOLS="$SDK_ROOT/build-tools/36.0.0"
+for tool in apksigner zipalign aapt; do
+  [[ -x "$TOOLS/$tool" ]] || { echo "STOP: missing Android build tool: $tool"; exit 1; }
+done
+# Reject a half-configured Firebase build; production push must be provisioned.
+for name in IUMRAH_FIREBASE_API_KEY IUMRAH_FIREBASE_APP_ID IUMRAH_FIREBASE_PROJECT_ID IUMRAH_FIREBASE_SENDER_ID; do
+  [[ -n "${!name:-}" ]] || { echo "STOP: missing production Firebase configuration: $name"; exit 1; }
+done
 
 # User-requested production dependency audit. Resolve the exact release graph before compiling.
 "$GRADLE" --no-daemon --console=plain \
@@ -117,9 +124,13 @@ AAB="$(find app/build/outputs/bundle/release -maxdepth 1 -type f -name '*.aab' -
 APK="$(find app/build/outputs/apk/release -maxdepth 1 -type f -name '*.apk' -print -quit || true)"
 
 unzip -t "$AAB" >/dev/null
-if command -v jarsigner >/dev/null; then
-  jarsigner -verify "$AAB" >/dev/null || { echo 'STOP: AAB JAR signature verification failed.'; exit 1; }
-fi
+java scripts/qa/VerifyAabSigner.java "$AAB" "$ACTUAL_CERT" | tee "$REPORTS/aab-signature.txt"
+[[ -n "$APK" && -s "$APK" ]] || { echo 'STOP: release APK missing'; exit 1; }
+"$TOOLS/apksigner" verify --verbose --print-certs "$APK" | tee "$REPORTS/apk-signature.txt"
+"$TOOLS/zipalign" -c -P 16 -v 4 "$APK" > "$REPORTS/apk-zipalign.txt"
+bash scripts/verify-16kb-native-libs.sh "$APK"
+"$TOOLS/aapt" dump badging "$APK" > "$REPORTS/apk-badging.txt"
+python3 scripts/verify_release_apk.py "$REPORTS/apk-signature.txt" "$REPORTS/apk-badging.txt" "$ACTUAL_CERT" "$VERSION_CODE" "$VERSION_NAME"
 bash scripts/verify-16kb-native-libs.sh "$AAB"
 python3 scripts/verify_no_play_billing.py --aab "$AAB" | tee artifacts/play-release/aab-no-billing.log
 
@@ -137,19 +148,22 @@ if grep -nEi 'com\.android\.vending\.BILLING|com\.android\.billingclient|billing
   exit 1
 fi
 
-# If bundletool is available, also decode the AAB manifest exactly as Play sees it.
-if [[ -n "${BUNDLETOOL_JAR:-}" && -f "$BUNDLETOOL_JAR" ]]; then
-  MANIFEST_XML="artifacts/play-release/AndroidManifest.bundletool-release.xml"
-  java -jar "$BUNDLETOOL_JAR" dump manifest --bundle="$AAB" > "$MANIFEST_XML"
-  python3 scripts/verify_play_manifest.py "$MANIFEST_XML" "$VERSION_CODE"
+# Validate the actual bundle, not just the source or merged manifest.
+java -jar "$BUNDLETOOL_JAR" validate --bundle="$AAB" | tee "$REPORTS/bundletool-validate.txt"
+MANIFEST_XML="$REPORTS/AndroidManifest.bundletool-release.xml"
+java -jar "$BUNDLETOOL_JAR" dump manifest --bundle="$AAB" > "$MANIFEST_XML"
+python3 scripts/verify_play_manifest.py "$MANIFEST_XML" "$VERSION_CODE" "$VERSION_NAME"
+java -jar "$BUNDLETOOL_JAR" dump config --bundle="$AAB" > "$REPORTS/bundle-config.txt"
+if ! grep -q 'PAGE_ALIGNMENT_16K' "$REPORTS/bundle-config.txt"; then
+  echo 'STOP: AAB does not declare 16 KB page alignment.'; exit 1
 fi
 
 OUT="artifacts/play-release/iumrah-${VERSION_NAME}-vc${VERSION_CODE}-release.aab"
 cp "$AAB" "$OUT"
 sha256sum "$OUT" | tee "${OUT}.sha256"
-if [[ -n "$APK" && -s "$APK" ]]; then
-  cp "$APK" "artifacts/play-release/iumrah-${VERSION_NAME}-vc${VERSION_CODE}-release.apk"
-fi
+APK_OUT="artifacts/play-release/iumrah-${VERSION_NAME}-vc${VERSION_CODE}-release.apk"
+cp "$APK" "$APK_OUT"
+sha256sum "$APK_OUT" | tee "${APK_OUT}.sha256"
 
 cat > artifacts/play-release/RELEASE.txt <<TXT
 iumrah Android Google Play release
@@ -162,4 +176,6 @@ Google Play Billing SDK: absent (source + resolved releaseRuntimeClasspath + mer
 artifact: $(basename "$OUT")
 TXT
 
+# Only the last successful step marks these artifacts as eligible for upload.
+printf '%s\n' "Verified signed AAB and APK" > "$REPORTS/RC_VERIFIED.txt"
 echo "READY: $OUT"

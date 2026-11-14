@@ -16,11 +16,17 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: iumrah-play-release-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   build-aab:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 90
     env:
+      PLAY_VERSION_CODE: ${{ inputs.version_code }}
+      PLAY_VERSION_NAME: ${{ inputs.version_name }}
       # Accept current PLAY_* names, the older PLAY_KEYSTORE_BASE64 name, and IUMRAH_UPLOAD_* names
       # already used by earlier iumrah release workflows.
       PLAY_STORE_PASSWORD: ${{ secrets.PLAY_STORE_PASSWORD || secrets.IUMRAH_UPLOAD_STORE_PASSWORD }}
@@ -36,16 +42,24 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Validate release input and source gates
+        run: |
+          python3 scripts/release_input.py "$PLAY_VERSION_CODE" "$PLAY_VERSION_NAME"
+          bash scripts/verify-stage25.sh
+
       - name: JDK 17
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
 
+      - name: Test release verification (signed and unsigned fixtures)
+        run: python3 -m unittest discover -s scripts/tests -p 'test_release_v10.py'
+
       # v3 became unusable after Google removed the legacy SDK package named "tools".
       # v4 uses cmdline-tools and no longer requests that deleted package.
       - name: Android SDK
-        uses: android-actions/setup-android@v4
+        uses: android-actions/setup-android@v4.0.4
         with:
           packages: ''
 
@@ -62,6 +76,17 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '9.6.0'
+
+      - name: Install pinned bundletool
+        shell: bash
+        run: |
+          set -euo pipefail
+          bundletool="$RUNNER_TEMP/bundletool-1.18.2.jar"
+          curl --fail --location --retry 3 --retry-delay 2 \
+            https://github.com/google/bundletool/releases/download/1.18.2/bundletool-all-1.18.2.jar \
+            -o "$bundletool"
+          test "$(java -jar "$bundletool" version)" = '1.18.2'
+          echo "BUNDLETOOL_JAR=$bundletool" >> "$GITHUB_ENV"
 
       - name: Restore Play upload keystore
         shell: bash
@@ -91,7 +116,7 @@ jobs:
           chmod 600 "$RUNNER_TEMP/iumrah-signing/upload.jks"
           keytool -list \
             -keystore "$RUNNER_TEMP/iumrah-signing/upload.jks" \
-            -storepass "$PLAY_STORE_PASSWORD" \
+            -storepass:env PLAY_STORE_PASSWORD \
             -alias "$PLAY_KEY_ALIAS" >/dev/null
           echo "PLAY_KEYSTORE_PATH=$RUNNER_TEMP/iumrah-signing/upload.jks" >> "$GITHUB_ENV"
 
@@ -99,12 +124,38 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          bash scripts/build-play-release.sh '${{ inputs.version_code }}' '${{ inputs.version_name }}'
+          bash scripts/build-play-release.sh "$PLAY_VERSION_CODE" "$PLAY_VERSION_NAME"
+          test -s artifacts/play-release/RC_VERIFIED.txt
 
       - name: Upload Play artifact
         uses: actions/upload-artifact@v4
         with:
           name: iumrah-play-${{ inputs.version_name }}-vc${{ inputs.version_code }}
-          path: artifacts/play-release/*
+          path: |
+            artifacts/play-release/*.aab
+            artifacts/play-release/*.apk
+            artifacts/play-release/*.sha256
+            artifacts/play-release/RC_VERIFIED.txt
+            artifacts/play-release/RELEASE.txt
           if-no-files-found: error
           retention-days: 14
+
+      - name: Upload diagnostics even on failure
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: iumrah-play-diagnostics-${{ github.run_number }}
+          path: |
+            artifacts/play-release/*.txt
+            artifacts/play-release/*.log
+            artifacts/play-release/*.xml
+            app/build/reports/
+            app/build/test-results/
+            app/build/outputs/mapping/release/
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Remove upload keystore
+        if: ${{ always() }}
+        shell: bash
+        run: rm -rf "$RUNNER_TEMP/iumrah-signing"
