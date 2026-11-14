@@ -18,12 +18,13 @@ class SecureJsonStore(context: Context) {
 
     @Synchronized
     fun <T> read(key: String, serializer: KSerializer<T>): T? {
-        val encoded = prefs.getString(key, null) ?: return null
         return try {
+            val encoded = prefs.getString(key, null) ?: return null
             val raw = decrypt(encoded)
             json.decodeFromString(serializer, raw)
-        } catch (_: Throwable) {
-            prefs.edit().remove(key).apply()
+        } catch (_: Exception) {
+            // A transient Keystore or decoding error is not an instruction to erase
+            // the only persisted booking/access proof. Keep the ciphertext intact.
             null
         }
     }
@@ -53,14 +54,15 @@ class SecureJsonStore(context: Context) {
         val iv = fromB64(pieces[0])
         val cipherText = fromB64(pieces[1])
         val cipher = Cipher.getInstance(TRANSFORMATION)
-        cipher.init(Cipher.DECRYPT_MODE, secretKey(), GCMParameterSpec(128, iv))
+        cipher.init(Cipher.DECRYPT_MODE, secretKey(createIfMissing = false), GCMParameterSpec(128, iv))
         return cipher.doFinal(cipherText).toString(Charsets.UTF_8)
     }
 
-    private fun secretKey(): SecretKey {
+    private fun secretKey(createIfMissing: Boolean = true): SecretKey = synchronized(keyLock) {
         val keyStore = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
-        (keyStore.getKey(KEY_ALIAS, null) as? SecretKey)?.let { return it }
+        (keyStore.getKey(KEY_ALIAS, null) as? SecretKey)?.let { return@synchronized it }
 
+        check(createIfMissing) { "Secure storage key is unavailable" }
         val generator = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, "AndroidKeyStore")
         generator.init(
             KeyGenParameterSpec.Builder(
@@ -73,13 +75,14 @@ class SecureJsonStore(context: Context) {
                 .setKeySize(256)
                 .build(),
         )
-        return generator.generateKey()
+        generator.generateKey()
     }
 
     private fun b64(bytes: ByteArray): String = Base64.encodeToString(bytes, Base64.NO_WRAP or Base64.URL_SAFE)
     private fun fromB64(value: String): ByteArray = Base64.decode(value, Base64.NO_WRAP or Base64.URL_SAFE)
 
     companion object {
+        private val keyLock = Any()
         private const val PREFS_NAME = "iumrah.secure.kepler"
         private const val KEY_ALIAS = "com.iumrah.beta.kepler.secure.v1"
         private const val TRANSFORMATION = "AES/GCM/NoPadding"

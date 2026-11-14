@@ -157,6 +157,7 @@ fun IumrahApp() {
 
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
         IumrahIntelligence.resume(telemetryScreen)
+        container.connectivityMonitor.refresh()
         if (!settings.hasCompletedOnboarding) return@LifecycleEventEffect
         container.pushManager.refreshToken()
         scope.launch {

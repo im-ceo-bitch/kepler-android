@@ -19,5 +19,21 @@ fun main()=runBlocking {
  svc.fetchError=null; val before=svc.fetchCalls; awaitAll(async{store.refreshAll()},async{store.refreshAll()}); check(svc.fetchCalls==before+1)
  val owned=BookingStore(svc,acc,SecureJsonStore(listOf(StoredBookingSession("b","",remote,accountOwnerID="A"))),RemotePackageEngineClient()); check(owned.booking("b")!=null)
  acc.state.value=IumrahAccountStore.State("B"); acc.bearerToken="tokenB"; owned.reconcileAccountScope(); check(owned.booking("b")==null); check(owned.state.value.sessions.isEmpty())
- println("BookingStore runtime with fake transport/vault: 11 assertions passed")
+ // V9: same store, real creation lock; fake remote service counts writes.
+ val createService=BookingService().also { it.remote=remote; it.operational=ClientTripResponse(true,trip) }
+ val guest=IumrahAccountStore().also { it.state.value=IumrahAccountStore.State(null); it.bearerToken=null }
+ val checkout=BookingStore(createService,guest,SecureJsonStore(emptyList()),RemotePackageEngineClient())
+ val journey=com.iumrah.beta.domain.journey.JourneyState()
+ val quote=com.iumrah.beta.domain.pricing.PackageQuote("proof",true,"server-test")
+ suspend fun create()=checkout.create(journey,quote,com.iumrah.beta.core.settings.AppLanguage.RUSSIAN,null)
+ val pending=async(start=CoroutineStart.UNDISPATCHED){create()}
+ check(runCatching{create()}.exceptionOrNull() is IllegalStateException)
+ check(pending.await().id=="b"); check(createService.createCalls==1); check(!checkout.state.value.isMutating)
+ createService.createError=APIException.Status(503)
+ check(runCatching{create()}.exceptionOrNull() is APIException.Status)
+ check(!checkout.state.value.isMutating)
+ createService.createError=null
+ val cancelled=launch(start=CoroutineStart.UNDISPATCHED){create()}; cancelled.cancelAndJoin()
+ check(!checkout.state.value.isMutating); check(create().id=="b"); check(createService.createCalls==4)
+ println("BookingStore runtime with fake transport/vault: 20 assertions passed (including V9 checkout guard)")
 }

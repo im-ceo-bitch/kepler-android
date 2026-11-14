@@ -58,7 +58,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
@@ -96,7 +95,6 @@ import com.iumrah.beta.data.hotel.HotelCatalogService
 import com.iumrah.beta.data.hotel.StorefrontCatalogCache
 import com.iumrah.beta.domain.journey.JourneyStore
 import com.iumrah.beta.models.flight.Airport
-import com.iumrah.beta.models.hotel.HotelDetail
 import com.iumrah.beta.models.hotel.HotelSummary
 import com.iumrah.beta.models.hotel.StorefrontFlightLeg
 import com.iumrah.beta.models.hotel.StorefrontFlightOption
@@ -131,11 +129,6 @@ import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.coroutines.resume
 
 enum class HotelsBoard { HOTELS, FLIGHTS, SUNDAY }
-
-private data class HotelPreview(
-    val images: List<String> = emptyList(),
-    val detail: HotelDetail? = null,
-)
 
 private data class StorefrontInitialLoad(
     val makkah: Result<List<HotelSummary>>,
@@ -189,7 +182,10 @@ fun HotelsScreen(
     var locatingAirport by remember { mutableStateOf(false) }
     var flightOriginFilter by rememberSaveable { mutableStateOf<String?>(null) }
     var flightDestinationFilter by rememberSaveable { mutableStateOf<String?>(null) }
-    val previews = remember { mutableStateMapOf<String, HotelPreview>() }
+    // Build one lookup per server snapshot, not once per visible card/recomposition.
+    val packagesByHotel = remember(hotelPackages) {
+        hotelPackages.groupBy { it.hotelFirstAnchorHotelId ?: it.makkahHotelId ?: it.madinahHotelId }
+    }
     // Public hotel listings may be displayed offline. Package prices are never
     // restored from disk; they must be validated by the server for this session.
     val catalogCache = remember(context) { StorefrontCatalogCache(context) }
@@ -393,17 +389,10 @@ fun HotelsScreen(
                 if (makkah.isNotEmpty()) {
                     item { StorefrontSectionHeader(L10n.text("hotels_makkah", language), L10n.text("hotels_selected_badge", language)) }
                     items(makkah, key = { "m-${it.id}" }) { hotel ->
-                        LaunchedEffect(hotel.id) {
-                            if (previews[hotel.id] == null) {
-                                runCatching { service.hotelDetail(hotel.id) }.getOrNull()?.let { detail ->
-                                    previews[hotel.id] = HotelPreview(detail.images.sortedBy { it.position }.map { it.url }, detail)
-                                }
-                            }
-                        }
-                        val quote = bestHotelPackage(hotel, hotelPackages)
+                        val candidates = packagesByHotel[hotel.id].orEmpty()
+                        val quote = remember(hotel.id, candidates) { bestHotelPackage(hotel, candidates) }
                         HotelStorefrontCard(
                             hotel = hotel,
-                            preview = previews[hotel.id],
                             quote = quote,
                             language = language,
                             favorite = hotel.id in favorites,
@@ -420,17 +409,10 @@ fun HotelsScreen(
                 if (madinah.isNotEmpty()) {
                     item { StorefrontSectionHeader(L10n.text("hotels_madinah", language), L10n.text("hotels_selected_badge", language)) }
                     items(madinah, key = { "d-${it.id}" }) { hotel ->
-                        LaunchedEffect(hotel.id) {
-                            if (previews[hotel.id] == null) {
-                                runCatching { service.hotelDetail(hotel.id) }.getOrNull()?.let { detail ->
-                                    previews[hotel.id] = HotelPreview(detail.images.sortedBy { it.position }.map { it.url }, detail)
-                                }
-                            }
-                        }
-                        val quote = bestHotelPackage(hotel, hotelPackages)
+                        val candidates = packagesByHotel[hotel.id].orEmpty()
+                        val quote = remember(hotel.id, candidates) { bestHotelPackage(hotel, candidates) }
                         HotelStorefrontCard(
                             hotel = hotel,
-                            preview = previews[hotel.id],
                             quote = quote,
                             language = language,
                             favorite = hotel.id in favorites,
@@ -822,7 +804,6 @@ private fun StorefrontSectionHeader(title: String, eyebrow: String, subtitle: St
 @Composable
 private fun HotelStorefrontCard(
     hotel: HotelSummary,
-    preview: HotelPreview?,
     quote: StorefrontPackageSnapshot?,
     language: AppLanguage,
     favorite: Boolean,
@@ -839,7 +820,7 @@ private fun HotelStorefrontCard(
                 .clickable { onOpen() },
         ) {
             Box(Modifier.width(mediaWidth).fillMaxHeight()) {
-                HotelCollage(preview?.images.orEmpty(), hotel.coverImageURL)
+                HotelCover(hotel.coverImageURL)
                 Row(Modifier.padding(9.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     MediaCircle(onFavorite) {
                         CupertinoIcon(if (favorite) CupertinoSymbol.HeartFill else CupertinoSymbol.Heart, null, Modifier.size(14.dp), if (favorite) Color(0xFFFF5C77) else Color.White)
@@ -889,24 +870,15 @@ private fun HotelStorefrontCard(
 }
 
 @Composable
-private fun HotelCollage(images: List<String>, fallback: String?) {
-    val urls = buildList {
-        addAll(images.filter { it.isNotBlank() }.take(3))
-        if (isEmpty() && !fallback.isNullOrBlank()) add(fallback)
-        while (size < 3 && isNotEmpty()) add(first())
-    }
-    if (urls.isEmpty()) {
+private fun HotelCover(cover: String?) {
+    // iOS catalogue uses a single cover when only one preview is available.
+    // Full-resolution galleries are fetched only after opening the hotel.
+    if (cover.isNullOrBlank()) {
         Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surfaceVariant), contentAlignment = Alignment.Center) {
             CupertinoIcon(CupertinoSymbol.Hotel, null, Modifier.size(30.dp), MaterialTheme.colorScheme.onSurface.copy(alpha = .25f))
         }
-        return
-    }
-    Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-        StorefrontImage(urls[0], Modifier.fillMaxWidth().weight(.63f))
-        Row(Modifier.fillMaxWidth().weight(.37f), horizontalArrangement = Arrangement.spacedBy(3.dp)) {
-            StorefrontImage(urls.getOrElse(1) { urls[0] }, Modifier.weight(1f).fillMaxSize())
-            StorefrontImage(urls.getOrElse(2) { urls[0] }, Modifier.weight(1f).fillMaxSize())
-        }
+    } else {
+        StorefrontImage(cover, Modifier.fillMaxSize())
     }
 }
 

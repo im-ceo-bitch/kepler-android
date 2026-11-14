@@ -4,10 +4,13 @@ import com.iumrah.beta.models.hotel.HotelSummary
 import com.iumrah.beta.models.hotel.HotelRoom
 import com.iumrah.beta.models.hotel.IumrahRoomCategoryOption
 class BookingService {
- var fetchError:Throwable?=null; var remote:RemoteBooking?=null; var operational:ClientTripResponse?=null; var fetchCalls=0
+ var fetchError:Throwable?=null; var remote:RemoteBooking?=null; var operational:ClientTripResponse?=null; var fetchCalls=0; var createCalls=0; var createError:Throwable?=null
  suspend fun fetchBooking(id:String,token:String):RemoteBooking { fetchCalls++; kotlinx.coroutines.delay(40); fetchError?.let{throw it}; return requireNotNull(remote) }
  suspend fun fetchOperationalTrip(id:String,headers:Map<String,String>):ClientTripResponse = requireNotNull(operational)
- suspend fun createBooking(request:BookingCreateEnvelope):BookingCreateResponse = error("not used")
+ suspend fun createBooking(request:BookingCreateEnvelope):BookingCreateResponse {
+     createCalls++; kotlinx.coroutines.delay(60); createError?.let { throw it }
+     return BookingCreateResponse(requireNotNull(remote),"proof")
+ }
  suspend fun syncBookingProfile(id:String,token:String,profile:BookingPilgrimProfile,trace:BookingGeneratorTrace?=null):ClientTripResponse = requireNotNull(operational)
  suspend fun syncGeneratorReport(id:String,token:String,trace:BookingGeneratorTrace?):ClientTripResponse = requireNotNull(operational)
  suspend fun registerPushDevice(id:String,headers:Map<String,String>,token:String,locale:String)=PushResponse(true)

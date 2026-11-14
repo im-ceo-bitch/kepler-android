@@ -44,7 +44,6 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -91,7 +90,8 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 
 private enum class DiscoveryTripType { ONE_WAY, ROUND_TRIP }
 private enum class DiscoveryAirportRole { ORIGIN, DESTINATION }
@@ -106,7 +106,6 @@ fun FlightDiscoveryPanel(
     showEmbeddedAssembly: Boolean = true,
 ) {
     val context = LocalContext.current
-    val scope = rememberCoroutineScope()
     val journeyState by journey.state.collectAsState()
     val trip = journeyState.trip
     val favoritesStore = remember { FlightFavoritesStore(context) }
@@ -135,6 +134,8 @@ fun FlightDiscoveryPanel(
     var recommendedLoading by remember { mutableStateOf(false) }
     var recommendedError by remember { mutableStateOf<String?>(null) }
     var hasSearched by remember { mutableStateOf(false) }
+    var retrySeed by remember { mutableStateOf(0) }
+    val searchGeneration = remember { java.util.concurrent.atomic.AtomicLong(0) }
 
     var airportPicker by remember { mutableStateOf<DiscoveryAirportRole?>(null) }
     var routeMap by remember { mutableStateOf(false) }
@@ -148,8 +149,12 @@ fun FlightDiscoveryPanel(
     val notificationPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
 
     suspend fun refresh() {
-        if (originCode.length != 3 || destinationCode.length != 3 || originCode.equals(destinationCode, true)) {
-            offers = emptyList(); calendar = emptyList(); return
+        val generation = searchGeneration.incrementAndGet()
+        val from = originCode
+        val to = destinationCode
+        val onlyDirect = directOnly
+        if (from.length != 3 || to.length != 3 || from.equals(to, true)) {
+            offers = emptyList(); calendar = emptyList(); loading = false; error = null; return
         }
         IumrahIntelligence.record("search_started", "flights", "global")
         loading = true
@@ -157,33 +162,45 @@ fun FlightDiscoveryPanel(
         val departure = departureDate.toString()
         val month = departure.take(7)
         val inbound = if (tripType == DiscoveryTripType.ROUND_TRIP) returnDate.toString() else null
-        runCatching {
-            coroutineScope {
-                val cal = async { service.calendar(originCode, destinationCode, month, directOnly) }
-                val exact = async { service.offers(originCode, destinationCode, departure, inbound, directOnly, 100) }
+        try {
+            val (cal, exact) = coroutineScope {
+                val cal = async { service.calendar(from, to, month, onlyDirect) }
+                val exact = async { service.offers(from, to, departure, inbound, onlyDirect, 100) }
                 cal.await() to exact.await()
             }
-        }.onSuccess { (cal, exact) ->
-            calendar = cal.days
-            currency = exact.currency.ifBlank { cal.currency }
             val selectedDayRows = exact.offers.toMutableList()
             if (selectedDayRows.size < 6) {
-                runCatching { service.offers(originCode, destinationCode, month, inbound, directOnly, 100) }
-                    .getOrNull()?.offers?.filter { it.departureAt.take(10) == departure }?.let(selectedDayRows::addAll)
+                val extra = try {
+                    service.offers(from, to, month, inbound, onlyDirect, 100)
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (_: Exception) {
+                    null
+                }
+                extra?.offers?.filter { it.departureAt.take(10) == departure }?.let(selectedDayRows::addAll)
             }
+            currentCoroutineContext().ensureActive()
+            if (searchGeneration.get() != generation) return
+            // Publish one consistent result after all optional requests have completed.
             cal.days.firstOrNull { it.date == departure }?.offer?.let(selectedDayRows::add)
+            calendar = cal.days
+            currency = exact.currency.ifBlank { cal.currency }
             offers = selectedDayRows.distinctBy { listOf(it.originAirport, it.destinationAirport, it.airlineCode, it.flightNumber, it.departureAt, it.price.toInt()).joinToString("|") }
             favorites = favoritesStore.reconcile(offers, currency, language)
             IumrahIntelligence.record("search_results", "flights", if (offers.isEmpty()) "empty" else "available")
-        }.onFailure {
-            if (it is CancellationException) throw it
-            error = discoveryText(language, "load_error")
-            IumrahIntelligence.record("error", "flights", "search")
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (_: Exception) {
+            if (searchGeneration.get() == generation) {
+                error = discoveryText(language, "load_error")
+                IumrahIntelligence.record("error", "flights", "search")
+            }
+        } finally {
+            if (searchGeneration.get() == generation) loading = false
         }
-        loading = false
     }
 
-    LaunchedEffect(mode, originCode, destinationCode, departureDate, returnDate, tripType, directOnly, adults, children, infants, trip.scope) {
+    LaunchedEffect(mode, originCode, destinationCode, departureDate, returnDate, tripType, directOnly, adults, children, infants, trip.scope, retrySeed) {
         if (mode == FlightSearchMode.GLOBAL) {
             delay(320)
             hasSearched = true
@@ -217,13 +234,15 @@ fun FlightDiscoveryPanel(
             .thenBy { if (it.durationMinutes > 0) it.durationMinutes else Int.MAX_VALUE }
             .thenBy { it.departureAt })
     }
-    val cheapest = filtered.map { it.price }.filter { it > 0 }.minOrNull()
-    val fastest = filtered.map { it.durationMinutes }.filter { it > 0 }.minOrNull()
+    val cheapest = remember(filtered) { filtered.asSequence().map { it.price }.filter { it > 0 }.minOrNull() }
+    val fastest = remember(filtered) { filtered.asSequence().map { it.durationMinutes }.filter { it > 0 }.minOrNull() }
     val selectedDay = departureDate.toString()
     val nearby = remember(calendar, selectedDay) {
-        calendar.filter { it.date != selectedDay }.sortedWith(compareBy<FlightDiscoveryCalendarDay> {
-            runCatching { kotlin.math.abs(LocalDate.parse(it.date).toEpochDay() - departureDate.toEpochDay()) }.getOrDefault(Long.MAX_VALUE)
-        }.thenBy { it.price }).take(12)
+        val departureEpoch = departureDate.toEpochDay()
+        calendar.filter { it.date != selectedDay }.map { day ->
+            day to runCatching { kotlin.math.abs(LocalDate.parse(day.date).toEpochDay() - departureEpoch) }.getOrDefault(Long.MAX_VALUE)
+        }.sortedWith(compareBy<Pair<FlightDiscoveryCalendarDay, Long>> { it.second }.thenBy { it.first.price })
+            .take(12).map { it.first }
     }
 
     Column(verticalArrangement = Arrangement.spacedBy(22.dp)) {
@@ -273,7 +292,7 @@ fun FlightDiscoveryPanel(
         if (loading && ranked.isEmpty()) {
             DiscoveryLoadingCard(language)
         } else if (error != null && ranked.isEmpty()) {
-            DiscoveryInfoCard(error!!, discoveryText(language, "retry")) { scope.launch { refresh() } }
+            DiscoveryInfoCard(error!!, discoveryText(language, "retry")) { retrySeed += 1 }
         } else if (ranked.isEmpty()) {
             DiscoveryInfoCard(discoveryText(language, "empty"), discoveryText(language, "change")) { datePicker = true }
         } else {

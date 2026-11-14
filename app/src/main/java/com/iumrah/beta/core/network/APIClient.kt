@@ -1,10 +1,7 @@
 package com.iumrah.beta.core.network
 
 import com.iumrah.beta.core.config.AppConfig
-import java.io.IOException
 import java.util.concurrent.TimeUnit
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerializationException
@@ -33,6 +30,10 @@ class APIClient(
 ) {
     // A redirect must not send a booking token or account credential to another origin.
     private val client = client.newBuilder().followRedirects(false).followSslRedirects(false).build()
+
+    // Reads may recover from a broken connection; mutation calls must not be
+    // transparently replayed by the transport after an ambiguous failure.
+    private val mutationClient = this.client.newBuilder().retryOnConnectionFailure(false).build()
 
     val json: Json = Json {
         ignoreUnknownKeys = true
@@ -88,7 +89,7 @@ class APIClient(
         path: String,
         headers: Map<String, String> = emptyMap(),
         timeoutSeconds: Long? = null,
-    ): ByteArray = withContext(Dispatchers.IO) {
+    ): ByteArray {
         val url = absoluteUrl(path)
         val request = Request.Builder()
             .url(url)
@@ -97,10 +98,8 @@ class APIClient(
             .header("User-Agent", USER_AGENT)
             .apply { headers.forEach { (k, v) -> header(k, v) } }
             .build()
-        execute(request, timeoutSeconds).use { response ->
-            val bytes = response.body.bytes()
-            if (!response.isSuccessful) throw errorFor(response, bytes)
-            bytes
+        return execute(request, timeoutSeconds) { response ->
+            checkedBody(response, MAX_MEDIA_BYTES)
         }
     }
 
@@ -171,29 +170,34 @@ class APIClient(
         request: Request,
         serializer: KSerializer<T>,
         timeoutSeconds: Long?,
-    ): T = withContext(Dispatchers.IO) {
-        execute(request, timeoutSeconds).use { response ->
-            val bytes = response.body.bytes()
-            if (!response.isSuccessful) throw errorFor(response, bytes)
-            val text = bytes.toString(Charsets.UTF_8)
-            try {
-                json.decodeFromString(serializer, text)
-            } catch (error: SerializationException) {
-                throw APIException.Decoding(error)
-            }
+    ): T = execute(request, timeoutSeconds) { response ->
+        val bytes = checkedBody(response, MAX_JSON_BYTES)
+        val text = bytes.toString(Charsets.UTF_8)
+        try {
+            json.decodeFromString(serializer, text)
+        } catch (error: SerializationException) {
+            throw APIException.Decoding(error)
         }
     }
 
-    private fun execute(request: Request, timeoutSeconds: Long?): Response {
-        val selectedClient = if (timeoutSeconds != null && timeoutSeconds > 25) client.newBuilder()
-            .readTimeout(timeoutSeconds, TimeUnit.SECONDS).build() else client
+    private suspend fun <T> execute(request: Request, timeoutSeconds: Long?, consume: (Response) -> T): T {
+        require(timeoutSeconds == null || timeoutSeconds > 0)
+        val base = if (request.method == "GET" || request.method == "HEAD") client else mutationClient
+        val selectedClient = if (timeoutSeconds != null && timeoutSeconds > 25) base.newBuilder()
+            .readTimeout(timeoutSeconds, TimeUnit.SECONDS).build() else base
         val call = selectedClient.newCall(request)
         if (timeoutSeconds != null) call.timeout().timeout(timeoutSeconds, TimeUnit.SECONDS)
-        return try {
-            call.execute()
-        } catch (error: IOException) {
-            throw error
+        return call.awaitResult(consume)
+    }
+
+    private fun checkedBody(response: Response, limit: Int): ByteArray {
+        // Preserve status even if an upstream error page is huge or malformed.
+        if (!response.isSuccessful) {
+            val bytes = try { readBounded(response.body.byteStream(), MAX_ERROR_BYTES) }
+            catch (_: java.io.IOException) { ByteArray(0) }
+            throw errorFor(response, bytes)
         }
+        return readBounded(response.body.byteStream(), limit, response.body.contentLength())
     }
 
     private fun errorFor(response: Response, bytes: ByteArray): APIException {
@@ -209,14 +213,19 @@ class APIClient(
 
     companion object {
         private val JSON_MEDIA_TYPE = "application/json; charset=utf-8".toMediaType()
+        private const val MAX_JSON_BYTES = 16 * 1024 * 1024
+        private const val MAX_MEDIA_BYTES = 64 * 1024 * 1024
+        private const val MAX_ERROR_BYTES = 64 * 1024
         private const val USER_AGENT = "iumrah-android-beta/0.2"
 
-        private fun defaultClient(): OkHttpClient = OkHttpClient.Builder()
+        private val sharedTransport by lazy { OkHttpClient.Builder()
             .connectTimeout(25, TimeUnit.SECONDS)
             .readTimeout(25, TimeUnit.SECONDS)
             .writeTimeout(25, TimeUnit.SECONDS)
             .callTimeout(60, TimeUnit.SECONDS)
             .retryOnConnectionFailure(true)
-            .build()
+            .build() }
+
+        private fun defaultClient(): OkHttpClient = sharedTransport
     }
 }

@@ -39,6 +39,7 @@ class BookingStore(
     private val vault: SecureJsonStore,
     private val packageEngine: RemotePackageEngineClient,
 ) {
+    private val createMutex = Mutex()
     private val refreshMutex = Mutex()
     private val restoreMutex = Mutex()
     private val linkMutex = Mutex()
@@ -153,6 +154,8 @@ class BookingStore(
         language: AppLanguage,
         pilgrimProfile: BookingPilgrimProfile?,
     ): StoredBookingSession {
+        // Reject concurrent checkout submissions rather than queueing a second booking.
+        check(createMutex.tryLock()) { "Booking creation is already in progress." }
         _state.update { it.copy(isMutating = true, lastError = null) }
         try {
             val quoteProof = quote.quoteProof?.trim().orEmpty()
@@ -225,6 +228,8 @@ class BookingStore(
         } catch (error: Throwable) {
             _state.update { it.copy(isMutating = false, lastError = error.message) }
             throw error
+        } finally {
+            createMutex.unlock()
         }
     }
 
@@ -423,7 +428,7 @@ class BookingStore(
         val waits = listOf(0L, 350L, 800L)
         for (wait in waits) {
             if (wait > 0) delay(wait)
-            runCatching { service.syncGeneratorReport(id, accessToken, trace) }.getOrNull()?.let { return it }
+            attempt { service.syncGeneratorReport(id, accessToken, trace) }?.let { return it }
         }
         return null
     }

@@ -4,13 +4,16 @@ import android.content.Context
 import android.net.ConnectivityManager
 import android.net.Network
 import android.net.NetworkCapabilities
+import android.os.SystemClock
 import com.iumrah.beta.core.config.AppConfig
 import java.io.Closeable
 import java.util.concurrent.TimeUnit
-import java.util.concurrent.atomic.AtomicLong
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -19,95 +22,98 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 
 enum class IumrahConnectivityStatus(val title: String) {
-    CHECKING("Checking"),
-    ONLINE("Online"),
-    OFFLINE("Offline"),
+    CHECKING("Checking"), ONLINE("Online"), OFFLINE("Offline"),
 }
 
-/**
- * Android mirror of iOS IumrahConnectivityMonitor.
- * ConnectivityManager reacts to radio/Wi-Fi changes immediately; a unified backend health probe
- * prevents a connected-but-unusable network from being presented as online.
- */
+/** Presentation-only reachability; one active probe, like the iOS path monitor. */
 class IumrahConnectivityMonitor(context: Context) : Closeable {
     private val manager = context.applicationContext.getSystemService(ConnectivityManager::class.java)
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-    private val probeGeneration = AtomicLong(0)
-    private val client = OkHttpClient.Builder()
-        .connectTimeout(4, TimeUnit.SECONDS)
-        .readTimeout(4, TimeUnit.SECONDS)
-        .writeTimeout(4, TimeUnit.SECONDS)
-        .callTimeout(5, TimeUnit.SECONDS)
-        .retryOnConnectionFailure(false)
-        .followRedirects(false)
-        .followSslRedirects(false)
-        .build()
-
+    private var probeJob: Job? = null
+    private var generation = 0L
+    private var lastNetwork: Network? = null
+    private var lastProbe: Long? = null
+    private var closed = false
     private val _status = MutableStateFlow(IumrahConnectivityStatus.CHECKING)
     val status: StateFlow<IumrahConnectivityStatus> = _status.asStateFlow()
 
     private val callback = object : ConnectivityManager.NetworkCallback() {
-        override fun onAvailable(network: Network) = evaluate(network)
-        override fun onCapabilitiesChanged(network: Network, capabilities: NetworkCapabilities) = evaluate(network, capabilities)
-        override fun onLost(network: Network) = evaluate(manager.activeNetwork)
-        override fun onUnavailable() { setOffline() }
+        override fun onAvailable(network: Network) = refresh()
+        override fun onCapabilitiesChanged(network: Network, capabilities: NetworkCapabilities) = refresh()
+        override fun onLost(network: Network) = refresh()
+        override fun onUnavailable() = refresh()
     }
 
     init {
-        runCatching { manager.registerDefaultNetworkCallback(callback) }
-            .onFailure { refresh() }
+        runCatching { manager?.registerDefaultNetworkCallback(callback) }
         refresh()
     }
 
+    @Synchronized
     fun refresh() {
-        evaluate(manager.activeNetwork)
-    }
-
-    private fun evaluate(network: Network?, provided: NetworkCapabilities? = null) {
-        if (network == null) {
-            setOffline()
-            return
-        }
-        val capabilities = provided ?: manager.getNetworkCapabilities(network)
-        val hasInternet = capabilities?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) == true
+        if (closed) return
+        val network = runCatching { manager?.activeNetwork }.getOrNull()
+        val hasInternet = network != null && runCatching {
+            manager?.getNetworkCapabilities(network)?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) == true
+        }.getOrDefault(false)
         if (!hasInternet) {
-            setOffline()
+            generation++
+            probeJob?.cancel()
+            probeJob = null
+            lastNetwork = null
+            lastProbe = null
+            _status.value = IumrahConnectivityStatus.OFFLINE
             return
         }
+        val now = SystemClock.elapsedRealtime()
+        if (network == lastNetwork && lastProbe?.let { now - it in 0 until 20_000L } == true) return
+        lastNetwork = network
+        lastProbe = now
         if (_status.value == IumrahConnectivityStatus.OFFLINE) _status.value = IumrahConnectivityStatus.CHECKING
-        probe()
-    }
-
-    private fun probe() {
-        val generation = probeGeneration.incrementAndGet()
-        scope.launch {
-            val request = Request.Builder()
-                .url(AppConfig.HEALTH_URL)
-                .get()
-                .header("Accept", "application/json")
-                .header("User-Agent", "iumrah-android-beta/connectivity")
-                .build()
-            val reachable = runCatching {
-                client.newCall(request).execute().use { response ->
-                    response.isSuccessful && runCatching {
-                        org.json.JSONObject(response.body.string()).optBoolean("ok", false)
-                    }.getOrDefault(false)
+        probeJob?.cancel()
+        val current = ++generation
+        probeJob = scope.launch {
+            val reachable = try {
+                val request = Request.Builder().url(AppConfig.HEALTH_URL).get()
+                    .header("Accept", "application/json")
+                    .header("Cache-Control", "no-cache")
+                    .header("User-Agent", "iumrah-android-beta/connectivity").build()
+                client.newCall(request).awaitResult { response ->
+                    response.isSuccessful && org.json.JSONObject(
+                        readBounded(response.body.byteStream(), 64 * 1024).toString(Charsets.UTF_8)
+                    ).optBoolean("ok", false)
                 }
-            }.getOrDefault(false)
-            if (probeGeneration.get() == generation) {
-                _status.value = if (reachable) IumrahConnectivityStatus.ONLINE else IumrahConnectivityStatus.OFFLINE
+            } catch (error: CancellationException) {
+                throw error
+            } catch (_: Exception) {
+                false
             }
+            publish(current, reachable)
         }
     }
 
-    private fun setOffline() {
-        probeGeneration.incrementAndGet()
-        _status.value = IumrahConnectivityStatus.OFFLINE
+    @Synchronized
+    private fun publish(current: Long, reachable: Boolean) {
+        if (!closed && generation == current) {
+            _status.value = if (reachable) IumrahConnectivityStatus.ONLINE else IumrahConnectivityStatus.OFFLINE
+        }
     }
 
+    @Synchronized
     override fun close() {
-        runCatching { manager.unregisterNetworkCallback(callback) }
-        client.dispatcher.executorService.shutdown()
-        client.connectionPool.evictAll()
+        if (closed) return
+        closed = true
+        generation++
+        probeJob?.cancel()
+        scope.cancel()
+        runCatching { manager?.unregisterNetworkCallback(callback) }
+    }
+
+    // Process-lifetime transport, not invalidated while callbacks may still be queued.
+    companion object {
+        private val client = OkHttpClient.Builder()
+            .connectTimeout(4, TimeUnit.SECONDS).readTimeout(4, TimeUnit.SECONDS)
+            .writeTimeout(4, TimeUnit.SECONDS).callTimeout(5, TimeUnit.SECONDS)
+            .retryOnConnectionFailure(false).followRedirects(false).followSslRedirects(false).build()
     }
 }

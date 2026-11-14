@@ -38,10 +38,10 @@ need('Modifier.fillMaxWidth().height(204.dp)' in HOTELS and
      '"★".repeat(stars.coerceIn(1, 5))' in HOTELS and
      'IumrahIconRole.RATING.color' in HOTELS,
      'Hotel card footprint / media width and star color match iOS')
-need('Arrangement.spacedBy(3.dp)' in HOTELS and
-     '.weight(.63f)' in HOTELS and '.weight(.37f)' in HOTELS and
+need('HotelCover(hotel.coverImageURL)' in HOTELS and
+     'service.hotelDetail(hotel.id)' not in HOTELS and
      'MediaCircle(onFavorite)' in HOTELS and 'MediaCircle(onShare)' in HOTELS,
-     'Hotel collage 1+2 layout and overlaid actions retained')
+     'Catalogue cover without per-card API requests; overlaid actions retained')
 need('IumrahIconRole.UMRAH.color' in HOTELS and
      'CupertinoSymbol.PackageBox' in HOTELS and
      'inboundCode.equals(option.outbound.airlineCode' in HOTELS and
