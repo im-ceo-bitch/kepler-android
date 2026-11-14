@@ -890,11 +890,12 @@ private fun BookingFlightCard(flight: BookingGeneratorFlightSnapshot, language: 
             HorizontalDivider(color = MaterialTheme.colorScheme.onBackground.copy(alpha = .08f))
             Spacer(Modifier.height(14.dp))
             Column(verticalArrangement = Arrangement.spacedBy(11.dp)) {
-                BookingFlightFact(bookingText(language, "Аэропорт вылета", "Departure airport", "Jo‘nash aeroporti", "Жўнаш аэропорти"), flight.origin.uppercase())
-                BookingFlightFact(bookingText(language, "Аэропорт прилёта", "Arrival airport", "Yetib borish aeroporti", "Етиб бориш аэропорти"), flight.destination.uppercase())
-                BookingFlightFact(bookingText(language, "Вылет", "Departure", "Jo‘nash", "Жўнаш"), bookingFullDateTime(flight.departureAt, language))
-                BookingFlightFact(bookingText(language, "Прилёт", "Arrival", "Yetib kelish", "Етиб келиш"), bookingFullDateTime(flight.arrivalAt, language))
-                flight.durationMinutes?.let { BookingFlightFact(bookingText(language, "В пути", "Duration", "Yo‘lda", "Йўлда"), "${it / 60}h ${it % 60}m") }
+                val segments=flight.segments.orEmpty()
+                if(segments.isEmpty()) {
+                    com.iumrah.beta.ui.flights.IumrahPremiumFlightDetail(com.iumrah.beta.ui.flights.PremiumFlightLeg(flight.origin,flight.destination,flight.departureAt,flight.arrivalAt,"",flight.flightNumbers,flight.airline,flight.stops,flight.durationMinutes ?: 0),language)
+                } else segments.forEach { segment ->
+                    com.iumrah.beta.ui.flights.IumrahPremiumFlightDetail(com.iumrah.beta.ui.flights.PremiumFlightLeg(segment.origin,segment.destination,segment.departureAt,segment.arrivalAt,segment.airlineCode.orEmpty(),segment.flightNumber,segment.airline,0,0,segment.cabin,segment.aircraft,segment.operatingCarrier),language)
+                }
             }
         }
     }

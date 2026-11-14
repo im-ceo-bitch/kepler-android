@@ -14,6 +14,7 @@ data class FlightDiscoveryOffer(
     val durationMinutes: Int = 210,
     val returnAt: String? = null,
     val outboundSegments: List<Stage10Segment>? = null,
+    val arrivalAt: String? = null,
 ) {
     val isRoundTrip: Boolean get() = !returnAt.isNullOrBlank()
 }

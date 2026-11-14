@@ -47,6 +47,7 @@ import androidx.lifecycle.compose.LifecycleEventEffect
 import kotlinx.coroutines.launch
 import com.iumrah.beta.ui.onboarding.OnboardingFlow
 import com.iumrah.beta.ui.shell.AppShell
+import com.iumrah.beta.ui.components.IumrahSignatureLaunchHost
 
 @Composable
 fun IumrahApp() {
@@ -174,6 +175,7 @@ fun IumrahApp() {
             return@IumrahTheme
         }
 
+        IumrahSignatureLaunchHost(settings.hasCompletedOnboarding, skip = chrome.route != AppRoute.Root || chrome.currentTab != AppTab.HOME || pushState.openRevision != 0L) {
         AnimatedContent(
             targetState = settings.hasCompletedOnboarding,
             modifier = Modifier.fillMaxSize(),
@@ -216,6 +218,7 @@ fun IumrahApp() {
                 )
             }
         }
+        }
     }
     }
 }
@@ -254,15 +257,14 @@ private suspend fun routeOpenedPush(event: IumrahPushEvent?, container: com.iumr
 
 @Composable
 private fun LaunchSurface() {
-    val dark = androidx.compose.foundation.isSystemInDarkTheme()
     Box(
         Modifier
             .fillMaxSize()
-            .background(if (dark) Color(0xFF1B1D20) else Color(0xFFF6F7F8)),
+            .background(Color(0xFF080808)),
         contentAlignment = Alignment.Center,
     ) {
         Image(
-            painter = painterResource(R.drawable.iumrah_launch_wordmark),
+            painter = painterResource(R.drawable.iumrah_header_wordmark_dark),
             contentDescription = "iumrah",
             modifier = Modifier.width(220.dp).height(90.dp),
             contentScale = ContentScale.Fit,

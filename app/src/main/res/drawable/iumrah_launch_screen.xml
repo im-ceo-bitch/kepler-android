@@ -4,6 +4,6 @@
     <item>
         <bitmap
             android:gravity="center"
-            android:src="@drawable/iumrah_launch_wordmark" />
+            android:src="@drawable/iumrah_header_wordmark_dark" />
     </item>
 </layer-list>

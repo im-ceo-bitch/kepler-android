@@ -737,18 +737,10 @@ fun FlightDetailsScreen(journeyId: String, direction: String, language: AppLangu
         if (pair == null || leg == null) {
             item { GeneratorCard { Text(tr(language, "Рейс больше недоступен.", "This flight is no longer available.", "Bu reys endi mavjud emas.", "Бу рейс энди мавжуд эмас."), fontSize = 15.sp) } }
         } else {
-            item { FlightDetailHero(language, pair, leg) }
-            items(leg.segments.orEmpty(), key = { it.id }) { segment ->
-                GeneratorCard {
-                    Column(verticalArrangement = Arrangement.spacedBy(11.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) { Icon(CupertinoSymbol.Airplane, null, Modifier.size(20.dp), tint = Color(0xFF007AFF)); Spacer(Modifier.width(9.dp)); Text("${segment.airline} ${segment.flightNumber}", fontSize = 16.sp, fontWeight = FontWeight.Bold) }
-                        TimelineRow(segment.origin.code, formatInstant(segment.departureAt, segment.origin.timeZoneIdentifier), segment.origin.displayAirport)
-                        Row(Modifier.padding(start = 11.dp).height(32.dp)) { Box(Modifier.width(2.dp).fillMaxSize().background(MaterialTheme.colorScheme.onSurface.copy(alpha = .13f))) }
-                        TimelineRow(segment.destination.code, formatInstant(segment.arrivalAt, segment.destination.timeZoneIdentifier), segment.destination.displayAirport)
-                        Text(durationText(language, segment.durationMinutes), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = .52f))
-                    }
-                }
-            }
+            val segments = leg.segments.orEmpty()
+            if (segments.isNotEmpty()) items(segments, key = { it.id }) { segment ->
+                IumrahPremiumFlightDetail(PremiumFlightLeg(segment.origin.code,segment.destination.code,segment.departureAt.toString(),segment.arrivalAt.toString(),segment.airlineCode.orEmpty(),segment.flightNumber,segment.airline,0,segment.durationMinutes,segment.cabin,segment.aircraft,segment.operatingCarrier),language)
+            } else item { IumrahPremiumFlightDetail(PremiumFlightLeg(leg.origin,leg.destination,leg.departureAt.toString(),leg.arrivalAt.toString(),leg.airlineCode.orEmpty(),leg.flightNumber,leg.airline,leg.stops,leg.durationMinutes,cabinLabel(language,leg.cabinClass)),language) }
             item {
                 GeneratorCard {
                     Column(verticalArrangement = Arrangement.spacedBy(9.dp)) {

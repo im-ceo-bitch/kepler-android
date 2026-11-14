@@ -696,13 +696,7 @@ private fun PackageFlightLegCard(leg: StorefrontFlightLeg, direction: String, la
         AnimatedVisibility(expanded) {
             Column {
                 HorizontalDivider(Modifier.padding(vertical = 14.dp), color = MaterialTheme.colorScheme.onSurface.copy(alpha = .08f))
-                FlightFact(detailText(language, "departure_airport"), leg.origin)
-                FlightFact(detailText(language, "arrival_airport"), leg.destination)
-                FlightFact(detailText(language, "departure"), fullDateTime(leg.departureAt, language))
-                FlightFact(detailText(language, "arrival"), fullDateTime(leg.arrivalAt, language))
-                FlightFact(detailText(language, "duration"), durationText(leg.durationMinutes))
-                FlightFact(detailText(language, "cabin"), leg.cabinClass.ifBlank { "—" }.replaceFirstChar { it.uppercase() })
-                FlightFact(detailText(language, "flight_number"), leg.flightNumber)
+                com.iumrah.beta.ui.flights.IumrahPremiumFlightDetail(com.iumrah.beta.ui.flights.PremiumFlightLeg(leg.origin,leg.destination,leg.departureAt,leg.arrivalAt,leg.airlineCode,leg.flightNumber,leg.airline,leg.stops,leg.durationMinutes,leg.cabinClass),language)
             }
         }
     }

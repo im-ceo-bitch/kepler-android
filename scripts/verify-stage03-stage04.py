@@ -19,7 +19,7 @@ checks = {
     'Onboarding language and native looping video audio': 'onLanguageChange(item)' in onboarding and 'muted = muted' in onboarding and 'onToggleMute' in onboarding,
     'Onboarding is responsive to narrow phones': 'BoxWithConstraints' in onboarding and 'maxHeight < 730.dp' in onboarding,
     'Flight first uses existing sources': 'curated.load(trip)' in flights and 'discovery.offers(' in flights,
-    'Flight first has real detail and two legs': 'ModalBottomSheet' in flights and 'stepReturn' in flights and 'GuidedFlightDetail' in flights,
+    'Flight first has real detail and two legs': 'Dialog(onDismissRequest = { detail = null }' in flights and 'IumrahPremiumFlightDetail(' in flights and 'stepReturn' in flights and 'GuidedFlightDetail' in flights,
     'Flight first rejects mixed sources': 'outbound.source != inbound.source' in engine and 'GuidedFlightRules.compatible(outbound, inbound)' in flights,
     'Published flight has no fabricated fare': 'override val priceUsd: Double? = null' in engine,
     'Economy only Data API': 'FlightCabinClass.ECONOMY' in engine and 'row.price > 0' in engine,

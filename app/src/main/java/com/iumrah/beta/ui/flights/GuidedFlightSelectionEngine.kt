@@ -56,7 +56,7 @@ internal sealed interface GuidedFlightChoice {
         override val airlineName get() = offer.airlineCode.ifBlank { "Airline" }
         override val flightNumber get() = offer.flightNumber
         override val departureAt get() = offer.departureAt
-        override val arrivalAt: String? get() = offer.outboundSegments?.lastOrNull()?.arrivalAt
+        override val arrivalAt: String? get() = offer.arrivalAt ?: offer.outboundSegments?.lastOrNull()?.arrivalAt
         override val stops get() = offer.transfers
         override val durationMinutes get() = offer.durationMinutes
         override val priceUsd get() = offer.price.takeIf { it.isFinite() && it > 0 }

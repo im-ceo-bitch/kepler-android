@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <color name="iumrah_launcher_background">#FFFFFF</color>
-    <color name="iumrah_launch_background">#1B1D20</color>
+    <color name="iumrah_launch_background">#080808</color>
 </resources>

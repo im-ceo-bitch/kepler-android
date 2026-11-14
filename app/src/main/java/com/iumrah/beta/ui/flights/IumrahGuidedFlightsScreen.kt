@@ -8,6 +8,11 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -25,11 +30,13 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.IconButton
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -375,8 +382,8 @@ fun IumrahGuidedFlightsScreen(
         }
     }
     detail?.let { item ->
-        ModalBottomSheet(onDismissRequest = { detail = null }) {
-            GuidedFlightDetail(item, language) {
+        Dialog(onDismissRequest = { detail = null }, properties=DialogProperties(usePlatformDefaultWidth=false, decorFitsSystemWindows=false)) {
+            GuidedFlightDetail(item, language, onDismiss={ detail=null }) {
                 if (stepReturn) {
                     if (outbound?.source != item.source) {
                         selectionError = guidedTr(language, "Источники рейсов должны совпадать.",
@@ -551,20 +558,18 @@ private fun GuidedNotice(text: String, language: AppLanguage, onRetry: () -> Uni
 }
 
 @Composable
-private fun GuidedFlightDetail(choice: GuidedFlightChoice, language: AppLanguage, onSelect: () -> Unit) {
-    Column(Modifier.fillMaxWidth().navigationBarsPadding().padding(22.dp),
-        verticalArrangement = Arrangement.spacedBy(17.dp)) {
-        Text(guidedTr(language, "Детали рейса", "Flight details", "Reys tafsilotlari",
-            "Рейс тафсилотлари"), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-        Text("${choice.origin} → ${choice.destination}", style = MaterialTheme.typography.headlineSmall,
-            fontWeight = FontWeight.Bold)
-        Text("${choice.airlineName}  ·  ${choice.flightNumber}")
-        Text(choice.departureAt)
-        choice.arrivalAt?.let { Text(it) }
-        Text(if (choice.stops == 0) guidedTr(language, "Прямой рейс", "Non-stop flight",
-            "To‘g‘ri reys", "Тўғри рейс") else "${choice.stops} ${guidedTr(language, "пересадок",
-            "stop(s)", "transfer", "трансфер")}")
-        if (choice.durationMinutes > 0) Text("${choice.durationMinutes / 60}h ${choice.durationMinutes % 60}m")
+private fun GuidedFlightDetail(choice: GuidedFlightChoice, language: AppLanguage, onDismiss: () -> Unit, onSelect: () -> Unit) {
+    val context=LocalContext.current
+    var help by remember { mutableStateOf(false) }
+    Column(Modifier.fillMaxSize().background(if(MaterialTheme.colorScheme.background.red<.5f) Color(0xFF0B0B0B) else Color(0xFFF2F2F2))) {
+        Row(Modifier.fillMaxWidth().background(FlightHeroColor).statusBarsPadding().height(48.dp).padding(horizontal=16.dp),verticalAlignment=Alignment.CenterVertically) {
+            Icon(CupertinoSymbol.ChevronLeft, guidedTr(language,"Назад","Back","Orqaga","Орқага"),Modifier.size(40.dp).clickable(onClick=onDismiss).padding(8.dp),Color.White)
+            Text(choice.airlineName,Modifier.weight(1f),color=Color.White,fontWeight=FontWeight.Bold,fontSize=17.sp,maxLines=1)
+            IconButton(onClick={ runCatching { context.startActivity(android.content.Intent.createChooser(android.content.Intent(android.content.Intent.ACTION_SEND).apply { type="text/plain"; putExtra(android.content.Intent.EXTRA_TEXT,"${choice.airlineName} ${choice.flightNumber}\n${choice.origin} → ${choice.destination}\n${choice.departureAt}") },null)) } }) { Icon(CupertinoSymbol.Share,guidedTr(language,"Поделиться","Share","Ulashish","Улашиш"),Modifier.size(20.dp),Color.White) }
+            IconButton(onClick={help=true}) { Icon(CupertinoSymbol.QuestionCircle,guidedTr(language,"Помощь","Help","Yordam","Ёрдам"),Modifier.size(20.dp),Color.White) }
+        }
+        Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).navigationBarsPadding().padding(start=18.dp,end=18.dp,bottom=18.dp),verticalArrangement=Arrangement.spacedBy(14.dp)) {
+            IumrahPremiumFlightDetail(PremiumFlightLeg(choice.origin,choice.destination,choice.departureAt,choice.arrivalAt,choice.airlineCode,choice.flightNumber,choice.airlineName,choice.stops,choice.durationMinutes),language,pageHeroInset=18.dp)
         Text(if (choice.source == GuidedFlightChoice.Source.PUBLISHED)
             guidedTr(language, "Опубликованный рейс iumrah · цена подтверждается при расчёте",
                 "iumrah published flight · price verified at quote", "iumrah reysi · narx hisobda tekshiriladi",
@@ -579,7 +584,9 @@ private fun GuidedFlightDetail(choice: GuidedFlightChoice, language: AppLanguage
         }
         IumrahPrimaryButton(title = guidedTr(language, "Выбрать этот рейс", "Select this flight",
             "Shu reysni tanlash", "Шу рейсни танлаш"), onClick = onSelect)
+        }
     }
+    if(help) AlertDialog(onDismissRequest={help=false},title={Text(guidedTr(language,"Данные рейса","Flight details","Reys tafsilotlari","Рейс тафсилотлари"))},text={Text(guidedTr(language,"Выберите подходящий рейс. Время указано по местному времени аэропорта. Цена и наличие проверяются при расчёте.","Choose your flight. Times are local to the airport. Fare and availability are verified at quote.","Reysni tanlang. Vaqt aeroportning mahalliy vaqti bo‘yicha. Narx hisobda tekshiriladi.","Рейсни танланг. Вақт аэропортнинг маҳаллий вақти бўйича. Нарх ҳисобда текширилади."))},confirmButton={TextButton(onClick={help=false}){Text("OK")}})
 }
 
 private fun guidedTr(language: AppLanguage, ru: String, en: String, uz: String, cy: String) = when (language) {

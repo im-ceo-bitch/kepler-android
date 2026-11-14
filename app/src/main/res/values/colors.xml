@@ -2,5 +2,5 @@
 <resources>
     <color name="transparent">#00000000</color>
     <color name="iumrah_launcher_background">#FFFFFF</color>
-    <color name="iumrah_launch_background">#F6F7F8</color>
+    <color name="iumrah_launch_background">#080808</color>
 </resources>
