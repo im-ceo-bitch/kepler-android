@@ -58,6 +58,7 @@ data class NuiteeHotelListEnvelope(
     val cancellationTag: String = "", val cancellationDescription: String = "",
     val cancellationDeadlines: List<NuiteeCancellationDeadline> = emptyList(),
     val chargeOnArrival: List<NuiteeArrivalCharge> = emptyList(),
+    val includedMeals: NuiteeMealChoices? = null,
 ) {
     val id: String get() = "$offerId|$roomId|$roomName"
 }
@@ -66,3 +67,34 @@ data class NuiteeHotelListEnvelope(
     val checkin: String = "", val checkout: String = "", val adults: Int = 2,
     val rates: List<NuiteeRoomRate> = emptyList(), val cached: Boolean = false,
 )
+
+@Serializable data class NuiteeMealChoices(val breakfast: Boolean = false, val lunch: Boolean = false, val dinner: Boolean = false)
+@Serializable data class BookingNuiteeRoomSelection(
+    val id: String, val city: String, val hotelId: String, val offerId: String, val roomId: String,
+    val checkin: String, val checkout: String, val adults: Int, val children: List<Int>,
+    val meals: NuiteeMealChoices, val mealBundleRequested: Boolean? = null,
+)
+@Serializable data class NuiteeGuestReview(
+    val id: String, val name: String = "", val country: String = "", val date: String = "",
+    val rating: Double? = null, val headline: String = "", val pros: String = "", val cons: String = "",
+    val source: String = "", val language: String = "", val originalHeadline: String? = null,
+    val originalPros: String? = null, val originalCons: String? = null,
+    val isTranslated: Boolean? = null, val translationUnavailable: Boolean? = null,
+)
+@Serializable data class NuiteeReviewsEnvelope(val ok: Boolean = false, val reviews: List<NuiteeGuestReview> = emptyList(),
+    val total: Int? = null, val nextOffset: Int? = null, val stale: Boolean = false)
+
+/** /api/package/estimate: partial manual assemblies, never a booking proof. */
+@Serializable data class NuiteeManualEstimateRequest(
+    val adults: Int, val includeMadinah: Boolean, val start: String, val end: String,
+    val transferVehicle: String? = null, val haramain: Train,
+    val rooms: List<BookingNuiteeRoomSelection>, val flights: List<Flight>,
+) {
+    @Serializable data class Train(val enabled: Boolean, val fareClass: String, val ticketCount: Int)
+    @Serializable data class Flight(val identity: String, val origin: String, val destination: String, val departureDate: String, val cabin: String)
+}
+@Serializable data class NuiteeManualEstimate(
+    val totalPackagePrice: Double, val pricePerPerson: Double, val currency: String,
+    val bookingAllowed: Boolean, val pairedFareIncluded: Boolean, val provisionalTier: Boolean,
+)
+@Serializable data class NuiteeManualEstimateEnvelope(val ok: Boolean, val estimate: NuiteeManualEstimate)

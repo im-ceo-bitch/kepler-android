@@ -40,6 +40,10 @@ object TripStayPlanner {
             )
         }
 
+        if (trip.hotelFirstStayPolicy == true && totalNights >= 4) {
+            val madinah = min(2, max(1, totalNights - 2))
+            return TripStayBreakdown(totalNights, totalDays, totalNights - madinah, madinah)
+        }
         val makkah = max(1, min(totalNights - 1, ceil(totalNights * 0.6).toInt()))
         val madinah = max(1, totalNights - makkah)
         return TripStayBreakdown(totalNights, totalDays, makkah, madinah)

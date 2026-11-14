@@ -241,7 +241,7 @@ fun NuiteeHotelsCatalogScreen(
                 Text(nuiteeText(language,"Ваш выбор", "Your selection", "Tanlovingiz", "Танловингиз"), fontWeight = FontWeight.Bold)
                 if (savedStay != null) Text("${savedStay.hotelName} · ${savedStay.roomName} · ${nuiteeUSD(savedStay.totalUSD)}", fontSize = 12.sp)
                 if (pendingStay != null) Text("${pendingStay.hotelName} · " + nuiteeText(language,
-                    "Цена уточняется", "Rate to be confirmed", "Narx aniqlanadi", "Нарх аниқланади"), fontSize = 12.sp)
+                    "Выберите номер заново", "Select a room again", "Xonani qayta tanlang", "Хонани қайта танланг"), fontSize = 12.sp)
             }
         }
         item { NuiteeCityChoice(language, city) { city = it; stars = 0; hotelQuery = "" } }
@@ -285,12 +285,8 @@ fun NuiteeHotelsCatalogScreen(
     selected?.let { hotel ->
         NuiteeHotelDetailSheet(language, service, hotel, checkin, checkout, adults,
             onDismiss = { selected = null },
-            onRate = { rate ->
+            onRate = { rate, _ ->
                 staySelections.save(hotel, checkin.toString(), checkout.toString(), adults, rate)
-                selectionRevision++; selected = null
-            },
-            onPending = {
-                staySelections.savePending(hotel, checkin.toString(), checkout.toString(), adults)
                 selectionRevision++; selected = null
             })
     }
@@ -320,7 +316,7 @@ internal fun NuiteeListingCard(
             val rate = NuiteeRules.listedRate(hotel, stale)
             Text(if (rate != null) "${nuiteeText(language,"От", "From", "Dan", "Дан")} ${nuiteeUSD(rate)} · " +
                 nuiteeText(language,"за проживание", "room stay", "turar joy", "яшаш учун")
-            else nuiteeText(language,"Цена уточняется", "Rate being confirmed", "Narx aniqlanmoqda", "Нарх аниқланмоқда"),
+            else nuiteeText(language,"Посмотреть номера", "View rooms", "Xonalarni ko‘rish", "Хоналарни кўриш"),
                 fontWeight = FontWeight.SemiBold)
         }
     }
@@ -331,22 +327,43 @@ internal fun NuiteeListingCard(
 internal fun NuiteeHotelDetailSheet(
     language: AppLanguage, service: NuiteeHotelService, hotel: NuiteeHotel,
     checkin: LocalDate, checkout: LocalDate, adults: Int, childrenAges: List<Int> = emptyList(),
-    onDismiss: () -> Unit, onRate: (NuiteeRoomRate) -> Unit, onPending: () -> Unit,
+    onDismiss: () -> Unit, onRate: (NuiteeRoomRate, NuiteeMealChoices) -> Unit,
+    allowMealSelection: Boolean = false,
 ) {
-    var detail by remember(hotel.id) { mutableStateOf<NuiteeHotelDetail?>(null) }
+    val contentLanguage = if (language == AppLanguage.UZBEK_CYRILLIC) "uz-Cyrl" else language.code
+    var detail by remember(hotel.id, contentLanguage) { mutableStateOf<NuiteeHotelDetail?>(null) }
+    var meals by remember(hotel.id, checkin, checkout, adults, childrenAges) { mutableStateOf(NuiteeMealChoices()) }
+    var reviews by remember(hotel.id, contentLanguage) { mutableStateOf<List<NuiteeGuestReview>>(emptyList()) }
+    var showReviews by remember(hotel.id, contentLanguage) { mutableStateOf(false) }
+    var nextOffset by remember(hotel.id, contentLanguage) { mutableStateOf<Int?>(0) }
+    var reviewRequest by remember(hotel.id, contentLanguage) { mutableIntStateOf(0) }
+    var reviewBusy by remember(hotel.id, contentLanguage) { mutableStateOf(false) }
+    var reviewError by remember(hotel.id, contentLanguage) { mutableStateOf(false) }
+    LaunchedEffect(hotel.id, contentLanguage, reviewRequest, showReviews) {
+        if (!showReviews) return@LaunchedEffect
+        val offset = nextOffset ?: return@LaunchedEffect
+        reviewBusy = true; reviewError = false
+        try {
+            val page = service.reviews(hotel.id, contentLanguage, offset)
+            reviews = (reviews + page.reviews).distinctBy { it.id }
+            nextOffset = page.nextOffset?.takeIf { it > offset }
+        } catch (cancel: CancellationException) { throw cancel }
+        catch (_: Exception) { reviewError = true }
+        finally { reviewBusy = false }
+    }
     var rates by remember(hotel.id, checkin, checkout, adults, childrenAges) { mutableStateOf<List<NuiteeRoomRate>>(emptyList()) }
     var busy by remember(hotel.id, checkin, checkout, adults, childrenAges) { mutableStateOf(true) }
     var failure by remember(hotel.id, checkin, checkout, adults, childrenAges) { mutableStateOf<String?>(null) }
     var freshRates by remember(hotel.id, checkin, checkout, adults, childrenAges) { mutableStateOf(false) }
     var retry by remember { mutableIntStateOf(0) }
-    LaunchedEffect(hotel.id, checkin, checkout, adults, childrenAges, retry) {
+    LaunchedEffect(hotel.id, checkin, checkout, adults, childrenAges, contentLanguage, retry) {
         busy = true; rates = emptyList(); failure = null; freshRates = false
         try {
-            detail = service.detail(hotel.id, language.code)
+            detail = service.detail(hotel.id, contentLanguage)
         } catch (cancel: CancellationException) { throw cancel
         } catch (_: Exception) { /* show catalogue basics without inventing hotel detail */ }
         try {
-            val response = service.rates(hotel.id, checkin, checkout, adults, childrenAges, language.code)
+            val response = service.rates(hotel.id, checkin, checkout, adults, childrenAges, contentLanguage)
             rates = response.rates.filter(NuiteeRules::validRoomRate)
             freshRates = !response.cached
             if (response.cached) failure = nuiteeText(language,
@@ -361,7 +378,13 @@ internal fun NuiteeHotelDetailSheet(
             verticalArrangement = Arrangement.spacedBy(13.dp)) {
             item {
                 Text(detail?.name ?: hotel.name, fontWeight = FontWeight.Bold, fontSize = 23.sp)
-                Text("${detail?.address ?: hotel.address.orEmpty()} · $checkin — $checkout", fontSize = 13.sp)
+                Text(detail?.address ?: hotel.address.orEmpty(), fontSize = 13.sp)
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Column { Text(nuiteeText(language,"Заезд", "Check-in", "Kirish", "Кириш"), fontSize = 12.sp); Text(checkin.toString()); detail?.checkin?.let { Text(it, fontSize = 12.sp) } }
+                    Column { Text(nuiteeText(language,"Выезд", "Check-out", "Chiqish", "Чиқиш"), fontSize = 12.sp); Text(checkout.toString()); detail?.checkout?.let { Text(it, fontSize = 12.sp) } }
+                }
+                (detail?.rating ?: hotel.rating)?.let { Text("★ $it · ${detail?.reviewCount ?: hotel.reviewCount ?: 0}", fontWeight = FontWeight.Bold) }
+                OutlinedButton(onClick = { showReviews = !showReviews }) { Text(nuiteeText(language,"Отзывы гостей", "Guest reviews", "Mehmonlar fikri", "Меҳмонлар фикри")) }
             }
             val photos = detail?.images.orEmpty().ifEmpty { hotel.previewImages.orEmpty().ifEmpty {
                 listOfNotNull(hotel.coverImageURL) } }
@@ -369,6 +392,21 @@ internal fun NuiteeHotelDetailSheet(
                 AsyncImage(model = photos.first(), contentDescription = hotel.name,
                     contentScale = ContentScale.Crop,
                     modifier = Modifier.fillMaxWidth().height(190.dp).clip(RoundedCornerShape(18.dp)))
+            }
+            if (showReviews) {
+                items(reviews, key = { "review-${it.id}" }) { review ->
+                    Column(Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
+                        Text(listOf(review.name, review.country, review.date).filter { it.isNotBlank() }.joinToString(" · "), fontWeight = FontWeight.SemiBold)
+                        review.rating?.let { Text("★ $it", fontSize = 12.sp) }
+                        listOf(review.headline, review.pros, review.cons).filter { it.isNotBlank() }.forEach { Text(it, fontSize = 13.sp) }
+                    }
+                }
+                item {
+                    if (reviewBusy) CircularProgressIndicator()
+                    else if (reviewError || nextOffset != null) OutlinedButton(onClick = { reviewRequest++ }) {
+                        Text(if (reviewError) nuiteeText(language,"Повторить", "Retry", "Qayta urinish", "Қайта уриниш") else nuiteeText(language,"Ещё отзывы", "More reviews", "Yana fikrlar", "Яна фикрлар"))
+                    } else if (reviews.isEmpty()) Text(nuiteeText(language,"Отзывов пока нет", "No reviews yet", "Fikrlar yo‘q", "Фикрлар йўқ"))
+                }
             }
             if (!detail?.description.isNullOrBlank()) item { Text(detail?.description.orEmpty(), fontSize = 13.sp) }
             if (!detail?.importantInformation.isNullOrBlank()) item { Text(detail?.importantInformation.orEmpty(), fontSize = 12.sp) }
@@ -386,6 +424,24 @@ internal fun NuiteeHotelDetailSheet(
                     Text(nuiteeText(language,"Обновить тарифы", "Refresh room rates", "Narxni yangilash", "Нархни янгилаш"))
                 }
             }
+            if (allowMealSelection) item {
+                Text(nuiteeText(language,"Питание", "Meals", "Ovqatlanish", "Овқатланиш"), fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                if (hotel.roundedStars <= 3) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        val madinah = hotel.city.lowercase().let { it.contains("madin") || it.contains("medin") || it.contains("медин") || it.contains("мадин") }
+                        Text(if (madinah) nuiteeText(language,"Двухразовое питание", "Two meals daily", "Kuniga ikki mahal", "Кунига икки маҳал") else nuiteeText(language,"Трёхразовое питание", "Three meals daily", "Kuniga uch mahal", "Кунига уч маҳал"), Modifier.weight(1f))
+                        Switch(checked = meals.breakfast || meals.lunch || meals.dinner, onCheckedChange = { meals = NuiteeMealChoices(it, it && !madinah, it) })
+                    }
+                } else {
+                    Text(nuiteeText(language,"Завтрак включён", "Breakfast included", "Nonushta kiritilgan", "Нонушта киритилган"), fontSize = 13.sp)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(nuiteeText(language,"Обед", "Lunch", "Tushlik", "Тушлик"), Modifier.weight(1f)); Switch(meals.lunch, { meals = meals.copy(lunch = it) })
+                    }
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(nuiteeText(language,"Ужин", "Dinner", "Kechki ovqat", "Кечки овқат"), Modifier.weight(1f)); Switch(meals.dinner, { meals = meals.copy(dinner = it) })
+                    }
+                }
+            }
             items(rates, key = { it.id }) { rate ->
                 Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp))
                     .background(MaterialTheme.colorScheme.surfaceVariant).padding(15.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
@@ -399,13 +455,7 @@ internal fun NuiteeHotelDetailSheet(
                     IumrahPrimaryButton(title = if (freshRates) nuiteeText(language,
                         "Выбрать номер", "Choose room", "Xonani tanlash", "Хонани танлаш") else
                         nuiteeText(language,"Обновите цену", "Recheck price", "Narxni tekshiring", "Нархни текширинг"),
-                        enabled = freshRates, onClick = { if (freshRates) onRate(rate) })
-                }
-            }
-            if (!busy && (!freshRates || rates.isEmpty())) item {
-                OutlinedButton(onClick = onPending, modifier = Modifier.fillMaxWidth()) {
-                    Text(nuiteeText(language, "Добавить на уточнение без цены", "Request hotel without a confirmed price",
-                        "Narxni aniqlash uchun so‘rash", "Нархни аниқлаш учун сўраш"))
+                        enabled = freshRates, onClick = { if (freshRates) onRate(rate, meals) })
                 }
             }
         }

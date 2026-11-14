@@ -132,6 +132,14 @@ data class PackageQuote(
     val quoteProof: String? = null,
     val pricingSnapshot: GeneratorPricingSnapshot? = null,
     val bookingAllowed: Boolean? = null,
+    val stayPlan: PackageStayPlan? = null,
+    val resolvedTier: String? = null,
 )
 
 internal fun newLocalQuoteId(): String = "local-${UUID.randomUUID().toString().lowercase()}"
+
+@Serializable data class PackageStayPlan(
+    val totalNights: Int, val totalDays: Int, val makkahNights: Int, val madinahNights: Int,
+    val makkahCheckIn: String, val makkahCheckOut: String,
+    val madinahCheckIn: String? = null, val madinahCheckOut: String? = null,
+)

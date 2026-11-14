@@ -39,6 +39,14 @@ class NuiteeHotelService(context: Context, private val api: APIClient = APIClien
         return result.hotel
     }
 
+    suspend fun reviews(hotelId: String, language: String, offset: Int = 0): NuiteeReviewsEnvelope {
+        require(offset >= 0)
+        val result = api.get<NuiteeReviewsEnvelope>("/api/package/nuitee/reviews",
+            mapOf("hotelId" to hotelId, "language" to language, "offset" to offset.toString()), timeoutSeconds = 35)
+        if (!result.ok) throw APIException.InvalidResponse
+        return result
+    }
+
     suspend fun rates(hotelId: String, checkin: LocalDate, checkout: LocalDate, adults: Int,
                       childrenAges: List<Int> = emptyList(), language: String = "en"): NuiteeRatesEnvelope {
         require(checkout.isAfter(checkin) && adults in 1..9 && childrenAges.all { it in 0..17 })

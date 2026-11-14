@@ -42,6 +42,8 @@ import com.iumrah.beta.core.navigation.AppChromeStore
 import com.iumrah.beta.core.settings.AppLanguage
 import com.iumrah.beta.data.account.IumrahAccountStore
 import com.iumrah.beta.data.booking.BookingStore
+import com.iumrah.beta.data.flight.CuratedFlightRecommendationService
+import com.iumrah.beta.data.hotel.RemotePackageEngineClient
 import com.iumrah.beta.domain.journey.JourneyStore
 import com.iumrah.beta.models.booking.BookingPilgrimProfile
 import com.iumrah.beta.ui.components.IumrahPressable
@@ -66,10 +68,14 @@ fun BookingCheckoutScreen(
     bookingStore: BookingStore,
     accountStore: IumrahAccountStore,
     chrome: AppChromeStore,
+    curated: CuratedFlightRecommendationService,
+    packageEngine: RemotePackageEngineClient,
 ) {
     val state by journey.state.collectAsState()
     val account by accountStore.state.collectAsState()
     val quote = state.quote
+    val canBook = quote != null && quote.bookingAllowed != false &&
+        (state.nuitee == null || state.hasFinalGeneratorQuote && quote.bookingAllowed == true)
     val scope = rememberCoroutineScope()
     var firstName by remember(account.account?.iumrahID) { mutableStateOf(account.account?.firstName.orEmpty()) }
     var lastName by remember(account.account?.iumrahID) { mutableStateOf(account.account?.lastName.orEmpty()) }
@@ -98,7 +104,7 @@ fun BookingCheckoutScreen(
         error?.let { Text(it, color = MaterialTheme.colorScheme.error, fontSize = 13.sp, modifier = Modifier.padding(horizontal = 4.dp)) }
         GeneratorPrimaryButton(
             title = if (busy) checkoutTr(language,"Создаём бронирование…","Creating booking…","Bron yaratilmoqda…","Брон яратилмоқда…") else checkoutTr(language,"Создать бронирование","Create booking","Bron yaratish","Брон яратиш"),
-            enabled = quote != null && !busy,
+            enabled = canBook && !busy,
         ) { IumrahIntelligence.record("tap", "checkout", "continue_booking"); showProfile = true }
         Spacer(Modifier.height(34.dp))
     }
@@ -118,7 +124,7 @@ fun BookingCheckoutScreen(
                 BookingField(checkoutTr(language,"Фамилия","Last name","Familiya","Фамилия"),lastName){lastName=it}
                 BookingField("Telegram",telegram){telegram=it}
                 BookingField("WhatsApp",whatsapp){whatsapp=it}
-                GeneratorPrimaryButton(checkoutTr(language,"Сохранить и продолжить","Save & continue","Saqlash va davom etish","Сақлаш ва давом этиш"),enabled=validIdentity&&!busy&&quote!=null) {
+                GeneratorPrimaryButton(checkoutTr(language,"Сохранить и продолжить","Save & continue","Saqlash va davom etish","Сақлаш ва давом этиш"),enabled=validIdentity&&!busy&&canBook) {
                     val currentQuote = quote
                     if (currentQuote != null && !busy) {
                         busy = true
@@ -126,14 +132,24 @@ fun BookingCheckoutScreen(
                         IumrahIntelligence.record("tap", "checkout", "submit_booking")
                         scope.launch {
                             runCatching {
+                                val finalQuote = if (state.nuitee != null) {
+                                    check(journey.state.value == state) { "PACKAGE_SELECTION_CHANGED" }
+                                    val fresh = journey.prepareNuiteePackage(curated, packageEngine).getOrThrow()
+                                    check(fresh.totalPackagePrice.compareTo(currentQuote.totalPackagePrice) == 0 &&
+                                        fresh.pricePerPerson.compareTo(currentQuote.pricePerPerson) == 0 && fresh.currency == currentQuote.currency) {
+                                        checkoutTr(language,"Цена изменилась. Проверьте новый итог перед бронированием.","Price changed. Review the new total before booking.","Narx o‘zgardi. Yangi summani tekshiring.","Нарх ўзгарди. Янги суммани текширинг.")
+                                    }
+                                    check(journey.state.value.quote == fresh && journey.state.value.nuitee == state.nuitee) { "PACKAGE_SELECTION_CHANGED" }
+                                    fresh
+                                } else currentQuote
                                 bookingStore.create(
-                                    journey=state,
-                                    quote=currentQuote,
+                                    journey=if (state.nuitee != null) journey.state.value else state,
+                                    quote=finalQuote,
                                     language=language,
                                     pilgrimProfile=BookingPilgrimProfile(firstName.trim(),lastName.trim(),telegram.trim(),whatsapp.trim()),
                                 )
                             }.onSuccess { session -> IumrahIntelligence.record("booking_submitted", "checkout"); busy=false;showProfile=false;chrome.openBookingCelebration(session.id) }
-                                .onFailure { cause -> IumrahIntelligence.record("error", "checkout", "booking_submit"); busy=false;error=cause.message ?: checkoutTr(language,"Не удалось создать бронирование.","Booking could not be created.","Bron yaratilmadi.","Брон яратилмади.") }
+                                .onFailure { cause -> IumrahIntelligence.record("error", "checkout", "booking_submit"); busy=false;if(state.nuitee != null) showProfile=false;error=cause.message ?: checkoutTr(language,"Не удалось создать бронирование.","Booking could not be created.","Bron yaratilmadi.","Брон яратилмади.") }
                         }
                     }
                 }

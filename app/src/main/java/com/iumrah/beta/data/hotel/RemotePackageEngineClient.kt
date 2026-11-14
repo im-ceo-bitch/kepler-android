@@ -24,6 +24,14 @@ import kotlinx.serialization.Serializable
 
 /** Same server-authoritative PackageEngine boundary as iOS. */
 class RemotePackageEngineClient(private val api: APIClient) {
+    suspend fun manualEstimate(body: com.iumrah.beta.models.nuitee.NuiteeManualEstimateRequest): com.iumrah.beta.models.nuitee.NuiteeManualEstimate {
+        val result = api.post<com.iumrah.beta.models.nuitee.NuiteeManualEstimateEnvelope, com.iumrah.beta.models.nuitee.NuiteeManualEstimateRequest>("/api/package/estimate", body, timeoutSeconds = 120)
+        if (!result.ok || result.estimate.bookingAllowed || result.estimate.currency != "USD" ||
+            !result.estimate.totalPackagePrice.isFinite() || result.estimate.totalPackagePrice <= 0 ||
+            !result.estimate.pricePerPerson.isFinite() || result.estimate.pricePerPerson <= 0) throw APIException.InvalidResponse
+        return result.estimate
+    }
+
     suspend fun health(): PackageEngineHealthResponse =
         api.get(AppConfig.PACKAGE_HEALTH_PATH, timeoutSeconds = 8)
 
@@ -82,7 +90,13 @@ class RemotePackageEngineClient(private val api: APIClient) {
             }
         }
         val meals = trip.effectiveMealSelection
+        val nuiteeRooms = state.nuitee?.let { draft ->
+            require(com.iumrah.beta.domain.nuitee.NuiteeBookingRules.complete(trip, draft)) { "NUITEE_SELECTED_RATE_EXPIRED" }
+            draft.rooms.toSortedMap().values.map(com.iumrah.beta.domain.nuitee.NuiteeBookingRules::bookingSelection)
+        }
         val request = ServerPackageQuoteRequest(
+            nuiteeRooms = nuiteeRooms,
+            stayPolicy = if (trip.hotelFirstStayPolicy == true) "hotelFirst" else "balanced",
             tier = trip.packageTier.wireValue,
             tripType = trip.resolvedFlightTripType.wireValue,
             includeMadinah = madinahHotel != null,
@@ -116,7 +130,7 @@ class RemotePackageEngineClient(private val api: APIClient) {
                 },
             ),
         )
-        val envelope: ServerPackageQuoteEnvelope = api.post("/api/package/quote", request, timeoutSeconds = 15)
+        val envelope: ServerPackageQuoteEnvelope = api.post("/api/package/quote", request, timeoutSeconds = if (nuiteeRooms == null) 15 else 120)
         if (!envelope.ok) throw APIException.InvalidResponse
         return PackageQuote(
             totalPackagePrice = envelope.quote.totalPackagePrice,
@@ -127,6 +141,8 @@ class RemotePackageEngineClient(private val api: APIClient) {
             quoteProof = envelope.quote.quoteProof,
             pricingSnapshot = null,
             bookingAllowed = envelope.quote.bookingAllowed,
+            stayPlan = envelope.quote.stayPlan,
+            resolvedTier = envelope.quote.resolvedTier,
         )
     }
 
@@ -160,10 +176,14 @@ private data class ServerPackageQuote(
     val quoteId: String,
     val quoteProof: String,
     val bookingAllowed: Boolean? = null,
+    val stayPlan: com.iumrah.beta.domain.pricing.PackageStayPlan? = null,
+    val resolvedTier: String? = null,
 )
 
 @Serializable
 private data class ServerPackageQuoteRequest(
+    val nuiteeRooms: List<com.iumrah.beta.models.nuitee.BookingNuiteeRoomSelection>? = null,
+    val stayPolicy: String = "balanced",
     val tier: String,
     val tripType: String,
     val includeMadinah: Boolean,

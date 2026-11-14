@@ -32,6 +32,7 @@ data class BookingDraftRequest(
     val flight: String,
     val pilgrimProfile: BookingPilgrimProfile? = null,
     val generatorTrace: BookingGeneratorTrace? = null,
+    val stayPolicy: String = "balanced",
 )
 
 @Serializable
@@ -68,6 +69,7 @@ data class BookingGeneratorTrace(
     val inbound: BookingGeneratorFlightSnapshot? = null,
     val makkahHotel: BookingGeneratorHotelSnapshot,
     val madinahHotel: BookingGeneratorHotelSnapshot? = null,
+    val nuiteeRooms: List<com.iumrah.beta.models.nuitee.BookingNuiteeRoomSelection>? = null,
 )
 
 @Serializable

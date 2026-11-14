@@ -25,6 +25,7 @@ data class NuiteeRoomSelection(
     val hotel: NuiteeHotel, val rate: NuiteeRoomRate,
     val checkin: LocalDate, val checkout: LocalDate,
     val adults: Int, val childrenAges: List<Int>,
+    val meals: com.iumrah.beta.models.nuitee.NuiteeMealChoices = com.iumrah.beta.models.nuitee.NuiteeMealChoices(),
 )
 
 data class NuiteePendingHotel(
@@ -100,5 +101,52 @@ object NuiteeJourneyPricing {
             lines += NuiteePriceLine("train", "Haramain", BigDecimal(trainClass.publicSeatPriceUsd * trainTicketCount))
         }
         return NuiteeEstimate(lines, draft.pending.isNotEmpty())
+    }
+}
+
+/** Current SwiftUI LocalJourneySelection contract: only exact, complete room selections. */
+object NuiteeBookingRules {
+    fun tier(rooms: Collection<NuiteeRoomSelection>): PackageTier? {
+        val stars = rooms.map { it.hotel.roundedStars }
+        if (stars.isEmpty() || stars.any { it !in 1..5 }) return null
+        return when (stars.maxOrNull()) { 1, 2 -> PackageTier.ECONOMY; 3, 4 -> PackageTier.STANDARD; 5 -> PackageTier.LUXURY; else -> null }
+    }
+    fun supplierMeals(rate: NuiteeRoomRate): com.iumrah.beta.models.nuitee.NuiteeMealChoices {
+        rate.includedMeals?.let { return it }
+        val board = rate.mealPlan.lowercase().trim()
+        if (listOf("room only", "no meals", "without meals", "breakfast not included", "without breakfast", "no breakfast").any { board.contains(it) })
+            return com.iumrah.beta.models.nuitee.NuiteeMealChoices()
+        val full = board in listOf("fb", "ai") || board.contains("full board") || board.contains("all inclusive")
+        val half = board == "hb" || board.contains("half board")
+        return com.iumrah.beta.models.nuitee.NuiteeMealChoices(full || half || board == "bb" || board.contains("breakfast"), full, full || half || board.contains("dinner"))
+    }
+    fun bookingSelection(room: NuiteeRoomSelection): com.iumrah.beta.models.nuitee.BookingNuiteeRoomSelection {
+        val included = supplierMeals(room.rate)
+        val chosen = room.meals
+        val bundled = room.hotel.roundedStars <= 3
+        val requested = chosen.breakfast || chosen.lunch || chosen.dinner
+        val meals = com.iumrah.beta.models.nuitee.NuiteeMealChoices(
+            breakfast = included.breakfast || room.hotel.roundedStars >= 4 || (if (bundled) requested else chosen.breakfast),
+            lunch = (!bundled || room.city == "makkah") && (included.lunch || (if (bundled) requested else chosen.lunch)),
+            dinner = included.dinner || (if (bundled) requested else chosen.dinner),
+        )
+        return com.iumrah.beta.models.nuitee.BookingNuiteeRoomSelection(room.key, room.city, room.hotel.id, room.rate.offerId,
+            room.rate.roomId, room.checkin.toString(), room.checkout.toString(), room.adults, room.childrenAges, meals,
+            if (bundled) requested else null)
+    }
+    fun complete(trip: TripDraft, draft: NuiteeJourneyDraft): Boolean {
+        if (trip.rooms !in 1..trip.adults || draft.pending.isNotEmpty() || tier(draft.rooms.values) == null) return false
+        val windows = TripStayPlanner.windows(trip)
+        val expectedKeys = draft.requiredCities(trip).flatMap { city -> (0 until trip.rooms).map { "$city:$it" } }.toSet()
+        if (draft.rooms.keys != expectedKeys) return false
+        return draft.requiredCities(trip).all { city ->
+            val window = (if (city == "madinah") windows.madinah else windows.makkah) ?: return@all false
+            val selected = (0 until trip.rooms).map { draft.rooms.getValue("$city:$it") }
+            selected.sumOf { it.adults } == trip.adults && selected.sumOf { it.childrenAges.size } == trip.children + trip.infants &&
+                selected.all { room -> room.city == city && room.key == "$city:${room.roomIndex}" && room.roomIndex in 0 until trip.rooms &&
+                    room.adults == trip.adults / trip.rooms + (if (room.roomIndex < trip.adults % trip.rooms) 1 else 0) &&
+                    room.checkin == window.checkIn && room.checkout == window.checkOut &&
+                    NuiteeRules.validStay(room.checkin, room.checkout, room.adults, room.childrenAges) && NuiteeRules.validRoomRate(room.rate) }
+        }
     }
 }

@@ -268,7 +268,7 @@ fun AppShell(
                     discovery = flightDiscovery, airports = airports, chrome = chrome,
                 )
                 AppRoute.NuiteeJourneyHotels -> NuiteeJourneyHotelsScreen(language, journey, chrome)
-                AppRoute.NuiteeJourneyReview -> NuiteeJourneyReviewScreen(language, journey, accountStore, chrome)
+                AppRoute.NuiteeJourneyReview -> NuiteeJourneyReviewScreen(language, journey, accountStore, chrome, curatedFlights, packageEngine)
                 AppRoute.Flights -> FlightSearchScreen(
                     language = language,
                     journey = journey,
@@ -281,7 +281,7 @@ fun AppShell(
                 AppRoute.TransferSelection -> TransferSelectionScreen(language, journey, packageGenerator, chrome)
 
                 AppRoute.FinalPackage -> FinalPackageScreen(language, journey, hotelCatalog, packageEngine, chrome)
-                AppRoute.BookingCheckout -> BookingCheckoutScreen(language, journey, bookingStore, accountStore, chrome)
+                AppRoute.BookingCheckout -> BookingCheckoutScreen(language, journey, bookingStore, accountStore, chrome, curatedFlights, packageEngine)
                 is AppRoute.BookingCelebration -> IumrahBookingCelebrationScreen(route.bookingID, language, bookingStore, chrome)
                 is AppRoute.BookingDetail -> BookingDetailScreen(
                     route.bookingID,

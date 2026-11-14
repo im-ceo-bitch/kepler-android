@@ -6,6 +6,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -65,7 +66,10 @@ fun NuiteeJourneyHotelsScreen(language: AppLanguage, journey: JourneyStore, chro
     val roomChildren = childrenAges.withIndex().filter { it.index % trip.rooms == roomIndex }.map { it.value }
     val ready = childrenAges.size == trip.children + trip.infants && childrenAges.all { it in 0..17 } && roomAdults > 0
     val roomKey = "$city:$roomIndex"
-    val allComplete = draft?.roomsComplete(trip) == true
+    val listState = rememberLazyListState()
+    var visibleCount by remember(city, roomIndex, stars, stay.checkIn, stay.checkOut) { mutableIntStateOf(20) }
+    LaunchedEffect(roomKey) { listState.scrollToItem(0) }
+    val allComplete = draft?.let { com.iumrah.beta.domain.nuitee.NuiteeBookingRules.complete(trip, it) } == true
 
     LaunchedEffect(city, roomIndex, stay.checkIn, stay.checkOut, roomAdults, refresh) {
         val forceRefresh = refresh != handledRefresh
@@ -88,7 +92,7 @@ fun NuiteeJourneyHotelsScreen(language: AppLanguage, journey: JourneyStore, chro
                 "Safarni ko‘rish", "Сафарни кўриш"), onClick = { chrome.openNuiteeJourneyReview() })
         }
     }) { scaffoldPadding ->
-        LazyColumn(Modifier.fillMaxSize().padding(scaffoldPadding), contentPadding = PaddingValues(18.dp),
+        LazyColumn(Modifier.fillMaxSize().padding(scaffoldPadding), state = listState, contentPadding = PaddingValues(18.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp)) {
             item {
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -155,7 +159,7 @@ fun NuiteeJourneyHotelsScreen(language: AppLanguage, journey: JourneyStore, chro
                 chosen?.let { Text("${it.hotel.name} · ${it.rate.roomName} · ${nuiteeUSD(it.rate.price)}",
                     color = Color(0xFF258654), fontSize = 12.sp) }
                 pending?.let { Text("${it.hotel.name} · " + nuiteeText(language,
-                    "Цена уточняется — не входит в расчёт", "Price unconfirmed — excluded from estimate",
+                    "Выберите актуальный номер", "Select a current room offer",
                     "Narx tekshirilmoqda", "Нарх текширилмоқда"), fontSize = 12.sp) }
             }
             item {
@@ -181,26 +185,32 @@ fun NuiteeJourneyHotelsScreen(language: AppLanguage, journey: JourneyStore, chro
                     TextButton(onClick = { refresh++ }) { Text(nuiteeText(language,"Повторить", "Retry", "Yana", "Яна")) }
                 }
             }
-            items(hotels.filter { stars == 0 || it.roundedStars == stars }, key = { "journey-${it.id}" }) { hotel ->
+            val filtered = hotels.filter { stars == 0 || it.roundedStars == stars }
+            items(filtered.take(visibleCount), key = { "journey-${it.id}" }) { hotel ->
                 NuiteeListingCard(hotel, language, pricesStale, favorite = hotel.id in favorites,
                     onFavorite = {
                         favorites = if (hotel.id in favorites) favorites - hotel.id else favorites + hotel.id
                         favoritePrefs.edit().putStringSet("hotels", favorites).apply()
                     }, onOpen = { if (ready) selectedHotel = hotel })
             }
+            if (filtered.size > visibleCount) item { OutlinedButton(onClick = { visibleCount += 20 }, modifier = Modifier.fillMaxWidth()) { Text(nuiteeText(language,"Показать ещё", "Load more", "Yana ko‘rsatish", "Яна кўрсатиш")) } }
         }
     }
     selectedHotel?.let { hotel ->
         NuiteeHotelDetailSheet(language, service, hotel, stay.checkIn, stay.checkOut,
             roomAdults, roomChildren, onDismiss = { selectedHotel = null },
-            onRate = { rate ->
-                if (NuiteeRules.validRoomRate(rate)) journey.chooseNuiteeRoom(NuiteeRoomSelection(
-                    roomKey, city, roomIndex, hotel, rate, stay.checkIn, stay.checkOut, roomAdults, roomChildren))
+            onRate = { rate, meals ->
+                if (NuiteeRules.validRoomRate(rate)) {
+                    journey.chooseNuiteeRoom(NuiteeRoomSelection(
+                        roomKey, city, roomIndex, hotel, rate, stay.checkIn, stay.checkOut, roomAdults, roomChildren, meals))
+                    val updated = journey.state.value
+                    if (updated.nuitee?.rooms?.get(roomKey)?.rate == rate) {
+                        val next = updated.nuitee?.let { draft -> draft.requiredCities(trip).flatMap { c -> (0 until trip.rooms).map { c to it } }.firstOrNull { (c, i) -> "$c:$i" !in draft.rooms } }
+                        if (next != null) { city = next.first; roomIndex = next.second; stars = 0 }
+                        else if (updated.nuitee?.let { com.iumrah.beta.domain.nuitee.NuiteeBookingRules.complete(trip, it) } == true) chrome.openNuiteeJourneyReview()
+                    }
+                }
                 selectedHotel = null
-            }, onPending = {
-                journey.chooseNuiteePending(NuiteePendingHotel(
-                    roomKey, city, roomIndex, hotel, stay.checkIn, stay.checkOut, roomAdults, roomChildren))
-                selectedHotel = null
-            })
+            }, allowMealSelection = true)
     }
 }

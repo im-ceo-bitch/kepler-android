@@ -30,12 +30,18 @@ object BookingDraftBuilder {
         val stay = TripStayPlanner.breakdown(trip)
         val windows = TripStayPlanner.windows(trip)
         val usesHaramain = includeMadinah && state.haramainTrainSelected
+        val nuiteeRooms = state.nuitee?.let { draft ->
+            require(com.iumrah.beta.domain.nuitee.NuiteeBookingRules.complete(trip, draft)) { "NUITEE_ROOMS_REQUIRED" }
+            draft.rooms.toSortedMap().values.map(com.iumrah.beta.domain.nuitee.NuiteeBookingRules::bookingSelection)
+        }
+        val includesMeals = nuiteeRooms?.any { it.meals.breakfast || it.meals.lunch || it.meals.dinner } ?: true
+        val serverStay = quote.stayPlan
         val services = buildList {
             add("flight")
             add("makkahHotel")
             if (includeMadinah) add("madinahHotel")
             add("visa")
-            add("meals")
+            if (includesMeals) add("meals")
             add("transfer")
             if (usesHaramain) add("haramainTrain")
             add("accompaniment")
@@ -70,14 +76,14 @@ object BookingDraftBuilder {
             ),
             route = BookingRoute(trip.originCode, trip.outboundDestinationCode, trip.returnOriginCode),
             stay = BookingStay(
-                totalDays = stay.totalDays,
-                totalNights = stay.totalNights,
-                makkahCheckIn = windows.makkah.checkIn.toString(),
-                makkahCheckOut = windows.makkah.checkOut.toString(),
-                makkahNights = stay.makkahNights,
-                madinahCheckIn = windows.madinah?.checkIn?.toString(),
-                madinahCheckOut = windows.madinah?.checkOut?.toString(),
-                madinahNights = windows.madinah?.let { stay.madinahNights },
+                totalDays = serverStay?.totalDays ?: stay.totalDays,
+                totalNights = serverStay?.totalNights ?: stay.totalNights,
+                makkahCheckIn = serverStay?.makkahCheckIn ?: windows.makkah.checkIn.toString(),
+                makkahCheckOut = serverStay?.makkahCheckOut ?: windows.makkah.checkOut.toString(),
+                makkahNights = serverStay?.makkahNights ?: stay.makkahNights,
+                madinahCheckIn = if (serverStay != null) serverStay.madinahCheckIn else windows.madinah?.checkIn?.toString(),
+                madinahCheckOut = if (serverStay != null) serverStay.madinahCheckOut else windows.madinah?.checkOut?.toString(),
+                madinahNights = if (serverStay != null) serverStay.madinahNights.takeIf { includeMadinah } else windows.madinah?.let { stay.madinahNights },
             ),
             selection = BookingSelection(
                 flightId = listOfNotNull(outbound.id, inbound?.id).joinToString("|"),
@@ -93,14 +99,16 @@ object BookingDraftBuilder {
                 guideMeetingPoint = "airport",
                 ziyaratMakkah = true,
                 ziyaratMadinah = includeMadinah,
-                meals = true,
+                meals = includesMeals,
                 esim = true,
             ),
             includedServices = services,
             hotelNames = BookingHotelNames(makkahHotel.name, madinahHotel?.name.orEmpty()),
             flight = flightSummary(outbound, inbound),
             pilgrimProfile = pilgrimProfile,
+            stayPolicy = if (trip.hotelFirstStayPolicy == true) "hotelFirst" else "balanced",
             generatorTrace = BookingGeneratorTrace(
+                nuiteeRooms = nuiteeRooms,
                 quoteId = quote.quoteId,
                 outbound = generatorFlight(outbound, journey.sourceName),
                 inbound = inbound?.let { generatorFlight(it, journey.sourceName) },

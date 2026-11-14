@@ -117,13 +117,13 @@ class JourneyStore {
         state.selectedPublishedCompleteID, state.selectedPublishedOutboundID, state.selectedPublishedReturnID,
         state.stagedAviasalesRoundTrip, state.stagedAviasalesOutbound, state.stagedAviasalesReturn,
         state.selectedTransferVehicle, state.haramainTrainSelected,
-        state.haramainFareClass, state.haramainAdultTickets, state.haramainChildTickets,
+        state.haramainFareClass, state.haramainAdultTickets, state.haramainChildTickets, state.nuitee,
     )
 
     private val _state = MutableStateFlow(JourneyState())
     val state: StateFlow<JourneyState> = _state
 
-    /** Flight-first Nuitee request path, independent of server-signed PackageEngine quotes. */
+    /** Flight-first Nuitee selections are resolved by PackageEngine before booking. */
     fun startNuiteeJourney(flights: List<NuiteeFlightSnapshot>) {
         require(flights.size == 2)
         _state.update { current ->
@@ -136,6 +136,8 @@ class JourneyStore {
             current.copy(
                 trip = current.trip.copy(saudiArrivalDate = saudiArrivalDay),
                 nuitee = NuiteeJourneyDraft(flights = flights), quote = null,
+                makkahHotel = null, makkahRoom = null, makkahRoomCategory = null,
+                madinahHotel = null, madinahRoom = null, madinahRoomCategory = null,
                 packageError = null, transferSelectionConfirmed = false,
             )
         }
@@ -154,6 +156,48 @@ class JourneyStore {
             current.copy(nuitee = draft.copy(rooms = draft.rooms + (selection.key to selection),
                 pending = draft.pending - selection.key), quote = null, transferSelectionConfirmed = false)
         }
+    }
+
+    /** Map only selected supplier rooms, then reuse the existing authoritative flight resolver. */
+    suspend fun prepareNuiteePackage(curated: CuratedFlightRecommendationService, engine: RemotePackageEngineClient): Result<PackageQuote> {
+        val snapshot = _state.value
+        val draft = snapshot.nuitee ?: return Result.failure(IllegalStateException("NUITEE_ROOMS_REQUIRED"))
+        val rules = com.iumrah.beta.domain.nuitee.NuiteeBookingRules
+        if (!rules.complete(snapshot.trip, draft) || snapshot.resolvedTransferVehicle.passengerCapacity < snapshot.trip.travelerCount) {
+            return Result.failure(IllegalStateException("NUITEE_ROOMS_REQUIRED"))
+        }
+        val tier = rules.tier(draft.rooms.values) ?: return Result.failure(IllegalStateException("HOTEL_STARS_REQUIRED"))
+        fun hotel(room: NuiteeRoomSelection) = HotelSummary(id = room.hotel.id, name = room.hotel.name,
+            city = room.city, stars = room.hotel.roundedStars, status = "available", coverImageURL = room.hotel.coverImageURL,
+            roomCount = 1, updatedAt = "")
+        fun room(value: NuiteeRoomSelection) = HotelRoom(id = value.rate.roomId, name = value.rate.roomName,
+            maxGuests = value.adults + value.childrenAges.size, description = value.rate.mealPlan)
+        val makkah = draft.rooms.getValue("makkah:0")
+        val madinah = draft.rooms["madinah:0"]
+        _state.value = snapshot.copy(trip = snapshot.trip.copy(packageTier = tier, hotelStars = draft.rooms.values.maxOf { it.hotel.roundedStars }),
+            makkahHotel = hotel(makkah), makkahRoom = room(makkah), makkahRoomCategory = null,
+            madinahHotel = madinah?.let(::hotel), madinahRoom = madinah?.let(::room), madinahRoomCategory = null,
+            selectedTransferVehicle = snapshot.resolvedTransferVehicle, transferSelectionConfirmed = true, quote = null)
+        val result = when (snapshot.packageFlightPath) {
+            PackageFlightPath.PUBLISHED_DIRECT -> preparePublishedDirectPackage(curated, engine)
+            PackageFlightPath.AVIASALES_SELECTED -> prepareAviasalesSelectedPackage(engine)
+            else -> Result.failure(IllegalStateException("FLIGHT_SELECTION_REQUIRED"))
+        }
+        val quote = result.getOrNull() ?: return result
+        val current = _state.value
+        if (current.nuitee != draft || current.quote != quote) return Result.failure(IllegalStateException("PACKAGE_SELECTION_CHANGED"))
+        if (quote.bookingAllowed != true || !current.hasFinalGeneratorQuote || quote.currency != "USD" ||
+            quote.resolvedTier != tier.wireValue || !rules.complete(current.trip, draft) ||
+            (quote.stayPlan != null && draft.rooms.values.any { room ->
+                val plan = requireNotNull(quote.stayPlan)
+                val start = if (room.city == "madinah") plan.madinahCheckIn else plan.makkahCheckIn
+                val end = if (room.city == "madinah") plan.madinahCheckOut else plan.makkahCheckOut
+                start != room.checkin.toString() || end != room.checkout.toString()
+            })) {
+            _state.update { if (it.quote == quote) it.copy(quote = null) else it }
+            return Result.failure(IllegalStateException("PACKAGE_QUOTE_NOT_BOOKABLE"))
+        }
+        return result
     }
 
     fun chooseNuiteePending(selection: NuiteePendingHotel) {
@@ -189,11 +233,11 @@ class JourneyStore {
 
     /** Revalidation failure removes ONLY the original unchanged offer; it never installs a stale rate. */
     fun revalidateNuiteeRoom(key: String, originalOfferId: String, originalRoomId: String,
-                             refreshed: com.iumrah.beta.models.nuitee.NuiteeRoomRate?) {
+                             refreshed: com.iumrah.beta.models.nuitee.NuiteeRoomRate?, expected: NuiteeRoomSelection? = null) {
         _state.update { current ->
             val draft = current.nuitee ?: return@update current
             val previous = draft.rooms[key] ?: return@update current
-            if (previous.rate.offerId != originalOfferId || previous.rate.roomId != originalRoomId) return@update current
+            if (previous.rate.offerId != originalOfferId || previous.rate.roomId != originalRoomId || (expected != null && previous != expected)) return@update current
             val replacement = refreshed?.takeIf { NuiteeRules.validRoomRate(it) && NuiteeRules.sameOffer(previous.rate, it) }
             current.copy(nuitee = draft.copy(rooms = if (replacement != null) draft.rooms +
                 (key to previous.copy(rate = replacement)) else draft.rooms - key), quote = null)
@@ -218,7 +262,7 @@ class JourneyStore {
                     arrivalAirport = if (scope == JourneyScope.MAKKAH_ONLY) SaudiArrivalAirport.JEDDAH else current.trip.arrivalAirport),
                 makkahHotel = null, makkahRoom = null, makkahRoomCategory = null,
                 madinahHotel = null, madinahRoom = null, madinahRoomCategory = null,
-                quote = null, packageError = null, transferSelectionConfirmed = false,
+                nuitee = null, quote = null, packageError = null, transferSelectionConfirmed = false,
             )
         }
     }
@@ -245,7 +289,7 @@ class JourneyStore {
                 flightResults = emptyList(),
                 selectedJourneyId = null,
                 selectedOutboundJourneyId = null,
-                quote = null,
+                nuitee = null, quote = null,
                 packageError = null,
                 transferSelectionConfirmed = false,
             )
@@ -262,7 +306,7 @@ class JourneyStore {
                 flightResults = emptyList(),
                 selectedJourneyId = null,
                 selectedOutboundJourneyId = null,
-                quote = null,
+                nuitee = null, quote = null,
                 packageError = null,
                 transferSelectionConfirmed = false,
             )
@@ -277,7 +321,7 @@ class JourneyStore {
             flightResults = emptyList(),
             selectedJourneyId = null,
             selectedOutboundJourneyId = null,
-            quote = null,
+            nuitee = null, quote = null,
             packageError = null,
             transferSelectionConfirmed = false,
         ) }
@@ -290,7 +334,7 @@ class JourneyStore {
             selectedPublishedOutboundID = null,
             selectedPublishedReturnID = null,
             flightResults = emptyList(), selectedJourneyId = null, selectedOutboundJourneyId = null,
-            quote = null, transferSelectionConfirmed = false,
+            nuitee = null, quote = null, transferSelectionConfirmed = false,
             packageError = null,
         ) }
     }
@@ -389,7 +433,7 @@ class JourneyStore {
                 flightResults = emptyList(), selectedJourneyId = null, selectedOutboundJourneyId = null,
                 makkahHotel = null, makkahRoom = null, makkahRoomCategory = null,
                 madinahHotel = null, madinahRoom = null, madinahRoomCategory = null,
-                quote = null, packageError = null, transferSelectionConfirmed = false,
+                nuitee = null, quote = null, packageError = null, transferSelectionConfirmed = false,
             )
         }
     }
@@ -400,7 +444,7 @@ class JourneyStore {
             if (current.packageFlightPath == PackageFlightPath.AVIASALES_SELECTED) current.copy(
                 stagedAviasalesRoundTrip = null, stagedAviasalesOutbound = null, stagedAviasalesReturn = null,
                 flightResults = emptyList(), selectedJourneyId = null, selectedOutboundJourneyId = null,
-                quote = null, packageError = null, transferSelectionConfirmed = false,
+                nuitee = null, quote = null, packageError = null, transferSelectionConfirmed = false,
             ) else current.copy(stagedAviasalesRoundTrip = null, stagedAviasalesOutbound = null, stagedAviasalesReturn = null)
         }
     }
@@ -566,7 +610,7 @@ class JourneyStore {
                     flightResults = emptyList(),
                     selectedJourneyId = null,
                     selectedOutboundJourneyId = null,
-                    quote = null,
+                    nuitee = null, quote = null,
                     packageError = null,
                 )
             } else {
@@ -578,7 +622,7 @@ class JourneyStore {
                     flightResults = emptyList(),
                     selectedJourneyId = null,
                     selectedOutboundJourneyId = null,
-                    quote = null,
+                    nuitee = null, quote = null,
                     packageError = null,
                 )
             }

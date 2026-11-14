@@ -185,7 +185,9 @@ class APIClient(
     }
 
     private fun execute(request: Request, timeoutSeconds: Long?): Response {
-        val call = client.newCall(request)
+        val selectedClient = if (timeoutSeconds != null && timeoutSeconds > 25) client.newBuilder()
+            .readTimeout(timeoutSeconds, TimeUnit.SECONDS).build() else client
+        val call = selectedClient.newCall(request)
         if (timeoutSeconds != null) call.timeout().timeout(timeoutSeconds, TimeUnit.SECONDS)
         return try {
             call.execute()

@@ -17,14 +17,9 @@ import androidx.compose.ui.unit.sp
 import com.iumrah.beta.core.navigation.AppChromeStore
 import com.iumrah.beta.core.settings.AppLanguage
 import com.iumrah.beta.data.account.IumrahAccountStore
-import com.iumrah.beta.data.care.IumrahCarePackageRequest
-import com.iumrah.beta.data.care.IumrahCarePackageRequestResponse
-import com.iumrah.beta.data.care.IumrahCareRequestService
-import com.iumrah.beta.data.care.NuiteeCareConfiguration
 import com.iumrah.beta.data.nuitee.NuiteeHotelService
 import com.iumrah.beta.ui.hotels.rememberNuiteeHotelService
 import com.iumrah.beta.domain.journey.JourneyStore
-import com.iumrah.beta.domain.nuitee.NuiteeJourneyPricing
 import com.iumrah.beta.domain.trip.JourneyScope
 import com.iumrah.beta.domain.trip.TransferVehicleKind
 import com.iumrah.beta.ui.components.IumrahPrimaryButton
@@ -36,52 +31,32 @@ import kotlinx.coroutines.launch
 /** Same review/request boundary as SwiftUI LocalJourneyReview; never creates an unpaid booking. */
 @Composable
 fun NuiteeJourneyReviewScreen(language: AppLanguage, journey: JourneyStore, account: IumrahAccountStore,
-                              chrome: AppChromeStore, hotelService: NuiteeHotelService = rememberNuiteeHotelService()) {
+                              chrome: AppChromeStore, curated: com.iumrah.beta.data.flight.CuratedFlightRecommendationService,
+                              packageEngine: com.iumrah.beta.data.hotel.RemotePackageEngineClient, hotelService: NuiteeHotelService = rememberNuiteeHotelService()) {
     val state by journey.state.collectAsState()
-    val accountState by account.state.collectAsState()
     val draft = state.nuitee
-    val estimate = draft?.let {
-        NuiteeJourneyPricing.estimate(state.trip, it, state.selectedTransferVehicle,
-            state.haramainTrainSelected, state.haramainTicketCount, state.haramainFareClass)
-    }
     val scope = rememberCoroutineScope()
-    var firstName by remember(accountState.account) { mutableStateOf(accountState.account?.firstName.orEmpty()) }
-    var lastName by remember(accountState.account) { mutableStateOf(accountState.account?.lastName.orEmpty()) }
-    var phone by remember(accountState.account) { mutableStateOf(accountState.account?.phone.orEmpty()) }
     var sending by remember { mutableStateOf(false) }
-    var result by remember { mutableStateOf<IumrahCarePackageRequestResponse?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
     var refreshing by remember { mutableStateOf(false) }
-    val care = remember { IumrahCareRequestService() }
-    val valid = draft != null && draft.roomsComplete(state.trip) && draft.flights.size == 2
+    val valid = draft?.let { com.iumrah.beta.domain.nuitee.NuiteeBookingRules.complete(state.trip, it) && it.flights.size == 2 } == true &&
+        state.resolvedTransferVehicle.passengerCapacity >= state.trip.travelerCount
+    val quote = state.quote?.takeIf { state.hasFinalGeneratorQuote && it.bookingAllowed == true }
 
-    fun submit() {
-        if (!valid || sending || firstName.isBlank() || phone.filter(Char::isDigit).length < 7) return
-        val snapshot = state
+    fun submit(confirm: Boolean = false) {
+        if (!valid || sending || refreshing) return
+        val accepted = if (confirm) quote else null
         scope.launch {
             sending = true; error = null
             try {
-                val request = IumrahCarePackageRequest(
-                    locale = language.code, firstName = firstName.trim(), lastName = lastName.trim(),
-                    phone = phone.trim(), telegram = "", accountID = accountState.account?.iumrahID,
-                    originCode = snapshot.trip.originCode, timingMode = "exact_dates",
-                    exactStartDate = snapshot.trip.departureDate.toString(), exactEndDate = snapshot.trip.returnDate.toString(),
-                    adults = snapshot.trip.adults, children = snapshot.trip.children, infants = snapshot.trip.infants,
-                    rooms = snapshot.trip.rooms,
-                    scope = if (snapshot.trip.scope == JourneyScope.MAKKAH_AND_MADINAH) "makkah_madinah" else "makkah",
-                    firstSaudiCity = snapshot.trip.arrivalAirport.name.lowercase(), priority = "balanced",
-                    hotelClass = snapshot.trip.hotelStars,
-                    transferPreference = if (snapshot.resolvedTransferVehicle == TransferVehicleKind.YUKON) "vip" else "comfortable",
-                    directFlightsPreferred = snapshot.nuitee!!.flights.all { it.stops == 0 },
-                    checkedBaggagePreferred = true, includeZiyarat = true, includeESIM = false,
-                    guidePreference = "live", notes = "Выбранные рейсы и комнаты Nuitee в configuration; оценка не является бронью. Требуется подтверждение доступности и тарифа.",
-                    configuration = NuiteeCareConfiguration.from(snapshot),
-                )
-                val response = care.submit(request, account.bearerToken)
-                if (response.ok) result = response else error = "Request was not accepted"
-            } catch (cancel: CancellationException) { throw cancel
-            } catch (ex: Exception) { error = ex.localizedMessage }
-            sending = false
+                val result = journey.prepareNuiteePackage(curated, packageEngine)
+                result.exceptionOrNull()?.let { if (it is CancellationException) throw it else error = it.localizedMessage ?: "PACKAGE_QUOTE_FAILED" }
+                val fresh = result.getOrNull()
+                if (accepted != null && fresh != null) {
+                    if (accepted.totalPackagePrice.compareTo(fresh.totalPackagePrice) == 0 && accepted.pricePerPerson.compareTo(fresh.pricePerPerson) == 0 && accepted.currency == fresh.currency && journey.state.value.quote == fresh) chrome.openBookingCheckout()
+                    else error = nuiteeText(language,"Стоимость изменилась. Проверьте новую цену.", "Price changed. Review the new total.", "Narx o‘zgardi. Yangi narxni tekshiring.", "Нарх ўзгарди. Янги нархни текширинг.")
+                }
+            } finally { sending = false }
         }
     }
 
@@ -98,24 +73,11 @@ fun NuiteeJourneyReviewScreen(language: AppLanguage, journey: JourneyStore, acco
         item {
             Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(22.dp))
                 .background(MaterialTheme.colorScheme.surface).padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(estimate?.let { nuiteeUSD(it.totalUsd.toDouble()) } ?: nuiteeText(language,
-                    "Стоимость уточняется", "Price to be confirmed", "Narx aniqlanmoqda", "Нарх аниқланмоқда"),
-                    fontWeight = FontWeight.Bold, fontSize = 25.sp)
-                Text(nuiteeText(language,
-                    "Предварительный расчёт, не подтверждённая бронь.",
-                    "Preliminary estimate, not a confirmed booking.",
-                    "Taxminiy narx. Bron tasdiqlanmagan.", "Тахминий нарх. Брон тасдиқланмаган."),
-                    fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                if (draft?.pending?.isNotEmpty() == true) Text(nuiteeText(language,
-                    "Отели на уточнении исключены из суммы.", "Pending hotels are excluded from the estimate.",
-                    "Aniqlanayotgan mehmonxonalar kiritilmagan.", "Аниқланаётган меҳмонхоналар киритилмаган."),
-                    fontSize = 12.sp, color = MaterialTheme.colorScheme.error)
-                estimate?.lines?.forEach { line ->
-                    Row(Modifier.fillMaxWidth()) {
-                        Text(line.title, Modifier.weight(1f), fontSize = 12.sp)
-                        Text(nuiteeUSD(line.usd.toDouble()), fontSize = 12.sp)
-                    }
-                }
+                Text(quote?.let { nuiteeUSD(it.totalPackagePrice.toDouble()) } ?: nuiteeText(language,
+                    "Итоговая стоимость", "Total package price", "Jami narx", "Жами нарх"), fontWeight = FontWeight.Bold, fontSize = 25.sp)
+                Text(if (quote != null) nuiteeText(language,"Цена подтверждена сервером", "Server-verified price", "Server tasdiqlagan narx", "Сервер тасдиқлаган нарх") else
+                    nuiteeText(language,"Рассчитайте пакет по выбранным компонентам", "Calculate the package for your selection", "Paket narxini hisoblang", "Пакет нархини ҳисобланг"), fontSize = 12.sp)
+
             }
         }
         item { Text(nuiteeText(language,"Авиабилеты", "Flights", "Reyslar", "Рейслар"),
@@ -125,8 +87,7 @@ fun NuiteeJourneyReviewScreen(language: AppLanguage, journey: JourneyStore, acco
                 .background(MaterialTheme.colorScheme.surface).padding(14.dp)) {
                 Text("${flight.origin} → ${flight.destination}", fontWeight = FontWeight.Bold)
                 Text("${flight.airline} · ${flight.flightNumber} · ${flight.departureAt}", fontSize = 12.sp)
-                Text(flight.adultFareUSD?.let(::nuiteeUSD) ?: nuiteeText(language,
-                    "Цена билета уточняется", "Airfare to be confirmed", "Chipta narxi tekshiriladi", "Чипта нархи текширилади"), fontSize = 12.sp)
+
             }
         }
         item { Text(nuiteeText(language,"Отели и номера", "Hotels & rooms", "Xonalar", "Хоналар"),
@@ -136,7 +97,7 @@ fun NuiteeJourneyReviewScreen(language: AppLanguage, journey: JourneyStore, acco
                 .background(MaterialTheme.colorScheme.surface).padding(14.dp)) {
                 Text(room.hotel.name, fontWeight = FontWeight.Bold)
                 Text("${room.city} · ${room.rate.roomName} · ${room.checkin} — ${room.checkout}", fontSize = 12.sp)
-                Text(nuiteeUSD(room.rate.price) + " · ${room.rate.mealPlan}", fontSize = 13.sp)
+                Text(room.rate.mealPlan, fontSize = 13.sp)
                 Text(room.rate.cancellationDescription.ifBlank { room.rate.cancellationTag }, fontSize = 12.sp)
             }
         }
@@ -168,13 +129,13 @@ fun NuiteeJourneyReviewScreen(language: AppLanguage, journey: JourneyStore, acco
         }
         item {
             if (refreshing) CircularProgressIndicator()
-            OutlinedButton(enabled = !refreshing && draft?.rooms?.isNotEmpty() == true,
+            OutlinedButton(enabled = !sending && !refreshing && draft?.rooms?.isNotEmpty() == true,
                 onClick = {
                     scope.launch {
                         refreshing = true
                         // Failed recheck invalidates only the unchanged offer; no stale total is reused.
                         val snapshot = journey.state.value.nuitee?.rooms.orEmpty()
-                        for ((key, room) in snapshot) {
+                        try { for ((key, room) in snapshot) {
                             val matched = try {
                                 val response = hotelService.rates(room.hotel.id, room.checkin, room.checkout,
                                     room.adults, room.childrenAges, language.code)
@@ -183,9 +144,8 @@ fun NuiteeJourneyReviewScreen(language: AppLanguage, journey: JourneyStore, acco
                                 }
                             } catch (cancel: CancellationException) { throw cancel
                             } catch (_: Exception) { null }
-                            journey.revalidateNuiteeRoom(key, room.rate.offerId, room.rate.roomId, matched)
-                        }
-                        refreshing = false
+                            journey.revalidateNuiteeRoom(key, room.rate.offerId, room.rate.roomId, matched, expected = room)
+                        } } finally { refreshing = false }
                     }
                 }, modifier = Modifier.fillMaxWidth()) {
                 Text(nuiteeText(language,"Перепроверить цены номеров", "Revalidate room prices",
@@ -193,27 +153,13 @@ fun NuiteeJourneyReviewScreen(language: AppLanguage, journey: JourneyStore, acco
             }
         }
         item {
-            if (result == null) {
-                Text(nuiteeText(language,"Контактные данные", "Contact details", "Aloqa", "Алоқа"),
-                    fontSize = 20.sp, fontWeight = FontWeight.Bold)
-                OutlinedTextField(firstName, { firstName = it }, modifier = Modifier.fillMaxWidth(), singleLine = true,
-                    label = { Text(nuiteeText(language,"Имя", "First name", "Ism", "Исм")) })
-                OutlinedTextField(lastName, { lastName = it }, modifier = Modifier.fillMaxWidth(), singleLine = true,
-                    label = { Text(nuiteeText(language,"Фамилия", "Last name", "Familiya", "Фамилия")) })
-                OutlinedTextField(phone, { phone = it }, modifier = Modifier.fillMaxWidth(), singleLine = true,
-                    label = { Text(nuiteeText(language,"Телефон", "Phone", "Telefon", "Телефон")) })
-                error?.let { Text(it, color = MaterialTheme.colorScheme.error, fontSize = 12.sp) }
-                IumrahPrimaryButton(title = if (sending) nuiteeText(language,"Отправка…", "Sending…", "Yuborilmoqda…", "Юборилмоқда…")
-                    else nuiteeText(language,"Отправить заявку", "Submit enquiry", "So‘rov yuborish", "Сўров юбориш"),
-                    enabled = valid && !sending && firstName.isNotBlank() && phone.filter(Char::isDigit).length >= 7,
-                    onClick = ::submit)
-                Text(nuiteeText(language, "Оплата пока не требуется. Доступность подтвердит поддержка.",
-                    "No payment required yet. Support will confirm availability.",
-                    "Hozir to‘lov talab qilinmaydi.", "Ҳозир тўлов талаб қилинмайди."), fontSize = 12.sp)
-            } else {
-                Text(nuiteeText(language,"Заявка отправлена", "Enquiry submitted", "So‘rov yuborildi", "Сўров юборилди"), fontWeight = FontWeight.Bold)
-                Text(result?.requestID.orEmpty())
-            }
+            error?.let { Text(it, color = MaterialTheme.colorScheme.error, fontSize = 12.sp) }
+            if (quote != null) IumrahPrimaryButton(title = nuiteeText(language,"Забронировать", "Book", "Bron qilish", "Брон қилиш"),
+                enabled = valid && !sending && !refreshing, onClick = { submit(confirm = true) })
+            else IumrahPrimaryButton(title = if (sending) nuiteeText(language,"Рассчитываем…", "Calculating…", "Hisoblanmoqda…", "Ҳисобланмоқда…") else
+                nuiteeText(language,"Рассчитать стоимость", "Calculate price", "Narxni hisoblash", "Нархни ҳисоблаш"),
+                enabled = valid && !sending && !refreshing, onClick = { submit() })
+            if (!valid) TextButton(onClick = { chrome.back() }) { Text(nuiteeText(language,"Проверить выбранные номера", "Check selected rooms", "Xonalarni tekshirish", "Хоналарни текшириш")) }
         }
     }
 }
