@@ -103,6 +103,7 @@ import com.iumrah.beta.ui.account.AccountTravelersScreen
 import com.iumrah.beta.ui.account.AccountTripsHistoryScreen
 import com.iumrah.beta.ui.account.AccountTravelCompanionsParityScreen
 import com.iumrah.beta.ui.account.AccountPasswordRecoveryScreen
+import com.iumrah.beta.ui.account.AccountPasswordSecurityScreen
 import com.iumrah.beta.ui.account.AccountPolicyParityScreen
 import com.iumrah.beta.ui.account.AccountPolicyScreen
 import com.iumrah.beta.ui.account.AccountSecurityScreen

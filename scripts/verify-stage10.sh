@@ -126,3 +126,6 @@ fi
 # 2026-11-10 stage 10 parity gate; supplementary to the legacy Stage 010 checks.
 # The green apply-patch workflow is NOT an APK build. Run workflow_dispatch for that.
 python3 scripts/verify-ios-parity-stage10.py
+
+# Confirm the actual Kotlin fixes reached the repository before committing an update.
+python3 scripts/verify-v10-hotfix-applied.py

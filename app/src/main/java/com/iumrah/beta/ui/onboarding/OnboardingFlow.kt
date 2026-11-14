@@ -5,6 +5,7 @@ import com.iumrah.beta.ui.cupertino.CupertinoSymbol
 
 import android.os.Build
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -60,6 +61,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.iumrah.beta.R
 import com.iumrah.beta.core.analytics.IumrahIntelligence
 import com.iumrah.beta.core.design.IumrahHaptics
@@ -346,10 +348,11 @@ private fun OnboardingPageContent(
     val y by animateFloatAsState(if (active) 0f else 18f, IumrahMotion.softReveal,
         label = "onboarding-copy-y")
     BoxWithConstraints(modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
-        val small = maxHeight < 730.dp
-        val sceneHeight = (maxHeight * if (small) .48f else .55f).coerceIn(255.dp, 470.dp)
+        val availableHeight = maxHeight
+        val small = availableHeight < 730.dp
+        val sceneHeight = (availableHeight * if (small) .48f else .55f).coerceIn(255.dp, 470.dp)
         Column(Modifier.fillMaxSize()) {
-            Box(Modifier.fillMaxWidth().height(if (page.scene == 4) maxHeight else sceneHeight)
+            Box(Modifier.fillMaxWidth().height(if (page.scene == 4) availableHeight else sceneHeight)
                 .clip(RoundedCornerShape(bottomStart = if (page.scene == 4) 0.dp else 44.dp,
                     bottomEnd = if (page.scene == 4) 0.dp else 44.dp))) {
                 OnboardingScene(scene = page.scene, active = active, language = language,
