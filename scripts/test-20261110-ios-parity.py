@@ -35,7 +35,7 @@ for drawable in ['iumrah_visa_services_hero.jpg','iumrah_services_flight_hero.jp
 
 home = src('ui/home/HomeScreen.kt')
 assert 'item { IumrahServicesCarousel(language, chrome) }' in home
-assert 'IumrahHomeSearchHero(language, journeyState.trip, journey, airports, curatedFlights, chrome)' in home
+assert 'IumrahHomeSearchHero(language, journeyState.trip, journey, airports, curatedFlights, chrome, searchExpanded)' in home
 assert 'item { ServicesSection(language, chrome) }' not in home
 assert 'item { HotelFirstPackagesSection(' not in home
 

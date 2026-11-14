@@ -40,6 +40,13 @@ object IumrahDesign {
     val SignatureHeaderHeight = 171.6f.dp
     val SignatureBottomRadius = 30.dp
     val SearchOverlap = 40.dp
+    val DiscoveryHeaderExtra = 52.dp
+    val ActionHeaderExtra = 34.dp
+    val HeaderPillHeight = 44.dp
+    val HeaderPillViewport = 46.dp
+    val HeaderPillGap = 8.dp
+    val HeaderPillHorizontal = 15.dp
+    val HeaderPillIcon = 15.dp
     val FullPill = RoundedCornerShape(50)
 }
 

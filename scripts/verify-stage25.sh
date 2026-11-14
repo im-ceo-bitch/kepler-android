@@ -55,3 +55,6 @@ python3 scripts/verify-block8-reminder-center-parity.py
 
 # Global v14 internationalization and design-regression checks.
 python3 scripts/verify-global-parity-v14.py
+
+# V8 shared discovery/action headers and navigation source contract.
+python3 scripts/verify-ios-ui-v8.py

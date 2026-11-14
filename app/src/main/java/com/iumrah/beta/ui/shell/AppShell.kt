@@ -16,6 +16,8 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.ui.semantics.Role
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
@@ -168,7 +170,7 @@ fun AppShell(
             when (route) {
                 AppRoute.Root -> when (tab) {
                     AppTab.HOME -> HomeScreen(language, chrome, hotelCatalog, journey, airports, curatedFlights, bookingStore, notifications, accountStore.bearerToken)
-                    AppTab.HOTELS -> HotelsScreen(language, hotelCatalog, journey, airports, flightDiscovery, chrome, unreadCount = shellNotificationState.unreadCount)
+                    AppTab.HOTELS -> HotelsScreen(language, hotelCatalog, journey, airports, flightDiscovery, chrome, initialBoard = if (chromeState.discoveryFlights) HotelsBoard.FLIGHTS else HotelsBoard.HOTELS, unreadCount = shellNotificationState.unreadCount)
                     AppTab.BOOKING -> BookingsHomeScreen(language, bookingStore, accountService, chatService, notifications, chrome)
                     AppTab.CARE -> CareHomeScreen(language, bookingStore, chatService, notifications, chrome)
                     AppTab.ACCOUNT -> AccountRootScreen(language, accountStore, bookingStore, settingsStore, notifications, chrome)
@@ -331,8 +333,10 @@ fun AppShell(
                 language = language,
                 selected = chromeState.currentTab,
                 onSelect = {
-                    if (it != chromeState.currentTab) IumrahHaptics.selection(hapticView)
-                    chrome.navigate(it)
+                    if (it != chromeState.currentTab) {
+                        IumrahHaptics.selection(hapticView)
+                        chrome.navigate(it)
+                    }
                 },
                 modifier = Modifier.align(Alignment.BottomCenter),
             )
@@ -354,7 +358,7 @@ private fun IumrahBottomBar(
 ) {
     val items = listOf(
         Triple(AppTab.HOME, CupertinoSymbol.Home, L10n.text("tab_home", language)),
-        Triple(AppTab.HOTELS, CupertinoSymbol.Hotel, L10n.text("tab_hotels", language)),
+        Triple(AppTab.HOTELS, CupertinoSymbol.Building, L10n.text("tab_hotels", language)),
         Triple(AppTab.BOOKING, CupertinoSymbol.Suitcase, L10n.text("tab_booking", language)),
         Triple(AppTab.CARE, CupertinoSymbol.HeartFill, L10n.text("tab_care", language)),
         Triple(AppTab.ACCOUNT, CupertinoSymbol.PersonCircle, when (language) {
@@ -408,16 +412,18 @@ private fun RowScope.BottomTabItem(
             .height(65.dp)
             .clip(shape)
             .background(if (selected) com.iumrah.beta.core.design.IumrahColors.SignatureBlack else Color.Transparent)
-            .clickable(onClick = onClick),
+            .selectable(selected = selected, role = Role.Tab, onClick = onClick),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(5.dp, Alignment.CenterVertically),
     ) {
-        CupertinoIcon(
-            symbol = icon,
-            contentDescription = label,
-            modifier = Modifier.size(21.dp),
-            tint = if (selected) selectedTint else unselectedTint,
-        )
+        Box(Modifier.height(25.dp), contentAlignment = Alignment.Center) {
+            CupertinoIcon(
+                symbol = icon,
+                contentDescription = null,
+                modifier = Modifier.size(21.dp),
+                tint = if (selected) selectedTint else unselectedTint,
+            )
+        }
         Text(
             text = label,
             fontSize = 10.5.sp,

@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
@@ -92,8 +93,9 @@ fun IumrahHomeSearchHero(
     airports: AirportSearchService,
     curatedFlights: CuratedFlightRecommendationService,
     chrome: AppChromeStore,
+    expanded: Boolean,
+    onExpandedChange: (Boolean) -> Unit,
 ) {
-    var expanded by remember { mutableStateOf(false) }
     var calendarOpen by remember { mutableStateOf(false) }
     var travelersOpen by remember { mutableStateOf(false) }
     var headlineIndex by remember { mutableIntStateOf(0) }
@@ -144,9 +146,9 @@ fun IumrahHomeSearchHero(
     ) {
         Row(
             Modifier.fillMaxWidth().clickable {
-                expanded = !expanded
-                IumrahIntelligence.record("tap", "home", if (expanded) "search_expand" else "search_collapse")
-            }.padding(15.dp).height(50.dp),
+                onExpandedChange(!expanded)
+                IumrahIntelligence.record("tap", "home", if (!expanded) "search_expand" else "search_collapse")
+            }.padding(horizontal = 14.dp, vertical = 10.dp).heightIn(min = 42.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
@@ -255,7 +257,7 @@ fun IumrahHomeSearchHero(
                                     outboundID = journey.state.value.selectedPublishedOutboundID,
                                     returnID = journey.state.value.selectedPublishedReturnID,
                                 )
-                                expanded = false
+                                onExpandedChange(false)
                                 IumrahIntelligence.record("tap", "home", "start_trip_search")
                                 chrome.openGuidedFlights()
                             },

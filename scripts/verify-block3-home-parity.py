@@ -28,10 +28,10 @@ def main():
     ordering=[
         'item { EmotionalPrompt(',
         'item { HomeVideoCarousel(',
-        'item { AudienceSection(',
-        'item { BuildMyUmrahSection(',
         'item { IumrahServicesCarousel(',
-        'item { ReadyPackagesSection(',
+        'item { BuildMyUmrahSection(',
+        'item { JourneyTravelInfoPanel(',
+        'item { AudienceSection(',
         'item { HomeIntegrationsSection(',
         'item { ProductsSection(',
         'item { ConfidenceStrip(',
@@ -41,7 +41,7 @@ def main():
         'item { AboutFooter(',
     ]
     check(all(x in home for x in ordering) and [home.index(x) for x in ordering]==sorted(home.index(x) for x in ordering),'Home sections preserve current SwiftUI marketing order')
-    check('IumrahHomeSearchHero(language, journeyState.trip, journey, airports, curatedFlights, chrome)' in home, 'iOS collapsed journey search uses real JourneyStore and published catalog')
+    check('IumrahHomeSearchHero(language, journeyState.trip, journey, airports, curatedFlights, chrome, searchExpanded)' in home, 'iOS collapsed journey search uses real JourneyStore and published catalog')
     check('IumrahServicesCarousel(language, chrome)' in home, 'Nine services carousel replaces legacy product-only cards')
     check('item { HotelFirstPackagesSection(' not in home, 'Home omits historical Hotel-First cards like current iOS')
     check('private fun HomeTripToolsSection' in home and 'Arrangement.spacedBy(13.dp)' in home,'Pilgrim tools block present with 13dp section spacing')

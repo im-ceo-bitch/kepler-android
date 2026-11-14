@@ -37,6 +37,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.iumrah.beta.R
 import com.iumrah.beta.ui.components.IumrahRootPageHeader
+import com.iumrah.beta.ui.components.HeaderPill
+import com.iumrah.beta.ui.components.IumrahHeaderPills
 import com.iumrah.beta.IumrahApplication
 import com.iumrah.beta.core.auth.GoogleSignInSupport
 import com.iumrah.beta.core.design.IumrahBookingStatusVisual
@@ -257,6 +259,7 @@ fun AccountRootScreen(
     var unlockSheet by remember { mutableStateOf(false) }
     var isRefreshing by remember { mutableStateOf(false) }
     val accountListState = rememberLazyListState()
+    var register by remember { mutableStateOf(false) }
     val activeTrip = remember(bookings.sessions) {
         bookings.sessions.filterNot { it.isPastAccountTrip() }.minByOrNull { accountTripPriority(it) }
     }
@@ -278,10 +281,13 @@ fun AccountRootScreen(
     LazyColumn(
         modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background),
         state = accountListState,
-        contentPadding = PaddingValues(start = PagePad, end = PagePad, top = 12.dp, bottom = 130.dp),
+        contentPadding = PaddingValues(start = PagePad, end = PagePad, top = 0.dp, bottom = 130.dp),
         verticalArrangement = Arrangement.spacedBy(20.dp),
     ) {
-        item { AccountHeader(language, profile != null, signalState.unreadCount, chrome) }
+        item { AccountHeader(language, profile != null, signalState.unreadCount, chrome, register) {
+            register = it
+            if (profile == null) scope.launch { accountListState.animateScrollToItem(2) }
+        } }
         if (profile != null) {
             item { IumrahIdentityHeroAndroid(profile, language) }
             item { IumrahUserDataEntryCardAndroid(language, profile.displayName) { chrome.openAccountUserData() } }
@@ -307,7 +313,7 @@ fun AccountRootScreen(
             }
         } else {
             item { IumrahLockedIdentityCardAndroid(language) { unlockSheet = true } }
-            item { GuestLoginCard(language, accountStore, bookingStore, chrome) }
+            item { key(register) { GuestLoginCard(language, accountStore, bookingStore, chrome, register) } }
             item { TelegramIntegrationCard(language) { chrome.openAccountTelegramIntegration() } }
             item { PaymentSecuritySection(language, bookings.sessions.firstOrNull(), false, chrome) }
             item { GuestSettingsSection(language, settings.appearance, signalState.unreadCount, notificationDeliveryStatus, chrome, context) }
@@ -336,24 +342,22 @@ fun AccountRootScreen(
 }
 
 @Composable
-private fun AccountHeader(language: AppLanguage, authenticated: Boolean, unread: Int, chrome: AppChromeStore) {
-    Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        IumrahRootPageHeader(
-            title = when (language) {
-                AppLanguage.RUSSIAN, AppLanguage.UZBEK_CYRILLIC -> "Аккаунт"
-                AppLanguage.UZBEK -> "Akkaunt"
-                AppLanguage.ENGLISH, AppLanguage.ARABIC, AppLanguage.TURKISH, AppLanguage.INDONESIAN, AppLanguage.MALAY -> "Account"
-            },
-            chrome = chrome,
-            unreadCount = unread,
-        )
-        Text(
-            if (authenticated) tr(language, "Your iumrah profile and trips", "Ваш профиль и поездки iumrah", "iumrah profilingiz va safarlaringiz", "iumrah профилингиз ва сафарларингиз")
-            else tr(language, "Sign in or create your permanent iumrah account", "Войдите или создайте постоянный аккаунт iumrah", "Doimiy iumrah akkauntingizga kiring yoki uni yarating", "Доимий iumrah аккаунтингизга киринг ёки уни яратинг"),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+private fun AccountHeader(language: AppLanguage, authenticated: Boolean, unread: Int, chrome: AppChromeStore,
+                          register: Boolean, onRegister: (Boolean) -> Unit) {
+    val guestFooter: (@Composable () -> Unit)? = if (authenticated) null else {
+        {
+            IumrahHeaderPills(listOf(
+                HeaderPill(tr(language, "Register", "Зарегистрироваться", "Ro‘yxatdan o‘tish", "Рўйхатдан ўтиш"), CupertinoSymbol.PlusPerson),
+                HeaderPill(tr(language, "Sign in", "Войти", "Kirish", "Кириш"), CupertinoSymbol.Key),
+            ), selected = if (register) 0 else 1, onSelect = { onRegister(it == 0) })
+        }
     }
+    IumrahRootPageHeader(
+        title = tr(language, "Account", "Аккаунт", "Akkaunt", "Аккаунт"),
+        chrome = chrome, unreadCount = unread, language = language,
+        subtitle = if (authenticated) tr(language, "Your profile, iumrah ID and journeys", "Ваш профиль, iumrah ID и поездки", "Profilingiz, iumrah ID va safarlar", "Профилингиз, iumrah ID ва сафарлар") else null,
+        footer = guestFooter,
+    )
 }
 
 @Composable
@@ -685,11 +689,11 @@ private fun GuestSettingsSection(language: AppLanguage, appearance: AppAppearanc
 }
 
 @Composable
-private fun GuestLoginCard(language:AppLanguage,accountStore:IumrahAccountStore,bookingStore:BookingStore,chrome:AppChromeStore){
+private fun GuestLoginCard(language:AppLanguage,accountStore:IumrahAccountStore,bookingStore:BookingStore,chrome:AppChromeStore,register:Boolean){
     // Observe the booking store from composition. Reading StateFlow.value here would not
     // trigger recomposition when an active booking is added or removed.
     val bookings by bookingStore.state.collectAsState()
-    val scope=rememberCoroutineScope(); val activity = LocalActivity.current; var register by remember{mutableStateOf(false)}; var method by remember{mutableStateOf("sms")}
+    val scope=rememberCoroutineScope(); val activity = LocalActivity.current; var method by remember{mutableStateOf("sms")}
     var identifier by remember{mutableStateOf("")};var password by remember{mutableStateOf("")};var code by remember{mutableStateOf("")};var challenge by remember{mutableStateOf<String?>(null)}
     var emailCodeLogin by remember { mutableStateOf(false) }
     var first by remember{mutableStateOf("")};var last by remember{mutableStateOf("")};var busy by remember{mutableStateOf(false)};var error by remember{mutableStateOf<String?>(null)}
@@ -699,7 +703,6 @@ private fun GuestLoginCard(language:AppLanguage,accountStore:IumrahAccountStore,
             if(register) tr(language,"Create account","Регистрация","Ro‘yxatdan o‘tish","Рўйхатдан ўтиш") else tr(language,"Sign in","Вход","Kirish","Кириш"),
             if(register) tr(language,"Create one permanent account for all future trips","Создайте один постоянный аккаунт для всех будущих поездок","Barcha keyingi safarlar uchun bitta doimiy akkaunt yarating","Барча кейинги сафарлар учун битта доимий аккаунт яратинг") else tr(language,"Use the method linked to your permanent iumrah account","Используйте способ, привязанный к Вашему постоянному аккаунту iumrah","Doimiy iumrah akkauntingizga ulangan usuldan foydalaning","Доимий iumrah аккаунтингизга уланган усулдан фойдаланинг")
         )
-        Spacer(Modifier.height(14.dp));Segmented(listOf(tr(language,"Register","Регистрация","Ro‘yxatdan o‘tish","Рўйхатдан ўтиш"),tr(language,"Sign in","Вход","Kirish","Кириш")),if(register)0 else 1){register=it==0;challenge=null;error=null}
         Spacer(Modifier.height(12.dp));Segmented(listOf("SMS","Email","iumrah ID"),when(method){"sms"->0;"email"->1;else->2}){method=listOf("sms","email","id")[it];challenge=null;error=null}
         Spacer(Modifier.height(14.dp))
         if(register && (method=="email" || method=="sms")){

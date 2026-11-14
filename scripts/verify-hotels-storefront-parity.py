@@ -42,9 +42,8 @@ def main():
            'if (active) 0f else .38f' in tile and
            not all(f'IumrahColors.{color}' in tile for color in ('SystemOrange', 'SystemBlue', 'SystemGreen')),
            'Monochrome board selection supersedes the older orange/blue/green 94pt tiles.')
-    verify('IumrahSignatureWorldBackground(Modifier.matchParentSize())' in android and
-           'drawsSignatureBackground = false' in android and
-           android.index('StorefrontSegmentedControl(language, board)') < android.index('AirportSelector('),
+    verify('discovery = true' in android and
+           android.index('IumrahDiscoveryPills(language, 2)') < android.index('AirportSelector('),
            'One world-dots backdrop covers both header and navigation; airport stays below it.')
     verify('Triple(HotelsBoard.HOTELS' in tile and 'CupertinoSymbol.Building' in tile and
            'CupertinoSymbol.Airplane' in tile and 'CupertinoSymbol.Calendar' in tile,

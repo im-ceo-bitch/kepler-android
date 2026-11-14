@@ -29,7 +29,9 @@ aud=s.index('item { AudienceSection(language) }')
 build=s.index('item { BuildMyUmrahSection(language, chrome) }')
 services=s.index('item { IumrahServicesCarousel(language, chrome) }')
 assert 'item { ServicesSection(language, chrome) }' not in s, 'Legacy services must not be displayed'
-assert aud < build < services, 'Build my Umrah must sit directly after audience and before services'
+travel=s.index('item { JourneyTravelInfoPanel(language) }')
+assert services < build < travel < aud, 'Current SwiftUI order is services, build, travel information, audience'
+assert 'item { ReadyPackagesSection(' not in s, 'Current Home has no legacy ready packages section'
 PY
 grep -q 'isStoryPresented = storyStartIndex != null' "$HOME"
 grep -q 'play = pager.currentPage == index && !isStoryPresented' "$HOME"

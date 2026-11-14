@@ -81,6 +81,8 @@ import com.iumrah.beta.models.booking.BookingItineraryItem
 import com.iumrah.beta.models.booking.StoredBookingSession
 import com.iumrah.beta.ui.components.IumrahPressable
 import com.iumrah.beta.ui.components.IumrahRootPageHeader
+import com.iumrah.beta.ui.components.HeaderPill
+import com.iumrah.beta.ui.components.IumrahHeaderPills
 import com.iumrah.beta.ui.cupertino.CupertinoIcon
 import com.iumrah.beta.ui.cupertino.CupertinoSymbol
 import java.text.NumberFormat
@@ -260,7 +262,7 @@ private fun ActiveBookingHome(
         contentPadding = PaddingValues(
             start = IOS_PAGE_PADDING.dp,
             end = IOS_PAGE_PADDING.dp,
-            top = 10.dp,
+            top = 0.dp,
             bottom = 112.dp,
         ),
         verticalArrangement = Arrangement.spacedBy(0.dp),
@@ -269,16 +271,15 @@ private fun ActiveBookingHome(
             IumrahRootPageHeader(
                 title = L10n.text("tab_booking", language),
                 chrome = chrome,
-                usesBrandLogo = true,
                 showsConnectivityStatus = false,
                 showsMakkahTime = false,
                 unreadCount = unreadCount,
+                language = language,
+                footer = { BookingPanelPicker(language, panel, onPanel) },
             )
             Spacer(Modifier.height(16.dp))
             JourneyTravelInfoPanel(language = language)
             Spacer(Modifier.height(18.dp))
-            BookingPanelPicker(language, panel, onPanel)
-            Spacer(Modifier.height(12.dp))
             BookingIdentity(language, session)
             Spacer(Modifier.height(18.dp))
         }
@@ -639,15 +640,12 @@ private fun BookingPanelPicker(
     selected: BookingPanel,
     onSelect: (BookingPanel) -> Unit,
 ) {
-    SegmentedPicker(
-        items = listOf(
-            BookingPanel.BOOKING to t(language, "Бронирование", "Booking", "Bron", "Брон"),
-            BookingPanel.STATUS to t(language, "Статус", "Status", "Holat", "Ҳолат"),
-            BookingPanel.SCHEDULE to t(language, "Расписание", "Schedule", "Jadval", "Жадвал"),
-        ),
-        selected = selected,
-        onSelect = onSelect,
-    )
+    val panels = listOf(BookingPanel.BOOKING, BookingPanel.STATUS, BookingPanel.SCHEDULE)
+    IumrahHeaderPills(listOf(
+        HeaderPill(t(language, "Статус брони", "Booking status", "Bron holati", "Брон ҳолати"), CupertinoSymbol.Suitcase),
+        HeaderPill(t(language, "Документы", "Documents", "Hujjatlar", "Ҳужжатлар"), CupertinoSymbol.Document),
+        HeaderPill(t(language, "Расписание", "Schedule", "Jadval", "Жадвал"), CupertinoSymbol.Calendar),
+    ), selected = panels.indexOf(selected), onSelect = { onSelect(panels[it]) })
 }
 
 @Composable
@@ -1941,7 +1939,7 @@ private fun EmptyBookingHome(
         contentPadding = PaddingValues(
             start = IOS_PAGE_PADDING.dp,
             end = IOS_PAGE_PADDING.dp,
-            top = 10.dp,
+            top = 0.dp,
             bottom = 112.dp,
         ),
         verticalArrangement = Arrangement.spacedBy(18.dp),
@@ -1951,6 +1949,7 @@ private fun EmptyBookingHome(
                 title = L10n.text("tab_booking", language),
                 chrome = chrome,
                 unreadCount = unreadCount,
+                language = language,
             )
         }
         item { EmptyStatusCard(language) }

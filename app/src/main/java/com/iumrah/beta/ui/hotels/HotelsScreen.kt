@@ -106,6 +106,9 @@ import com.iumrah.beta.ui.flights.FlightAssemblyCard
 import com.iumrah.beta.ui.components.IumrahPressable
 import com.iumrah.beta.ui.components.IumrahPrimaryButton
 import com.iumrah.beta.ui.components.IumrahRootPageHeader
+import com.iumrah.beta.ui.components.IumrahDiscoveryPills
+import com.iumrah.beta.core.navigation.AppTab
+import com.iumrah.beta.core.navigation.AppRoute
 import com.iumrah.beta.ui.components.iumrahSignatureBleed
 import com.iumrah.beta.ui.components.IumrahSignatureWorldBackground
 import com.iumrah.beta.ui.cupertino.CupertinoIcon
@@ -158,11 +161,15 @@ fun HotelsScreen(
     val journeyState by journey.state.collectAsState()
     val origin = journeyState.trip.originCode.ifBlank { "TAS" }.uppercase()
 
-    var board by rememberSaveable { mutableStateOf(initialBoard) }
+    var board by rememberSaveable(initialBoard) { mutableStateOf(initialBoard) }
+    val selectBoard: (HotelsBoard) -> Unit = { next ->
+        board = next
+        if (chrome.state.value.route == AppRoute.Root) chrome.setDiscoveryFlights(next == HotelsBoard.FLIGHTS)
+    }
     // iOS November 2026: the Hotels tab is supplier-backed Nuitee, not legacy
     // generated-package storefront. Keep the existing Flights/Sunday boards intact.
     if (board == HotelsBoard.HOTELS) {
-        NuiteeHotelsCatalogScreen(language, chrome, onBoard = { board = it }, unreadCount = unreadCount)
+        NuiteeHotelsCatalogScreen(language, chrome, onBoard = selectBoard, unreadCount = unreadCount)
         return
     }
 
@@ -325,7 +332,7 @@ fun HotelsScreen(
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = androidx.compose.foundation.layout.PaddingValues(
-            start = 18.dp, end = 18.dp, top = 10.dp,
+            start = 18.dp, end = 18.dp, top = 0.dp,
             bottom = if (board == HotelsBoard.FLIGHTS) (if (assemblyExpanded) 410.dp else 220.dp) else 118.dp,
         ),
         verticalArrangement = Arrangement.spacedBy(22.dp),
@@ -334,21 +341,21 @@ fun HotelsScreen(
         // tabs. One uninterrupted black+world map backdrop owns BOTH header
         // and monochrome Hotels / Flights / Sunday capsule controls.
         item {
-            BoxWithConstraints(Modifier.fillMaxWidth()) {
-                Box(Modifier.iumrahSignatureBleed()) {
-                    IumrahSignatureWorldBackground(Modifier.matchParentSize())
-                    Column(Modifier.fillMaxWidth().padding(horizontal = 18.dp)) {
-                        IumrahRootPageHeader(
-                            pageTitle,
-                            chrome,
-                            unreadCount = unreadCount,
-                            drawsSignatureBackground = false,
-                        )
-                        StorefrontSegmentedControl(language, board) { board = it }
-                        Spacer(Modifier.height(19.dp))
+            IumrahRootPageHeader(
+                pageTitle, chrome, unreadCount = unreadCount,
+                usesBrandLogo = true, language = language, discovery = true,
+                footer = {
+                    IumrahDiscoveryPills(language, 2) { index ->
+                        when (index) {
+                            0 -> chrome.openDiscoveryBuild()
+                            1 -> selectBoard(HotelsBoard.HOTELS)
+                            2 -> selectBoard(HotelsBoard.FLIGHTS)
+                            3 -> chrome.openDiscoveryTransfer()
+                            4 -> chrome.openDiscoveryPackage()
+                        }
                     }
-                }
-            }
+                },
+            )
         }
         // The airport selector is deliberately BELOW the shared dark surface.
         item {

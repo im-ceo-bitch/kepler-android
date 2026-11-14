@@ -47,22 +47,24 @@ def main():
           'val LightPage = Color(0xFFF2F2F7)' in theme, 'current iOS signature and accent palette')
     check('Font(R.font.lato_regular' in theme and 'Font(R.font.lato_bold' in theme,
           'Lato Regular/Bold is application typography')
-    check('SignatureHeaderButton(CupertinoSymbol.Menu, 48.dp, 0, chrome::openSidebar)' in header and
+    check('SignatureHeaderButton(CupertinoSymbol.Menu, 44.dp, 0, chrome::openSidebar,' in header and
           'Modifier.width(logoWidth).height(IumrahDesign.SignatureLogoHeight)' in header and
           '48.dp, unreadCount, chrome::openNotifications' in header,
           'centered wordmark with symmetrical menu and notification chrome')
-    check('val bottomRadius = if (roundedBottom) IumrahDesign.SignatureBottomRadius else 0.dp' in header,
-          'Home-only curved signature header; other tabs straight')
-    check('IumrahSignatureWorldBackground(Modifier.matchParentSize(), mapOpacity = .33f)' in header,
+    check('val bottomRadius = if (roundedBottom || discovery) IumrahDesign.SignatureBottomRadius else 0.dp' in header,
+          'Discovery headers curved; other root tabs straight')
+    check('IumrahSignatureWorldBackground(Modifier.matchParentSize(), mapOpacity = .33f, isAnimating = !discovery)' in header,
           'animated world map preserved')
-    check('Modifier.layout { measurable, constraints ->' in home and
-          'child.placeRelative(0, -overlap)' in home and
-          '(child.height - overlap).coerceAtLeast(0)' in home,
-          'search overlaps header by 40dp WITHOUT reserving an invisible spacer')
+    pills = source('ui/components/IumrahHeaderPills.kt')
+    check('IumrahOverlappingMasthead(header = {' in home and
+          'IumrahDesign.SearchOverlap.roundToPx()' in pills and
+          'masthead.height + card.height - overlap' in pills and
+          'card.placeRelative(0, masthead.height - overlap, zIndex = 1f)' in pills,
+          'search overlaps header by 40dp inside parent hit bounds')
     check('PullToRefreshBox(' in home and 'bookingStore.refreshAll()' in home and
           'notifications.refresh(accountToken)' in home and 'refreshVersion += 1' in home,
           'actual pull-to-refresh reloads Home inventories and notifications')
-    check('IumrahHomeSearchHero(language, journeyState.trip, journey, airports, curatedFlights, chrome)' in home,
+    check('IumrahHomeSearchHero(language, journeyState.trip, journey, airports, curatedFlights, chrome, searchExpanded)' in home,
           'Home search receives real journey and network data services')
     check('ConfiguratorAirportSelector(' in search and
           'journey.updateTrip(trip.copy(origin = selected.iata, originAirport = selected))' in search,

@@ -85,6 +85,8 @@ data class AppChromeState(
     val backStack: List<AppRoute> = emptyList(),
     val isImmersive: Boolean = false,
     val isSidebarOpen: Boolean = false,
+    val discoveryFlights: Boolean = false,
+    val discoveryBuild: Boolean = false,
 )
 
 class AppChromeStore {
@@ -92,8 +94,18 @@ class AppChromeStore {
     val state: StateFlow<AppChromeState> = _state
 
     fun navigate(tab: AppTab) {
-        _state.update { it.copy(currentTab = tab, route = AppRoute.Root, backStack = emptyList(), isImmersive = false, isSidebarOpen = false) }
+        _state.update { it.copy(currentTab = tab, route = AppRoute.Root, backStack = emptyList(), isImmersive = false, isSidebarOpen = false, discoveryFlights = false, discoveryBuild = false) }
     }
+    fun openDiscoveryFlights() {
+        _state.update { it.copy(currentTab = AppTab.HOTELS, route = AppRoute.Root, backStack = emptyList(), isImmersive = false, isSidebarOpen = false, discoveryFlights = true, discoveryBuild = false) }
+    }
+    fun openDiscoveryBuild() {
+        _state.update { it.copy(currentTab = AppTab.HOME, route = AppRoute.Root, backStack = emptyList(), isImmersive = false, isSidebarOpen = false, discoveryFlights = false, discoveryBuild = true) }
+    }
+    fun setDiscoveryFlights(value: Boolean) { _state.update { it.copy(discoveryFlights = value) } }
+    fun consumeDiscoveryBuild() { _state.update { it.copy(discoveryBuild = false) } }
+    fun openDiscoveryTransfer() = push(AppRoute.TransferService)
+    fun openDiscoveryPackage() = push(AppRoute.FinalPackage)
     fun startNewTrip() = push(AppRoute.TripBuilder, tab = AppTab.BOOKING)
     fun openHotelSelection() = push(AppRoute.HotelSelection, tab = AppTab.BOOKING)
     fun openHotel(id: String, openConfigurator: Boolean = false, sharedConfiguration: HotelConfiguratorDeepLink? = null) = push(AppRoute.HotelDetail(id, openConfigurator, sharedConfiguration), tab = AppTab.HOTELS)

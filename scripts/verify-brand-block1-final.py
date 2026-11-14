@@ -33,16 +33,16 @@ for fragment in ('uv.y * 8.5 + motion * 0.23', 'uv.y * 17.0 - motion * 0.13', 'u
 check('shader.setFloatUniform("width", size.width)' in world and 'shader.setFloatUniform("height", size.height)' in world and 'shader.setFloatUniform("time", t)' in world, 'AGSL receives real bitmap pixel dimensions and elapsed seconds')
 check('width * .94f' in world and '.coerceIn(300.dp, 920.dp)' in world and '.offset(x = width * .07f)' in world and '.25f to Color.White.copy(alpha = .32f)' in world and '.61f to Color.White' in world, 'geographic framing and fixed opacity mask use iOS exact constants')
 check('.clearAndSetSemantics { }' in world and 'contentDescription = null' in world, 'atlas cannot intercept touch and is hidden from accessibility')
-check('if (drawsSignatureBackground) Modifier.iumrahSignatureBleed()' in header and 'Modifier.iumrahSignatureBleed()' in hotels and 'placeable.placeRelative(-bleedPx, 0)' in world and 'maxWidth + bleedPx * 2' in world, 'header and Hotels map use deterministic two-sided 18dp bleed, without double expansion')
+check('if (drawsSignatureBackground) Modifier.iumrahSignatureBleed()' in header and 'IumrahRootPageHeader(' in hotels and 'placeable.placeRelative(-bleedPx, 0)' in world and 'maxWidth + bleedPx * 2' in world, 'header and Hotels map use deterministic two-sided 18dp bleed, without double expansion')
 # The November iOS source supersedes the older small/medium/wide brand row.
-# It uses two matching 48dp slots with a centered 187.2dp wordmark.
-check('SignatureHeaderButton(CupertinoSymbol.Menu, 48.dp, 0, chrome::openSidebar)' in header
+# It uses two matching 48dp slot / 44dp menus with a centered 187.2dp wordmark.
+check('SignatureHeaderButton(CupertinoSymbol.Menu, 44.dp, 0, chrome::openSidebar,' in header
       and 'IumrahDesign.SignatureLogoWidth' in header
       and 'IumrahDesign.SignatureLogoHeight' in header
       and 'IumrahDesign.SignatureHeaderTop' in header,
-      'Current iOS 48dp slot and centered 187.2dp logo geometry used on Home')
-check('val bottomRadius = if (roundedBottom) IumrahDesign.SignatureBottomRadius else 0.dp' in header,
-      'Home header curved / other root tabs straight, matching current iOS')
+      'Current iOS 48dp slot / 44dp menu and centered 187.2dp logo geometry used on Home')
+check('val bottomRadius = if (roundedBottom || discovery) IumrahDesign.SignatureBottomRadius else 0.dp' in header,
+      'Discovery headers curved / other root tabs straight, matching current iOS')
 check('Color.White.copy(alpha = .105f)' in header and 'BorderStroke(.8.dp, Color.White.copy(alpha = .25f))' in header,
       'Native tappable header buttons retain iOS translucent surface')
 check('unreadCount > 9) 26.dp else 16.dp' in header and '.offset(x = 3.dp, y = (-4).dp)' in header and 'if (unreadCount > 9) "9+"' in header, 'notification badge displays numbered 16dp or 9+ capsule, not a 7dp dot')
@@ -52,5 +52,5 @@ check('showsConnectivityStatus = false' in home and 'language = language' in hom
 for label, path in (('Home','ui/home/HomeScreen.kt'),('Hotels','ui/hotels/HotelsScreen.kt'),('Booking','ui/booking/BookingsHomeScreen.kt'),('Care','ui/care/CareHomeScreen.kt'),('Account','ui/account/AccountScreens.kt')):
     check('IumrahRootPageHeader(' in (src/path).read_text(), f'{label} uses global signature header')
 check('.height(65.dp)' in nav and '.padding(5.dp)' in nav and 'RoundedCornerShape(25.dp)' in nav and 'Color.White.copy(alpha = .96f)' in nav and '.padding(start = 16.dp, end = 16.dp, top = 5.dp, bottom = 2.dp)' in nav, 'five-slot bottom bar geometry matches iOS')
-check('drawsSignatureBackground = false' in hotels and 'IumrahSignatureWorldBackground(Modifier.matchParentSize())' in hotels and '.height(41.dp)' in hotels, 'Hotels shared monochrome surface and 41dp segmented nav')
+check('discovery = true' in hotels and 'IumrahDiscoveryPills(language, 2)' in hotels, 'Hotels shared monochrome surface and shared discovery pills')
 print('BLOCK 1 source-contract checks passed; APK compile and screenshot comparison remain outstanding.')

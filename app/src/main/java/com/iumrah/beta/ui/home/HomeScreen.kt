@@ -72,7 +72,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
@@ -102,6 +101,9 @@ import com.iumrah.beta.models.notification.ClientSystemNotification
 import com.iumrah.beta.ui.components.IumrahPill
 import com.iumrah.beta.ui.components.IumrahPressable
 import com.iumrah.beta.ui.components.IumrahRootPageHeader
+import com.iumrah.beta.ui.components.IumrahDiscoveryPills
+import com.iumrah.beta.ui.components.IumrahOverlappingMasthead
+import com.iumrah.beta.ui.booking.JourneyTravelInfoPanel
 import com.iumrah.beta.ui.cupertino.IumrahIconRole
 import com.iumrah.beta.ui.media.LoopingRawVideo
 import coil3.compose.AsyncImage
@@ -125,6 +127,14 @@ fun HomeScreen(
     accountToken: String?,
 ) {
     var storyStartIndex by remember { mutableStateOf<Int?>(null) }
+    var searchExpanded by remember { mutableStateOf(false) }
+    val discoveryState by chrome.state.collectAsState()
+    LaunchedEffect(discoveryState.discoveryBuild) {
+        if (discoveryState.discoveryBuild) {
+            searchExpanded = true
+            chrome.consumeDiscoveryBuild()
+        }
+    }
     val journeyState by journey.state.collectAsState()
     val notificationState by notifications.state.collectAsState()
     val storefrontOrigin = journeyState.trip.originCode.ifBlank { "TAS" }.uppercase()
@@ -146,6 +156,7 @@ fun HomeScreen(
                         booking.join()
                         signals.join()
                     }
+                    searchExpanded = false
                     refreshVersion += 1
                 } finally { refreshing = false }
             }
@@ -154,11 +165,11 @@ fun HomeScreen(
     ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background),
-        contentPadding = PaddingValues(start = 18.dp, end = 18.dp, top = 12.dp, bottom = 118.dp),
+        contentPadding = PaddingValues(start = 18.dp, end = 18.dp, top = 0.dp, bottom = 118.dp),
         verticalArrangement = Arrangement.spacedBy(30.dp),
     ) {
         item {
-            Column {
+            IumrahOverlappingMasthead(header = {
                 IumrahRootPageHeader(
                     title = L10n.text("tab_home", language),
                     chrome = chrome,
@@ -168,19 +179,22 @@ fun HomeScreen(
                     roundedBottom = true,
                     language = language,
                     unreadCount = notificationState.unreadCount,
+                    discovery = true,
+                    footer = {
+                        IumrahDiscoveryPills(language, 0) { index ->
+                            when (index) {
+                                0 -> searchExpanded = true
+                                1 -> chrome.navigate(AppTab.HOTELS)
+                                2 -> chrome.openDiscoveryFlights()
+                                3 -> chrome.openDiscoveryTransfer()
+                                4 -> chrome.openDiscoveryPackage()
+                            }
+                        }
+                    },
                 )
-                // Compose offset alone reserves an extra invisible 40dp below search.
-                // Instead report 40dp less height and paint the card over the masthead.
-                Box(Modifier.layout { measurable, constraints ->
-                    val child = measurable.measure(constraints)
-                    val overlap = 40.dp.roundToPx()
-                    layout(child.width, (child.height - overlap).coerceAtLeast(0)) {
-                        child.placeRelative(0, -overlap)
-                    }
-                }) {
-                    IumrahHomeSearchHero(language, journeyState.trip, journey, airports, curatedFlights, chrome)
-                }
-            }
+            }, search = {
+                IumrahHomeSearchHero(language, journeyState.trip, journey, airports, curatedFlights, chrome, searchExpanded) { searchExpanded = it }
+            })
         }
         item { IumrahHomeHelpCard(language) }
         if (notificationState.home.isNotEmpty()) {
@@ -188,10 +202,10 @@ fun HomeScreen(
         }
         item { EmotionalPrompt(language = language, onOpen = { storyStartIndex = 0 }) }
         item { HomeVideoCarousel(language = language, isStoryPresented = storyStartIndex != null, onOpenStory = { storyStartIndex = it }) }
-        item { AudienceSection(language) }
-        item { BuildMyUmrahSection(language, chrome) }
         item { IumrahServicesCarousel(language, chrome) }
-        item { ReadyPackagesSection(language, chrome, hotelCatalog, storefrontOrigin, refreshVersion) }
+        item { BuildMyUmrahSection(language, chrome) }
+        item { JourneyTravelInfoPanel(language) }
+        item { AudienceSection(language) }
         item { HomeIntegrationsSection(language, chrome) }
         item { ProductsSection(language, chrome) }
         item { ConfidenceStrip(language) }

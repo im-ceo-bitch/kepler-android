@@ -61,6 +61,9 @@ import com.iumrah.beta.data.chat.ChatService
 import com.iumrah.beta.data.notification.ClientNotificationStore
 import com.iumrah.beta.models.booking.StoredBookingSession
 import com.iumrah.beta.ui.components.IumrahRootPageHeader
+import com.iumrah.beta.ui.components.HeaderPill
+import com.iumrah.beta.ui.components.IumrahHeaderPills
+import com.iumrah.beta.ui.components.headerCopy
 import com.iumrah.beta.ui.cupertino.CupertinoIcon
 import com.iumrah.beta.ui.cupertino.CupertinoSymbol
 
@@ -131,22 +134,20 @@ fun CareHomeScreen(
                 .background(palette.page)
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 18.dp)
-                .padding(top = 10.dp, bottom = 112.dp),
+                .padding(top = 0.dp, bottom = 112.dp),
         ) {
             IumrahRootPageHeader(
-                title = "iumrah Care",
+                title = headerCopy(language, "Поддержка", "Support", "Yordam", "Ёрдам"),
                 chrome = chrome,
                 unreadCount = notificationState.unreadCount,
-            )
-            Spacer(Modifier.height(14.dp))
-            CareQuickContacts(
                 language = language,
-                palette = palette,
-                chatEnabled = activeSession != null,
-                telegramEnabled = telegram.isNotBlank(),
-                onChat = openChat,
-                onPhone = callCare,
-                onTelegram = openTelegram,
+                footer = {
+                    IumrahHeaderPills(listOf(
+                        HeaderPill(headerCopy(language, "Позвонить", "Call", "Qo‘ng‘iroq", "Қўнғироқ"), CupertinoSymbol.Phone),
+                        HeaderPill("Telegram", CupertinoSymbol.Send, telegram.isNotBlank()),
+                        HeaderPill(headerCopy(language, "Чат", "Chat", "Chat", "Чат"), CupertinoSymbol.Message, activeSession != null),
+                    )) { index -> when (index) { 0 -> callCare(); 1 -> openTelegram(); 2 -> openChat() } }
+                },
             )
             Spacer(Modifier.height(24.dp))
             CareIntro(language = language, palette = palette)

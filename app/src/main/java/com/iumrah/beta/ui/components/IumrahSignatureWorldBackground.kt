@@ -58,6 +58,7 @@ fun IumrahSignatureWorldBackground(
     mapOpacity: Float = .34f,
     waveSpeed: Float = .56f,
     waveIntensity: Float = .78f,
+    isAnimating: Boolean = true,
 ) {
     val context = LocalContext.current
     val motionAllowed = remember(context) {
@@ -77,9 +78,9 @@ fun IumrahSignatureWorldBackground(
         ),
         label = "world-dots-elapsed-seconds",
     )
-    val t = if (motionAllowed) elapsedSeconds else 0f
+    val t = if (motionAllowed && isAnimating) elapsedSeconds else 0f
     val gain = mapOpacity.coerceIn(0f, 1f)
-    val intensity = if (motionAllowed) waveIntensity.coerceIn(0f, 1f) else 0f
+    val intensity = if (motionAllowed && isAnimating) waveIntensity.coerceIn(0f, 1f) else 0f
     val speed = waveSpeed.coerceIn(0f, 3f)
 
     BoxWithConstraints(

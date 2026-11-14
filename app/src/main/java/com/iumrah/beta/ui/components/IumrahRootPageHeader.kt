@@ -87,11 +87,14 @@ fun IumrahRootPageHeader(
     drawsSignatureBackground: Boolean = true,
     roundedBottom: Boolean = false,
     language: AppLanguage = AppLanguage.ENGLISH,
+    subtitle: String? = null,
+    discovery: Boolean = false,
+    footer: (@Composable () -> Unit)? = null,
 ) {
     BoxWithConstraints(
         modifier = modifier
             .fillMaxWidth()
-            .statusBarsPadding(),
+            .then(if (lightStyle) Modifier.statusBarsPadding() else Modifier),
     ) {
         if (!lightStyle) {
             // Exact iOS IumrahPrimaryHeaderBrandRow hierarchy:
@@ -99,28 +102,31 @@ fun IumrahRootPageHeader(
             // No app-specific connectivity caption and no second wordmark.
             val headerWidth = maxWidth
             val logoWidth = minOf(IumrahDesign.SignatureLogoWidth, (headerWidth - 108.dp).coerceAtLeast(112.dp))
-            val bottomRadius = if (roundedBottom) IumrahDesign.SignatureBottomRadius else 0.dp
+            val bottomRadius = if (roundedBottom || discovery) IumrahDesign.SignatureBottomRadius else 0.dp
             val container = if (drawsSignatureBackground) Modifier.iumrahSignatureBleed()
                 else Modifier.fillMaxWidth()
-            Box(container.height(IumrahDesign.SignatureHeaderHeight)
-                .clip(RoundedCornerShape(bottomStart = bottomRadius,
+            val headerHeight = IumrahDesign.SignatureHeaderHeight + when {
+                discovery -> IumrahDesign.DiscoveryHeaderExtra
+                footer != null -> IumrahDesign.ActionHeaderExtra
+                else -> 0.dp
+            }
+            Box(container.clip(RoundedCornerShape(bottomStart = bottomRadius,
                     bottomEnd = bottomRadius))) {
                 if (drawsSignatureBackground) {
-                    IumrahSignatureWorldBackground(Modifier.matchParentSize(), mapOpacity = .33f)
+                    IumrahSignatureWorldBackground(Modifier.matchParentSize(), mapOpacity = .33f, isAnimating = !discovery)
                 } else {
                     Box(Modifier.matchParentSize().background(IumrahColors.SignatureBlack))
                 }
                 androidx.compose.foundation.layout.Column(
-                    Modifier.fillMaxWidth()
-                        .padding(horizontal = IumrahDesign.PagePadding)
+                    Modifier.fillMaxWidth().statusBarsPadding().height(headerHeight)
                         .padding(top = IumrahDesign.SignatureHeaderTop),
                 ) {
                     Row(
-                        Modifier.fillMaxWidth().height(IumrahDesign.SignatureLogoHeight),
+                        Modifier.fillMaxWidth().padding(horizontal = IumrahDesign.PagePadding).height(IumrahDesign.SignatureLogoHeight),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween,
                     ) {
-                        SignatureHeaderButton(CupertinoSymbol.Menu, 48.dp, 0, chrome::openSidebar)
+                        SignatureHeaderButton(CupertinoSymbol.Menu, 44.dp, 0, chrome::openSidebar, headerCopy(language, "Меню", "Menu", "Menyu", "Меню"))
                         Spacer(Modifier.weight(1f))
                         Image(
                             painterResource(R.drawable.iumrah_header_wordmark_dark),
@@ -131,17 +137,25 @@ fun IumrahRootPageHeader(
                         Spacer(Modifier.weight(1f))
                         SignatureHeaderButton(
                             if (unreadCount > 0) CupertinoSymbol.BellBadge else CupertinoSymbol.Bell,
-                            48.dp, unreadCount, chrome::openNotifications,
+                            48.dp, unreadCount, chrome::openNotifications, headerCopy(language, "Уведомления", "Notifications", "Bildirishnomalar", "Билдиришномалар"),
                         )
                     }
                     if (!usesBrandLogo) {
                         Text(
                             title,
-                            modifier = Modifier.padding(top = 7.dp),
+                            modifier = Modifier.padding(horizontal = IumrahDesign.PagePadding).padding(top = 7.dp),
                             fontSize = 28.sp, lineHeight = 34.sp,
                             fontWeight = FontWeight.Bold, color = Color.White,
                             maxLines = 1,
                         )
+                    }
+                    subtitle?.let {
+                        Text(it, Modifier.padding(horizontal = IumrahDesign.PagePadding).padding(top = 3.dp),
+                            fontSize = 14.sp, color = Color.White.copy(alpha = .76f), maxLines = 1)
+                    }
+                    if (footer != null) {
+                        Spacer(Modifier.height(if (discovery) 33.dp else 12.dp))
+                        footer()
                     }
                 }
             }
@@ -221,8 +235,9 @@ private fun SignatureHeaderButton(
     size: Dp,
     unreadCount: Int,
     onClick: () -> Unit,
+    label: String,
 ) {
-    Box {
+    Box(Modifier.size(48.dp), contentAlignment = Alignment.CenterStart) {
         Surface(
             modifier = Modifier.size(size),
             onClick = onClick,
@@ -233,7 +248,7 @@ private fun SignatureHeaderButton(
             shadowElevation = 0.dp,
         ) {
             Box(Modifier.size(size), contentAlignment = Alignment.Center) {
-                CupertinoIcon(symbol, null, Modifier.size(17.dp), Color.White)
+                CupertinoIcon(symbol, label, Modifier.size(17.dp), Color.White)
             }
         }
         if (unreadCount > 0) {

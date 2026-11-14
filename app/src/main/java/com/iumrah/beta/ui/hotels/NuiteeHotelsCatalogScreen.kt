@@ -4,6 +4,7 @@ package com.iumrah.beta.ui.hotels
 import android.app.DatePickerDialog as NativeDatePicker
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -31,6 +32,9 @@ import com.iumrah.beta.domain.nuitee.NuiteeRules
 import com.iumrah.beta.models.nuitee.*
 import com.iumrah.beta.ui.components.IumrahPrimaryButton
 import com.iumrah.beta.ui.components.IumrahRootPageHeader
+import com.iumrah.beta.ui.components.IumrahDiscoveryPills
+import com.iumrah.beta.core.navigation.AppTab
+import com.iumrah.beta.ui.components.IumrahOverlappingMasthead
 import com.iumrah.beta.ui.cupertino.CupertinoIcon
 import com.iumrah.beta.ui.cupertino.CupertinoSymbol
 import java.time.LocalDate
@@ -103,8 +107,8 @@ fun NuiteeHotelsCatalogScreen(
     var searchExpanded by remember { mutableStateOf(false) }
     var hotelQuery by remember { mutableStateOf("") }
     var stars by remember { mutableIntStateOf(0) }
-    var checkin by remember { mutableStateOf(LocalDate.now().plusDays(10)) }
-    var nights by remember { mutableIntStateOf(1) }
+    var checkin by remember { mutableStateOf(LocalDate.now().plusDays(14)) }
+    var nights by remember { mutableIntStateOf(7) }
     var adults by remember { mutableIntStateOf(2) }
     var draftCheckin by remember { mutableStateOf(checkin) }
     var draftNights by remember { mutableIntStateOf(nights) }
@@ -170,47 +174,43 @@ fun NuiteeHotelsCatalogScreen(
         contentPadding = PaddingValues(start = 18.dp, end = 18.dp, bottom = 120.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)) {
         item {
-            Column(Modifier.fillMaxWidth().background(Color.Black, RoundedCornerShape(bottomStart = 24.dp, bottomEnd = 24.dp))
-                .padding(bottom = 20.dp)) {
+            IumrahOverlappingMasthead(header = {
                 IumrahRootPageHeader(nuiteeText(language,"Отели", "Hotels", "Mehmonxonalar", "Меҳмонхоналар"),
-                    chrome, unreadCount = unreadCount, drawsSignatureBackground = false)
-                Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    listOf(HotelsBoard.HOTELS, HotelsBoard.FLIGHTS, HotelsBoard.SUNDAY).forEach { board ->
-                        Box(Modifier.weight(1f).height(39.dp)
-                            .clip(RoundedCornerShape(22.dp))
-                            .background(if (board == HotelsBoard.HOTELS) Color.White else Color.White.copy(alpha = .13f))
-                            .clickable { onBoard(board) }, contentAlignment = Alignment.Center) {
-                            Text(when (board) {
-                                HotelsBoard.HOTELS -> nuiteeText(language, "Отели", "Hotels", "Mehmonxonalar", "Меҳмонхоналар")
-                                HotelsBoard.FLIGHTS -> nuiteeText(language, "Авиабилеты", "Flights", "Aviachiptalar", "Авиачипталар")
-                                HotelsBoard.SUNDAY -> "Sunday"
-                            }, color = if (board == HotelsBoard.HOTELS) Color.Black else Color.White,
-                                fontSize = 12.sp, maxLines = 1)
+                    chrome, unreadCount = unreadCount, usesBrandLogo = true, discovery = true, language = language,
+                    footer = {
+                        IumrahDiscoveryPills(language, 1) { index ->
+                            when (index) {
+                                0 -> chrome.openDiscoveryBuild()
+                                1 -> onBoard(HotelsBoard.HOTELS)
+                                2 -> onBoard(HotelsBoard.FLIGHTS)
+                                3 -> chrome.openDiscoveryTransfer()
+                                4 -> chrome.openDiscoveryPackage()
+                            }
                         }
-                    }
-                }
-            }
-        }
-        item {
-            Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp))
-                .background(MaterialTheme.colorScheme.surface).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f)) {
-                        Text(nuiteeText(language, "Найти отель", "Find a hotel", "Mehmonxona topish", "Меҳмонхона топиш"),
-                            fontWeight = FontWeight.Bold, fontSize = 18.sp)
-                        Text("${if (city == "makkah") "Makkah" else "Madinah"} · $checkin · $nights " +
-                            nuiteeText(language,"ночь", "night(s)", "tun", "тун") + " · $adults", fontSize = 12.sp)
-                    }
-                    TextButton(onClick = {
-                        if (!searchExpanded) { draftCheckin = checkin; draftNights = nights; draftAdults = adults }
-                        searchExpanded = !searchExpanded
-                    }) {
-                        Text(if (searchExpanded) nuiteeText(language,"Свернуть","Close","Yopish","Ёпиш")
-                             else nuiteeText(language,"Изменить","Edit","O‘zgartirish","Ўзгартириш"))
-                    }
-                }
+                    })
+            }, search = {
+                    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(34.dp))
+                        .background(MaterialTheme.colorScheme.surface)
+                        .border(3.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = .20f), RoundedCornerShape(34.dp))) {
+                        Row(Modifier.fillMaxWidth().clickable {
+                            if (!searchExpanded) { draftCheckin = checkin; draftNights = nights; draftAdults = adults }
+                            searchExpanded = !searchExpanded
+                        }.padding(horizontal = 14.dp, vertical = 10.dp).heightIn(min = 42.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            CupertinoIcon(CupertinoSymbol.Search, null, Modifier.size(23.dp))
+                            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                                Text(nuiteeText(language, "Поиск отелей", "Hotel search", "Mehmonxona qidirish", "Меҳмонхона қидириш"),
+                                    fontWeight = FontWeight.SemiBold, fontSize = 16.sp, maxLines = 2)
+                                Text("${checkin.format(DateTimeFormatter.ofPattern("d MMM"))} · $nights " +
+                                    nuiteeText(language,"ночей", "nights", "tun", "тун"), fontSize = 12.sp, maxLines = 1,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                            CupertinoIcon(if (searchExpanded) CupertinoSymbol.ChevronUp else CupertinoSymbol.ChevronDown,
+                                null, Modifier.size(13.dp), MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
                 AnimatedVisibility(searchExpanded) {
-                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Column(Modifier.padding(horizontal = 12.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         NuiteeCityChoice(language, city) { city = it; stars = 0; hotelQuery = "" }
                         OutlinedTextField(value = hotelQuery, onValueChange = { hotelQuery = it }, singleLine = true,
                             modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp),
@@ -233,7 +233,8 @@ fun NuiteeHotelsCatalogScreen(
                             onClick = { checkin = draftCheckin; nights = draftNights; adults = draftAdults; searchExpanded = false })
                     }
                 }
-            }
+                    }
+            })
         }
         if (savedStay != null || pendingStay != null) item {
             Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp))

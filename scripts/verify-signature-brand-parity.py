@@ -21,19 +21,19 @@ account = (src/'ui/account/AccountScreens.kt').read_text()
 booking = (src/'ui/booking/BookingsHomeScreen.kt').read_text()
 theme = (src/'core/design/IumrahTheme.kt').read_text()
 assert 'val SignatureBlack = Color(0xFF090909)' in theme
-assert 'IumrahSignatureWorldBackground(Modifier.matchParentSize(), mapOpacity = .33f)' in header
+assert 'IumrahSignatureWorldBackground(Modifier.matchParentSize(), mapOpacity = .33f, isAnimating = !discovery)' in header
 assert 'drawsSignatureBackground: Boolean = true' in header
-assert 'SignatureHeaderButton(CupertinoSymbol.Menu, 48.dp, 0, chrome::openSidebar)' in header
-assert 'val bottomRadius = if (roundedBottom) IumrahDesign.SignatureBottomRadius else 0.dp' in header
+assert 'SignatureHeaderButton(CupertinoSymbol.Menu, 44.dp, 0, chrome::openSidebar,' in header
+assert 'val bottomRadius = if (roundedBottom || discovery) IumrahDesign.SignatureBottomRadius else 0.dp' in header
 assert 'IumrahDesign.SignatureLogoWidth' in header and 'IumrahDesign.SignatureLogoHeight' in header
 assert 'Color.White.copy(alpha = .105f)' in header
 assert 'clearAndSetSemantics { }' in brand and '.clipToBounds()' in brand
-print('PASS: iOS black signature header / world atlas / 48dp brand controls, curved Home and straight other tabs')
+print('PASS: iOS black signature header / world atlas / 48dp brand controls, curved discovery and straight other tabs')
 assert '.height(65.dp)' in nav and '.padding(5.dp)' in nav and '.border(.8.dp, Color.Black.copy(alpha = .10f)' in nav
 assert 'selectedTint = Color.White' in nav and 'unselectedTint = Color.Black.copy(alpha = .75f)' in nav
 assert 'Modifier.size(21.dp)' in nav and 'fontSize = 10.5.sp' in nav
 print('PASS: five-tab monochrome navigation matches published SwiftUI metrics')
-assert 'drawsSignatureBackground = false' in board and 'IumrahSignatureWorldBackground(Modifier.matchParentSize())' in board
+assert 'discovery = true' in board and 'IumrahDiscoveryPills(language, 2)' in board
 assert '.height(41.dp)' in board and '.38f' in board
 assert 'IumrahRootPageHeader(' in account and booking and 'IumrahRootPageHeader(' in header
 print('PASS: Hotels/Account/Booking have shared signature chrome')
