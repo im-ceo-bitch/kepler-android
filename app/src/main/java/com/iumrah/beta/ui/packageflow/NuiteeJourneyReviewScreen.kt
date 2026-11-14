@@ -22,6 +22,7 @@ import com.iumrah.beta.data.care.IumrahCarePackageRequestResponse
 import com.iumrah.beta.data.care.IumrahCareRequestService
 import com.iumrah.beta.data.care.NuiteeCareConfiguration
 import com.iumrah.beta.data.nuitee.NuiteeHotelService
+import com.iumrah.beta.ui.hotels.rememberNuiteeHotelService
 import com.iumrah.beta.domain.journey.JourneyStore
 import com.iumrah.beta.domain.nuitee.NuiteeJourneyPricing
 import com.iumrah.beta.domain.trip.JourneyScope
@@ -35,7 +36,7 @@ import kotlinx.coroutines.launch
 /** Same review/request boundary as SwiftUI LocalJourneyReview; never creates an unpaid booking. */
 @Composable
 fun NuiteeJourneyReviewScreen(language: AppLanguage, journey: JourneyStore, account: IumrahAccountStore,
-                              chrome: AppChromeStore, hotelService: NuiteeHotelService = remember { NuiteeHotelService() }) {
+                              chrome: AppChromeStore, hotelService: NuiteeHotelService = rememberNuiteeHotelService()) {
     val state by journey.state.collectAsState()
     val accountState by account.state.collectAsState()
     val draft = state.nuitee

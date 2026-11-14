@@ -52,6 +52,10 @@ import com.iumrah.beta.data.flight.AviasalesSearchLinkBuilder
 import com.iumrah.beta.data.flight.FlightDiscoveryItineraryValidator
 import com.iumrah.beta.data.flight.FlightDiscoveryVerifiedSegment
 import com.iumrah.beta.data.flight.FlightDataParity
+import com.iumrah.beta.data.flight.FlightOperationalPolicy
+import com.iumrah.beta.data.flight.IumrahFlightDetailService
+import com.iumrah.beta.data.flight.IumrahFlightOperationalDetail
+
 import java.util.Locale
 import com.iumrah.beta.ui.components.IumrahPressable
 import java.time.LocalDate
@@ -164,7 +168,7 @@ internal fun FlightDiscoveryDetailSheetV46(
                 verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text(if (offer.isRoundTrip) t(language,"Туда‑обратно","Round trip","Borib‑kelish","Бориб‑келиш")
                     else t(language,"В одну сторону","One way","Bir tomonga","Бир томонга"),
-                    color=Color(0xFF007AFF),fontSize=12.sp,fontWeight=FontWeight.Bold)
+                    color=MaterialTheme.colorScheme.onSurfaceVariant,fontSize=12.sp,fontWeight=FontWeight.Bold)
                 Text(price(offer.price, currency),fontSize=43.sp,fontWeight=FontWeight.Bold)
                 if (changed) Text(t(language,"Цена изменилась с ${price(initialOffer.price,currency)}",
                     "Changed from ${price(initialOffer.price,currency)}","Oldingi narx ${price(initialOffer.price,currency)}",
@@ -303,11 +307,65 @@ private fun FlightDetailLegV46(language: AppLanguage, icon: CupertinoSymbol, tit
                     fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
+        if (verified != null) {
+            verified.forEach { leg ->
+                FlightOperationalCard(language, leg.originAirport, leg.destinationAirport, leg.departureAt, leg.airlineCode, leg.flightNumber)
+            }
+        } else if (stops == 0) {
+            FlightOperationalCard(language, from, to, at, code, number)
+        }
         Text(when(stops) {
             null -> t(language,"Число пересадок не подтверждено","Stop count unconfirmed","Transferlar noma’lum","Трансферлар номаълум")
             0 -> t(language,"Прямой рейс","Non-stop","To‘g‘ri reys","Тўғри рейс")
             else -> "$stops  ${t(language,"пересадок","stops","transfer","трансфер")}" },
             color=if(stops==0) Color(0xFF34C759) else MaterialTheme.colorScheme.onSurface.copy(alpha=.6f),fontSize=12.sp)
+    }
+}
+
+@Composable
+private fun FlightOperationalCard(language: AppLanguage, from: String, to: String, departure: String, carrier: String, number: String) {
+    val verifiedNumber = FlightOperationalPolicy.normalize(number, carrier) ?: return
+    val zone = FlightReferenceCatalog.timeZone(from)
+    val instant = FlightDataParity.instant(departure)
+    val local = if (instant != null && zone != null) {
+        DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm", Locale.ROOT).withZone(zone).format(instant)
+    } else if (departure.matches(Regex("[0-9]{4}-[0-9]{2}-[0-9]{2}[T ][0-9]{2}:[0-9]{2}(:[0-9]{2})?"))) {
+        departure.take(16).replace('T', ' ')
+    } else return
+    val day = local.take(10); val time = local.takeLast(5)
+    val identity = FlightOperationalPolicy.key(verifiedNumber, day, time, from, to) ?: return
+    var data by remember(identity) { mutableStateOf<IumrahFlightOperationalDetail?>(null) }
+    var busy by remember(identity) { mutableStateOf(true) }
+    var refresh by remember(identity) { mutableStateOf(0) }
+    var unavailable by remember(identity) { mutableStateOf(false) }
+    LaunchedEffect(identity, refresh) {
+        busy = true
+        val result = IumrahFlightDetailService.shared.detail(verifiedNumber, day, time, from, to, force = refresh > 0)
+        if (result.detail != null) data = result.detail
+        unavailable = result.detail == null
+        busy = false
+    }
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Text(t(language,"Данные рейса","Flight information","Reys ma’lumotlari","Рейс маълумотлари") + " · $verifiedNumber", Modifier.weight(1f), fontSize = 14.sp, fontWeight = FontWeight.Bold)
+        if (busy) CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
+        else Icon(CupertinoSymbol.Refresh, null, Modifier.size(32.dp).clickable { refresh++ }.padding(7.dp))
+    }
+    if (unavailable) Text(t(language,"Не удалось обновить данные рейса","Flight update unavailable","Reys ma’lumotlari yangilanmadi","Рейс маълумотлари янгиланмади"), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    data?.let { detail ->
+        val facts = listOf(
+            t(language,"Статус","Status","Holat","Ҳолат") to detail.status,
+            t(language,"Терминал вылета","Departure terminal","Jo‘nash terminali","Жўнаш терминали") to detail.departureTerminal,
+            t(language,"Выход","Gate","Chiqish","Чиқиш") to detail.departureGate,
+            t(language,"Терминал прибытия","Arrival terminal","Kelish terminali","Келиш терминали") to detail.arrivalTerminal,
+            t(language,"Багажная лента","Baggage belt","Bagaj lentasi","Багаж лентаси") to detail.baggageBelt,
+            t(language,"Самолёт","Aircraft","Samolyot","Самолёт") to detail.aircraft,
+            t(language,"Бортовой номер","Registration","Bort raqami","Борт рақами") to detail.registration,
+            t(language,"Обновлено","Updated","Yangilandi","Янгиланди") to detail.updatedAt,
+        )
+        facts.forEach { (label, value) -> if (!value.isNullOrBlank()) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text(label, Modifier.weight(1f), fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(value, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+        } }
     }
 }
 

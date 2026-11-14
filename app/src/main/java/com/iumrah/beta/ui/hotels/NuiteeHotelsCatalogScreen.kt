@@ -37,6 +37,10 @@ import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 import kotlinx.coroutines.CancellationException
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
+
 
 internal fun nuiteeText(language: AppLanguage, ru: String, en: String, uz: String = en, uzCyrl: String = ru): String = when (language) {
     AppLanguage.RUSSIAN -> ru
@@ -46,6 +50,12 @@ internal fun nuiteeText(language: AppLanguage, ru: String, en: String, uz: Strin
 }
 
 internal fun nuiteeUSD(value: Double): String = "$" + String.format(Locale.US, "%,.2f", value)
+
+@Composable
+internal fun rememberNuiteeHotelService(): NuiteeHotelService {
+    val context = LocalContext.current.applicationContext
+    return remember(context) { NuiteeHotelService(context) }
+}
 
 @Composable
 internal fun NuiteeDateButton(date: LocalDate, onChange: (LocalDate) -> Unit, modifier: Modifier = Modifier) {
@@ -79,7 +89,7 @@ internal fun NuiteeCityChoice(language: AppLanguage, city: String, onCity: (Stri
 @Composable
 fun NuiteeHotelsCatalogScreen(
     language: AppLanguage, chrome: AppChromeStore, onBoard: (HotelsBoard) -> Unit,
-    service: NuiteeHotelService = remember { NuiteeHotelService() },
+    service: NuiteeHotelService = rememberNuiteeHotelService(),
     unreadCount: Int = 0,
 ) {
     val context = LocalContext.current
@@ -96,7 +106,20 @@ fun NuiteeHotelsCatalogScreen(
     var checkin by remember { mutableStateOf(LocalDate.now().plusDays(10)) }
     var nights by remember { mutableIntStateOf(1) }
     var adults by remember { mutableIntStateOf(2) }
+    var draftCheckin by remember { mutableStateOf(checkin) }
+    var draftNights by remember { mutableIntStateOf(nights) }
+    var draftAdults by remember { mutableIntStateOf(adults) }
     var refreshing by remember { mutableIntStateOf(0) }
+    var handledRefresh by remember { mutableIntStateOf(0) }
+    var loadedDay by remember { mutableStateOf<LocalDate?>(null) }
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME && loadedDay != null && loadedDay != LocalDate.now()) refreshing++
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
     var hotels by remember { mutableStateOf<List<NuiteeHotel>>(emptyList()) }
     var sandbox by remember { mutableStateOf(false) }
     var pricesStale by remember { mutableStateOf(false) }
@@ -108,16 +131,27 @@ fun NuiteeHotelsCatalogScreen(
     val visible = remember(hotels, stars, hotelQuery) { NuiteeRules.filterHotels(hotels, stars, hotelQuery) }
 
     LaunchedEffect(city, checkin, nights, adults, refreshing) {
+        val forceRefresh = refreshing != handledRefresh
+        handledRefresh = refreshing
+        loadedDay = LocalDate.now()
         hotels = emptyList() // no stale inventory from a previous date/city
         requestError = null; rateError = null; pricesStale = false; loading = true
         IumrahIntelligence.record("search_started", "hotels", "nuitee")
         try {
-            val listing = service.hotels(city, checkin, checkout, adults, catalogOnly = true)
+            val cached = if (!forceRefresh) service.cachedHotels(city, checkin, checkout, adults) else null
+            if (cached != null) {
+                hotels = cached.hotels
+                sandbox = cached.sandbox
+                pricesStale = cached.pricesStale || cached.hotelCatalogStale
+                rateError = cached.rateError
+                return@LaunchedEffect
+            }
+            val listing = service.hotels(city, checkin, checkout, adults, catalogOnly = true, forceRefresh = forceRefresh)
             hotels = listing.hotels
             sandbox = listing.sandbox
             pricesStale = true // catalog-only prices are not a verified supplier quote
             try {
-                val result = service.hotels(city, checkin, checkout, adults)
+                val result = service.hotels(city, checkin, checkout, adults, forceRefresh = forceRefresh)
                 hotels = result.hotels
                 sandbox = result.sandbox
                 pricesStale = result.pricesStale || result.hotelCatalogStale
@@ -167,7 +201,10 @@ fun NuiteeHotelsCatalogScreen(
                         Text("${if (city == "makkah") "Makkah" else "Madinah"} · $checkin · $nights " +
                             nuiteeText(language,"ночь", "night(s)", "tun", "тун") + " · $adults", fontSize = 12.sp)
                     }
-                    TextButton(onClick = { searchExpanded = !searchExpanded }) {
+                    TextButton(onClick = {
+                        if (!searchExpanded) { draftCheckin = checkin; draftNights = nights; draftAdults = adults }
+                        searchExpanded = !searchExpanded
+                    }) {
                         Text(if (searchExpanded) nuiteeText(language,"Свернуть","Close","Yopish","Ёпиш")
                              else nuiteeText(language,"Изменить","Edit","O‘zgartirish","Ўзгартириш"))
                     }
@@ -179,21 +216,21 @@ fun NuiteeHotelsCatalogScreen(
                             modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp),
                             label = { Text(nuiteeText(language, "Название отеля", "Hotel name", "Mehmonxona nomi", "Меҳмонхона номи")) })
                         Text(nuiteeText(language,"Заезд", "Check-in", "Kirish", "Кириш"), fontSize = 13.sp)
-                        NuiteeDateButton(checkin, { checkin = it })
+                        NuiteeDateButton(draftCheckin, { draftCheckin = it })
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(nuiteeText(language,"Ночей", "Nights", "Tunlar", "Тунлар"), Modifier.weight(1f))
-                            TextButton(enabled = nights > 1, onClick = { nights-- }) { Text("−") }
-                            Text("$nights")
-                            TextButton(enabled = nights < 28, onClick = { nights++ }) { Text("+") }
+                            TextButton(enabled = draftNights > 1, onClick = { draftNights-- }) { Text("−") }
+                            Text("$draftNights")
+                            TextButton(enabled = draftNights < 28, onClick = { draftNights++ }) { Text("+") }
                         }
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(nuiteeText(language,"Взрослых", "Adults", "Kattalar", "Катталар"), Modifier.weight(1f))
-                            TextButton(enabled = adults > 1, onClick = { adults-- }) { Text("−") }
-                            Text("$adults")
-                            TextButton(enabled = adults < 9, onClick = { adults++ }) { Text("+") }
+                            TextButton(enabled = draftAdults > 1, onClick = { draftAdults-- }) { Text("−") }
+                            Text("$draftAdults")
+                            TextButton(enabled = draftAdults < 6, onClick = { draftAdults++ }) { Text("+") }
                         }
                         IumrahPrimaryButton(title = nuiteeText(language,"Найти отели", "Search hotels", "Mehmonxonalarni qidirish", "Меҳмонхоналарни қидириш"),
-                            onClick = { searchExpanded = false; refreshing++ })
+                            onClick = { checkin = draftCheckin; nights = draftNights; adults = draftAdults; searchExpanded = false })
                     }
                 }
             }

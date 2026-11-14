@@ -20,6 +20,7 @@ import androidx.compose.ui.unit.sp
 import com.iumrah.beta.core.navigation.AppChromeStore
 import com.iumrah.beta.core.settings.AppLanguage
 import com.iumrah.beta.data.nuitee.NuiteeHotelService
+import com.iumrah.beta.ui.hotels.rememberNuiteeHotelService
 import com.iumrah.beta.domain.journey.JourneyStore
 import com.iumrah.beta.domain.nuitee.NuiteeRoomSelection
 import com.iumrah.beta.domain.nuitee.NuiteePendingHotel
@@ -39,7 +40,7 @@ import kotlinx.coroutines.CancellationException
 /** Source parity: room-index × city, real supplier rates and explicitly unpriced pending requests. */
 @Composable
 fun NuiteeJourneyHotelsScreen(language: AppLanguage, journey: JourneyStore, chrome: AppChromeStore,
-                               service: NuiteeHotelService = remember { NuiteeHotelService() }) {
+                               service: NuiteeHotelService = rememberNuiteeHotelService()) {
     val context = LocalContext.current
     val favoritePrefs = remember { context.getSharedPreferences("iumrah_nuitee_favorites", 0) }
     var favorites by remember { mutableStateOf(favoritePrefs.getStringSet("hotels", emptySet()).orEmpty().toSet()) }
@@ -56,6 +57,7 @@ fun NuiteeJourneyHotelsScreen(language: AppLanguage, journey: JourneyStore, chro
     var pricesStale by remember { mutableStateOf(false) }
     var selectedHotel by remember { mutableStateOf<NuiteeHotel?>(null) }
     var refresh by remember { mutableIntStateOf(0) }
+    var handledRefresh by remember { mutableIntStateOf(0) }
     var childrenAges by remember { mutableStateOf(List(trip.children + trip.infants) { -1 }) }
     val windows = TripStayPlanner.windows(trip)
     val stay = if (city == "madinah") windows.madinah ?: windows.makkah else windows.makkah
@@ -66,9 +68,11 @@ fun NuiteeJourneyHotelsScreen(language: AppLanguage, journey: JourneyStore, chro
     val allComplete = draft?.roomsComplete(trip) == true
 
     LaunchedEffect(city, roomIndex, stay.checkIn, stay.checkOut, roomAdults, refresh) {
+        val forceRefresh = refresh != handledRefresh
+        handledRefresh = refresh
         hotels = emptyList(); rateError = null; loading = true; pricesStale = false
         try {
-            val response = service.hotels(city, stay.checkIn, stay.checkOut, roomAdults)
+            val response = service.hotels(city, stay.checkIn, stay.checkOut, roomAdults, forceRefresh = forceRefresh)
             hotels = response.hotels; sandbox = response.sandbox
             rateError = response.rateError
             pricesStale = response.hotelCatalogStale || response.pricesStale
