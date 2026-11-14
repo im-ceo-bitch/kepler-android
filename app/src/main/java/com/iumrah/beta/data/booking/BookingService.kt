@@ -108,7 +108,7 @@ class BookingService(private val api: APIClient) {
             deviceToken = deviceToken,
             bookingID = id,
             environment = "production",
-            appBundleID = "com.iumrah.beta",
+            appBundleID = com.iumrah.beta.BuildConfig.APPLICATION_ID,
             locale = locale,
         ),
         headers,

@@ -163,7 +163,7 @@ internal fun PilgrimCheckoutEmbedded(
                             busy = true
                             scope.launch {
                                 runCatching { accountStore.login(value.iumrahID, loginPassword) }
-                                    .onSuccess { load(showLoader = false) }
+                                    .onSuccess { loginPassword = ""; load(showLoader = false) }
                                     .onFailure { error = it.message }
                                 busy = false
                             }
@@ -208,7 +208,13 @@ internal fun PilgrimCheckoutEmbedded(
                                             } else accountStore.confirmActivationSMS(bookingID, session.accessToken, activationChallenge!!, activationCode, language.localeTag)
                                         }
                                     }
-                                }.onSuccess { activated -> if (activated != null) load(showLoader = false) }
+                                }.onSuccess { activated ->
+                                    if (activated != null) {
+                                        password = ""; confirmPassword = ""; activationCode = ""; activationChallenge = null
+                                        bookingStore.linkLocalBookingsToAccount()
+                                        load(showLoader = false)
+                                    }
+                                }
                                     .onFailure { error = it.message }
                                 busy = false
                             }

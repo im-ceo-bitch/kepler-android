@@ -2,6 +2,7 @@ package com.iumrah.beta.data.chat
 
 import com.iumrah.beta.core.network.APIClient
 import com.iumrah.beta.core.network.APIException
+import com.iumrah.beta.domain.booking.BookingAuthFallbackPolicy
 import com.iumrah.beta.models.booking.ChatListResponse
 import com.iumrah.beta.models.booking.ChatMessage
 import com.iumrah.beta.models.booking.ChatMessagePostResponse
@@ -46,12 +47,7 @@ class ChatService(private val api: APIClient) {
         if (booking == null) return action(mapOf("Authorization" to account!!))
         try { return action(mapOf("x-booking-token" to booking)) }
         catch (error: APIException) {
-            val code = when (error) {
-                is APIException.Status -> error.code
-                is APIException.Server -> error.code
-                else -> null
-            }
-            if (account == null || code !in setOf(401, 403, 404)) throw error
+            if (account == null || !BookingAuthFallbackPolicy.mayRetryWithAccount(error)) throw error
             return action(mapOf("Authorization" to account))
         }
     }

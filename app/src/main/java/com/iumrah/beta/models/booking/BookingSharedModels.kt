@@ -349,14 +349,12 @@ data class StoredBookingSession(
     var documentsDeadlineAt: String? = null,
     var statusHistory: List<BookingStatusHistoryEntry>? = null,
     var pendingGeneratorQuoteProof: String? = null,
+    // Only account-restored sessions without a booking proof use this scope.
+    val accountOwnerID: String? = null,
 ) {
     /** UI-only iOS parity: never alter the raw server pilgrimID. */
     val displayPilgrimID: String? get() {
-        val raw = pilgrimID?.trim().orEmpty()
-        if (raw.isEmpty()) return null
-        val digits = raw.filter { it.isDigit() }
-        if (digits.isEmpty() || digits.length > 8) return null
-        return digits.padStart(8, '0')
+        return com.iumrah.beta.domain.booking.BookingSessionPolicy.pilgrimDisplay(pilgrimID)
     }
 
     val hasServerIdentity: Boolean get() {

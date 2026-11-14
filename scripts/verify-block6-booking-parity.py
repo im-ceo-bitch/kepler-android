@@ -9,13 +9,14 @@ detail=(base/'ui/booking/BookingDetailScreen.kt').read_text()
 home=(base/'ui/booking/BookingsHomeScreen.kt').read_text()
 calendar=(base/'ui/booking/BookingItineraryCalendarAndroid.kt').read_text()
 model=(base/'models/booking/BookingSharedModels.kt').read_text()
+policy=(base/'domain/booking/BookingSessionPolicy.kt').read_text()
 
 def check(expr, reason):
     if not expr: raise AssertionError(reason)
     print('PASS',reason)
 
 check('ClipData.newPlainText(label, value)' in detail and 'ClipboardManager' in detail and 'enabled = value.isNotBlank() && value != "—"' in detail, 'Booking-number/iumrah ID copy buttons really copy and disable placeholders')
-check('val displayPilgrimID: String?' in model and 'digits.padStart(8, \'0\')' in model and 'session.displayPilgrimID' in detail, 'Display ID normalized to 8 digits, raw API identifier preserved')
+check('val displayPilgrimID: String?' in model and 'BookingSessionPolicy.pilgrimDisplay(pilgrimID)' in model and ".padStart(8, '0')" in policy and 'session.displayPilgrimID' in detail, 'Display ID normalized to 8 digits, raw API identifier preserved')
 check('LaunchedEffect(bookingID, language)' in detail and 'localizeServerItinerary(it, language)' in detail, 'Itinerary reloads and relocalizes when language changes')
 for value in ['PAYMENT_PENDING','PENDING_PAYMENT','WAITING_PAYMENT','AWAITING_PAYMENT','PAYMENT_AND_DATA_PENDING','AWAITING_PAYMENT_AND_DATA']:
     check(value in detail, 'Server payment status recognized: '+value)

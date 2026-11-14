@@ -6,10 +6,25 @@ import com.iumrah.beta.core.network.APIException
  * Network, 5xx and decoding failures must propagate without a second request.
  */
 object BookingAuthFallbackPolicy {
+    /** iOS booking refresh: a missing trip is not an expired credential. */
+    fun isAuthorizationFailure(error: Throwable): Boolean = when (error) {
+        is APIException.Status -> error.code in setOf(401, 403)
+        is APIException.Server -> error.code in setOf(401, 403) ||
+            listOf("UNAUTHORIZED", "BOOKING_PROOF_INVALID", "TOKEN_EXPIRED")
+                .any { it in error.serverMessage.trim().uppercase() }
+        else -> false
+    }
+
+    fun isConfirmedMissing(error: Throwable): Boolean = when (error) {
+        is APIException.Status -> error.code in setOf(404, 410)
+        is APIException.Server -> error.code in setOf(404, 410)
+        else -> false
+    }
+
     fun mayRetryWithAccount(error: Throwable): Boolean = when (error) {
         is APIException.Status -> error.code in setOf(401, 403, 404)
         is APIException.Server -> error.code in setOf(401, 403, 404) ||
-            listOf("UNAUTHORIZED", "BOOKING_NOT_FOUND", "BOOKING_PROOF_INVALID")
+            listOf("UNAUTHORIZED", "BOOKING_NOT_FOUND", "BOOKING_PROOF_INVALID", "TOKEN_EXPIRED")
                 .any { it in error.serverMessage.trim().uppercase() }
         else -> false
     }

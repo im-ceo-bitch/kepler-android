@@ -5,6 +5,11 @@ import com.iumrah.beta.core.security.SecureJsonStore
 import com.iumrah.beta.core.settings.AppLanguage
 import com.iumrah.beta.data.account.IumrahAccountStore
 import com.iumrah.beta.domain.booking.BookingDraftBuilder
+import com.iumrah.beta.domain.booking.BookingAuthFallbackPolicy
+import com.iumrah.beta.domain.booking.BookingSessionPolicy
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import com.iumrah.beta.data.hotel.RemotePackageEngineClient
 import com.iumrah.beta.domain.journey.JourneyState
 import com.iumrah.beta.domain.pricing.PackageQuote
@@ -34,11 +39,84 @@ class BookingStore(
     private val vault: SecureJsonStore,
     private val packageEngine: RemotePackageEngineClient,
 ) {
+    private val refreshMutex = Mutex()
+    private val restoreMutex = Mutex()
+    private val linkMutex = Mutex()
+    private var linkedAccountToken: String? = null
+    private val linkedBookings = mutableSetOf<Pair<String, String>>()
     private val serializer = ListSerializer(StoredBookingSession.serializer())
-    private val _state = MutableStateFlow(BookingStoreState(load()))
+    private val _state = MutableStateFlow(BookingStoreState(load().filter(::isVisible)))
     val state: StateFlow<BookingStoreState> = _state.asStateFlow()
 
-    fun booking(id: String): StoredBookingSession? = _state.value.sessions.firstOrNull { it.id == id }
+    private fun isVisible(session: StoredBookingSession): Boolean = BookingSessionPolicy.visible(
+        session.accessToken, session.accountOwnerID, accountStore.state.value.iumrahID,
+    )
+
+    fun booking(id: String): StoredBookingSession? = _state.value.sessions.firstOrNull { it.id == id && isVisible(it) }
+
+    /** Keep guest proofs, but remove previous-account-only cache entries from this device. */
+    fun reconcileAccountScope() {
+        val current = _state.value
+        val visible = current.sessions.filter(::isVisible)
+        if (visible != current.sessions) {
+            val ids = visible.map { it.id }.toSet()
+            _state.update { it.copy(sessions = visible, esimProfilesByBooking = it.esimProfilesByBooking.filterKeys { id -> id in ids }) }
+            persist(visible)
+        }
+    }
+
+    private suspend fun <T> attempt(block: suspend () -> T): T? = try {
+        block()
+    } catch (error: CancellationException) {
+        throw error
+    } catch (_: Exception) { null }
+
+    private fun mergeHotel(remote: BookingHotelSelectionSnapshot?, local: BookingHotelSelectionSnapshot?): BookingHotelSelectionSnapshot? {
+        if (remote == null) return local
+        return if (BookingSessionPolicy.preserveRoom(local?.hotelId, local?.roomCategory != null, remote.hotelId, remote.roomCategory != null, remote.roomId)) local else remote
+    }
+
+    private fun mergeRemote(session: StoredBookingSession, remote: RemoteBooking): StoredBookingSession = session.copy(
+        booking = remote,
+        travelerName = remote.pilgrimProfile?.displayName ?: session.travelerName,
+        telegram = remote.pilgrimProfile?.telegram ?: session.telegram,
+        whatsapp = remote.pilgrimProfile?.whatsapp ?: session.whatsapp,
+        hotelSelection = mergeHotel(remote.hotelSelection, session.hotelSelection),
+        madinahHotelSelection = mergeHotel(remote.madinahHotelSelection, session.madinahHotelSelection),
+        ziyaratMakkahOverride = remote.customization?.ziyaratMakkah ?: session.ziyaratMakkahOverride,
+        ziyaratMadinahOverride = remote.customization?.ziyaratMadinah ?: session.ziyaratMadinahOverride,
+        esimOverride = remote.customization?.esim ?: session.esimOverride,
+    )
+
+    private fun updateESIMCache(id: String, profiles: List<ClientESIMProfile>?) {
+        if (profiles == null) return
+        _state.update { it.copy(esimProfilesByBooking = if (profiles.isEmpty()) it.esimProfilesByBooking - id else it.esimProfilesByBooking + (id to profiles)) }
+    }
+
+    /** Same per-account/per-booking memo as iOS; failed links remain retryable. */
+    suspend fun linkLocalBookingsToAccount(onlyBookingID: String? = null) = linkMutex.withLock {
+        val token = accountStore.bearerToken
+        if (linkedAccountToken != token) {
+            linkedAccountToken = token
+            linkedBookings.clear()
+        }
+        if (token.isNullOrBlank()) return@withLock
+        val sessions = _state.value.sessions.filter { it.accessToken.isNotBlank() }
+        linkedBookings.retainAll(sessions.map { it.id to it.accessToken }.toSet())
+        for (session in sessions) {
+            if (onlyBookingID != null && session.id != onlyBookingID) continue
+            if (accountStore.bearerToken != token) return@withLock
+            val key = session.id to session.accessToken
+            if (key in linkedBookings) continue
+            val linked = attempt { accountStore.linkBookingForAccount(session.id, session.accessToken, token) } ?: continue
+            if (accountStore.bearerToken != token) return@withLock
+            val latest = booking(session.id) ?: continue
+            if (latest.accessToken != session.accessToken || !linked.ok) continue
+            upsert(latest.copy(pilgrimID = linked.pilgrimID, bookingNumber = linked.bookingNumber ?: latest.bookingNumber,
+                bookingDisplayNumber = linked.bookingDisplayNumber ?: latest.bookingDisplayNumber))
+            linkedBookings.add(key)
+        }
+    }
 
     /** Read-only account proof for fallback, not persisted with individual bookings. */
     fun accountBearerToken(): String? = accountStore.bearerToken
@@ -101,19 +179,12 @@ class BookingStore(
             session = session.copy(pendingGeneratorQuoteProof = quoteProof)
             upsert(session)
             if (commitPricingReportWithRetry(session.id, session.accessToken, quoteProof)) {
-                session = session.copy(pendingGeneratorQuoteProof = null)
+                session = (booking(session.id) ?: session).copy(pendingGeneratorQuoteProof = null)
                 upsert(session)
             }
 
-            accountStore.bearerToken?.takeIf { it.isNotBlank() }?.let {
-                runCatching { accountStore.linkBooking(session.id, session.accessToken) }.getOrNull()?.let { linked ->
-                    session = session.copy(
-                        pilgrimID = linked.pilgrimID,
-                        bookingNumber = linked.bookingNumber,
-                        bookingDisplayNumber = linked.bookingDisplayNumber,
-                    )
-                }
-            }
+            linkLocalBookingsToAccount(onlyBookingID = session.id)
+            session = booking(session.id) ?: session
 
             val operational = syncGeneratorReportWithRetry(
                 id = session.id,
@@ -159,53 +230,40 @@ class BookingStore(
 
     private suspend fun commitPricingReportWithRetry(id: String, accessToken: String, quoteProof: String): Boolean {
         repeat(3) { attempt ->
-            val ok = runCatching { packageEngine.commitPricingReport(id, accessToken, quoteProof); true }.getOrDefault(false)
+            val ok = attempt { packageEngine.commitPricingReport(id, accessToken, quoteProof); true } ?: false
             if (ok) return true
             if (attempt < 2) delay(350L * (attempt + 1))
         }
         return false
     }
 
-    suspend fun restoreAccountTrips() {
-        if (accountStore.bearerToken.isNullOrBlank()) return
-        val trips = runCatching { accountStore.accountTrips() }.getOrDefault(emptyList())
+    suspend fun restoreAccountTrips() = restoreMutex.withLock {
+        reconcileAccountScope()
+        val token = accountStore.bearerToken ?: return@withLock
+        val owner = accountStore.state.value.iumrahID ?: return@withLock
+        val trips = attempt { accountStore.accountTrips(token) } ?: return@withLock
         for (trip in trips) {
-            val detail = runCatching { accountStore.tripDetail(trip.bookingID) }.getOrNull() ?: continue
-            val remote = detail.booking
+            if (accountStore.bearerToken != token) return@withLock
+            val detail = attempt { accountStore.tripDetail(trip.bookingID, token) } ?: continue
+            if (accountStore.bearerToken != token) return@withLock
+            if (detail.booking.id != trip.bookingID || detail.trip.bookingID != trip.bookingID) continue
             val existing = booking(trip.bookingID)
-            var session = if (existing != null) {
-                existing.copy(
-                    booking = remote,
-                    travelerName = remote.pilgrimProfile?.displayName ?: existing.travelerName,
-                    telegram = remote.pilgrimProfile?.telegram ?: existing.telegram,
-                    whatsapp = remote.pilgrimProfile?.whatsapp ?: existing.whatsapp,
-                    hotelSelection = remote.hotelSelection ?: existing.hotelSelection,
-                    madinahHotelSelection = remote.madinahHotelSelection ?: existing.madinahHotelSelection,
-                )
-            } else {
-                StoredBookingSession(
-                    id = trip.bookingID,
-                    accessToken = "",
-                    booking = remote,
-                    travelerName = remote.pilgrimProfile?.displayName,
-                    telegram = remote.pilgrimProfile?.telegram,
-                    whatsapp = remote.pilgrimProfile?.whatsapp,
-                    hotelSelection = remote.hotelSelection,
-                    madinahHotelSelection = remote.madinahHotelSelection,
-                )
-            }
-            session = session.mergeOperationalTrip(detail.trip, detail.statusHistory, detail.assignment)
-            detail.esims?.let { profiles ->
-                _state.update { current ->
-                    current.copy(esimProfilesByBooking = if (profiles.isEmpty()) current.esimProfilesByBooking - trip.bookingID else current.esimProfilesByBooking + (trip.bookingID to profiles))
-                }
-            }
-            upsert(session)
+            val initial = existing ?: StoredBookingSession(id = trip.bookingID, accessToken = "", booking = detail.booking, accountOwnerID = owner)
+            val merged = mergeRemote(initial, detail.booking).mergeOperationalTrip(detail.trip, detail.statusHistory, detail.assignment)
+            upsert(merged)
+            updateESIMCache(trip.bookingID, detail.esims)
         }
     }
 
     suspend fun refreshAll() {
-        _state.value.sessions.map { it.id }.forEach { id -> runCatching { refresh(id) } }
+        if (!refreshMutex.tryLock()) {
+            refreshMutex.withLock { } // await the in-flight refresh, no duplicate fetch
+            return
+        }
+        try {
+            reconcileAccountScope()
+            _state.value.sessions.map { it.id }.forEach { id -> attempt { refresh(id) } }
+        } finally { refreshMutex.unlock() }
     }
 
     suspend fun syncPushSubscriptions(deviceToken: String, locale: String) {
@@ -216,7 +274,7 @@ class BookingStore(
         var observedReady: Boolean? = null
         var firstError: String? = null
 
-        for (session in _state.value.sessions) {
+        for (session in _state.value.sessions.filter(::isVisible)) {
             val candidates = buildList {
                 accountStore.bearerToken?.trim()?.takeIf { it.isNotEmpty() }?.let {
                     add(mapOf("Authorization" to "Bearer $it"))
@@ -236,6 +294,8 @@ class BookingStore(
                     registered = true
                     response.ready?.let { ready -> observedReady = (observedReady ?: true) && ready }
                     break
+                } catch (error: CancellationException) {
+                    throw error
                 } catch (error: Throwable) {
                     lastError = error
                 }
@@ -253,51 +313,60 @@ class BookingStore(
 
     suspend fun refresh(id: String): StoredBookingSession? {
         val current = booking(id) ?: return null
-        // Account-linked trips can have no booking token. Use the account's own trip endpoint
-        // instead of making a request with an empty x-booking-token proof.
-        val accountDetail = if (current.accessToken.isBlank() && !accountStore.bearerToken.isNullOrBlank()) {
-            runCatching { accountStore.tripDetail(id) }.getOrNull()
-        } else null
-        val remote = accountDetail?.booking ?: current.accessToken.takeIf { it.isNotBlank() }?.let {
-            runCatching { service.fetchBooking(id, it) }.getOrNull()
+        val accountToken = accountStore.bearerToken
+        val bookingToken = current.accessToken.trim()
+        var accountDetail: com.iumrah.beta.models.account.IumrahAccountTripDetailResponse? = null
+        var remote: RemoteBooking? = null
+        var operational: ClientTripResponse? = null
+        if (bookingToken.isNotEmpty()) {
+            try {
+                remote = service.fetchBooking(id, bookingToken)
+            } catch (error: APIException) {
+                if (BookingAuthFallbackPolicy.isAuthorizationFailure(error) && !accountToken.isNullOrBlank() && accountStore.bearerToken == accountToken) {
+                    accountDetail = attempt { accountStore.tripDetail(id, accountToken) }
+                } else if (BookingAuthFallbackPolicy.isConfirmedMissing(error)) {
+                    if (booking(id)?.accessToken == current.accessToken) purge(id)
+                    return null
+                } else throw error
+            }
+            if (remote != null) {
+                val profile = remote.pilgrimProfile
+                if (profile != null && profile.firstName.isNotBlank() && profile.lastName.isNotBlank()) {
+                    operational = attempt { service.syncBookingProfile(id, bookingToken, profile) }
+                }
+                if (operational == null) operational = attempt { service.fetchOperationalTrip(id, mapOf("x-booking-token" to bookingToken)) }
+            }
+        } else if (!accountToken.isNullOrBlank()) {
+            accountDetail = try { accountStore.tripDetail(id, accountToken) } catch (error: APIException) {
+                if (BookingAuthFallbackPolicy.isConfirmedMissing(error) && accountStore.bearerToken == accountToken) { purge(id); return null }
+                throw error
+            }
         }
-        val operational = if (accountDetail != null) null else
-            runCatching { service.fetchOperationalTrip(id, headersFor(current)) }.getOrNull()
-        var next = current
-        if (remote != null) {
-            next = next.copy(
-                booking = remote,
-                travelerName = remote.pilgrimProfile?.displayName ?: next.travelerName,
-                telegram = remote.pilgrimProfile?.telegram ?: next.telegram,
-                whatsapp = remote.pilgrimProfile?.whatsapp ?: next.whatsapp,
-                hotelSelection = remote.hotelSelection ?: next.hotelSelection,
-                madinahHotelSelection = remote.madinahHotelSelection ?: next.madinahHotelSelection,
-            )
-        }
+        if (accountDetail != null && accountStore.bearerToken != accountToken) return booking(id)
+        if (accountDetail != null && (accountDetail.booking.id != id || accountDetail.trip.bookingID != id)) return booking(id)
+        if (remote != null && remote.id != id) return booking(id)
+        if (operational != null && operational.trip.bookingID != id) return booking(id)
+        var next = booking(id) ?: return null // never resurrect a locally deleted trip
+        if (next.accessToken != current.accessToken) return next
+        val fetched = accountDetail?.booking ?: remote
+        if (fetched != null) next = mergeRemote(next, fetched)
         if (accountDetail != null) {
             next = next.mergeOperationalTrip(accountDetail.trip, accountDetail.statusHistory, accountDetail.assignment)
-            accountDetail.esims?.let { profiles ->
-                _state.update { state -> state.copy(esimProfilesByBooking = if (profiles.isEmpty()) state.esimProfilesByBooking - id else state.esimProfilesByBooking + (id to profiles)) }
-            }
-        }
-        if (operational != null) {
-            operational.esims?.let { profiles ->
-                _state.update { current ->
-                    current.copy(esimProfilesByBooking = if (profiles.isEmpty()) current.esimProfilesByBooking - id else current.esimProfilesByBooking + (id to profiles))
-                }
-            }
-            next = next.mergeOperationalTrip(
-                trip = operational.trip,
-                history = operational.statusHistory,
-                assignment = operational.assignment,
-            )
+            updateESIMCache(id, accountDetail.esims)
+        } else if (operational != null) {
+            next = next.mergeOperationalTrip(operational.trip, operational.statusHistory, operational.assignment)
+            updateESIMCache(id, operational.esims)
         }
         val pendingProof = next.pendingGeneratorQuoteProof
-        if (!pendingProof.isNullOrBlank() && next.accessToken.isNotBlank() && commitPricingReportWithRetry(id, next.accessToken, pendingProof)) {
-            next = next.copy(pendingGeneratorQuoteProof = null)
-        }
         upsert(next)
-        return next
+        if (!pendingProof.isNullOrBlank() && bookingToken.isNotEmpty() && commitPricingReportWithRetry(id, bookingToken, pendingProof)) {
+            val latest = booking(id) ?: return null
+            if (latest.pendingGeneratorQuoteProof == pendingProof && latest.accessToken == current.accessToken) {
+                next = latest.copy(pendingGeneratorQuoteProof = null)
+                upsert(next)
+            }
+        }
+        return booking(id)
     }
 
     suspend fun updateHotel(
@@ -363,13 +432,15 @@ class BookingStore(
         val values = _state.value.sessions.toMutableList()
         val index = values.indexOfFirst { it.id == session.id }
         if (index >= 0) values[index] = session else values.add(0, session)
-        _state.update { it.copy(sessions = values) }
-        persist(values)
+        if (!isVisible(session)) return
+        val sorted = values.sortedByDescending { it.booking.createdAt }
+        _state.update { it.copy(sessions = sorted) }
+        persist(sorted)
     }
 
     private fun purge(id: String) {
         val values = _state.value.sessions.filterNot { it.id == id }
-        _state.update { it.copy(sessions = values) }
+        _state.update { it.copy(sessions = values, esimProfilesByBooking = it.esimProfilesByBooking - id) }
         persist(values)
     }
 

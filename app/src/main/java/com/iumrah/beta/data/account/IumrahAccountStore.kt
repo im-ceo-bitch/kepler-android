@@ -5,6 +5,7 @@ import com.iumrah.beta.core.security.SecureJsonStore
 import com.iumrah.beta.models.account.*
 import com.iumrah.beta.models.booking.ClientTripSnapshot
 import java.util.Locale
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -49,11 +50,21 @@ class IumrahAccountStore(
         _state.update { it.copy(isRestoring = true) }
         try {
             val profile = service.session(current)
+            if (token != current) return
             saveSession(current, profile)
             runCatching { service.registerCurrentSession(current, Locale.getDefault().toLanguageTag()) }
-            _state.value = IumrahAccountState(account = profile, isRestoring = false)
-        } catch (_: Throwable) {
-            clearLocalSession()
+            if (token == current) _state.value = IumrahAccountState(account = profile, isRestoring = false)
+        } catch (error: CancellationException) {
+            throw error
+        } catch (error: Throwable) {
+            if (token == current) {
+                // Do not delete a valid offline session because of a network or 5xx failure.
+                if ((error is APIException.Status && error.code == 401) ||
+                    (error is APIException.Server && error.code == 401)) clearLocalSession()
+                else _state.update { it.copy(lastError = error.message) }
+            }
+        } finally {
+            if (token == current) _state.update { it.copy(isRestoring = false) }
         }
     }
 
@@ -224,9 +235,20 @@ class IumrahAccountStore(
     suspend fun linkBooking(bookingID: String, bookingToken: String): IumrahAccountLinkBookingResponse =
         service.linkBooking(bookingID, bookingToken, requireToken())
 
-    suspend fun accountTrips(): List<ClientTripSnapshot> = service.trips(requireToken())
+    suspend fun accountTrips(expectedToken: String = requireToken()): List<ClientTripSnapshot> {
+        check(requireToken() == expectedToken) { "Account changed" }
+        return service.trips(expectedToken)
+    }
 
-    suspend fun tripDetail(bookingID: String): IumrahAccountTripDetailResponse = service.tripDetail(bookingID, requireToken())
+    suspend fun tripDetail(bookingID: String, expectedToken: String = requireToken()): IumrahAccountTripDetailResponse {
+        check(requireToken() == expectedToken) { "Account changed" }
+        return service.tripDetail(bookingID, expectedToken)
+    }
+
+    suspend fun linkBookingForAccount(bookingID: String, bookingToken: String, expectedToken: String): IumrahAccountLinkBookingResponse {
+        check(requireToken() == expectedToken) { "Account changed" }
+        return service.linkBooking(bookingID, bookingToken, expectedToken)
+    }
 
     private fun setSession(response: IumrahAccountAuthResponse) {
         token = response.session.token

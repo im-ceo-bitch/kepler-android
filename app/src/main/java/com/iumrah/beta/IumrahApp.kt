@@ -94,10 +94,15 @@ fun IumrahApp() {
         }
     }
 
-    LaunchedEffect(settings.hasCompletedOnboarding, accountState.iumrahID) {
-        if (settings.hasCompletedOnboarding && accountState.isAuthenticated) {
-            runCatching { container.bookingStore.restoreAccountTrips() }
+    LaunchedEffect(settings.hasCompletedOnboarding, accountState.iumrahID, accountState.isRestoring) {
+        container.bookingStore.reconcileAccountScope()
+        if (settings.hasCompletedOnboarding && accountState.isAuthenticated && !accountState.isRestoring) {
+            container.bookingStore.linkLocalBookingsToAccount()
+            container.bookingStore.restoreAccountTrips()
         }
+    }
+    LaunchedEffect(settings.hasCompletedOnboarding, accountState.iumrahID, bookingState.sessions.map { it.id to it.accessToken }) {
+        if (settings.hasCompletedOnboarding && accountState.isAuthenticated) container.bookingStore.linkLocalBookingsToAccount()
     }
 
     LaunchedEffect(settings.hasCompletedOnboarding, pushState.isConfigured) {
@@ -111,7 +116,7 @@ fun IumrahApp() {
     LaunchedEffect(
         settings.hasCompletedOnboarding,
         accountState.iumrahID,
-        bookingState.sessions.map { it.id },
+        bookingState.sessions.map { it.id to it.accessToken },
         settings.language.code,
         pushState.deviceToken,
         permissionRevision,
@@ -155,6 +160,7 @@ fun IumrahApp() {
         if (!settings.hasCompletedOnboarding) return@LifecycleEventEffect
         container.pushManager.refreshToken()
         scope.launch {
+            if (container.accountStore.state.value.isAuthenticated) container.bookingStore.linkLocalBookingsToAccount()
             val token = container.pushManager.state.value.deviceToken
             if (!token.isNullOrBlank()) container.bookingStore.syncPushSubscriptions(token, settings.language.code)
             container.notificationStore.sync(

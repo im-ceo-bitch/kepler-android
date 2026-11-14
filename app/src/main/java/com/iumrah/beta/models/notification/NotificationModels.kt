@@ -25,7 +25,7 @@ data class ClientSystemNotification(
     val installationID: String,
     val deviceToken: String? = null,
     val environment: String = "production",
-    val appBundleID: String = "com.iumrah.beta",
+    val appBundleID: String = com.iumrah.beta.BuildConfig.APPLICATION_ID,
     val locale: String,
     val hasTrip: Boolean,
 )
