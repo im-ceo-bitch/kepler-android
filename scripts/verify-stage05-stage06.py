@@ -28,7 +28,7 @@ board = source('ui/hotels/HotelsScreen.kt')
 
 checks = {
     'iOS Nuitee routes kept': all(p in service for p in ('/api/package/nuitee/hotels', '/api/package/nuitee/hotel', '/api/package/nuitee/rates')),
-    'no new Nuitee API host': 'APIClient()' in service and 'AppConfig.API_BASE_URL' in source('core/network/APIClient.kt'),
+    'no new Nuitee API host': 'APIClient()' in service and 'AppConfig.apiUrl(path)' in source('core/network/APIClient.kt'),
     'supplier prices are room-only': 'prices refer to ROOM STAYS' in models,
     'request typed supplier children ages': 'val children: List<Int>' in service and 'childrenAges' in rooms,
     'stale hotel rates displayed as unconfirmed': 'pricesStale = true' in hotels and 'response.cached' in hotels,

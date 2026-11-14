@@ -26,7 +26,7 @@ enum class IumrahConnectivityStatus(val title: String) {
 
 /**
  * Android mirror of iOS IumrahConnectivityMonitor.
- * ConnectivityManager reacts to radio/Wi-Fi changes immediately; an HTTPS HEAD probe
+ * ConnectivityManager reacts to radio/Wi-Fi changes immediately; a unified backend health probe
  * prevents a connected-but-unusable network from being presented as online.
  */
 class IumrahConnectivityMonitor(context: Context) : Closeable {
@@ -39,6 +39,8 @@ class IumrahConnectivityMonitor(context: Context) : Closeable {
         .writeTimeout(4, TimeUnit.SECONDS)
         .callTimeout(5, TimeUnit.SECONDS)
         .retryOnConnectionFailure(false)
+        .followRedirects(false)
+        .followSslRedirects(false)
         .build()
 
     private val _status = MutableStateFlow(IumrahConnectivityStatus.CHECKING)
@@ -80,13 +82,17 @@ class IumrahConnectivityMonitor(context: Context) : Closeable {
         val generation = probeGeneration.incrementAndGet()
         scope.launch {
             val request = Request.Builder()
-                .url(AppConfig.API_BASE_URL)
-                .head()
-                .header("Accept", "*/*")
+                .url(AppConfig.HEALTH_URL)
+                .get()
+                .header("Accept", "application/json")
                 .header("User-Agent", "iumrah-android-beta/connectivity")
                 .build()
             val reachable = runCatching {
-                client.newCall(request).execute().use { true }
+                client.newCall(request).execute().use { response ->
+                    response.isSuccessful && runCatching {
+                        org.json.JSONObject(response.body.string()).optBoolean("ok", false)
+                    }.getOrDefault(false)
+                }
             }.getOrDefault(false)
             if (probeGeneration.get() == generation) {
                 _status.value = if (reachable) IumrahConnectivityStatus.ONLINE else IumrahConnectivityStatus.OFFLINE

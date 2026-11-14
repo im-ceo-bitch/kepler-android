@@ -29,9 +29,11 @@ sealed class APIException(message: String, cause: Throwable? = null) : Exception
 private data class APIErrorEnvelope(val error: String? = null, val message: String? = null)
 
 class APIClient(
-    private val baseUrl: String = AppConfig.API_BASE_URL,
-    private val client: OkHttpClient = defaultClient(),
+    client: OkHttpClient = defaultClient(),
 ) {
+    // A redirect must not send a booking token or account credential to another origin.
+    private val client = client.newBuilder().followRedirects(false).followSslRedirects(false).build()
+
     val json: Json = Json {
         ignoreUnknownKeys = true
         explicitNulls = false
@@ -87,7 +89,7 @@ class APIClient(
         headers: Map<String, String> = emptyMap(),
         timeoutSeconds: Long? = null,
     ): ByteArray = withContext(Dispatchers.IO) {
-        val url = if (path.startsWith("https://") || path.startsWith("http://")) path else absoluteUrl(path)
+        val url = absoluteUrl(path)
         val request = Request.Builder()
             .url(url)
             .get()
@@ -201,9 +203,7 @@ class APIClient(
         return if (message != null) APIException.Server(response.code, message) else APIException.Status(response.code)
     }
 
-    private fun absoluteUrl(path: String): String =
-        if (path.startsWith("https://") || path.startsWith("http://")) path
-        else baseUrl.trimEnd('/') + "/" + path.trimStart('/')
+    private fun absoluteUrl(path: String): String = AppConfig.apiUrl(path)
 
     companion object {
         private val JSON_MEDIA_TYPE = "application/json; charset=utf-8".toMediaType()

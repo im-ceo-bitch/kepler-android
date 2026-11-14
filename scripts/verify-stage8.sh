@@ -12,7 +12,13 @@ required=(
 )
 for f in "${required[@]}"; do test -s "$f" || { echo "STOP: missing Stage 008 file $f"; exit 1; }; done
 grep -q '/client/chats/\$bookingID/messages' app/src/main/java/com/iumrah/beta/data/chat/ChatService.kt
-grep -q 'delay(6_000)' app/src/main/java/com/iumrah/beta/ui/chat/BookingChatScreen.kt
+# Chat refresh is now push-aware: wait for a revision or poll after six seconds.
+chat_screen=app/src/main/java/com/iumrah/beta/ui/chat/BookingChatScreen.kt
+chat_service=app/src/main/java/com/iumrah/beta/data/chat/ChatService.kt
+grep -Fq 'withTimeoutOrNull(6_000) { chatService.refreshRevision.first { it != seenRevision } }' "$chat_screen" || { echo 'STOP: chat must refresh on push or six-second timeout'; exit 1; }
+grep -Fq 'chatService.loadChat(bookingID, headers)' "$chat_screen" || { echo 'STOP: chat must load messages on refresh'; exit 1; }
+grep -Fq 'ChatDelta.path(bookingID, after, unread)' "$chat_service" || { echo 'STOP: chat must fetch incremental messages'; exit 1; }
+grep -Fq 'chatService.cachedChat(bookingID, headers)' "$chat_screen" || { echo 'STOP: chat must restore scoped message cache'; exit 1; }
 grep -q '/client/notifications/devices' app/src/main/java/com/iumrah/beta/data/notification/ClientNotificationStore.kt
 grep -q 'pushState.deviceToken' app/src/main/java/com/iumrah/beta/ui/notifications/NotificationsScreen.kt || { echo 'STOP: notifications sync must use the real FCM token'; exit 1; }
 if grep -q 'deviceToken = null' app/src/main/java/com/iumrah/beta/ui/notifications/NotificationsScreen.kt; then

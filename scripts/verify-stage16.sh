@@ -58,7 +58,7 @@ fi
 if grep -R -nEi 'localhost|127\.0\.0\.1|10\.0\.2\.2' app/src/main/java app/src/main/res --exclude='*.mp4'; then
   echo 'STOP: local development endpoint found in production sources.'; exit 1
 fi
-grep -q 'API_BASE_URL = "https://iumrah.app"' app/src/main/java/com/iumrah/beta/core/config/AppConfig.kt || {
+grep -q 'API_BASE_URL = "https://iumrah-backend.helloiumrah.workers.dev"' app/src/main/java/com/iumrah/beta/core/config/AppConfig.kt || {
   echo 'STOP: production backend must be https://iumrah.app'; exit 1
 }
 

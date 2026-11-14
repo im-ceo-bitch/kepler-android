@@ -126,6 +126,7 @@ class RemotePackageEngineClient(private val api: APIClient) {
             quoteId = envelope.quote.quoteId,
             quoteProof = envelope.quote.quoteProof,
             pricingSnapshot = null,
+            bookingAllowed = envelope.quote.bookingAllowed,
         )
     }
 
@@ -158,6 +159,7 @@ private data class ServerPackageQuote(
     val isEstimated: Boolean,
     val quoteId: String,
     val quoteProof: String,
+    val bookingAllowed: Boolean? = null,
 )
 
 @Serializable

@@ -36,15 +36,15 @@ object Stage10JvmRegression {
         checkThat("Sa'i saturates at seven", ritual.saiCompleted == 7)
         checkThat("ritual completes", ritual.phase == UmrahPhase.COMPLETED)
         checkThat("completed ritual never advances", !ritual.canAdvance && ritual.advance() == ritual)
-        val audio = "https://coaqrsapnpyutsxflsru.supabase.co/storage/v1/object/public/audio/tawaf.mp3"
+        val audio = "https://iumrah-backend.helloiumrah.workers.dev/api/services/advisor/audio/ru/tawaf_1"
         checkThat("public audio accepted", UmrahFlowAudioUrlPolicy.isAllowed(audio))
         checkThat("no plain HTTP audio", !UmrahFlowAudioUrlPolicy.isAllowed(audio.replace("https:","http:")))
-        checkThat("no fake audio host", !UmrahFlowAudioUrlPolicy.isAllowed(audio.replace("supabase.co", "supabase.co.evil.org")))
-        checkThat("no private bucket", !UmrahFlowAudioUrlPolicy.isAllowed(audio.replace("/public/", "/sign/")))
+        checkThat("no fake audio host", !UmrahFlowAudioUrlPolicy.isAllowed(audio.replace("workers.dev", "workers.dev.evil.org")))
+        checkThat("no private bucket", !UmrahFlowAudioUrlPolicy.isAllowed(audio.replace("/advisor/audio/", "/advisor/translations/")))
         checkThat("no userinfo", !UmrahFlowAudioUrlPolicy.isAllowed(audio.replace("https://", "https://me@")))
-        checkThat("no nonstandard port", !UmrahFlowAudioUrlPolicy.isAllowed(audio.replace("supabase.co/", "supabase.co:8443/")))
+        checkThat("no nonstandard port", !UmrahFlowAudioUrlPolicy.isAllowed(audio.replace("workers.dev/", "workers.dev:8443/")))
         checkThat("no audio query", !UmrahFlowAudioUrlPolicy.isAllowed("$audio?token=secret"))
-        checkThat("no traversal", !UmrahFlowAudioUrlPolicy.isAllowed(audio.replace("audio/tawaf", "../tawaf")))
+        checkThat("no traversal", !UmrahFlowAudioUrlPolicy.isAllowed(audio.replace("audio/ru/tawaf", "audio/../tawaf")))
 
         val hotel = NuiteeHotel("1", "Royal Hotel", "makkah", address = "Jabal Omar",
             stars=4.5, minimumRate=NuiteeMinimumRate("1", 350.0), rateStatus="fresh")

@@ -2,7 +2,6 @@ package com.iumrah.beta.data.booking
 
 import com.iumrah.beta.core.config.AppConfig
 import com.iumrah.beta.core.network.APIClient
-import com.iumrah.beta.domain.pricing.GeneratorPricingSnapshot
 import com.iumrah.beta.models.account.IumrahFriendCreditApplyRequest
 import com.iumrah.beta.models.account.IumrahFriendGiftRedeemRequest
 import com.iumrah.beta.models.account.IumrahFriendsBookingSummary
@@ -26,10 +25,9 @@ class BookingService(private val api: APIClient) {
         accessToken: String,
         profile: BookingPilgrimProfile,
         generatorTrace: BookingGeneratorTrace? = null,
-        pricingSnapshot: GeneratorPricingSnapshot? = null,
     ): ClientTripResponse = api.post(
         "/api/catalog/hotels/client/trips/$id/sync",
-        BookingProfileSyncRequest(profile.firstName, profile.lastName, profile.displayName, profile.telegram, profile.whatsapp, generatorTrace, pricingSnapshot),
+        BookingProfileSyncRequest(profile.firstName, profile.lastName, profile.displayName, profile.telegram, profile.whatsapp, generatorTrace),
         headers = mapOf("x-booking-token" to accessToken),
     )
 
@@ -37,10 +35,9 @@ class BookingService(private val api: APIClient) {
         id: String,
         accessToken: String,
         generatorTrace: BookingGeneratorTrace?,
-        pricingSnapshot: GeneratorPricingSnapshot?,
     ): ClientTripResponse = api.post(
         "/api/catalog/hotels/client/trips/$id/sync",
-        BookingGeneratorReportSyncRequest(generatorTrace, pricingSnapshot),
+        BookingGeneratorReportSyncRequest(generatorTrace),
         headers = mapOf("x-booking-token" to accessToken),
     )
 
@@ -129,13 +126,11 @@ private data class BookingProfileSyncRequest(
     val telegram: String,
     val whatsapp: String,
     val generatorTrace: BookingGeneratorTrace? = null,
-    val pricingSnapshot: GeneratorPricingSnapshot? = null,
 )
 
 @Serializable
 private data class BookingGeneratorReportSyncRequest(
     val generatorTrace: BookingGeneratorTrace? = null,
-    val pricingSnapshot: GeneratorPricingSnapshot? = null,
 )
 
 @Serializable

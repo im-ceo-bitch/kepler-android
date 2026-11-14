@@ -131,6 +131,7 @@ data class PackageQuote(
     val quoteId: String? = null,
     val quoteProof: String? = null,
     val pricingSnapshot: GeneratorPricingSnapshot? = null,
+    val bookingAllowed: Boolean? = null,
 )
 
 internal fun newLocalQuoteId(): String = "local-${UUID.randomUUID().toString().lowercase()}"

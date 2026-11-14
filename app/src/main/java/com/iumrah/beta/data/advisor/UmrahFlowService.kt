@@ -1,51 +1,28 @@
 package com.iumrah.beta.data.advisor
 
 import android.content.Context
+import com.iumrah.beta.core.network.APIClient
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.async
-import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.withContext
-import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.builtins.MapSerializer
 import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import com.iumrah.beta.domain.umrahflow.UmrahFlowAudioUrlPolicy
-import okhttp3.OkHttpClient
-import okhttp3.Request
-import java.net.URLEncoder
-import java.nio.charset.StandardCharsets
-import java.util.concurrent.TimeUnit
-
-@Serializable
-private data class TranslationRow(val key: String, val value: String)
-
-@Serializable
-private data class AudioRow(val key: String, val url: String)
 
 data class UmrahFlowContent(
     val translations: Map<String, String> = emptyMap(),
     val audio: Map<String, String> = emptyMap(),
 )
 
-/** Mirrors the iOS UmrahFlowStore: cached guide text is immediately readable offline.
- * Per-language caches only contain the public translation and audio URL mappings.
- * Never cache booking, account or other private data here.
- */
-class UmrahFlowService(
-    context: Context? = null,
-    private val client: OkHttpClient = OkHttpClient.Builder()
-        .connectTimeout(12, TimeUnit.SECONDS)
-        .readTimeout(12, TimeUnit.SECONDS)
-        .build(),
-) {
+/** Reviewed bundled content plus the unified Advisor API. No legacy database or media host. */
+@Serializable private data class TranslationRow(val key: String, val value: String)
+@Serializable private data class AudioRow(val key: String, val url: String)
+class UmrahFlowService(context: Context? = null, private val api: APIClient = APIClient()) {
     private val json = Json { ignoreUnknownKeys = true }
     private val applicationContext = context?.applicationContext
-    private val cache = applicationContext?.getSharedPreferences("iumrah.umrahFlow", Context.MODE_PRIVATE)
+    private val cache = applicationContext?.getSharedPreferences("iumrah.umrahFlow.unified.v2", Context.MODE_PRIVATE)
     private val offlineCatalog by lazy {
         runCatching {
             applicationContext?.assets?.open("umrah_flow_catalog.json")?.bufferedReader()?.use {
@@ -67,89 +44,38 @@ class UmrahFlowService(
             return try { json.decodeFromString(mapSerializer, raw) }
             catch (_: Exception) { emptyMap() }
         }
-        // Audited bundled copy takes precedence over an older on-device cache.
+        // Only v2 cache from the unified backend is read.
         return UmrahFlowContent(
-            translations = (read("translations") + bundled("translations", language)).filterKeys { it in UmrahFlowKeys.all },
-            audio = (read("audio") + bundled("audio", language)).filterValues(UmrahFlowAudioUrlPolicy::isAllowed),
+            translations = (bundled("translations", language) + read("translations")).filterKeys { it in UmrahFlowKeys.all },
+            audio = (bundled("audio", language) + read("audio")).mapNotNull { (key, value) -> UmrahFlowAudioUrlPolicy.resolve(value)?.let { key to it } }.toMap().filterValues(UmrahFlowAudioUrlPolicy::isAllowed),
         )
     }
 
-    suspend fun load(language: String): UmrahFlowContent = coroutineScope {
+    suspend fun load(language: String): UmrahFlowContent {
         require(language in SUPPORTED_LANGUAGES) { "Unsupported Advisor language" }
         val snapshot = cached(language)
-        val freshText = async(Dispatchers.IO) { safeFetch { loadTranslations(language) } }
-        val freshAudio = async(Dispatchers.IO) { safeFetch { loadAudio(language) } }
-        val requestedText = freshText.await().orEmpty()
-        val requestedAudio = freshAudio.await().orEmpty().filterValues(UmrahFlowAudioUrlPolicy::isAllowed)
-
-        // Never discard the reviewed offline content when the live API returns a partial table.
-        var translations = snapshot.translations + requestedText
-        val audio = snapshot.audio + requestedAudio
-        // As on iOS, use English only if no text rows exist for the selected language.
-        if (translations.isEmpty() && language != "en") {
-            val englishSnapshot = cached("en").translations
-            translations = englishSnapshot.ifEmpty {
-                withContext(Dispatchers.IO) { safeFetch { loadTranslations("en") }.orEmpty() }
-            }
-        }
-        if (requestedText.isNotEmpty()) cacheWrite("translations", language, requestedText)
-        if (requestedAudio.isNotEmpty()) cacheWrite("audio", language, requestedAudio)
-        UmrahFlowContent(translations = translations, audio = audio)
-    }
-
-    private inline fun <T> safeFetch(block: () -> T): T? = try {
-        block()
-    } catch (cancelled: CancellationException) {
-        throw cancelled
-    } catch (_: Exception) {
-        null
-    }
-
-    private fun cacheWrite(type: String, language: String, values: Map<String, String>) {
-        if (values.isEmpty()) return
-        cache?.edit()?.putString("$type.$language", json.encodeToString(mapSerializer, values))?.apply()
-    }
-
-
-    private fun loadTranslations(language: String): Map<String, String> {
-        for (table in listOf("translations2", "translations")) {
-            val result = safeFetch {
-                val body = request(table, "key,value", language)
-                json.decodeFromString(ListSerializer(TranslationRow.serializer()), body)
-                    .associate { it.key to it.value }
-                    .filterKeys { it in UmrahFlowKeys.all }
-            }.orEmpty()
-            if (result.isNotEmpty()) return result
-        }
-        return emptyMap()
-    }
-
-    private fun loadAudio(language: String): Map<String, String> {
-        val body = request("audio", "key,url", language)
-        return json.decodeFromString(ListSerializer(AudioRow.serializer()), body)
-            .associate { it.key to it.url }
-    }
-
-    private fun request(table: String, select: String, language: String): String {
-        val encodedLang = URLEncoder.encode("eq.$language", StandardCharsets.UTF_8.toString())
-        val url = "$BASE_URL/rest/v1/$table?select=$select&lang=$encodedLang"
-        val request = Request.Builder()
-            .url(url)
-            .header("apikey", ANON_KEY)
-            .header("Authorization", "Bearer $ANON_KEY")
-            .header("Accept", "application/json")
-            .get()
-            .build()
-        client.newCall(request).execute().use { response ->
-            if (!response.isSuccessful) error("Umrah Flow HTTP ${response.code}")
-            return response.body.string()
-        }
+        suspend fun <T> attempt(block: suspend () -> T): T? = try { block() }
+        catch (cancelled: CancellationException) { throw cancelled }
+        catch (_: Exception) { null }
+        val translations = attempt {
+            api.get<List<TranslationRow>>("/api/services/advisor/translations", query = mapOf("lang" to language), timeoutSeconds = 12)
+                .filter { it.key in UmrahFlowKeys.all }.associate { it.key to it.value }
+        }.orEmpty()
+        val audio = attempt {
+            api.get<List<AudioRow>>("/api/services/advisor/audio", query = mapOf("lang" to language), timeoutSeconds = 12)
+                .mapNotNull { row -> UmrahFlowAudioUrlPolicy.resolve(row.url)?.let { row.key to it } }.toMap()
+        }.orEmpty()
+        val result = UmrahFlowContent(
+            snapshot.translations.ifEmpty { cached("en").translations } + translations,
+            snapshot.audio + audio,
+        )
+        cache?.edit()?.putString("translations.$language", json.encodeToString(mapSerializer, result.translations))
+            ?.putString("audio.$language", json.encodeToString(mapSerializer, result.audio))?.apply()
+        return result
     }
 
     private companion object {
         val SUPPORTED_LANGUAGES = setOf("ru", "en", "uz", "kk", "id", "tr", "ar", "ms", "bn", "fr")
-        const val BASE_URL = "https://coaqrsapnpyutsxflsru.supabase.co"
-        const val ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNvYXFyc2FwbnB5dXRzeGZsc3J1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQzNjE2OTcsImV4cCI6MjA3OTkzNzY5N30.iycnHay3nX__40VTKzvkyX3NKbSo8wWqBhKGKGl2yIo"
     }
 }
 

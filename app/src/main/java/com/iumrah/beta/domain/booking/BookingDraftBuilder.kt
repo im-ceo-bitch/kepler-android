@@ -107,9 +107,8 @@ object BookingDraftBuilder {
                 makkahHotel = generatorHotel(makkahHotel, state.makkahRoom, state.makkahRoomCategory),
                 madinahHotel = madinahHotel?.let { generatorHotel(it, state.madinahRoom, state.madinahRoomCategory) },
             ),
-            pricingSnapshot = quote.pricingSnapshot,
         )
-        return BookingCreateEnvelope(lang = language.code, booking = draft)
+        return BookingCreateEnvelope(lang = language.code, booking = draft, quoteProof = quote.quoteProof)
     }
 
     private fun generatorFlight(offer: LiveFlightCandidate, source: String): BookingGeneratorFlightSnapshot =

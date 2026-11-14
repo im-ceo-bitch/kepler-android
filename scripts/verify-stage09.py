@@ -11,9 +11,9 @@ checks = [
     ('ui/home/HomeScreen.kt', ['chrome.openUmrahFlow()']),
     ('ui/shell/SidebarDrawer.kt', ['chrome.openUmrahFlow()']),
     ('domain/umrahflow/UmrahFlowProgress.kt', ['enum class UmrahPhase', 'fun completeTawafTurn()', 'fun completeSaiLeg()', 'tawafCompleted == 7', 'saiCompleted == 7']),
-    ('domain/umrahflow/UmrahFlowAudioUrlPolicy.kt', ['coaqrsapnpyutsxflsru.supabase.co', '/storage/v1/object/public/']),
+    ('domain/umrahflow/UmrahFlowAudioUrlPolicy.kt', ['AppConfig.API_BASE_URL', '/api/services/advisor/audio/']),
     ('domain/umrahflow/UmrahFlowCheckpointStore.kt', ['fun restore()', 'fun save(', 'fun clear()']),
-    ('data/advisor/UmrahFlowService.kt', ['offlineCatalog', 'UmrahFlowAudioUrlPolicy::isAllowed', 'snapshot.translations + requestedText', 'snapshot.audio + requestedAudio']),
+    ('data/advisor/UmrahFlowService.kt', ['offlineCatalog', 'UmrahFlowAudioUrlPolicy::isAllowed', 'snapshot.translations.ifEmpty', 'cached("en").translations']),
     ('ui/umrahflow/UmrahFlowScreen.kt', ['FlowSwipeControl(', 'FlowOrbit(', 'service.load(', 'UmrahFlowCheckpointStore', 'playAudio(', 'showResume']),
 ]
 for rel, patterns in checks:

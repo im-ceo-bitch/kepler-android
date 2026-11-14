@@ -33,9 +33,9 @@ class UmrahFlowProgressTest {
         assertTrue(initial.progressFraction < .2f)
     }
     @Test fun onlyProjectPublicAudioIsAccepted() {
-        assertTrue(UmrahFlowAudioUrlPolicy.isAllowed("https://coaqrsapnpyutsxflsru.supabase.co/storage/v1/object/public/audio/ru_tawaf_1.mp3"))
+        assertTrue(UmrahFlowAudioUrlPolicy.isAllowed("https://iumrah-backend.helloiumrah.workers.dev/api/services/advisor/audio/ru/tawaf_1"))
         assertFalse(UmrahFlowAudioUrlPolicy.isAllowed("https://evil.example/storage/v1/object/public/audio.mp3"))
-        assertFalse(UmrahFlowAudioUrlPolicy.isAllowed("http://coaqrsapnpyutsxflsru.supabase.co/storage/v1/object/public/audio.mp3"))
-        assertFalse(UmrahFlowAudioUrlPolicy.isAllowed("https://coaqrsapnpyutsxflsru.supabase.co:8000/storage/v1/object/public/audio.mp3"))
+        assertFalse(UmrahFlowAudioUrlPolicy.isAllowed("http://iumrah-backend.helloiumrah.workers.dev/api/services/advisor/audio/ru/tawaf_1"))
+        assertFalse(UmrahFlowAudioUrlPolicy.isAllowed("https://iumrah-backend.helloiumrah.workers.dev:8000/api/services/advisor/audio/ru/tawaf_1"))
     }
 }

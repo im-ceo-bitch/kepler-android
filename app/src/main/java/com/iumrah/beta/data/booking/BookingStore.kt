@@ -78,7 +78,7 @@ class BookingStore(
         _state.update { it.copy(isMutating = true, lastError = null) }
         try {
             val quoteProof = quote.quoteProof?.trim().orEmpty()
-            if (quote.quoteId?.startsWith("server-") != true || quoteProof.isEmpty()) {
+            if (quote.bookingAllowed == false || quote.quoteId?.startsWith("server-") != true || quoteProof.isEmpty()) {
                 throw IllegalStateException("The package price must be confirmed by the secure iumrah PackageEngine before booking.")
             }
             val payload = BookingDraftBuilder.make(journey, quote, language, pilgrimProfile)
@@ -98,7 +98,12 @@ class BookingStore(
                 transferVehicle = journey.resolvedTransferVehicle,
             )
 
-            commitPricingReportWithRetry(session.id, session.accessToken, quoteProof)
+            session = session.copy(pendingGeneratorQuoteProof = quoteProof)
+            upsert(session)
+            if (commitPricingReportWithRetry(session.id, session.accessToken, quoteProof)) {
+                session = session.copy(pendingGeneratorQuoteProof = null)
+                upsert(session)
+            }
 
             accountStore.bearerToken?.takeIf { it.isNotBlank() }?.let {
                 runCatching { accountStore.linkBooking(session.id, session.accessToken) }.getOrNull()?.let { linked ->
@@ -114,7 +119,6 @@ class BookingStore(
                 id = session.id,
                 accessToken = session.accessToken,
                 trace = payload.booking.generatorTrace,
-                snapshot = payload.booking.pricingSnapshot,
             )
             if (operational != null) {
                 session = session.mergeOperationalTrip(
@@ -130,8 +134,7 @@ class BookingStore(
                         session.id,
                         session.accessToken,
                         serverProfile,
-                        payload.booking.generatorTrace,
-                        payload.booking.pricingSnapshot,
+                        if (operational == null) payload.booking.generatorTrace else null,
                     )
                 }.getOrNull()?.let { synced ->
                     session = session.mergeOperationalTrip(
@@ -142,6 +145,9 @@ class BookingStore(
                 }
             }
 
+            if (session.pendingGeneratorQuoteProof != null && commitPricingReportWithRetry(session.id, session.accessToken, quoteProof)) {
+                session = session.copy(pendingGeneratorQuoteProof = null)
+            }
             upsert(session)
             _state.update { it.copy(isMutating = false) }
             return session
@@ -286,6 +292,10 @@ class BookingStore(
                 assignment = operational.assignment,
             )
         }
+        val pendingProof = next.pendingGeneratorQuoteProof
+        if (!pendingProof.isNullOrBlank() && next.accessToken.isNotBlank() && commitPricingReportWithRetry(id, next.accessToken, pendingProof)) {
+            next = next.copy(pendingGeneratorQuoteProof = null)
+        }
         upsert(next)
         return next
     }
@@ -340,12 +350,11 @@ class BookingStore(
         id: String,
         accessToken: String,
         trace: BookingGeneratorTrace?,
-        snapshot: com.iumrah.beta.domain.pricing.GeneratorPricingSnapshot?,
     ): ClientTripResponse? {
         val waits = listOf(0L, 350L, 800L)
         for (wait in waits) {
             if (wait > 0) delay(wait)
-            runCatching { service.syncGeneratorReport(id, accessToken, trace, snapshot) }.getOrNull()?.let { return it }
+            runCatching { service.syncGeneratorReport(id, accessToken, trace) }.getOrNull()?.let { return it }
         }
         return null
     }

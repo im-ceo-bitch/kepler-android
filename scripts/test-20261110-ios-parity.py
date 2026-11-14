@@ -11,7 +11,8 @@ def src(path):
     return (app / path).read_text(encoding='utf-8')
 
 analytics = src('core/analytics/IumrahIntelligence.kt')
-assert 'https://iumrah-backend.helloiumrah.workers.dev/api/catalog/hotels/intelligence/events' in analytics
+assert 'AppConfig.INTELLIGENCE_EVENTS_URL' in analytics
+assert 'INTELLIGENCE_EVENTS_PATH = "/api/catalog/hotels/intelligence/events"' in src('core/config/AppConfig.kt')
 for token in ('"platform", "android"', '"visitorId"', '"sessionId"', '"occurredAt"', '"durationMs"', '"enabled"', '"pending"', 'connection.responseCode == 202', 'take(20)', 'takeLast(150)', '16_384', 'MAX_AGE_MS', '"screen_exit"'):
     assert token in analytics, f'Missing telemetry contract: {token}'
 assert 'booking_completed' not in analytics, 'Checkout is not payment completion.'

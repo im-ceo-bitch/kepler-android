@@ -135,8 +135,11 @@ fun IumrahApp() {
         }
     }
 
+    LaunchedEffect(accountState.account?.iumrahID) { container.chatService.clearCache() }
+
     LaunchedEffect(pushState.eventRevision) {
         if (!settings.hasCompletedOnboarding || pushState.eventRevision == 0L) return@LaunchedEffect
+        container.chatService.requestRefresh()
         container.bookingStore.refreshAll()
         container.notificationStore.refresh(container.accountStore.bearerToken)
     }
@@ -240,7 +243,10 @@ private suspend fun routeOpenedPush(event: IumrahPushEvent?, container: com.iumr
         return
     }
     event.bookingID?.let { id ->
-        if (event.type.startsWith("chat_")) container.chromeStore.navigate(AppTab.CARE)
+        if (event.type.startsWith("chat_")) {
+            if (container.bookingStore.booking(id) != null) container.chromeStore.openBookingChat(id)
+            else container.chromeStore.navigate(AppTab.CARE)
+        }
         else if (container.bookingStore.booking(id) != null) container.chromeStore.openBookingDetail(id)
         else container.chromeStore.navigate(AppTab.BOOKING)
     }

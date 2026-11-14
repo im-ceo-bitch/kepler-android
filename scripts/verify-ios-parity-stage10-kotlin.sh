@@ -24,6 +24,7 @@ kotlinc \
   "$SRC/domain/nuitee/NuiteeJourneyPricing.kt" \
   "$SRC/ui/flights/GuidedFlightSelectionEngine.kt" \
   "$SRC/domain/umrahflow/UmrahFlowProgress.kt" \
+  "$SRC/core/config/AppConfig.kt" \
   "$SRC/domain/umrahflow/UmrahFlowAudioUrlPolicy.kt" \
   -d "$TMP/qa.jar"
 kotlin -cp "$TMP/qa.jar" com.iumrah.beta.ui.flights.Stage10JvmRegression

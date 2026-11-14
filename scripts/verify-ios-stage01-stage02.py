@@ -83,8 +83,8 @@ def main():
           'infants = infants.coerceAtMost(adults)' in search and
           'minOf(adults, 9 - adults - children)' in search,
           'traveler sheet enforces adult/infant and maximum party limits')
-    check('journey.commitTripBuilder(' in search and 'chrome.openFlights()' in search and
-          'fun openFlights() = push(AppRoute.Flights' in nav and
+    check('journey.commitTripBuilder(' in search and 'chrome.openGuidedFlights()' in search and
+          'fun openGuidedFlights() = push(AppRoute.GuidedFlights' in nav and
           'PackageFlightPath.PUBLISHED_DIRECT' in search,
           'real flight-catalog route and shared trip builder, no mock prices')
     check('fun updateTrip(value: TripDraft)' in journey and 'fun commitTripBuilder(' in journey,

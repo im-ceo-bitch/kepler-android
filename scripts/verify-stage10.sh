@@ -46,7 +46,7 @@ if grep -q 'DatePickerDialog' app/src/main/java/com/iumrah/beta/ui/trip/TripBuil
   echo 'STOP: Android platform DatePicker is not iOS Configurator parity'; exit 1
 fi
 grep -q 'CuratedPublishedFlightSelection' app/src/main/java/com/iumrah/beta/ui/trip/FlightDateCalendarDialog.kt || { echo 'STOP: calendar must return published D1 flight IDs'; exit 1; }
-grep -q 'API_BASE_URL = "https://iumrah.app"' app/src/main/java/com/iumrah/beta/core/config/AppConfig.kt || { echo 'STOP: Android must use the same iumrah.app backend'; exit 1; }
+grep -q 'API_BASE_URL = "https://iumrah-backend.helloiumrah.workers.dev"' app/src/main/java/com/iumrah/beta/core/config/AppConfig.kt || { echo 'STOP: Android must use the same unified backend'; exit 1; }
 grep -q '/api/package/flights/recommendations' app/src/main/java/com/iumrah/beta/data/flight/CuratedFlightRecommendationService.kt || { echo 'STOP: Published Direct must read the Business/D1 recommendations projection'; exit 1; }
 grep -q '/api/package/flights/recommendations/resolve' app/src/main/java/com/iumrah/beta/data/flight/CuratedFlightRecommendationService.kt || { echo 'STOP: Published Direct selection must resolve through the D1 resolver'; exit 1; }
 grep -q 'refreshStorefrontPackages' app/src/main/java/com/iumrah/beta/data/hotel/HotelCatalogService.kt || { echo 'STOP: Hotel First storefront must support the server-owned refresh continuation'; exit 1; }

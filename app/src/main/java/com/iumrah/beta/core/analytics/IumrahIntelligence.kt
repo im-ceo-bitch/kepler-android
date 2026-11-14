@@ -1,6 +1,7 @@
 package com.iumrah.beta.core.analytics
 
 import android.content.Context
+import com.iumrah.beta.core.config.AppConfig
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -15,7 +16,7 @@ import java.util.UUID
 
 /** Android mirror of iOS IumrahIntelligence. Only fixed event codes; no personal content. */
 object IumrahIntelligence {
-    const val ENDPOINT = "https://iumrah-backend.helloiumrah.workers.dev/api/catalog/hotels/intelligence/events"
+    const val ENDPOINT = AppConfig.INTELLIGENCE_EVENTS_URL
     private const val PREFS = "iumrah_intelligence_v1"
     private const val MAX_AGE_MS = 6L * 86_400_000L
     private val mutex = Any()
@@ -166,6 +167,7 @@ object IumrahIntelligence {
             if (payload.size <= 16_384) {
                 val connection = URL(ENDPOINT).openConnection() as HttpURLConnection
                 try {
+                    connection.instanceFollowRedirects = false
                     connection.requestMethod = "POST"; connection.doOutput = true
                     connection.connectTimeout = 12_000; connection.readTimeout = 18_000
                     connection.setRequestProperty("Content-Type", "application/json")

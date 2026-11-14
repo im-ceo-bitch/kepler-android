@@ -60,6 +60,11 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.coroutines.flow.first
+import java.util.UUID
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.derivedStateOf
@@ -209,22 +214,25 @@ fun BookingChatScreen(
     val scope = rememberCoroutineScope()
     val listState = rememberLazyListState()
     val appearance = rememberCareAppearance(bookingID)
-    val session = bookingStore.booking(bookingID)
+    val bookingState by bookingStore.state.collectAsState()
+    val session = bookingState.sessions.firstOrNull { it.id == bookingID }
+    val headers = session?.let(bookingStore::headersFor).orEmpty()
     val dark = MaterialTheme.colorScheme.background.luminanceCompat() < .45f
     val page = if (dark) Color(0xFF000000) else Color(0xFFF7F7F8)
     val primary = if (appearance.wallpaper.isVisual) Color.White else MaterialTheme.colorScheme.onBackground
     val secondary = if (appearance.wallpaper.isVisual) Color.White.copy(alpha = .68f) else MaterialTheme.colorScheme.onBackground.copy(alpha = .56f)
     val accent = if (dark) CareBlueDark else CareBlue
 
-    var messages by remember(bookingID) { mutableStateOf<List<ChatMessage>>(emptyList()) }
+    var messages by remember(bookingID, headers) { mutableStateOf(chatService.cachedChat(bookingID, headers)) }
     var care by remember { mutableStateOf<IumrahPublicProfile?>(null) }
-    var text by remember { mutableStateOf("") }
-    var isLoading by remember { mutableStateOf(true) }
+    var text by remember(bookingID, headers) { mutableStateOf("") }
+    var isLoading by remember(bookingID, headers) { mutableStateOf(messages.isEmpty()) }
     var isSending by remember { mutableStateOf(false) }
     var isSendingPhoto by remember { mutableStateOf(false) }
-    var pendingText by remember { mutableStateOf<String?>(null) }
+    var pendingText by remember(bookingID, headers) { mutableStateOf<String?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
-    var failedDraft by remember { mutableStateOf<String?>(null) }
+    var failedDraft by remember(bookingID, headers) { mutableStateOf<String?>(null) }
+    var failedMessageID by remember(bookingID, headers) { mutableStateOf<String?>(null) }
     var showProfile by remember { mutableStateOf(false) }
     var fullImagePath by remember { mutableStateOf<String?>(null) }
     var unseenCount by remember { mutableStateOf(0) }
@@ -245,9 +253,9 @@ fun BookingChatScreen(
         scope.launch {
             runCatching {
                 val data = withContext(Dispatchers.IO) { AndroidImageCodec.jpeg(context.contentResolver, uri, 1600, 84) }
-                chatService.sendPhoto(data, bookingID, bookingStore.headersFor(session))
+                chatService.sendPhoto(data, bookingID, headers)
             }.onSuccess { message ->
-                messages = (messages + message).distinctBy { it.id }.sortedBy { it.createdAt }
+                messages = chatService.mergeChat(bookingID, headers, listOf(message))
                 if (appearance.hapticsEnabled) IumrahHaptics.success(view)
                 if (appearance.soundsEnabled) playCareTone(success = true)
                 isSendingPhoto = false
@@ -259,22 +267,24 @@ fun BookingChatScreen(
         }
     }
 
-    LaunchedEffect(bookingID) {
-        care = runCatching { chatService.loadCareProfile() }.getOrNull()
+    LaunchedEffect(bookingID) { care = runCatching { chatService.loadCareProfile() }.getOrNull() }
+    LaunchedEffect(bookingID, headers) {
         var first = true
         while (true) {
-            if (session != null) {
-                runCatching { chatService.loadChat(bookingID, bookingStore.headersFor(session)) }
+            val seenRevision = chatService.refreshRevision.value
+            if (headers.isNotEmpty()) {
+                runCatching { chatService.loadChat(bookingID, headers) }
                     .onSuccess { fresh ->
                         val oldIDs = messages.mapTo(hashSetOf()) { it.id }
                         val newIncoming = fresh.count { !oldIDs.contains(it.id) && !isMine(it) }
                         if (!first && !atBottom && newIncoming > 0) unseenCount += newIncoming
                         messages = fresh.sortedBy { it.createdAt }
-                        runCatching { chatService.markRead(bookingID, bookingStore.headersFor(session)) }
+                        if (first || newIncoming > 0) runCatching { chatService.markRead(bookingID, headers) }
                         error = null
                         isLoading = false
                     }
                     .onFailure {
+                        if (it is CancellationException) throw it
                         if (first) error = it.message ?: L10n.text("error_chat_load", language)
                         isLoading = false
                     }
@@ -288,7 +298,7 @@ fun BookingChatScreen(
             } else {
                 first = false
             }
-            delay(6_000)
+            withTimeoutOrNull(6_000) { chatService.refreshRevision.first { it != seenRevision } }
         }
     }
 
@@ -456,17 +466,20 @@ fun BookingChatScreen(
                     if (body.isBlank() || current == null || isSending || isSendingPhoto) return@CareComposer
                     text = ""
                     pendingText = body
+                    val messageID = failedMessageID?.takeIf { failedDraft == body } ?: UUID.randomUUID().toString()
                     failedDraft = body
+                    failedMessageID = messageID
                     isSending = true
                     error = null
                     if (appearance.hapticsEnabled) IumrahHaptics.soft(view)
                     if (appearance.soundsEnabled) playCareTone(success = true)
                     scope.launch {
-                        runCatching { chatService.send(body, bookingID, bookingStore.headersFor(current)) }
+                        runCatching { chatService.send(body, bookingID, headers, messageID) }
                             .onSuccess { message ->
-                                messages = (messages + message).distinctBy { it.id }.sortedBy { it.createdAt }
+                                messages = chatService.mergeChat(bookingID, headers, listOf(message))
                                 pendingText = null
                                 failedDraft = null
+                                failedMessageID = null
                                 isSending = false
                                 if (appearance.hapticsEnabled) IumrahHaptics.success(view)
                             }

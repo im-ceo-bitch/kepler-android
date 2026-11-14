@@ -1,7 +1,6 @@
 package com.iumrah.beta.models.booking
 
 import com.iumrah.beta.domain.trip.TransferVehicleKind
-import com.iumrah.beta.domain.pricing.GeneratorPricingSnapshot
 import com.iumrah.beta.models.hotel.HotelRoom
 import com.iumrah.beta.models.hotel.HotelSummary
 import com.iumrah.beta.models.hotel.IumrahRoomCategoryOption
@@ -16,7 +15,7 @@ enum class IumrahRoomCategory {
 }
 
 @Serializable
-data class BookingCreateEnvelope(val lang: String, val booking: BookingDraftRequest)
+data class BookingCreateEnvelope(val lang: String, val booking: BookingDraftRequest, val quoteProof: String? = null)
 
 @Serializable
 data class BookingDraftRequest(
@@ -33,7 +32,6 @@ data class BookingDraftRequest(
     val flight: String,
     val pilgrimProfile: BookingPilgrimProfile? = null,
     val generatorTrace: BookingGeneratorTrace? = null,
-    val pricingSnapshot: GeneratorPricingSnapshot? = null,
 )
 
 @Serializable
@@ -348,6 +346,7 @@ data class StoredBookingSession(
     var documentsStartedAt: String? = null,
     var documentsDeadlineAt: String? = null,
     var statusHistory: List<BookingStatusHistoryEntry>? = null,
+    var pendingGeneratorQuoteProof: String? = null,
 ) {
     /** UI-only iOS parity: never alter the raw server pilgrimID. */
     val displayPilgrimID: String? get() {
@@ -356,6 +355,11 @@ data class StoredBookingSession(
         val digits = raw.filter { it.isDigit() }
         if (digits.isEmpty() || digits.length > 8) return null
         return digits.padStart(8, '0')
+    }
+
+    val hasServerIdentity: Boolean get() {
+        val raw = pilgrimID.orEmpty()
+        return (bookingNumber ?: 0) > 0 && raw.length in 1..8 && raw.all { it in '0'..'9' } && (raw.toIntOrNull() ?: 0) > 0
     }
 
     val displayBookingNumber: String get() = bookingDisplayNumber?.takeIf { it.isNotBlank() }
