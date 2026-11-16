@@ -4,10 +4,11 @@ import java.net.URLEncoder
 import java.security.MessageDigest
 
 object ChatDelta {
-    fun path(bookingID: String, after: String, unread: List<String>): String {
+    fun path(bookingID: String, after: String, unread: List<String>, scopeVersion: String? = null): String {
         fun encode(s: String) = URLEncoder.encode(s, "UTF-8").replace("+", "%20")
         return "/api/catalog/hotels/client/chats/${encode(bookingID)}/messages?after=${encode(after)}" +
-            unread.distinct().take(80).joinToString("") { "&unread=${encode(it)}" }
+            (scopeVersion?.let { "&scope=${encode(it)}" } ?: "") +
+            unread.distinct().takeLast(80).joinToString("") { "&unread=${encode(it)}" }
     }
     fun scope(bookingID: String, headers: Map<String, String>): String? {
         if (headers.isEmpty()) return null

@@ -442,7 +442,12 @@ data class BookingHotelUpdateRequest(
 @Serializable data class BookingContactUpdateRequest(val telegram: String, val whatsapp: String)
 @Serializable data class BookingCustomizationUpdateRequest(val ziyaratMakkah: Boolean? = null, val ziyaratMadinah: Boolean? = null, val esim: Boolean? = null)
 
-@Serializable data class ChatListResponse(val ok: Boolean? = null, val bookingID: String? = null, val messages: List<ChatMessage>)
+@Serializable data class ChatListResponse(
+    val ok: Boolean? = null, val bookingID: String? = null, val messages: List<ChatMessage>,
+    val nextCursor: String? = null, val hasMore: Boolean? = null,
+    val staffReadMessageIDs: List<String>? = null, val scopeVersion: String? = null,
+    val reset: Boolean? = null,
+)
 @Serializable data class ChatMessagePostResponse(val ok: Boolean? = null, val message: ChatMessage)
 @Serializable
 data class ChatMessage(

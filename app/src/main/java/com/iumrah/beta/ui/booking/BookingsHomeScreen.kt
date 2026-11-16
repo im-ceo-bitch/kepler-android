@@ -1,5 +1,6 @@
 package com.iumrah.beta.ui.booking
 
+import com.iumrah.beta.domain.booking.BookingAvailabilityEstimate
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -1059,7 +1060,7 @@ private fun LifecycleTimerPanel(
         }
     }
 
-    val remaining = (phase.deadlineMs - now).coerceAtLeast(0L)
+    val remaining = if (phase.kind == LifecycleKind.AVAILABILITY) BookingAvailabilityEstimate.remainingSeconds(phase.deadlineMs, now) * 1000L else (phase.deadlineMs - now).coerceAtLeast(0L)
     val expired = remaining <= 0L
 
     Column(
@@ -2185,13 +2186,8 @@ private enum class LifecycleKind { AVAILABILITY, PRICE_LOCK, PAYMENT_CONFIRMATIO
 
 private fun lifecyclePhase(session: StoredBookingSession): BookingHomeLifecyclePhase? {
     return when (session.effectiveStatus.uppercase()) {
-        "NEW", "AVAILABILITY_CHECK" -> lifecycleDeadline(
-            explicit = session.availabilityDeadlineAt,
-            start = session.availabilityStartedAt
-                ?: transitionDate("availability_check", session)
-                ?: transitionDate("new", session)
-                ?: session.booking.createdAt,
-            durationMs = 6L * 60 * 60 * 1000,
+        "NEW", "AVAILABILITY_CHECK" -> BookingAvailabilityEstimate.deadline(
+            session.availabilityStartedAt, session.booking.createdAt, session.availabilityDeadlineAt,
         )?.let { BookingHomeLifecyclePhase(LifecycleKind.AVAILABILITY, it, CupertinoSymbol.CalendarClock) }
 
         "PAYMENT_PENDING" -> {
@@ -2238,7 +2234,7 @@ private fun transitionDate(status: String, session: StoredBookingSession): Strin
 private fun lifecycleTimerTitle(language: AppLanguage, kind: LifecycleKind, expired: Boolean): String = when (kind) {
     LifecycleKind.AVAILABILITY -> if (expired) {
         t(language, "Проверка занимает дольше обычного", "The check is taking longer than usual", "Tekshiruv odatdagidan uzoqroq davom etmoqda", "Текширув одатдагидан узоқроқ давом этмоқда")
-    } else t(language, "До максимального срока проверки", "Until the maximum check time", "Tekshiruvning maksimal muddatigacha", "Текширувнинг максимал муддатигача")
+    } else t(language, "Ориентировочное время проверки", "Estimated check time", "Taxminiy tekshiruv vaqti", "Тахминий текширув вақти")
 
     LifecycleKind.PRICE_LOCK -> if (expired) {
         t(language, "Срок фиксации цены завершён", "Price hold has ended", "Narxni saqlash muddati tugadi", "Нархни сақлаш муддати тугади")
@@ -2257,7 +2253,7 @@ private fun lifecycleTimerFootnote(language: AppLanguage, kind: LifecycleKind, e
     LifecycleKind.AVAILABILITY -> if (expired) {
         t(language, "Мы продолжаем проверку. Статус обновится автоматически, как только все компоненты будут подтверждены.", "We are continuing the check. The status will update automatically once all components are confirmed.", "Tekshiruv davom etmoqda. Barcha qismlar tasdiqlangach holat avtomatik yangilanadi.", "Текширув давом этмоқда. Барча қисмлар тасдиқлангач ҳолат автоматик янгиланади.")
     } else {
-        t(language, "Обычно подтверждение занимает 1–2 часа. Можно закрыть приложение — статус обновится автоматически.", "Confirmation usually takes 1–2 hours. You can close the app — the status will update automatically.", "Tasdiqlash odatda 1–2 soat davom etadi. Ilovani yopishingiz mumkin — holat avtomatik yangilanadi.", "Тасдиқлаш одатда 1–2 соат давом этади. Иловани ёпишингиз мумкин — ҳолат автоматик янгиланади.")
+        t(language, "Обычно проверка занимает около 30 минут, иногда дольше. Можно закрыть приложение — статус обновится автоматически.", "The check usually takes about 30 minutes, sometimes longer. You can close the app — the status will update automatically.", "Tekshiruv odatda 30 daqiqa, ba’zan uzoqroq davom etadi. Ilovani yopishingiz mumkin — holat avtomatik yangilanadi.", "Текширув одатда 30 дақиқа, баъзан узоқроқ давом этади. Иловани ёпишингиз мумкин — ҳолат автоматик янгиланади.")
     }
 
     LifecycleKind.PRICE_LOCK -> if (expired) {
@@ -2306,7 +2302,7 @@ private fun activeCardTitle(language: AppLanguage, session: StoredBookingSession
 
 private fun activeCardBody(language: AppLanguage, session: StoredBookingSession, stage: ProgressStage): String =
     when (lifecyclePhase(session)?.kind) {
-        LifecycleKind.AVAILABILITY -> t(language, "iumrah подтверждает перелёт, отель и выбранные услуги. Обычно это занимает 1–2 часа, максимальный срок — до 6 часов.", "iumrah is confirming your flight, hotel and selected services. This usually takes 1–2 hours, with a maximum target of 6 hours.", "iumrah parvoz, mehmonxona va tanlangan xizmatlarni tasdiqlamoqda. Odatda 1–2 soat, maksimal muddat 6 soatgacha.", "iumrah парвоз, меҳмонхона ва танланган хизматларни тасдиқламоқда. Одатда 1–2 соат, максимал муддат 6 соатгача.")
+        LifecycleKind.AVAILABILITY -> t(language, "iumrah подтверждает перелёт, отель и выбранные услуги. Обычно это занимает около 30 минут, иногда дольше.", "iumrah is confirming your flight, hotel and selected services. This usually takes about 30 minutes, sometimes longer.", "iumrah parvoz, mehmonxona va tanlangan xizmatlarni tasdiqlamoqda. Odatda 30 daqiqa, ba’zan uzoqroq.", "iumrah парвоз, меҳмонхона ва танланган хизматларни тасдиқламоқда. Одатда 30 дақиқа, баъзан узоқроқ.")
         LifecycleKind.PRICE_LOCK -> t(language, "Итоговая цена пакета зафиксирована на время оплаты.", "Your package total is held during the payment window.", "Paketning yakuniy narxi to‘lov oynasi davomida saqlanadi.", "Пакетнинг якуний нархи тўлов ойнаси давомида сақланади.")
         LifecycleKind.PAYMENT_CONFIRMATION -> t(language, "Проверяем полученную оплату и окончательно фиксируем бронирование.", "We are verifying the payment and finalizing your booking.", "Qabul qilingan to‘lov tekshirilmoqda va bron yakuniy tasdiqlanmoqda.", "Қабул қилинган тўлов текширилмоқда ва брон якуний тасдиқланмоқда.")
         LifecycleKind.DOCUMENTS -> t(language, "Бронирование подтверждено. Теперь готовим доступные документы поездки.", "Your booking is confirmed. We are now preparing the available travel documents.", "Bron tasdiqlandi. Endi mavjud safar hujjatlari tayyorlanmoqda.", "Брон тасдиқланди. Энди мавжуд сафар ҳужжатлари тайёрланмоқда.")

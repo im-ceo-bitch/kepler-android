@@ -14,6 +14,8 @@ object ChatDeltaRegression {
         check(ChatDelta.scope("a", mapOf("Authorization" to "one")) != ChatDelta.scope("a", mapOf("Authorization" to "two")))
         check(ChatDelta.scope("a", mapOf("Authorization" to "one")) != ChatDelta.scope("b", mapOf("Authorization" to "one")))
         check(ChatDelta.scope("a", mapOf("Authorization" to "secret-token"))?.contains("secret-token") == false)
-        println("ChatDelta: 9 checks passed")
+        check(ChatDelta.path("booking", "opaque:20", listOf("a"), "scope&2") == "/api/catalog/hotels/client/chats/booking/messages?after=opaque%3A20&scope=scope%262&unread=a")
+        check(ChatDelta.path("booking", "0", (1..100).map { it.toString() }).contains("&unread=21&"))
+        println("ChatDelta: 11 checks passed")
     }
 }

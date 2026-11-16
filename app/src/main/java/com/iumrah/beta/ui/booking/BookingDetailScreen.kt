@@ -1,5 +1,6 @@
 package com.iumrah.beta.ui.booking
 
+import com.iumrah.beta.domain.booking.BookingAvailabilityEstimate
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
@@ -417,10 +418,8 @@ private fun BookingLifecycleTimer(session: StoredBookingSession, language: AppLa
     fun parsed(raw: String?): Long? = raw?.let { runCatching { Instant.parse(it).toEpochMilli() }.getOrNull() }
     fun deadline(explicit: String?, start: String?, seconds: Long): Long? = parsed(explicit) ?: parsed(start)?.plus(seconds * 1000)
     return when (status) {
-        "NEW", "AVAILABILITY_CHECK" -> deadline(
-            session.availabilityDeadlineAt,
-            session.availabilityStartedAt ?: session.latestStatusTimestamp(setOf("availability_check", "new")) ?: session.booking.createdAt,
-            6 * 60 * 60,
+        "NEW", "AVAILABILITY_CHECK" -> BookingAvailabilityEstimate.deadline(
+            session.availabilityStartedAt, session.booking.createdAt, session.availabilityDeadlineAt,
         )?.let { BookingDetailLifecyclePhase("availability", it, Color(0xFFF2A900), CupertinoSymbol.Hourglass) }
         "PAYMENT_PENDING" -> if (!session.paymentReceivedAt.isNullOrBlank()) {
             deadline(session.paymentConfirmationDeadlineAt, session.paymentReceivedAt, 10 * 60)?.let {
@@ -448,7 +447,7 @@ private fun LifecycleTimerCard(phase: BookingDetailLifecyclePhase, language: App
     LaunchedEffect(phase.deadlineMillis) {
         while (true) { delay(1000); now = System.currentTimeMillis() }
     }
-    val remaining = (phase.deadlineMillis - now).coerceAtLeast(0)
+    val remaining = if (phase.kind == "availability") BookingAvailabilityEstimate.remainingSeconds(phase.deadlineMillis, now) * 1000L else (phase.deadlineMillis - now).coerceAtLeast(0)
     val expired = remaining <= 0
     val seconds = remaining / 1000
     val h = seconds / 3600
@@ -456,7 +455,7 @@ private fun LifecycleTimerCard(phase: BookingDetailLifecyclePhase, language: App
     val s = seconds % 60
     val countdown = "%02d:%02d:%02d".format(h, m, s)
     val title = when (phase.kind) {
-        "availability" -> bookingText(language, if (expired) "Проверка занимает дольше обычного" else "До максимального срока проверки", if (expired) "The check is taking longer than usual" else "Until the maximum check time", "Mavjudlik tekshiruvi", "Мавжудлик текшируви")
+        "availability" -> bookingText(language, if (expired) "Проверка занимает дольше обычного" else "Ориентировочное время проверки", if (expired) "The check is taking longer than usual" else "Estimated check time", "Mavjudlik tekshiruvi", "Мавжудлик текшируви")
         "price" -> bookingText(language, if (expired) "Срок фиксации цены завершён" else "Цена зафиксирована ещё", if (expired) "Price hold has ended" else "Price held for", "Narx saqlanishi", "Нарх сақланиши")
         "confirmation" -> bookingText(language, "Подтверждаем оплату", "Confirming payment", "To‘lov tasdiqlanmoqda", "Тўлов тасдиқланмоқда")
         else -> bookingText(language, "Плановый срок подготовки", "Planned preparation time", "Tayyorlash muddati", "Тайёрлаш муддати")
@@ -474,7 +473,7 @@ private fun LifecycleTimerCard(phase: BookingDetailLifecyclePhase, language: App
         }
         Text(
             when (phase.kind) {
-                "availability" -> bookingText(language, "Обычно подтверждение занимает 1–2 часа. Статус обновится автоматически.", "Confirmation usually takes 1–2 hours. Status updates automatically.", "Tasdiqlash odatda 1–2 soat davom etadi. Holat avtomatik yangilanadi.", "Тасдиқлаш одатда 1–2 соат давом этади. Ҳолат автоматик янгиланади.")
+                "availability" -> bookingText(language, "Обычно проверка занимает около 30 минут, иногда дольше. Статус обновится автоматически.", "The check usually takes about 30 minutes, sometimes longer. Status updates automatically.", "Tekshiruv odatda 30 daqiqa, ba’zan uzoqroq davom etadi. Holat avtomatik yangilanadi.", "Текширув одатда 30 дақиқа, баъзан узоқроқ давом этади. Ҳолат автоматик янгиланади.")
                 "price" -> bookingText(language, "Авиабилеты имеют динамическую стоимость и позже могут потребовать повторной проверки.", "Flights have dynamic pricing and may require a fresh check later.", "Aviachiptalar narxi dinamik va keyin qayta tekshiruv talab qilishi mumkin.", "Авиачипталар нархи динамик ва кейин қайта текширув талаб қилиши мумкин.")
                 "confirmation" -> bookingText(language, "Оплата получена. Проверка обычно занимает до 10 минут.", "Payment received. Verification usually takes up to 10 minutes.", "To‘lov qabul qilindi. Tekshiruv odatda 10 daqiqagacha.", "Тўлов қабул қилинди. Текширув одатда 10 дақиқагача.")
                 else -> bookingText(language, "Доступные документы обычно готовятся в течение 24 часов.", "Available documents are usually prepared within 24 hours.", "Hujjatlar odatda 24 soat ichida tayyorlanadi.", "Ҳужжатлар одатда 24 соат ичида тайёрланади.")

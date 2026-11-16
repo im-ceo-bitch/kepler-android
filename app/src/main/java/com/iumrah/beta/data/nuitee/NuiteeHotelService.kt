@@ -15,7 +15,7 @@ class NuiteeHotelService(context: Context, private val api: APIClient = APIClien
                              catalogOnly: Boolean = false): NuiteeHotelListEnvelope? =
         cache.read(NuiteeDailyCachePolicy.key(city, checkin, checkout, adults, catalogOnly))
 
-    suspend fun hotels(city: String, checkin: LocalDate, checkout: LocalDate, adults: Int, catalogOnly: Boolean = false, forceRefresh: Boolean = false): NuiteeHotelListEnvelope {
+    suspend fun hotels(city: String, checkin: LocalDate, checkout: LocalDate, adults: Int, catalogOnly: Boolean = false, forceRefresh: Boolean = false, smartTimeout: Boolean = false): NuiteeHotelListEnvelope {
         require(city == "makkah" || city == "madinah")
         require(checkout.isAfter(checkin) && adults in 1..9)
         val key = NuiteeDailyCachePolicy.key(city, checkin, checkout, adults, catalogOnly)
@@ -24,7 +24,7 @@ class NuiteeHotelService(context: Context, private val api: APIClient = APIClien
             "/api/package/nuitee/hotels",
             query = mapOf("city" to city, "checkin" to checkin.toString(), "checkout" to checkout.toString(),
                 "adults" to adults.toString(), "catalogOnly" to if (catalogOnly) "1" else "0"),
-            timeoutSeconds = 100,
+            timeoutSeconds = if (smartTimeout) 45 else 100,
         )
         if (!response.ok) throw APIException.InvalidResponse
         if (NuiteeDailyCachePolicy.cacheable(response.ok, catalogOnly, response.rateError)) cache.write(key, response)
@@ -48,11 +48,11 @@ class NuiteeHotelService(context: Context, private val api: APIClient = APIClien
     }
 
     suspend fun rates(hotelId: String, checkin: LocalDate, checkout: LocalDate, adults: Int,
-                      childrenAges: List<Int> = emptyList(), language: String = "en"): NuiteeRatesEnvelope {
+                      childrenAges: List<Int> = emptyList(), language: String = "en", smartTimeout: Boolean = false): NuiteeRatesEnvelope {
         require(checkout.isAfter(checkin) && adults in 1..9 && childrenAges.all { it in 0..17 })
         val result = api.post<NuiteeRatesEnvelope, NuiteeRatesRequest>(
             "/api/package/nuitee/rates", NuiteeRatesRequest(hotelId, checkin.toString(), checkout.toString(),
-                adults, childrenAges, language), timeoutSeconds = 100,
+                adults, childrenAges, language), timeoutSeconds = if (smartTimeout) 35 else 100,
         )
         if (!result.ok) throw APIException.InvalidResponse
         return result

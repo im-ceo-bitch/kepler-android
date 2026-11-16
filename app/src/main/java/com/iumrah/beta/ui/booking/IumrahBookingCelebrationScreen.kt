@@ -1,5 +1,6 @@
 package com.iumrah.beta.ui.booking
 
+import com.iumrah.beta.domain.booking.BookingAvailabilityEstimate
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -57,8 +58,6 @@ import com.iumrah.beta.models.booking.StoredBookingSession
 import com.iumrah.beta.ui.components.IumrahPressable
 import com.iumrah.beta.ui.cupertino.CupertinoIcon
 import com.iumrah.beta.ui.cupertino.CupertinoSymbol
-import java.time.Instant
-import java.time.OffsetDateTime
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.sin
@@ -212,8 +211,8 @@ private fun AvailabilityTimer(session: StoredBookingSession, language: AppLangua
             delay(1000)
         }
     }
-    val deadline = bookingDeadlineMillis(session)
-    val seconds = ((deadline - now).coerceAtLeast(0L) / 1000L).toInt()
+    val deadline = BookingAvailabilityEstimate.deadline(session.availabilityStartedAt, session.booking.createdAt, session.availabilityDeadlineAt)
+    val seconds = deadline?.let { BookingAvailabilityEstimate.remainingSeconds(it, now).toInt() } ?: 0
     val h = seconds / 3600
     val m = (seconds % 3600) / 60
     val s = seconds % 60
@@ -236,7 +235,7 @@ private fun AvailabilityTimer(session: StoredBookingSession, language: AppLangua
             letterSpacing = 1.15.sp,
         )
         Text(
-            "%02d:%02d:%02d".format(h, m, s),
+            if (deadline == null) "—" else "%02d:%02d:%02d".format(h, m, s),
             color = Color.White,
             fontSize = 34.sp,
             lineHeight = 38.sp,
@@ -320,19 +319,6 @@ private fun CelebrationParticleField(modifier: Modifier = Modifier) {
             drawCircle(Color.White.copy(alpha = alpha), radius = dot, center = androidx.compose.ui.geometry.Offset(x, y))
         }
     }
-}
-
-private fun bookingDeadlineMillis(session: StoredBookingSession): Long {
-    parseIsoMillis(session.availabilityDeadlineAt)?.let { return it }
-    val start = parseIsoMillis(session.availabilityStartedAt ?: session.booking.createdAt) ?: System.currentTimeMillis()
-    return start + 6L * 60L * 60L * 1000L
-}
-
-private fun parseIsoMillis(raw: String?): Long? {
-    val value = raw?.trim().orEmpty()
-    if (value.isEmpty()) return null
-    return runCatching { Instant.parse(value).toEpochMilli() }.getOrNull()
-        ?: runCatching { OffsetDateTime.parse(value).toInstant().toEpochMilli() }.getOrNull()
 }
 
 private fun celebrationText(language: AppLanguage, ru: String, en: String, uz: String, cy: String): String = when (language) {

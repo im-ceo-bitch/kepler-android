@@ -11,6 +11,11 @@ import java.util.UUID
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 
 @Serializable
 data class IumrahPublicProfile(
@@ -51,27 +56,57 @@ class ChatService(private val api: APIClient) {
             return action(mapOf("Authorization" to account))
         }
     }
-    private val cache = object : LinkedHashMap<String, List<ChatMessage>>(16, .75f, true) {
-        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, List<ChatMessage>>?) = size > 12
+    private data class ChatSnapshot(val messages: List<ChatMessage>, val cursor: String = "0", val scopeVersion: String? = null)
+    private val cache = object : LinkedHashMap<String, ChatSnapshot>(16, .75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, ChatSnapshot>?) = size > 12
     }
+    private val loadMutex = Mutex()
+    private var cacheGeneration = 0L
     private val revision = MutableStateFlow(0L)
     val refreshRevision = revision.asStateFlow()
     fun requestRefresh() { revision.update { it + 1 } }
     @Synchronized fun cachedChat(bookingID: String, headers: Map<String, String>): List<ChatMessage> =
-        ChatDelta.scope(bookingID, headers)?.let { cache[it] }.orEmpty()
+        ChatDelta.scope(bookingID, headers)?.let { cache[it]?.messages }.orEmpty()
+    private fun mergeMessages(old: List<ChatMessage>, fresh: List<ChatMessage>, readIDs: Set<String> = emptySet()): List<ChatMessage> {
+        val alreadyRead = old.filter { it.readByStaff == true }.mapTo(hashSetOf()) { it.id } + readIDs
+        return ChatDelta.merge(old, fresh, ChatMessage::id, ChatMessage::createdAt).map {
+            if (it.id in alreadyRead && it.readByStaff != true) it.copy(readByStaff = true) else it
+        }
+    }
     @Synchronized fun mergeChat(bookingID: String, headers: Map<String, String>, fresh: List<ChatMessage>): List<ChatMessage> {
         val key = ChatDelta.scope(bookingID, headers) ?: return emptyList()
-        val result = ChatDelta.merge(cache[key].orEmpty(), fresh.filter { it.bookingID == bookingID }, ChatMessage::id, ChatMessage::createdAt)
-        cache[key] = result
+        val previous = cache[key] ?: ChatSnapshot(emptyList())
+        val result = mergeMessages(previous.messages, fresh.filter { it.bookingID == bookingID })
+        cache[key] = previous.copy(messages = result)
         return result
     }
-    @Synchronized fun clearCache() { cache.clear() }
+    @Synchronized fun clearCache() { cacheGeneration++; cache.clear() }
     suspend fun loadChat(bookingID: String, headers: Map<String, String>): List<ChatMessage> {
-        val existing = cachedChat(bookingID, headers)
-        val after = existing.lastOrNull()?.createdAt.orEmpty()
-        val unread = existing.filter { it.readByStaff != true && (it.senderType.equals("client", true) || it.senderType.equals("pilgrim", true)) }.map { it.id }
-        val fresh = authorized(headers) { proof -> api.get<ChatListResponse>(ChatDelta.path(bookingID, after, unread), headers = proof).messages }
-        return mergeChat(bookingID, headers, fresh)
+        val key = ChatDelta.scope(bookingID, headers) ?: throw APIException.MissingBookingToken
+        val generation = synchronized(this) { cacheGeneration }
+        return loadMutex.withLock {
+            repeat(20) {
+                currentCoroutineContext().ensureActive()
+                val previous = synchronized(this) {
+                    if (generation != cacheGeneration) throw CancellationException("Chat authorization changed")
+                    cache[key] ?: ChatSnapshot(emptyList())
+                }
+                val after = previous.cursor
+                val unread = previous.messages.filter { it.readByStaff != true && (it.senderType.equals("client", true) || it.senderType.equals("pilgrim", true)) }.map { it.id }
+                val response = authorized(headers) { proof -> api.get<ChatListResponse>(ChatDelta.path(bookingID, after, unread, previous.scopeVersion), headers = proof) }
+                currentCoroutineContext().ensureActive()
+                synchronized(this) {
+                    if (generation != cacheGeneration) throw CancellationException("Chat authorization changed")
+                    val current = cache[key] ?: previous
+                    val reset = response.reset == true || (previous.scopeVersion != null && response.scopeVersion != null && previous.scopeVersion != response.scopeVersion)
+                    val messages = mergeMessages(if (reset) emptyList() else current.messages,
+                        response.messages.filter { it.bookingID == bookingID }, response.staffReadMessageIDs.orEmpty().toSet())
+                    cache[key] = ChatSnapshot(messages, response.nextCursor ?: "0", response.scopeVersion)
+                }
+                if (response.hasMore != true || response.nextCursor == null || (response.nextCursor == after && response.reset != true)) return@withLock cachedChat(bookingID, headers)
+            }
+            cachedChat(bookingID, headers)
+        }
     }
 
     suspend fun send(message: String, bookingID: String, headers: Map<String, String>, clientMessageID: String = UUID.randomUUID().toString()): ChatMessage =
