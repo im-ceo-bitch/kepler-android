@@ -29,20 +29,25 @@ import kotlinx.serialization.json.Json
             trip.adults, trip.children, trip.infants, trip.rooms, trip.flightFilters)
     }
 }
-@Serializable data class HomeActivity(val smart: SmartDraft? = null, val flight: RecentFlightSearch? = null)
+@Serializable data class HomeHotelVisit(val hotel: com.iumrah.beta.models.nuitee.NuiteeHotel, val checkin: String, val nights: Int, val adults: Int)
+@Serializable data class HomeActivity(val smart: SmartDraft? = null, val flight: RecentFlightSearch? = null, val hotels: List<HomeHotelVisit> = emptyList())
 class HomeActivityStore(context: Context) {
     private val prefs = context.applicationContext.getSharedPreferences("iumrah.home.activity.v1", Context.MODE_PRIVATE)
     private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
-    private val _revision = MutableStateFlow(0)
+    companion object { private val _revision = MutableStateFlow(0) }
     val revision: StateFlow<Int> = _revision
     val enabled get() = prefs.getBoolean("enabled", true)
     fun snapshot(owner: String?): HomeActivity {
         if (!enabled || owner == null) return HomeActivity()
         val value = prefs.getString("history:$owner", null)?.let { runCatching { json.decodeFromString(HomeActivity.serializer(), it) }.getOrNull() } ?: HomeActivity()
-        return HomeActivity(value.smart?.let { SmartRules.resume(it) }, value.flight?.takeIf { it.trip() != null })
+        return HomeActivity(value.smart?.let { SmartRules.resume(it) }, value.flight?.takeIf { it.trip() != null }, value.hotels.take(4))
     }
     fun saveSmart(owner: String?, draft: SmartDraft?) = update(owner) { it.copy(smart = draft) }
     fun saveFlight(owner: String?, trip: TripDraft) = update(owner) { it.copy(flight = RecentFlightSearch.from(trip)) }
+    fun saveHotel(owner: String?, visit: HomeHotelVisit) = update(owner) { old ->
+        val safe = visit.copy(hotel = visit.hotel.copy(minimumRate = null, rateStatus = null))
+        old.copy(hotels = (listOf(safe) + old.hotels.filter { it.hotel.id != safe.hotel.id }).take(4))
+    }
     fun clear(owner: String?) { if (owner != null) { prefs.edit().remove("history:$owner").apply(); _revision.value++ } }
     fun setEnabled(value: Boolean) {
         val edit = prefs.edit()

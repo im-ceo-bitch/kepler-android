@@ -75,6 +75,8 @@ sealed interface AppRoute {
     data object PrayerTimes : AppRoute
     data object HomeWeather : AppRoute
     data object GiftCards : AppRoute
+    data class Rewards(val page: String) : AppRoute
+    data object SavedHotels : AppRoute
     data class IumrahServices(val initialService: String = "visa") : AppRoute
     data object AccountAnalytics : AppRoute
 }
@@ -166,6 +168,8 @@ class AppChromeStore {
     fun openBookingSecurity(id: String) = push(AppRoute.AccountKyc(id), tab = AppTab.BOOKING)
     fun openPrayerTimes() = push(AppRoute.PrayerTimes, tab = AppTab.HOME)
     fun openHomeWeather() = push(AppRoute.HomeWeather, tab = AppTab.HOME)
+    fun openSavedHotels() = push(AppRoute.SavedHotels)
+    fun openRewards(page: String = "rewards") = push(AppRoute.Rewards(page))
     fun openGiftCards() = push(AppRoute.GiftCards, tab = AppTab.HOME)
     fun openIumrahServices(initial: String = "visa") = push(AppRoute.IumrahServices(initial), tab = AppTab.HOME)
     fun openAccountAnalytics() = push(AppRoute.AccountAnalytics, tab = AppTab.ACCOUNT)

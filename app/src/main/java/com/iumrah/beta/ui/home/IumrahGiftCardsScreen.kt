@@ -47,25 +47,26 @@ fun IumrahGiftCardsScreen(
     chrome: AppChromeStore,
 ) {
     val accountState by accountStore.state.collectAsState()
-    var dashboard by remember { mutableStateOf<IumrahFriendsDashboard?>(null) }
-    var loading by remember { mutableStateOf(false) }
-    var error by remember { mutableStateOf<String?>(null) }
-    var selectedId by remember { mutableStateOf<String?>(null) }
-    var showShareSheet by remember { mutableStateOf(false) }
+    val owner = accountStore.bearerToken.takeIf { accountState.isAuthenticated }
+    var dashboard by remember(owner) { mutableStateOf<IumrahFriendsDashboard?>(null) }
+    var loading by remember(owner) { mutableStateOf(false) }
+    var error by remember(owner) { mutableStateOf<String?>(null) }
+    var selectedId by remember(owner) { mutableStateOf<String?>(null) }
+    var showShareSheet by remember(owner) { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
     fun load() {
-        if (!accountState.isAuthenticated) { dashboard = null; loading = false; return }
+        if (owner == null) { dashboard = null; loading = false; return }
         loading = true
         scope.launch {
             runCatching { accountStore.friendsDashboard() }
-                .onSuccess { value -> dashboard = value; selectedId = value.gifts.firstOrNull { it.isAvailable }?.id; error = null }
-                .onFailure { error = it.message }
-            loading = false
+                .onSuccess { value -> if (accountStore.bearerToken == owner) { dashboard = value; selectedId = value.gifts.firstOrNull { it.isAvailable }?.id; error = null } }
+                .onFailure { if (accountStore.bearerToken == owner) error = it.message }
+            if (accountStore.bearerToken == owner) loading = false
         }
     }
 
-    LaunchedEffect(accountState.account?.iumrahID) { load() }
+    LaunchedEffect(owner) { load() }
     val available = dashboard?.gifts?.filter { it.isAvailable }.orEmpty()
     val selected = available.firstOrNull { it.id == selectedId } ?: available.firstOrNull()
     Box(Modifier.fillMaxSize().background(Color.Black).statusBarsPadding()) {

@@ -209,6 +209,7 @@ data class IumrahCheckoutResponse(
     val payment: IumrahCheckoutPayment,
     val receipts: List<IumrahPaymentReceipt>,
     val documents: List<IumrahTravelDocument>,
+    val rewards: IumrahBookingRewardsAmounts? = null,
 )
 
 @Serializable data class IumrahSimpleResponse(val ok: Boolean)

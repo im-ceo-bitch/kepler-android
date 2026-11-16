@@ -9,6 +9,7 @@ import kotlinx.serialization.Serializable
 class IumrahAccountService(
     private val api: APIClient,
     private val deviceIdentity: IumrahAccountDeviceIdentity,
+    private val referralHeaders: () -> Map<String, String> = { emptyMap() },
 ) {
     suspend fun activate(bookingID: String, bookingToken: String, password: String, locale: String): IumrahAccountAuthResponse =
         api.post(IumrahAccountRoutes.ACTIVATE, IumrahAccountActivateRequest(bookingID, password, deviceIdentity.current(locale)), mapOf("x-booking-token" to bookingToken))
@@ -26,13 +27,13 @@ class IumrahAccountService(
         api.post(IumrahAccountRoutes.ACTIVATE_EMAIL_START, IumrahAccountActivationEmailStartRequest(bookingID, email, locale), mapOf("x-booking-token" to bookingToken))
 
     suspend fun confirmActivationEmail(bookingID: String, bookingToken: String, challengeID: String, code: String, locale: String): IumrahAccountAuthResponse =
-        api.post(IumrahAccountRoutes.ACTIVATE_EMAIL_CONFIRM, IumrahAccountActivationEmailConfirmRequest(bookingID, challengeID, code, deviceIdentity.current(locale)), mapOf("x-booking-token" to bookingToken))
+        api.post(IumrahAccountRoutes.ACTIVATE_EMAIL_CONFIRM, IumrahAccountActivationEmailConfirmRequest(bookingID, challengeID, code, deviceIdentity.current(locale)), mapOf("x-booking-token" to bookingToken) + referralHeaders())
 
     suspend fun startActivationSMS(bookingID: String, bookingToken: String, phone: String, locale: String): IumrahPhoneLoginStartResponse =
         api.post(IumrahAccountRoutes.ACTIVATE_SMS_START, IumrahAccountActivationSMSStartRequest(bookingID, phone, locale), mapOf("x-booking-token" to bookingToken))
 
     suspend fun confirmActivationSMS(bookingID: String, bookingToken: String, challengeID: String, code: String, locale: String): IumrahAccountAuthResponse =
-        api.post(IumrahAccountRoutes.ACTIVATE_SMS_CONFIRM, IumrahAccountActivationSMSConfirmRequest(bookingID, challengeID, code, deviceIdentity.current(locale)), mapOf("x-booking-token" to bookingToken))
+        api.post(IumrahAccountRoutes.ACTIVATE_SMS_CONFIRM, IumrahAccountActivationSMSConfirmRequest(bookingID, challengeID, code, deviceIdentity.current(locale)), mapOf("x-booking-token" to bookingToken) + referralHeaders())
 
     suspend fun startPhoneLogin(phone: String, locale: String): IumrahPhoneLoginStartResponse =
         api.post(IumrahAccountRoutes.PHONE_LOGIN_START, IumrahPhoneLoginStartRequest(phone, locale))
@@ -47,6 +48,7 @@ class IumrahAccountService(
         api.post(
             IumrahAccountRoutes.REGISTER_SMS_CONFIRM,
             IumrahPhoneRegistrationConfirmRequest(challengeID, code, deviceIdentity.current(locale)),
+            referralHeaders(),
         )
 
     suspend fun startEmailRegistration(email: String, locale: String): IumrahEmailChallengeStartResponse =
@@ -56,6 +58,7 @@ class IumrahAccountService(
         api.post(
             IumrahAccountRoutes.REGISTER_EMAIL_CONFIRM,
             IumrahRegistrationEmailConfirmRequest(challengeID, code, firstName, lastName, deviceIdentity.current(locale)),
+            referralHeaders(),
         )
 
     suspend fun session(token: String): IumrahAccountProfile {
@@ -133,13 +136,13 @@ class IumrahAccountService(
         api.delete(IumrahAccountRoutes.terminateSession(id), deviceIdentity.securityHeaders(token))
 
     suspend fun signInWithApple(credential: IumrahAppleCredential, locale: String): IumrahAccountAuthResponse =
-        api.post(IumrahAccountRoutes.APPLE_SIGN_IN, IumrahAppleSignInRequest(credential.identityToken, credential.nonce, deviceIdentity.current(locale)))
+        api.post(IumrahAccountRoutes.APPLE_SIGN_IN, IumrahAppleSignInRequest(credential.identityToken, credential.nonce, deviceIdentity.current(locale)), referralHeaders())
 
     suspend fun linkApple(credential: IumrahAppleCredential, token: String): IumrahAppleLinkResponse =
         api.post(IumrahAccountRoutes.APPLE_LINK, IumrahAppleRequest(credential.identityToken, credential.nonce), deviceIdentity.securityHeaders(token))
 
     suspend fun signInWithGoogle(credential: IumrahGoogleCredential, locale: String): IumrahAccountAuthResponse =
-        api.post(IumrahAccountRoutes.GOOGLE_SIGN_IN, IumrahGoogleSignInRequest(credential.identityToken, credential.nonce, deviceIdentity.current(locale)))
+        api.post(IumrahAccountRoutes.GOOGLE_SIGN_IN, IumrahGoogleSignInRequest(credential.identityToken, credential.nonce, deviceIdentity.current(locale)), referralHeaders())
 
     suspend fun linkGoogle(credential: IumrahGoogleCredential, token: String): IumrahGoogleLinkResponse =
         api.post(IumrahAccountRoutes.GOOGLE_LINK, IumrahGoogleRequest(credential.identityToken, credential.nonce), deviceIdentity.securityHeaders(token))

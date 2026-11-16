@@ -35,5 +35,18 @@ fun main()=runBlocking {
  createService.createError=null
  val cancelled=launch(start=CoroutineStart.UNDISPATCHED){create()}; cancelled.cancelAndJoin()
  check(!checkout.state.value.isMutating); check(create().id=="b"); check(createService.createCalls==4)
- println("BookingStore runtime with fake transport/vault: 20 assertions passed (including V9 checkout guard)")
+ // Sync05: read-only confirmation poll, reject wrong booking, preserve snapshot on errors.
+ val readSvc=BookingService().also { it.remote=remote; it.operational=ClientTripResponse(true,trip) }
+ val confirmation=BookingStore(readSvc,guest,SecureJsonStore(listOf(StoredBookingSession("b","proof",remote))),RemotePackageEngineClient())
+ check(confirmation.refreshCreatedBookingStatus("b")?.effectiveStatus=="BOOKING_CONFIRMED")
+ check(readSvc.fetchCalls==0 && readSvc.operationalCalls==1)
+ check(readSvc.operationalHeaders==mapOf("x-booking-token" to "proof"))
+ readSvc.operational=ClientTripResponse(true,trip.copy(bookingID="other",status="cancelled"))
+ check(confirmation.refreshCreatedBookingStatus("b")?.effectiveStatus=="BOOKING_CONFIRMED")
+ readSvc.operationalError=APIException.Status(503)
+ check(confirmation.refreshCreatedBookingStatus("b")?.effectiveStatus=="BOOKING_CONFIRMED")
+ check(confirmation.refreshCreatedBookingStatus("missing")==null)
+ val noToken=BookingStore(readSvc,guest,SecureJsonStore(listOf(StoredBookingSession("b","",remote))),RemotePackageEngineClient())
+ val calls=readSvc.operationalCalls; noToken.refreshCreatedBookingStatus("b"); check(readSvc.operationalCalls==calls)
+ println("BookingStore runtime with fake transport/vault: 27 assertions passed (including Sync05 confirmation polling)")
 }

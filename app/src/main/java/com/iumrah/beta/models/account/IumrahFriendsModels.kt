@@ -27,6 +27,12 @@ data class IumrahFriendsDashboard(
     val pendingRewardsUsd: Double,
     val earnedRewardsUsd: Double,
     val gifts: List<IumrahFriendGift>,
+    val invitation: IumrahReferralInvitation? = null,
+    val referrals: List<IumrahReferralFriend>? = null,
+    val transactions: List<IumrahRewardTransaction>? = null,
+    val completedTrips: Int? = null,
+    val paidReferrals: Int? = null,
+    val tier: String? = null,
 )
 
 @Serializable
@@ -52,3 +58,11 @@ data class IumrahFriendsBookingSummary(
 
 @Serializable data class IumrahFriendGiftRedeemRequest(val code: String)
 @Serializable data class IumrahFriendCreditApplyRequest(val amountUsd: Int)
+
+@Serializable data class IumrahReferralInvitation(val code: String, val url: String)
+@Serializable data class IumrahReferralFriend(val id: String, val name: String, val status: String, val rewardUsd: Double, val registeredAt: String, val bookingID: String? = null)
+@Serializable data class IumrahRewardTransaction(val id: String, val amountUsd: Double, val type: String, val createdAt: String)
+
+@Serializable
+data class IumrahBookingRewardsAmounts(val totalUsd: Double, val giftDiscountUsd: Double, val creditAppliedUsd: Double, val totalDiscountUsd: Double, val payableUsd: Double)
+

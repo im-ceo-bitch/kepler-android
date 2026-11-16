@@ -325,6 +325,8 @@ fun AppShell(
                 is AppRoute.AccountKyc -> AccountKycScreen(route.bookingID, language, bookingStore, chrome)
                 AppRoute.PrayerTimes -> PrayerTimesScreen(language, chrome)
                 AppRoute.HomeWeather -> HomeWeatherScreen(language, chrome)
+                AppRoute.SavedHotels -> com.iumrah.beta.ui.hotels.NuiteeHotelsCatalogScreen(language, chrome, onBoard = {}, favoritesOnly = true)
+                is AppRoute.Rewards -> com.iumrah.beta.ui.account.IumrahRewardsScreen(route.page, language, accountStore, chrome)
                 AppRoute.GiftCards -> IumrahGiftCardsScreen(language, accountStore, chrome)
             }
         }

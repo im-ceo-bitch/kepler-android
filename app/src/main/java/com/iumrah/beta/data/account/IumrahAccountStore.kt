@@ -27,6 +27,7 @@ data class IumrahAccountState(
 class IumrahAccountStore(
     private val service: IumrahAccountService,
     private val vault: SecureJsonStore,
+    private val clearReferral: () -> Unit = {},
 ) {
     private val _state: MutableStateFlow<IumrahAccountState>
     val state: StateFlow<IumrahAccountState> get() = _state.asStateFlow()
@@ -175,8 +176,15 @@ class IumrahAccountStore(
 
     suspend fun friendsDashboard(): IumrahFriendsDashboard {
         val current = requireToken()
-        runCatching { service.registerCurrentSession(current, Locale.getDefault().toLanguageTag()) }
-        return service.friendsDashboard(current)
+        val dashboard = try { service.friendsDashboard(current) }
+        catch (error: CancellationException) { throw error }
+        catch (error: Throwable) {
+            check(token == current) { "Account changed" }
+            service.registerCurrentSession(current, Locale.getDefault().toLanguageTag())
+            service.friendsDashboard(current)
+        }
+        check(token == current) { "Account changed" }
+        return dashboard
     }
 
     suspend fun claimPrimaryDevice(password: String): IumrahSecurityOverview = service.claimPrimaryDevice(password, requireToken())
@@ -253,6 +261,7 @@ class IumrahAccountStore(
     private fun setSession(response: IumrahAccountAuthResponse) {
         token = response.session.token
         saveSession(response.session.token, response.account)
+        clearReferral()
         _state.value = IumrahAccountState(account = response.account)
     }
 

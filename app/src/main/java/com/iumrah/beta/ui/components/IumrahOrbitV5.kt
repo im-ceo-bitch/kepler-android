@@ -45,7 +45,7 @@ private fun orbitColor(angle: Double): Color { val (r,g,b)=G.color(angle); retur
 @Composable
 internal fun IumrahOrbitV5(diameter: Dp, modifier: Modifier = Modifier, lightOnDark: Boolean = false,
     pinnedSymbol: CupertinoSymbol? = null, mergeToCenter: Boolean = false,
-    services: List<CupertinoSymbol> = orbitShowcase, active: Boolean = true, accessibilityTitle: String = "iumrah Smart") {
+    services: List<CupertinoSymbol> = orbitShowcase, active: Boolean = true, accessibilityTitle: String = "iumrah Smart", centerSymbol: CupertinoSymbol? = null) {
     val owner=LocalLifecycleOwner.current
     var foreground by remember(owner) { mutableStateOf(owner.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) }
     DisposableEffect(owner) {
@@ -100,7 +100,8 @@ internal fun IumrahOrbitV5(diameter: Dp, modifier: Modifier = Modifier, lightOnD
                 }
             }
         }
-        Image(painterResource(R.drawable.iumrah_header_wordmark_light),null,Modifier.width(diameter*.38f),
+        if (centerSymbol != null) CupertinoIcon(centerSymbol, null, Modifier.size(diameter*.24f), if(lightOnDark) Color.White else Color.Black)
+        else Image(painterResource(R.drawable.iumrah_header_wordmark_light),null,Modifier.width(diameter*.38f),
             colorFilter=ColorFilter.tint(if(lightOnDark) Color.White else Color.Black))
     }
 }

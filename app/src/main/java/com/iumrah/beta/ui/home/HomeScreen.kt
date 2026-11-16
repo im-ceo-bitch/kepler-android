@@ -226,7 +226,7 @@ fun HomeScreen(
         }
         item { IumrahHomeHelpCard(language) }
         if (activity.smart != null || activity.flight != null || activeBooking != null) item {
-            HomeRecentActivitySection(language, activity, activeBooking, chrome,
+            HomeRecentActivitySection(language, activity, activeBooking, chrome, owner,
                 resume = { resumeSmart = it; smartOpen = true }, repeat = { trip ->
                     journey.clearStagedAviasalesFlights()
                     journey.commitTripBuilder(trip, PackageFlightPath.PUBLISHED_DIRECT)
@@ -245,6 +245,8 @@ fun HomeScreen(
         item { JourneyTravelInfoPanel(language) }
         item { AudienceSection(language) }
         item { HomeIntegrationsSection(language, chrome) }
+        item { HomeRewardsOffersSection(language, accountStore, chrome) }
+        item { HomeRecommendedHotelsSection(language, activity, owner, chrome) }
         item { ProductsSection(language, chrome) }
         item { ConfidenceStrip(language) }
         item { PhilosophyCard(language) }

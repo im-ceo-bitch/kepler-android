@@ -33,6 +33,28 @@
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="iumrahapp" android:host="hotel" />
             </intent-filter>
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" android:host="iumrah.app" android:pathPrefix="/ref/" />
+                <data android:scheme="https" android:host="iumrah.app" android:pathPrefix="/r/" />
+                <data android:scheme="https" android:host="iumrah.uz" android:pathPrefix="/ref/" />
+                <data android:scheme="https" android:host="iumrah.uz" android:pathPrefix="/r/" />
+                <data android:scheme="https" android:host="go.iumrah.app" android:pathPrefix="/ref/" />
+                <data android:scheme="https" android:host="go.iumrah.app" android:pathPrefix="/r/" />
+                <data android:scheme="https" android:host="go.iumrah.uz" android:pathPrefix="/ref/" />
+                <data android:scheme="https" android:host="go.iumrah.uz" android:pathPrefix="/r/" />
+                <data android:scheme="https" android:host="iumrah-backend.helloiumrah.workers.dev" android:pathPrefix="/ref/" />
+                <data android:scheme="https" android:host="iumrah-backend.helloiumrah.workers.dev" android:pathPrefix="/r/" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="iumrahapp" android:host="referral" />
+            </intent-filter>
+
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />

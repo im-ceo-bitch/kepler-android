@@ -244,7 +244,7 @@ private fun BookingActivityDots() {
 }
 
 @Composable
-private fun SpectralBookingDome(modifier: Modifier) {
+internal fun SpectralBookingDome(modifier: Modifier) {
     val points = remember {
         buildList {
             val ringCount = 18

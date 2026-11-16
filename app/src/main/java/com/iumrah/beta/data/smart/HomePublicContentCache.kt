@@ -31,4 +31,20 @@ object HomePublicContentCache {
         entries[key] = Entry(android.os.SystemClock.elapsedRealtime(), result)
         result
     }
+    private data class HotelEntry(val time: Long, val value: com.iumrah.beta.models.nuitee.NuiteeHotelListEnvelope?)
+    private val hotelLock = Mutex()
+    private val hotelEntries = linkedMapOf<String, HotelEntry>()
+    suspend fun hotels(service: com.iumrah.beta.data.nuitee.NuiteeHotelService, city: String, checkin: LocalDate, nights: Int, adults: Int): com.iumrah.beta.models.nuitee.NuiteeHotelListEnvelope? = hotelLock.withLock {
+        val checkout = checkin.plusDays(nights.toLong())
+        val key = "$city-$checkin-$checkout-$adults"
+        val now = android.os.SystemClock.elapsedRealtime()
+        hotelEntries[key]?.takeIf { now - it.time < 900_000 }?.let { return@withLock it.value }
+        val result = try {
+            service.cachedHotels(city, checkin, checkout, adults) ?: service.cachedHotels(city, checkin, checkout, adults, catalogOnly = true)
+                ?: service.hotels(city, checkin, checkout, adults, catalogOnly = true, smartTimeout = true)
+        } catch (e: CancellationException) { throw e } catch (_: Exception) { null }
+        if (hotelEntries.size >= 8) hotelEntries.clear()
+        hotelEntries[key] = HotelEntry(android.os.SystemClock.elapsedRealtime(), result)
+        result
+    }
 }

@@ -92,5 +92,19 @@ fun main() = runBlocking {
     api.reply = { _,body,_-> if((body as PlanRequest).source=="published") Plan(true) else Plan(true,dataPairs=listOf(dataPair.copy(outbound=dataPair.outbound.copy(transfers=1)))) }
     verify(runCatching { service.assemble(p.copy(childAges=emptyList())) { _,_-> } }.isFailure)
     verify(SmartRules.resume(SmartDraft(p.copy(adults=1,childAges=listOf(0,0)),8))?.step==6)
+    val cacheService = NuiteeHotelService()
+    val envelope = NuiteeHotelListEnvelope(ok=true, hotels=listOf(NuiteeHotel("cached","Cached","makkah")))
+    val publicCache = com.iumrah.beta.data.smart.HomePublicContentCache
+    cacheService.cached = envelope
+    verify(publicCache.hotels(cacheService,"makkah",day,7,2)==envelope)
+    cacheService.cached = null
+    verify(publicCache.hotels(cacheService,"makkah",day,7,2)==envelope)
+    cacheService.cachedCatalog = envelope
+    verify(publicCache.hotels(cacheService,"makkah",day.plusDays(1),7,2)==envelope)
+    cacheService.cachedCatalog = null
+    var publicFetches=0
+    cacheService.catalog = { _,_,_,_ -> publicFetches++; envelope }
+    verify(publicCache.hotels(cacheService,"makkah",day.plusDays(2),7,2)==envelope)
+    verify(publicCache.hotels(cacheService,"makkah",day.plusDays(2),7,2)==envelope && publicFetches==1)
     println("Smart Sync 02–03: $checks JVM assertions passed (actual service + JourneyStore, mocked network).")
 }

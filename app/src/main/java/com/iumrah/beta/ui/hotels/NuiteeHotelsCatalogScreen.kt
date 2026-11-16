@@ -96,6 +96,7 @@ fun NuiteeHotelsCatalogScreen(
     service: NuiteeHotelService = rememberNuiteeHotelService(),
     unreadCount: Int = 0,
     initialCity: String = "makkah",
+    favoritesOnly: Boolean = false,
 ) {
     val context = LocalContext.current
     val staySelections = remember { NuiteeStaySelectionStore(context) }
@@ -133,7 +134,9 @@ fun NuiteeHotelsCatalogScreen(
     var rateError by remember { mutableStateOf<String?>(null) }
     var selected by remember { mutableStateOf<NuiteeHotel?>(null) }
     val checkout = checkin.plusDays(nights.toLong())
-    val visible = remember(hotels, stars, hotelQuery) { NuiteeRules.filterHotels(hotels, stars, hotelQuery) }
+    val visible = remember(hotels, stars, hotelQuery, favorites, favoritesOnly) {
+        NuiteeRules.filterHotels(if (favoritesOnly) hotels.filter { it.id in favorites } else hotels, stars, hotelQuery)
+    }
 
     LaunchedEffect(city, checkin, nights, adults, refreshing) {
         val forceRefresh = refreshing != handledRefresh
@@ -174,9 +177,16 @@ fun NuiteeHotelsCatalogScreen(
     LazyColumn(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background),
         contentPadding = PaddingValues(start = 18.dp, end = 18.dp, bottom = 120.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        if (favoritesOnly) item {
+            Row(Modifier.fillMaxWidth().padding(top = 12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                com.iumrah.beta.ui.components.IumrahBackButton(onClick = { chrome.back() })
+                Text(nuiteeText(language, "Сохранённые отели", "Saved hotels", "Saqlangan mehmonxonalar", "Сақланган меҳмонхоналар"), fontSize = 25.sp, fontWeight = FontWeight.Bold)
+            }
+            Text(nuiteeText(language, "Отели, сохранённые на этом устройстве", "Hotels saved on this device", "Bu qurilmada saqlangan mehmonxonalar", "Бу қурилмада сақланган меҳмонхоналар"), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp, modifier = Modifier.padding(top = 12.dp))
+        }
         item {
             IumrahOverlappingMasthead(header = {
-                IumrahRootPageHeader(nuiteeText(language,"Отели", "Hotels", "Mehmonxonalar", "Меҳмонхоналар"),
+                if (!favoritesOnly) IumrahRootPageHeader(nuiteeText(language,"Отели", "Hotels", "Mehmonxonalar", "Меҳмонхоналар"),
                     chrome, unreadCount = unreadCount, usesBrandLogo = true, discovery = true, language = language,
                     footer = {
                         IumrahDiscoveryPills(language, 1) { index ->
@@ -237,7 +247,7 @@ fun NuiteeHotelsCatalogScreen(
                     }
             })
         }
-        if (savedStay != null || pendingStay != null) item {
+        if (!favoritesOnly && (savedStay != null || pendingStay != null)) item {
             Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp))
                 .background(MaterialTheme.colorScheme.surface).padding(14.dp)) {
                 Text(nuiteeText(language,"Ваш выбор", "Your selection", "Tanlovingiz", "Танловингиз"), fontWeight = FontWeight.Bold)
@@ -273,11 +283,18 @@ fun NuiteeHotelsCatalogScreen(
                 OutlinedButton(onClick = { refreshing++ }) { Text(nuiteeText(language,"Повторить", "Retry", "Qayta urinish", "Қайта уриниш")) }
             }
         }
-        if (!loading && hotels.isEmpty() && requestError == null) item { Text(nuiteeText(language,
+        if (favoritesOnly && !loading && requestError == null && hotels.none { it.id in favorites }) item {
+            Column(Modifier.fillMaxWidth().padding(vertical = 32.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                CupertinoIcon(CupertinoSymbol.Heart, null, Modifier.size(38.dp), MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(nuiteeText(language, "Нет сохранённых отелей в этом городе", "No saved hotels in this city", "Bu shaharda saqlangan mehmonxonalar yo‘q", "Бу шаҳарда сақланган меҳмонхоналар йўқ"), fontWeight = FontWeight.Bold, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                Text(nuiteeText(language, "Отмечайте понравившиеся отели сердечком в каталоге.", "Tap the heart on hotels you like in the catalog.", "Katalogda yoqqan mehmonxonalarni yurakcha bilan belgilang.", "Каталогда ёққан меҳмонхоналарни юракча билан белгиланг."), color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+            }
+        }
+        if (!favoritesOnly && !loading && hotels.isEmpty() && requestError == null) item { Text(nuiteeText(language,
             "Отели не найдены на выбранные даты", "No hotels for the selected dates", "Mehmonxona topilmadi", "Меҳмонхона топилмади")) }
         items(visible, key = { "nuitee-${it.id}" }) { hotel ->
             NuiteeListingCard(hotel, language, pricesStale,
-                favorite = hotel.id in favorites,
+                favorite = hotel.id in favorites, nights = nights, adults = adults, sandbox = sandbox,
                 onFavorite = {
                     favorites = if (hotel.id in favorites) favorites - hotel.id else favorites + hotel.id
                     prefs.edit().putStringSet("hotels", favorites).apply()
@@ -298,30 +315,81 @@ fun NuiteeHotelsCatalogScreen(
 internal fun NuiteeListingCard(
     hotel: NuiteeHotel, language: AppLanguage, stale: Boolean,
     favorite: Boolean, onFavorite: () -> Unit, onOpen: () -> Unit,
+    nights: Int = 0, adults: Int = 0, sandbox: Boolean = false,
 ) {
-    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(22.dp))
+    val context = LocalContext.current
+    val photos = remember(hotel.previewImages, hotel.coverImageURL) {
+        (hotel.previewImages.orEmpty() + listOfNotNull(hotel.coverImageURL)).filter { it.isNotBlank() }.distinct().take(3)
+    }
+    Row(Modifier.fillMaxWidth().height(232.dp).clip(RoundedCornerShape(30.dp))
         .background(MaterialTheme.colorScheme.surface).clickable(onClick = onOpen)) {
-        Box(Modifier.fillMaxWidth().height(172.dp)) {
-            val image = hotel.coverImageURL ?: hotel.previewImages?.firstOrNull()
-            AsyncImage(model = image, contentDescription = hotel.name,
-                contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surfaceVariant))
-            TextButton(onClick = onFavorite, modifier = Modifier.align(Alignment.TopEnd)) {
-                CupertinoIcon(if (favorite) CupertinoSymbol.HeartFill else CupertinoSymbol.Heart, null,
-                    modifier = Modifier.size(19.dp), tint = if (favorite) Color(0xFFFF3B30) else Color.White)
+        Box(Modifier.weight(.43f).fillMaxHeight()) {
+            Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                if (photos.size < 2) {
+                    NuiteeListingPhoto(photos.firstOrNull(), hotel.name, Modifier.fillMaxSize())
+                } else {
+                    NuiteeListingPhoto(photos[0], hotel.name, Modifier.fillMaxWidth().weight(.64f))
+                    Row(Modifier.fillMaxWidth().weight(.36f), horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+                        NuiteeListingPhoto(photos[1], hotel.name, Modifier.weight(1f).fillMaxHeight())
+                        if (photos.size > 2) NuiteeListingPhoto(photos[2], hotel.name, Modifier.weight(1f).fillMaxHeight())
+                    }
+                }
+            }
+            Row(Modifier.align(Alignment.TopStart).padding(8.dp), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                val bubble = Modifier.size(32.dp).clip(androidx.compose.foundation.shape.CircleShape).background(Color.Black.copy(alpha = .35f))
+                Box(bubble.clickable(onClick = onFavorite), contentAlignment = Alignment.Center) {
+                    CupertinoIcon(if (favorite) CupertinoSymbol.HeartFill else CupertinoSymbol.Heart, null, Modifier.size(15.dp), Color.White)
+                }
+                Box(bubble.clickable {
+                    val intent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                        type = "text/plain"
+                        putExtra(android.content.Intent.EXTRA_TEXT, hotel.name + " — " + (hotel.address ?: hotel.city))
+                    }
+                    context.startActivity(android.content.Intent.createChooser(intent, null))
+                }, contentAlignment = Alignment.Center) {
+                    CupertinoIcon(CupertinoSymbol.Share, null, Modifier.size(14.dp), Color.White)
+                }
             }
         }
-        Column(Modifier.padding(15.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Column(Modifier.weight(.57f).fillMaxHeight().padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text(hotel.name, fontSize = 16.sp, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
-            Text((if (hotel.roundedStars > 0) "★".repeat(hotel.roundedStars) + " · " else "") +
-                (hotel.address?.take(74) ?: hotel.city), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            if (hotel.rating != null) Text("${hotel.rating}" + (hotel.reviewCount?.let { " · $it" } ?: ""), fontSize = 12.sp)
+            Row(horizontalArrangement = Arrangement.spacedBy(7.dp), verticalAlignment = Alignment.CenterVertically) {
+                if (hotel.roundedStars > 0) Text("★".repeat(hotel.roundedStars), fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                hotel.rating?.let { Text(String.format(Locale.US, "%.1f", it), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+            }
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                CupertinoIcon(CupertinoSymbol.Location, null, Modifier.size(12.dp), MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(when (hotel.city.lowercase()) {
+                    "makkah", "mecca", "makka" -> nuiteeText(language, "Мекка", "Makkah", "Makka", "Макка")
+                    "madinah", "medina", "madina" -> nuiteeText(language, "Медина", "Madinah", "Madina", "Мадина")
+                    else -> hotel.city
+                }, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+            }
+            Spacer(Modifier.weight(1f))
             val rate = NuiteeRules.listedRate(hotel, stale)
-            Text(if (rate != null) "${nuiteeText(language,"От", "From", "Dan", "Дан")} ${nuiteeUSD(rate)} · " +
-                nuiteeText(language,"за проживание", "room stay", "turar joy", "яшаш учун")
-            else nuiteeText(language,"Посмотреть номера", "View rooms", "Xonalarni ko‘rish", "Хоналарни кўриш"),
-                fontWeight = FontWeight.SemiBold)
+            if (rate != null) {
+                if (sandbox) Text(nuiteeText(language, "Тестовый тариф", "Test rate", "Sinov tarifi", "Синов тарифи"), fontSize = 10.sp)
+                Text(nuiteeUSD(rate), fontSize = 23.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                if (nights > 0 && adults > 0) Text("$nights " + nuiteeText(language, "ночей · 1 номер ·", "nights · 1 room ·", "tun · 1 xona ·", "тун · 1 хона ·") + " $adults " + nuiteeText(language, "гостей", "guests", "mehmon", "меҳмон"), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2)
+            } else {
+                val message = when (hotel.rateStatus) {
+                    "provider_error" -> nuiteeText(language, "Не удалось загрузить цену", "Could not load price", "Narxni yuklab bo‘lmadi", "Нархни юклаб бўлмади")
+                    "loading", "not_requested" -> nuiteeText(language, "Загружаем цену…", "Loading price…", "Narx yuklanmoqda…", "Нарх юкланмоқда…")
+                    else -> nuiteeText(language, "Посмотреть номера", "View rooms", "Xonalarni ko‘rish", "Хоналарни кўриш")
+                }
+                Text(message, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2)
+            }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                CupertinoIcon(CupertinoSymbol.ChevronRight, null, Modifier.size(12.dp), MaterialTheme.colorScheme.onSurfaceVariant)
+            }
         }
     }
+}
+
+@Composable
+private fun NuiteeListingPhoto(url: String?, name: String, modifier: Modifier) {
+    AsyncImage(model = url, contentDescription = name, contentScale = ContentScale.Crop,
+        modifier = modifier.background(MaterialTheme.colorScheme.surfaceVariant).clip(RoundedCornerShape(0.dp)))
 }
 
 /** Supplier terms are visible before choice. No automatic confirmation of an unpriced hotel. */
@@ -332,6 +400,14 @@ internal fun NuiteeHotelDetailSheet(
     onDismiss: () -> Unit, onRate: (NuiteeRoomRate, NuiteeMealChoices) -> Unit,
     allowMealSelection: Boolean = false,
 ) {
+    val context = LocalContext.current
+    val account = (context.applicationContext as com.iumrah.beta.IumrahApplication).container.accountStore
+    val accountState by account.state.collectAsState()
+    val owner = if (accountState.isRestoring) null else com.iumrah.beta.domain.smart.SmartRules.owner(accountState.isAuthenticated, accountState.iumrahID)
+    val visitOwner = remember(hotel.id, checkin, checkout, adults) { owner }
+    LaunchedEffect(hotel.id, checkin, checkout, adults, visitOwner) {
+        if (owner == visitOwner) com.iumrah.beta.data.smart.HomeActivityStore(context).saveHotel(visitOwner, com.iumrah.beta.data.smart.HomeHotelVisit(hotel, checkin.toString(), java.time.temporal.ChronoUnit.DAYS.between(checkin, checkout).toInt().coerceAtLeast(1), adults))
+    }
     val contentLanguage = if (language == AppLanguage.UZBEK_CYRILLIC) "uz-Cyrl" else language.code
     var detail by remember(hotel.id, contentLanguage) { mutableStateOf<NuiteeHotelDetail?>(null) }
     var meals by remember(hotel.id, checkin, checkout, adults, childrenAges) { mutableStateOf(NuiteeMealChoices()) }

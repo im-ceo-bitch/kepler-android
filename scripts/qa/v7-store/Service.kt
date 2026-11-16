@@ -4,9 +4,9 @@ import com.iumrah.beta.models.hotel.HotelSummary
 import com.iumrah.beta.models.hotel.HotelRoom
 import com.iumrah.beta.models.hotel.IumrahRoomCategoryOption
 class BookingService {
- var fetchError:Throwable?=null; var remote:RemoteBooking?=null; var operational:ClientTripResponse?=null; var fetchCalls=0; var createCalls=0; var createError:Throwable?=null
+ var fetchError:Throwable?=null; var remote:RemoteBooking?=null; var operational:ClientTripResponse?=null; var fetchCalls=0; var operationalCalls=0; var operationalError:Throwable?=null; var operationalHeaders:Map<String,String> = emptyMap(); var createCalls=0; var createError:Throwable?=null
  suspend fun fetchBooking(id:String,token:String):RemoteBooking { fetchCalls++; kotlinx.coroutines.delay(40); fetchError?.let{throw it}; return requireNotNull(remote) }
- suspend fun fetchOperationalTrip(id:String,headers:Map<String,String>):ClientTripResponse = requireNotNull(operational)
+ suspend fun fetchOperationalTrip(id:String,headers:Map<String,String>):ClientTripResponse { operationalCalls++; operationalHeaders=headers; kotlinx.coroutines.delay(10); operationalError?.let{throw it}; return requireNotNull(operational) }
  suspend fun createBooking(request:BookingCreateEnvelope):BookingCreateResponse {
      createCalls++; kotlinx.coroutines.delay(60); createError?.let { throw it }
      return BookingCreateResponse(requireNotNull(remote),"proof")

@@ -51,7 +51,7 @@ check('item { ReadyPackagesSection(' not in home, 'No historical ready packages 
 check('LocalDate.now().plusDays(14)' in hotels and 'var nights by remember { mutableIntStateOf(7) }' in hotels, 'Hotel discovery default dates and nights')
 check('footer = { BookingPanelPicker(language, panel, onPanel) }' in booking and '"Статус брони"' in booking and '"Документы"' in booking, 'Booking tabs in masthead, same state')
 check('CupertinoSymbol.Message, activeSession != null' in care and '2 -> openChat()' in care, 'Care chat is disabled without booking')
-check('var register by remember { mutableStateOf(false) }' in account and 'key(register) { GuestLoginCard(' in account and 'footer = guestFooter' in account, 'Guest header and actual form use one sign-in mode; switching resets old form')
+check('var register by remember { mutableStateOf(referral.code != null) }' in account and 'LaunchedEffect(referral.code, profile)' in account and 'key(register) { GuestLoginCard(' in account and 'footer = guestFooter' in account, 'Guest header and actual form use one sign-in mode; switching resets old form')
 check('initialBoard = if (chromeState.discoveryFlights)' in shell and 'Role.Tab' in shell and 'Box(Modifier.height(25.dp)' in shell, 'Root Flights stays on tabs; bottom icon slot and selection semantics')
 if args.ios:
     i = args.ios / 'Sources'

@@ -41,6 +41,9 @@ import com.iumrah.beta.ui.cupertino.CupertinoIcon
 import com.iumrah.beta.ui.cupertino.CupertinoSymbol
 import com.iumrah.beta.ui.media.LoopingRawVideo
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CancellationException
+import com.iumrah.beta.domain.booking.BookingRewardsPolicy
+import com.iumrah.beta.models.account.IumrahFriendsBookingSummary
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -84,8 +87,14 @@ internal fun PilgrimCheckoutEmbedded(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val accountState by accountStore.state.collectAsState()
-    var checkout by remember(bookingID) { mutableStateOf<IumrahCheckoutResponse?>(null) }
-    var loading by remember(bookingID) { mutableStateOf(true) }
+    val ownerToken = accountStore.bearerToken
+    val bookingService = (context.applicationContext as com.iumrah.beta.IumrahApplication).container.bookingService
+    var checkout by remember(bookingID, ownerToken) { mutableStateOf<IumrahCheckoutResponse?>(null) }
+    var rewardSummary by remember(bookingID, ownerToken) { mutableStateOf<IumrahFriendsBookingSummary?>(null) }
+    var rewardUncertain by remember(bookingID, ownerToken) { mutableStateOf(false) }
+    var creditConfirmation by remember(bookingID, ownerToken) { mutableStateOf<Int?>(null) }
+    var loading by remember(bookingID, ownerToken) { mutableStateOf(true) }
+    val rewardMatch = !loading && BookingRewardsPolicy.confirmed(checkout?.rewards, rewardSummary) && !rewardUncertain
     var error by remember { mutableStateOf<String?>(null) }
     var busy by remember { mutableStateOf(false) }
     var password by remember { mutableStateOf("") }
@@ -98,23 +107,42 @@ internal fun PilgrimCheckoutEmbedded(
     var travelerEditor by remember { mutableStateOf<IumrahTravelerForm?>(null) }
 
     suspend fun load(showLoader: Boolean = true) {
-        if (showLoader) loading = true
+        loading = true
         error = null
-        runCatching { accountService.checkoutWithFallback(bookingID, session.accessToken, accountStore.bearerToken) }
-            .onSuccess { checkout = it }
-            .onFailure { error = it.message }
-        loading = false
+        val token = accountStore.bearerToken
+        try {
+            val response = accountService.checkoutWithFallback(bookingID, session.accessToken, token)
+            if (token != accountStore.bearerToken) return
+            checkout = response
+            val idMatches = accountStore.state.value.iumrahID?.filter(Char::isDigit)?.takeIf { it.isNotEmpty() } == response.iumrahID.filter(Char::isDigit)
+            if (token != null && idMatches && response.status.equals("payment_pending", true)) {
+                val summary = try { bookingService.friendsSummary(bookingID, accountStore.authorizationHeaders(session.accessToken)) }
+                    catch (cancel: CancellationException) { throw cancel } catch (_: Exception) { null }
+                if (token != accountStore.bearerToken) return
+                if (summary?.ok == true && summary.bookingID == bookingID) {
+                    rewardSummary = summary
+                    rewardUncertain = !BookingRewardsPolicy.confirmed(response.rewards, summary)
+                }
+            } else rewardSummary = null
+        } catch (cancel: CancellationException) { throw cancel }
+        catch (ex: Exception) { if (token == accountStore.bearerToken) error = ex.message }
+        finally { if (token == accountStore.bearerToken) loading = false }
     }
 
     val receiptLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
-        if (uri == null || accountStore.bearerToken.isNullOrBlank()) return@rememberLauncherForActivityResult
+        val token = accountStore.bearerToken ?: return@rememberLauncherForActivityResult
+        if (uri == null || busy || loading || !rewardMatch || checkout?.status?.equals("payment_pending", true) != true) return@rememberLauncherForActivityResult
         busy = true
         scope.launch {
             runCatching {
                 val bytes = withContext(Dispatchers.IO) {
                     AndroidImageCodec.jpeg(context.contentResolver, uri, 2048, 88)
                 }
-                accountService.uploadReceipt(bookingID, "manual_card", bytes, "image/jpeg", accountStore.bearerToken!!)
+                check(accountStore.bearerToken == token) { "Account changed" }
+                val fresh = accountService.checkoutWithFallback(bookingID, session.accessToken, token)
+                check(fresh.status.equals("payment_pending", true) && fresh.rewards == checkout?.rewards && BookingRewardsPolicy.confirmed(fresh.rewards, rewardSummary)) { "Refresh payment amounts" }
+                check(accountStore.bearerToken == token) { "Account changed" }
+                accountService.uploadReceipt(bookingID, "manual_card", bytes, "image/jpeg", token)
             }.onSuccess { load(showLoader = false) }
                 .onFailure { error = it.message }
             busy = false
@@ -122,6 +150,37 @@ internal fun PilgrimCheckoutEmbedded(
     }
 
     LaunchedEffect(bookingID, accountStore.bearerToken) { load() }
+    creditConfirmation?.let { amount ->
+        AlertDialog(onDismissRequest = { creditConfirmation = null },
+            title = { Text(bookingText(language,"Списать бонусы в счёт этой поездки?","Apply rewards to this booking?","Bonuslarni ushbu bronga qo‘llaysizmi?","Бонусларни ушбу бронга қўллайсизми?")) },
+            text = { Text("\$$amount") },
+            confirmButton = { TextButton(onClick = {
+                creditConfirmation = null
+                val token = accountStore.bearerToken
+                val current = checkout
+                if (!busy && !loading && !rewardUncertain && token != null && current != null && amount in BookingRewardsPolicy.amounts(current.status,current.receipts.isEmpty(),current.rewards,rewardSummary,bookingID)) {
+                    busy = true
+                    scope.launch {
+                        try {
+                            val fresh = accountService.checkoutWithFallback(bookingID,session.accessToken,token)
+                            check(accountStore.bearerToken == token) { "Account changed" }
+                            check(accountStore.state.value.iumrahID?.filter(Char::isDigit)?.takeIf { it.isNotEmpty() } == fresh.iumrahID.filter(Char::isDigit)) { "Account identity changed" }
+                            val headers = accountStore.authorizationHeaders(session.accessToken)
+                            val summary = bookingService.friendsSummary(bookingID,headers)
+                            check(accountStore.bearerToken == token && amount in BookingRewardsPolicy.amounts(fresh.status,fresh.receipts.isEmpty(),fresh.rewards,summary,bookingID)) { "Refresh payment amounts" }
+                            // An ambiguous POST failure must never be replayed automatically.
+                            rewardUncertain = true
+                            val updated = bookingService.applyFriendCredit(bookingID,headers,amount)
+                            check(updated.ok && updated.bookingID == bookingID) { "Invalid rewards response" }
+                            if (accountStore.bearerToken == token) { rewardSummary = updated; load(showLoader = false) }
+                        } catch (cancel: CancellationException) { throw cancel }
+                        catch (ex: Exception) { if (accountStore.bearerToken == token) { load(showLoader = false); error = ex.message } }
+                        finally { busy = false }
+                    }
+                }
+            }) { Text(bookingText(language,"Применить","Apply","Qo‘llash","Қўллаш") + " \$$amount") } },
+            dismissButton = { TextButton(onClick = { creditConfirmation = null }) { Text(bookingText(language,"Отмена","Cancel","Bekor qilish","Бекор қилиш")) } })
+    }
 
     Column(
         modifier = Modifier.fillMaxWidth(),
@@ -233,8 +292,13 @@ internal fun PilgrimCheckoutEmbedded(
                         language = language,
                         value = value,
                         busy = busy,
-                        canUpload = !accountStore.bearerToken.isNullOrBlank(),
-                        onUpload = { receiptLauncher.launch("image/*") },
+                        canUpload = !accountStore.bearerToken.isNullOrBlank() && rewardMatch && paymentPending && !busy,
+                        onUpload = { if (rewardMatch && paymentPending && !busy) receiptLauncher.launch("image/*") },
+                        rewardSummary = rewardSummary,
+                        pricingConfirmed = rewardMatch && paymentPending,
+                        rewardAmounts = if (rewardMatch && !busy) BookingRewardsPolicy.amounts(value.status, value.receipts.isEmpty(), value.rewards, rewardSummary, bookingID) else emptyList(),
+                        onApplyCredit = { creditConfirmation = it },
+                        onRefreshRewards = { if (!busy && !loading) scope.launch { load(showLoader = false) } },
                         chrome = chrome,
                         session = session,
                     )
@@ -250,8 +314,13 @@ internal fun PilgrimCheckoutEmbedded(
                         language = language,
                         value = value,
                         busy = busy,
-                        canUpload = !accountStore.bearerToken.isNullOrBlank(),
-                        onUpload = { receiptLauncher.launch("image/*") },
+                        canUpload = !accountStore.bearerToken.isNullOrBlank() && rewardMatch && paymentPending && !busy,
+                        onUpload = { if (rewardMatch && paymentPending && !busy) receiptLauncher.launch("image/*") },
+                        rewardSummary = rewardSummary,
+                        pricingConfirmed = rewardMatch && paymentPending,
+                        rewardAmounts = if (rewardMatch && !busy) BookingRewardsPolicy.amounts(value.status, value.receipts.isEmpty(), value.rewards, rewardSummary, bookingID) else emptyList(),
+                        onApplyCredit = { creditConfirmation = it },
+                        onRefreshRewards = { if (!busy && !loading) scope.launch { load(showLoader = false) } },
                         chrome = chrome,
                         session = session,
                     )
@@ -357,6 +426,11 @@ private fun CheckoutActivationCard(
                 trailing = CupertinoSymbol.ArrowRight,
             )
         } else {
+            val app = LocalContext.current.applicationContext as com.iumrah.beta.IumrahApplication
+            if (!app.container.accountStore.state.collectAsState().value.isAuthenticated) {
+                com.iumrah.beta.ui.account.ReferralConsentForm(language, app.container.referralStore, enabled = !busy)
+                Spacer(Modifier.height(12.dp))
+            }
             BookingRaisedCard {
                 Text(
                     bookingText(language, "Подтвердите контакт, чтобы активировать iumrah ID для этой поездки.", "Verify your contact to activate this trip's iumrah ID.", "Safar iumrah ID sini faollashtirish uchun kontaktingizni tasdiqlang.", "Сафар iumrah ID сини фаоллаштириш учун контактингизни тасдиқланг."),
@@ -936,31 +1010,15 @@ private fun travelerRelationshipTitle(language: AppLanguage, value: String?, pos
 }
 
 @Composable
-private fun FriendsBenefitUnavailableCard(language: AppLanguage) {
-    Column(
-        Modifier.fillMaxWidth().background(bookingIosRaised().copy(alpha = .45f), RoundedCornerShape(22.dp)).padding(14.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp),
-    ) {
-        Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            BookingIconBadge(CupertinoSymbol.Wallet, Color(0xFFFF2D55), 42.dp, 17.dp, 15.dp)
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                Text("Iumrah Gift Cards", fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
-                Text(bookingText(language, "Gift Card и Iumrah Balance", "Gift Card & Iumrah Balance", "Gift Card va Iumrah Balance", "Gift Card ва Iumrah Balance"), fontSize = 11.sp, color = MaterialTheme.colorScheme.onBackground.copy(alpha = .52f))
-            }
-            CupertinoIcon(CupertinoSymbol.Lock, null, Modifier.size(14.dp), MaterialTheme.colorScheme.onBackground.copy(alpha = .45f))
-        }
-        Row(
-            Modifier.fillMaxWidth().background(Color(0xFFFF9500).copy(alpha = .08f), RoundedCornerShape(17.dp)).border(.8.dp, Color(0xFFFF9500).copy(alpha = .18f), RoundedCornerShape(17.dp)).padding(13.dp),
-            verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(11.dp),
-        ) {
-            CupertinoIcon(CupertinoSymbol.ExclamationCircle, null, Modifier.size(17.dp), Color(0xFFFF9500))
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(bookingText(language, "Gift Card ещё недоступна", "Gift Cards are not available yet", "Gift Card hali mavjud emas", "Gift Card ҳали мавжуд эмас"), fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-                Text(
-                    bookingText(language, "Раздел уже виден в бронировании, но применение Gift Card и Iumrah Balance временно отключено. Мы включим его после готовности платёжного сценария.", "The section is already visible in the booking, but applying Gift Cards and Iumrah Balance is temporarily disabled. We will enable it after the payment flow is ready.", "Bo‘lim bron ichida ko‘rinadi, ammo Gift Card va Iumrah Balance qo‘llash vaqtincha o‘chirilgan. To‘lov jarayoni tayyor bo‘lgach yoqiladi.", "Бўлим брон ичида кўринади, аммо Gift Card ва Iumrah Balance қўллаш вақтинча ўчирилган. Тўлов жараёни тайёр бўлгач ёқилади."),
-                    fontSize = 11.sp, lineHeight = 15.sp, color = MaterialTheme.colorScheme.onBackground.copy(alpha = .55f),
-                )
-            }
+private fun FriendsBenefitCard(language: AppLanguage, summary: IumrahFriendsBookingSummary?, amounts: List<Int>, onApply: (Int)->Unit, onRefresh: ()->Unit) {
+    Column(Modifier.fillMaxWidth().background(bookingIosRaised().copy(alpha=.45f), RoundedCornerShape(22.dp)).padding(14.dp),verticalArrangement=Arrangement.spacedBy(14.dp)) {
+        Row(verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(12.dp)){BookingIconBadge(CupertinoSymbol.Gift,Color(0xFFFF2D55),42.dp,17.dp,15.dp);Text("iumrah Balance",fontSize=17.sp,fontWeight=FontWeight.Bold)}
+        if(summary==null){Text(bookingText(language,"Баланс недоступен. Обновите страницу.","Balance unavailable. Refresh to try again.","Balans mavjud emas. Yangilang.","Баланс мавжуд эмас. Янгиланг."),fontSize=12.sp);TextButton(onClick=onRefresh){Text(bookingText(language,"Обновить","Refresh","Yangilash","Янгилаш"))}}
+        else {
+            val values=listOf(bookingText(language,"Лимит Gift Card","Gift Card limit","Gift Card limiti","Gift Card лимити") to summary.maxDiscountUsd,bookingText(language,"Пакет","Package","Paket","Пакет") to summary.totalUsd,bookingText(language,"Скидка","Discount","Chegirma","Чегирма") to summary.totalDiscountUsd,bookingText(language,"К оплате","Amount to pay","To‘lov summasi","Тўлов суммаси") to summary.payableUsd,bookingText(language,"Доступный Iumrah Balance","Available Iumrah Balance","Mavjud Iumrah Balance","Мавжуд Iumrah Balance") to summary.availableCreditUsd)
+            values.forEach { (label,amount)->Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){Text(label,Modifier.weight(1f),fontSize=14.sp,color=MaterialTheme.colorScheme.onSurfaceVariant);Text(java.text.NumberFormat.getCurrencyInstance(java.util.Locale.US).format(amount),fontWeight=FontWeight.SemiBold)} }
+            if(!summary.identityConfirmed) Text(bookingText(language,"Подтвердите личность для использования бонусов.","Verify your identity before using rewards.","Bonuslar uchun shaxsingizni tasdiqlang.","Бонуслар учун шахсингизни тасдиқланг."),fontSize=12.sp)
+            amounts.forEach{amount->BookingPrimaryAction(bookingText(language,"Применить","Apply","Qo‘llash","Қўллаш")+" \$$amount",onClick={onApply(amount)})}
         }
     }
 }
@@ -972,6 +1030,11 @@ private fun PaymentCard(
     busy: Boolean,
     canUpload: Boolean,
     onUpload: () -> Unit,
+    rewardSummary: IumrahFriendsBookingSummary?,
+    pricingConfirmed: Boolean,
+    rewardAmounts: List<Int>,
+    onApplyCredit: (Int)->Unit,
+    onRefreshRewards: ()->Unit,
     chrome: AppChromeStore,
     session: StoredBookingSession,
 ) {
@@ -984,8 +1047,20 @@ private fun PaymentCard(
         Spacer(Modifier.height(10.dp))
         BookingInvoiceCompact(session, language)
         Spacer(Modifier.height(10.dp))
-        FriendsBenefitUnavailableCard(language)
+        FriendsBenefitCard(language, rewardSummary.takeIf { pricingConfirmed }, rewardAmounts, onApplyCredit, onRefreshRewards)
         Spacer(Modifier.height(10.dp))
+        if (pricingConfirmed) {
+            value.rewards?.let { pricing ->
+                Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
+                    Text(bookingText(language,"К оплате","Amount to pay","To‘lov summasi","Тўлов суммаси"),Modifier.weight(1f),fontWeight=FontWeight.Bold)
+                    Text(java.text.NumberFormat.getCurrencyInstance(java.util.Locale.US).format(pricing.payableUsd),fontSize=24.sp,fontWeight=FontWeight.Bold)
+                }
+            }
+        } else {
+            Text(bookingText(language,"Сумма к оплате ещё не подтверждена. Обновите данные.","Payment amount is not confirmed. Refresh the data.","To‘lov summasi tasdiqlanmagan. Yangilang.","Тўлов суммаси тасдиқланмаган. Янгиланг."),fontSize=13.sp,color=MaterialTheme.colorScheme.onSurfaceVariant)
+            TextButton(onClick=onRefreshRewards,enabled=!busy){Text(bookingText(language,"Обновить","Refresh","Yangilash","Янгилаш"))}
+            return@BookingCard
+        }
         IumrahPaymentMethodsMarquee(modifier = Modifier.fillMaxWidth())
         Spacer(Modifier.height(12.dp))
 
@@ -1011,7 +1086,7 @@ private fun PaymentCard(
             Text(value.payment.instructions, fontSize = 13.sp, lineHeight = 18.sp, color = MaterialTheme.colorScheme.onBackground.copy(alpha = .55f))
         }
         Spacer(Modifier.height(14.dp))
-        BookingPrimaryAction(
+        if (canUpload) BookingPrimaryAction(
             bookingText(language, if (busy) "Загружаем…" else "Прикрепить чек оплаты", if (busy) "Uploading…" else "Attach payment receipt", if (busy) "Yuklanmoqda…" else "To‘lov chekini biriktirish", if (busy) "Юкланмоқда…" else "Тўлов чекини бириктириш"),
             onClick = onUpload,
             leading = CupertinoSymbol.Paperclip,
@@ -1019,7 +1094,7 @@ private fun PaymentCard(
         if (!canUpload) {
             Spacer(Modifier.height(9.dp))
             Text(
-                bookingText(language, "Войдите в аккаунт iumrah, чтобы загрузить чек.", "Sign in to your iumrah account to upload the receipt.", "Chekni yuklash uchun iumrah akkauntiga kiring.", "Чекни юклаш учун iumrah аккаунтига киринг."),
+                bookingText(language, "Обновите подтверждённую сумму к оплате, чтобы загрузить чек.", "Refresh the confirmed amount before uploading the receipt.", "Chekni yuklashdan oldin tasdiqlangan to‘lovni yangilang.", "Чекни юклашдан олдин тасдиқланган тўловни янгиланг."),
                 fontSize = 12.sp,
                 color = MaterialTheme.colorScheme.onBackground.copy(alpha = .52f),
             )

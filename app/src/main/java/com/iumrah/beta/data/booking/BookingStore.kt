@@ -7,6 +7,7 @@ import com.iumrah.beta.data.account.IumrahAccountStore
 import com.iumrah.beta.domain.booking.BookingDraftBuilder
 import com.iumrah.beta.domain.booking.BookingAuthFallbackPolicy
 import com.iumrah.beta.domain.booking.BookingSessionPolicy
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -314,6 +315,18 @@ class BookingStore(
                 pushRegistrationError = firstError,
             )
         }
+    }
+
+    suspend fun refreshCreatedBookingStatus(id: String): StoredBookingSession? {
+        val initial = booking(id) ?: return null
+        val token = initial.accessToken.trim().takeIf { it.isNotEmpty() } ?: return initial
+        val response = attempt { service.fetchOperationalTrip(id, mapOf("x-booking-token" to token)) } ?: return booking(id)
+        kotlinx.coroutines.currentCoroutineContext().ensureActive()
+        val current = booking(id) ?: return null
+        if (response.trip.bookingID != id || current.accessToken != initial.accessToken || current.operationStatus != initial.operationStatus || current.effectiveStatus != initial.effectiveStatus) return current
+        val next = current.mergeOperationalTrip(response.trip, response.statusHistory, response.assignment)
+        if (next != current) upsert(next)
+        return booking(id)
     }
 
     suspend fun refresh(id: String): StoredBookingSession? {

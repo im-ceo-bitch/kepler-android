@@ -259,7 +259,10 @@ fun AccountRootScreen(
     var unlockSheet by remember { mutableStateOf(false) }
     var isRefreshing by remember { mutableStateOf(false) }
     val accountListState = rememberLazyListState()
-    var register by remember { mutableStateOf(false) }
+    val referral by app.container.referralStore.state.collectAsState()
+    var register by remember { mutableStateOf(referral.code != null) }
+    LaunchedEffect(referral.code, profile) { if (profile == null && referral.code != null) register = true }
+    var rewardsRevision by remember { mutableIntStateOf(0) }
     val activeTrip = remember(bookings.sessions) {
         bookings.sessions.filterNot { it.isPastAccountTrip() }.minByOrNull { accountTripPriority(it) }
     }
@@ -273,7 +276,7 @@ fun AccountRootScreen(
         onRefresh = {
             if (!isRefreshing) scope.launch {
                 isRefreshing = true
-                try { bookingStore.refreshAll() } finally { isRefreshing = false }
+                try { bookingStore.refreshAll(); rewardsRevision++ } finally { isRefreshing = false }
             }
         },
         modifier = Modifier.fillMaxSize(),
@@ -289,13 +292,28 @@ fun AccountRootScreen(
             if (profile == null) scope.launch { accountListState.animateScrollToItem(2) }
         } }
         if (profile != null) {
-            item { IumrahIdentityHeroAndroid(profile, language) }
+            item { RewardsBalanceEntry(language, accountStore, chrome, rewardsRevision) }
+            item { CardBlock { SettingsRow(CupertinoSymbol.Gift, "iumrah Friends", tr(language, "Invite a friend", "Пригласить друга", "Do‘stni taklif qilish", "Дўстни таклиф қилиш")) { chrome.openRewards("friends") } } }
             item { IumrahUserDataEntryCardAndroid(language, profile.displayName) { chrome.openAccountUserData() } }
+            item { RewardsAccountCarousel(language, chrome) { IumrahIdentityHeroAndroid(profile, language) } }
             item { TravelCompanionsParityCard(language) { chrome.openAccountTravelers() } }
             item { WalletSection(profile, language) }
             activeTrip?.let { active ->
                 item { IumrahTripWalletEntryAndroid(active, profile, language) }
             }
+            item { CardBlock {
+                Row(Modifier.fillMaxWidth().clickable { chrome.openSavedHotels() },
+                    verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                    Box(Modifier.size(44.dp).background(Color(0xFFFF3B30).copy(alpha = .12f), androidx.compose.foundation.shape.CircleShape), contentAlignment = Alignment.Center) {
+                        CupertinoIcon(CupertinoSymbol.HeartFill, null, Modifier.size(20.dp), Color(0xFFFF3B30))
+                    }
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text(tr(language, "Saved hotels", "Сохранённые отели", "Saqlangan mehmonxonalar", "Сақланган меҳмонхоналар"), fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                        Text(tr(language, "Your favorite stays", "Ваши избранные отели", "Sevimli mehmonxonalaringiz", "Севимли меҳмонхоналарингиз"), fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    CupertinoIcon(CupertinoSymbol.ChevronRight, null, Modifier.size(13.dp), MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            } }
             item { TripsSection(bookings.sessions, language, chrome) }
             item { TelegramIntegrationCard(language) { chrome.openAccountTelegramIntegration() } }
             item { PaymentSecuritySection(language, activeTrip ?: bookings.sessions.firstOrNull(), true, chrome) }
@@ -705,6 +723,11 @@ private fun GuestLoginCard(language:AppLanguage,accountStore:IumrahAccountStore,
         )
         Spacer(Modifier.height(12.dp));Segmented(listOf("SMS","Email","iumrah ID"),when(method){"sms"->0;"email"->1;else->2}){method=listOf("sms","email","id")[it];challenge=null;error=null}
         Spacer(Modifier.height(14.dp))
+        if (register) {
+            val app = LocalContext.current.applicationContext as IumrahApplication
+            ReferralConsentForm(language, app.container.referralStore, enabled = !busy)
+            Spacer(Modifier.height(12.dp))
+        }
         if(register && (method=="email" || method=="sms")){
             AccountField(first,{first=it},tr(language,"First name","Имя","Ism","Исм"));Spacer(Modifier.height(9.dp));AccountField(last,{last=it},tr(language,"Last name","Фамилия","Familiya","Фамилия"));Spacer(Modifier.height(9.dp))
         }
