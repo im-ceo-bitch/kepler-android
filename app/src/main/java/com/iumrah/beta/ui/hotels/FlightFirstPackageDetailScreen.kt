@@ -88,7 +88,7 @@ import kotlinx.coroutines.delay
 import kotlin.math.ceil
 
 private enum class PackageLegKind { OUTBOUND, INBOUND }
-private enum class PackageInfoSheet { VISA, GUIDE, CARE, TRUST }
+internal enum class PackageInfoSheet { VISA, GUIDE, CARE, TRUST }
 private data class PackageFlightChoice(val id: String, val leg: StorefrontFlightLeg)
 
 @Composable
@@ -667,7 +667,7 @@ private fun DetailSectionHeader(title: String, eyebrow: String) {
 }
 
 @Composable
-private fun PackageFlightLegCard(leg: StorefrontFlightLeg, direction: String, language: AppLanguage, onChange: () -> Unit) {
+internal fun PackageFlightLegCard(leg: StorefrontFlightLeg, direction: String, language: AppLanguage, onChange: (() -> Unit)? = null) {
     var expanded by remember(leg) { mutableStateOf(false) }
     IumrahCard {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -689,7 +689,7 @@ private fun PackageFlightLegCard(leg: StorefrontFlightLeg, direction: String, la
                     CupertinoIcon(CupertinoSymbol.ChevronDown, null, Modifier.size(12.dp), MaterialTheme.colorScheme.onSurface.copy(alpha = .32f))
                 }
             }
-            IumrahPressable(onClick = onChange, modifier = Modifier.height(34.dp), cornerRadius = 17.dp, background = MaterialTheme.colorScheme.surfaceVariant) {
+            if (onChange != null) IumrahPressable(onClick = onChange, modifier = Modifier.height(34.dp), cornerRadius = 17.dp, background = MaterialTheme.colorScheme.surfaceVariant) {
                 Box(Modifier.padding(horizontal = 11.dp), contentAlignment = Alignment.Center) { Text(detailText(language, "change"), fontSize = 11.sp, fontWeight = FontWeight.SemiBold) }
             }
         }
@@ -728,7 +728,7 @@ private fun PackageAirlineLogo(codeRaw: String?, size: Int) {
 }
 
 @Composable
-private fun PackageHotelCard(hotel: HotelSummary, nights: Int, language: AppLanguage, onOpen: () -> Unit) {
+internal fun PackageHotelCard(hotel: HotelSummary, nights: Int, language: AppLanguage, onOpen: () -> Unit) {
     PackageHotelFallbackCard(hotel.name, hotel.city, hotel.stars, nights, hotel.coverImageURL, language, onOpen)
 }
 
@@ -897,7 +897,7 @@ private fun RefundPolicyCard(language: AppLanguage) {
 }
 
 @Composable
-private fun PurchaseTrustCard(language: AppLanguage, onOpen: () -> Unit) {
+internal fun PurchaseTrustCard(language: AppLanguage, onOpen: () -> Unit) {
     IumrahPressable(onClick = onOpen, modifier = Modifier.fillMaxWidth(), cornerRadius = 20.dp, background = MaterialTheme.colorScheme.surface) {
         Row(Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             IconBadge(CupertinoSymbol.ShieldCheck, Color(0xFF30B0C7), 42)
@@ -970,7 +970,7 @@ private fun FlightPickerSheet(
 }
 
 @Composable
-private fun PackageInformationSheet(kind: PackageInfoSheet, language: AppLanguage, onDismiss: () -> Unit) {
+internal fun PackageInformationSheet(kind: PackageInfoSheet, language: AppLanguage, onDismiss: () -> Unit) {
     val (icon, title, body) = when (kind) {
         PackageInfoSheet.VISA -> Triple(CupertinoSymbol.Document, detailText(language, "visa"), detailText(language, "visa_info"))
         PackageInfoSheet.GUIDE -> Triple(CupertinoSymbol.PersonCircle, detailText(language, "guide"), detailText(language, "guide_info"))

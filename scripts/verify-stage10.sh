@@ -31,7 +31,7 @@ grep -q 'GeneratorStage.TRIP' app/src/main/java/com/iumrah/beta/ui/trip/TripBuil
 grep -q 'GeneratorStage.HOTEL' app/src/main/java/com/iumrah/beta/ui/trip/HotelSelectionScreen.kt
 grep -q 'GeneratorStage.FLIGHT' app/src/main/java/com/iumrah/beta/ui/flights/FlightSearchScreen.kt
 grep -q 'GeneratorStage.TRANSFER' app/src/main/java/com/iumrah/beta/ui/packageflow/TransferSelectionScreen.kt
-grep -q 'GeneratorStage.READY' app/src/main/java/com/iumrah/beta/ui/packageflow/FinalPackageScreen.kt
+grep -q 'ReviewBookingBar' app/src/main/java/com/iumrah/beta/ui/packageflow/FinalPackageScreen.kt
 grep -q 'TransferVehicleKind.CARNIVAL' app/src/main/java/com/iumrah/beta/ui/packageflow/TransferSelectionScreen.kt
 grep -q 'HaramainFareClass' app/src/main/java/com/iumrah/beta/ui/packageflow/TransferSelectionScreen.kt
 grep -q 'packageEngine.packageQuote(state)' app/src/main/java/com/iumrah/beta/domain/pricing/PackageGenerator.kt
@@ -91,8 +91,7 @@ grep -q 'detectHorizontalDragGestures' app/src/main/java/com/iumrah/beta/ui/gene
 grep -q 'Посмотреть отель' app/src/main/java/com/iumrah/beta/ui/trip/HotelSelectionScreen.kt || { echo 'STOP: Primary Hotel View hotel action missing'; exit 1; }
 grep -q 'Сменить отель' app/src/main/java/com/iumrah/beta/ui/trip/HotelSelectionScreen.kt || { echo 'STOP: Primary Hotel Change hotel action missing'; exit 1; }
 grep -q 'height(340.dp)' app/src/main/java/com/iumrah/beta/ui/packageflow/TransferSelectionScreen.kt || { echo 'STOP: Transfer cinematic stage must mirror the iOS 340pt geometry'; exit 1; }
-grep -q 'PackageTier.entries.map' app/src/main/java/com/iumrah/beta/ui/packageflow/FinalPackageScreen.kt || { echo 'STOP: Final Package must resolve all iOS package tiers'; exit 1; }
-grep -q 'TierComparisonOption' app/src/main/java/com/iumrah/beta/ui/packageflow/FinalPackageScreen.kt || { echo 'STOP: Final Package tier carousel comparison is missing'; exit 1; }
+python3 scripts/verify-pixel-perfect-block03c.py
 
 # Global icon parity gate for all screens; evaluated by existing GitHub workflows.
 bash scripts/verify-global-cupertino-icons.sh

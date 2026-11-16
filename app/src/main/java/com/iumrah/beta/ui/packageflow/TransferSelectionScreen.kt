@@ -73,6 +73,7 @@ import java.time.format.DateTimeFormatter
 import java.util.Locale
 import kotlin.math.ceil
 import kotlin.random.Random
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -92,6 +93,10 @@ fun TransferSelectionScreen(
     val duration = remember { Random.nextInt(20, 41) }
 
     LaunchedEffect(Unit) {
+        if (journey.state.value.transferSelectionConfirmed) {
+            phase = TransferPhase.MATCHED
+            return@LaunchedEffect
+        }
         journey.ensureHaramainTicketDefaults()
         journey.setHaramainFareClass(HaramainFareClass.ECONOMY)
         if (journey.state.value.selectedTransferVehicle == null) {
@@ -99,8 +104,9 @@ fun TransferSelectionScreen(
         }
 
         // iOS refreshes the server-owned package price while transfer discovery runs.
-        runCatching { generator.generate(journey.state.value) }
-            .onSuccess(journey::setQuote)
+        try { journey.refreshTransferQuote(generator::generate) }
+        catch (cancel: CancellationException) { throw cancel }
+        catch (_: Exception) { /* The matched screen retries with the selected vehicle. */ }
 
         if (journey.state.value.transferSelectionConfirmed) {
             phase = TransferPhase.MATCHED
@@ -110,7 +116,6 @@ fun TransferSelectionScreen(
             delay(1000)
             second += 1
         }
-        journey.chooseTransferVehicle(TransferVehicleKind.CARNIVAL)
         phase = TransferPhase.MATCHED
     }
 
@@ -273,13 +278,15 @@ private fun TransferMatchedScreen(language: AppLanguage, journey: JourneyStore, 
         if (journey.state.value.selectedTransferVehicle != vehicle) journey.chooseTransferVehicle(vehicle)
     }
 
-    LaunchedEffect(selected, state.haramainTrainSelected, state.haramainAdultTickets, state.haramainChildTickets) {
-        delay(180)
+    LaunchedEffect(selected, state.haramainTrainSelected, state.haramainFareClass, state.haramainAdultTickets, state.haramainChildTickets) {
         refreshing = true
-        runCatching { generator.generate(journey.state.value) }
-            .onSuccess { quote -> journey.setQuote(quote); error = null }
-            .onFailure { cause -> error = cause.message }
-        refreshing = false
+        try {
+            delay(180)
+            journey.refreshTransferQuote(generator::generate)
+            error = null
+        } catch (cancel: CancellationException) { throw cancel }
+        catch (cause: Exception) { error = cause.message }
+        finally { refreshing = false }
     }
 
     MaterialTheme(colorScheme = if (selected == TransferVehicleKind.YUKON) darkColorScheme() else lightColorScheme()) {
@@ -358,27 +365,26 @@ private fun TransferMatchedScreen(language: AppLanguage, journey: JourneyStore, 
                 language = language,
                 confirming = confirming,
                 currentPrice = state.quote?.let(::quoteTitle) ?: "—",
-                enabled = !confirming,
+                enabled = !confirming && !refreshing,
             ) {
-                if (!confirming) {
+                if (!confirming && !refreshing) {
                     confirming = true
                     error = null
-                    journey.confirmTransferSelection()
                     scope.launch {
-                        runCatching { generator.generate(journey.state.value) }
-                            .onSuccess { quote ->
-                                journey.setQuote(quote)
-                                if (quote.quoteId?.startsWith("server-") == true && !quote.quoteProof.isNullOrBlank() && quote.totalPackagePrice.signum() > 0 && quote.pricePerPerson.signum() > 0) {
-                                    chrome.openFinalPackage()
-                                } else {
-                                    error = transferTr(language, "Не удалось подтвердить итоговую конфигурацию поездки. Попробуйте ещё раз.", "The trip configuration could not be confirmed. Please try again.", "Safar konfiguratsiyasini tasdiqlab bo‘lmadi. Qayta urinib ko‘ring.", "Сафар конфигурациясини тасдиқлаб бўлмади. Қайта уриниб кўринг.")
-                                }
-                                confirming = false
+                        try {
+                            val quote = journey.refreshTransferQuote(generator::generate)
+                            val current = journey.state.value
+                            if (current.quote == quote && current.hasFinalGeneratorQuote &&
+                                !quote.quoteProof.isNullOrBlank() && quote.bookingAllowed != false) {
+                                journey.confirmTransferSelection()
+                                if (chrome.state.value.backStack.lastOrNull() == com.iumrah.beta.core.navigation.AppRoute.FinalPackage) chrome.back() else chrome.openFinalPackage()
+                            } else {
+                                error = transferTr(language, "Не удалось подтвердить итоговую конфигурацию поездки. Попробуйте ещё раз.", "The trip configuration could not be confirmed. Please try again.", "Safar konfiguratsiyasini tasdiqlab bo‘lmadi. Qayta urinib ko‘ring.", "Сафар конфигурациясини тасдиқлаб бўлмади. Қайта уриниб кўринг.")
                             }
-                            .onFailure { cause ->
-                                confirming = false
-                                error = cause.message ?: transferTr(language, "Не удалось получить актуальную цену.", "Could not fetch the current package price.", "Joriy paket narxini olib bo‘lmadi.", "Жорий пакет нархини олиб бўлмади.")
-                            }
+                        } catch (cancel: CancellationException) { throw cancel }
+                        catch (cause: Exception) {
+                            error = transferTr(language, "Не удалось получить актуальную цену. Попробуйте ещё раз.", "Could not fetch the current package price. Try again.", "Joriy paket narxini olib bo‘lmadi. Qayta urinib ko‘ring.", "Жорий пакет нархини олиб бўлмади. Қайта уриниб кўринг.")
+                        } finally { confirming = false }
                     }
                 }
             }

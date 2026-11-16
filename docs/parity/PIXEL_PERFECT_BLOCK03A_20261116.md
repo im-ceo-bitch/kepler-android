@@ -1,0 +1,9 @@
+# Block 03A — transfer and final package safety / CTA
+
+Base: uploaded kepler-android-main 2.zip, commit a669c3ef9cfb5da93d56e383efcf0fd29812978b, Pixel Perfect Block 02 present. This is a targeted delta on that exact baseline, not the previously generated full Block 03. No workflow, backend, signing, provider or secret changes.
+
+- Transfer refresh uses the existing JourneyStore request generation and snapshots including resolved flight selections. A superseded response cannot update the current quote. Cancelled requests are propagated. An invalid/denied latest response clears the quote, not a newer response. Confirmed transfer selection is preserved on re-entry; selection is confirmed only after a valid quote. Refresh and confirm are not intentionally concurrent.
+- Final package CTA uses the shared iOS-oriented primary button: centered text, no arrow icon; four locales use Book package. A local/unsigned or explicitly denied quote does not reach checkout via this screen. Alternative tier results are reset when inputs change; cancelled calls are propagated; outdated tier callbacks cannot replace a changed state. No booking creation or OTP implementation change.
+- Nuitee review uses the same Book package CTA; hotel rate revalidation text avoids internal cache terminology and application/request wording. Existing cached-rate revalidation gate is preserved.
+
+Verification: Kotlin PSI 221 Kotlin files, zero syntax errors; existing verify-stage25.sh source checks including Blocks 01 and 02 passed. Added three JUnit concurrency/quote rejection regression tests for CI; not executed locally (no Gradle/Android SDK). No actual APK, real device, backend request, OTP flow or matched screenshot run. Current iOS source archive unavailable in this container; only the Android baseline's existing source-parity documentation was available. Full flight/hotel/Smart/manual visual parity remains open.

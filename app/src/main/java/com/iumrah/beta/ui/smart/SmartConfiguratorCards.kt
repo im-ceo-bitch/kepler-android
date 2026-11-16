@@ -1,5 +1,7 @@
 package com.iumrah.beta.ui.smart
 
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -215,12 +217,12 @@ private fun localTime(raw:String?,airport:String,language:AppLanguage):String = 
 }
 @Composable internal fun SmartAssemblyContent(language:AppLanguage,progress:Progress,city:String?,busy:Boolean,preview:JourneyState?,ready:Boolean,failure:String?,replacing:String?,replacementError:Boolean,onEdit:()->Unit,onReplace:(String)->Unit) {
     fun t(ru:String,en:String,uz:String,cy:String)=nuiteeText(language,ru,en,uz,cy)
-    Column(verticalArrangement=Arrangement.spacedBy(12.dp)) {
+    Column(Modifier.fillMaxWidth().animateContentSize(tween(350)), verticalArrangement=Arrangement.spacedBy(12.dp)) {
         SmartProgressRow(progress,Progress.FLIGHTS,t("Авиабилеты","Flights","Aviachiptalar","Авиа чипталар"),CupertinoSymbol.Airplane,busy)
         preview?.nuitee?.flights.orEmpty().forEachIndexed { i,f -> SmartFlightCard(language,f,i==0) }
         SmartProgressRow(progress,Progress.HOTELS,t("Отели и номера","Hotels and rooms","Mehmonxonalar va xonalar","Меҳмонхоналар ва хоналар"),CupertinoSymbol.BuildingFill,busy)
         preview?.nuitee?.rooms.orEmpty().values.sortedWith(compareBy<NuiteeRoomSelection>{it.checkin}.thenBy{it.key}).forEach { SmartHotelCard(language,it,ready,replacing,onReplace) }
-        if(city!=null && busy) SmartLabel(CupertinoSymbol.Search,t("Проверяем доступные тарифы","Checking available rates","Tariflarni tekshiramiz","Тарифларни текширамиз")+" · "+if(city=="madinah") t("Медина","Madinah","Madina","Мадина") else t("Мекка","Makkah","Makka","Макка"))
+        if(city!=null && busy) SmartLabel(CupertinoSymbol.Search,t("Подбираем варианты проживания","Finding stay options","Yashash variantlarini tanlaymiz","Яшаш вариантларини танлаймиз")+" · "+if(city=="madinah") t("Медина","Madinah","Madina","Мадина") else t("Мекка","Makkah","Makka","Макка"))
         if(replacementError) Text(t("Не удалось подобрать и рассчитать другой отель. Текущий пакет сохранён.","Could not price another hotel. Your current package is unchanged.","Boshqa mehmonxona topilmadi. Joriy paket saqlandi.","Бошқа меҳмонхона топилмади. Жорий пакет сақланди."),fontSize=13.sp,color=MaterialTheme.colorScheme.onSurface.copy(alpha=.6f))
         SmartProgressRow(progress,Progress.TRANSFER,t("Маршрут и трансфер","Route and transfer","Yo‘nalish va transfer","Йўналиш ва трансфер"),CupertinoSymbol.Car,busy)
         if(preview!=null && preview.transferSelectionConfirmed) Box(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface,RoundedCornerShape(20.dp)).padding(14.dp)) { SmartFeature(CupertinoSymbol.Car,preview.resolvedTransferVehicle.modelName) }
@@ -229,11 +231,12 @@ private fun localTime(raw:String?,airport:String,language:AppLanguage):String = 
             Text("${preview.trip.origin} → ${preview.nuitee?.flights?.firstOrNull()?.destination.orEmpty()} · ${preview.nuitee?.flights?.lastOrNull()?.origin.orEmpty()} → ${preview.trip.origin}",fontSize=17.sp,fontWeight=FontWeight.Bold)
             Text("${preview.trip.departureDate} — ${preview.trip.returnDate}",fontSize=15.sp)
             Text(if(preview.nuitee?.flights.orEmpty().any { it.stops>0 }) t("Есть пересадка","Includes a connection","Ulanish reysi bor","Уланиш рейси бор") else t("Прямые рейсы","Nonstop flights","To‘g‘ridan-to‘g‘ri reyslar","Тўғридан-тўғри рейслар"),fontSize=15.sp,fontWeight=FontWeight.SemiBold)
-            Text(smartMoney(quote.totalPackagePrice,quote.currency,language),fontSize=34.sp,fontWeight=FontWeight.Bold); Text(t("Итого за всех путешественников","Total for all travelers","Barcha sayohatchilar uchun jami","Барча саёҳатчилар учун жами"),fontSize=12.sp); SmartPriceLine(t("На одного паломника","Per pilgrim","Bir ziyoratchi uchun","Бир зиёратчи учун"),smartMoney(quote.pricePerPerson,quote.currency,language),false)
+            Text(smartMoney(quote.totalPackagePrice,quote.currency,language),fontSize=34.sp,fontWeight=FontWeight.Bold); Text(t("Предварительно за всех путешественников","Estimated total for all travelers","Barcha sayohatchilar uchun taxminiy jami","Барча саёҳатчилар учун тахминий жами"),fontSize=12.sp,color=MaterialTheme.colorScheme.onSurface.copy(alpha=.6f)); SmartPriceLine(t("На одного паломника","Per pilgrim","Bir ziyoratchi uchun","Бир зиёратчи учун"),smartMoney(quote.pricePerPerson,quote.currency,language),false)
+            Text(t("Наличие и окончательную стоимость подтвердим вручную перед оплатой.","Availability and final price will be confirmed manually before payment.","Mavjudlik va yakuniy narx to‘lovdan oldin tasdiqlanadi.","Мавжудлик ва якуний нарх тўловдан олдин тасдиқланади."),fontSize=12.sp,color=MaterialTheme.colorScheme.onSurface.copy(alpha=.6f))
         } }
         if(failure!=null) Column(Modifier.fillMaxWidth().background(smartSecondary(),RoundedCornerShape(20.dp)).padding(16.dp),verticalArrangement=Arrangement.spacedBy(10.dp)) {
             Text(t("Не удалось собрать пакет","We couldn't build a package","Paketni tayyorlab bo‘lmadi","Пакетни тайёрлаб бўлмади"),fontSize=17.sp,fontWeight=FontWeight.Bold)
-            Text(when { failure.contains("CORE_CUTOVER_PENDING") -> t("Сервер бронирований ещё не готов. Попробуйте позже.","The booking server is not ready yet. Try again later.","Bronlash serveri hali tayyor emas. Keyinroq urinib ko‘ring.","Бронлаш сервери ҳали тайёр эмас. Кейинроқ уриниб кўринг."); failure.contains("SMART_AVIASALES_PARTY_FARE_UNAVAILABLE") -> t("Для поездки с детьми пока нет подходящих опубликованных рейсов.","No suitable published flights for your family yet.","Oilaviy safar uchun mos reyslar topilmadi.","Оилавий сафар учун мос рейслар топилмади."); else -> t("Попробуйте другой месяц, длительность или категорию. Можно повторить поиск.","Try another month, duration or category, or retry the search.","Boshqa oy, muddat yoki toifani tanlang yoki qayta qidiring.","Бошқа ой, муддат ёки тоифани танланг ёки қайта қидиринг.") },fontSize=15.sp,color=MaterialTheme.colorScheme.onSurface.copy(alpha=.6f))
+            Text(when { failure.contains("CORE_CUTOVER_PENDING") -> t("Сервер бронирований ещё не готов. Попробуйте позже.","The booking server is not ready yet. Try again later.","Bronlash serveri hali tayyor emas. Keyinroq urinib ko‘ring.","Бронлаш сервери ҳали тайёр эмас. Кейинроқ уриниб кўринг."); failure.contains("SMART_AVIASALES_PARTY_FARE_UNAVAILABLE") -> t("Для поездки с детьми пока нет подходящих опубликованных рейсов. Выберите другой месяц или длительность.","No suitable published flights for your family yet. Try another month or duration.","Oilaviy safar uchun mos e’lon qilingan reyslar topilmadi. Boshqa oy yoki muddatni tanlang.","Оилавий сафар учун мос эълон қилинган рейслар топилмади. Бошқа ой ёки муддатни танланг."); failure.contains("SMART_HOTEL_NETWORK") -> t("Сервис тарифов временно не отвечает. Повторите поиск.","Hotel rates are temporarily unavailable. Retry the search.","Tarif xizmati vaqtincha ishlamayapti. Qayta urinib ko‘ring.","Тариф хизмати вақтинча ишламаяпти. Қайта уриниб кўринг."); failure.contains("SMART_ROOM") || failure.contains("SMART_HOTEL") -> t("Не найден подходящий номер с доступным тарифом. Измените месяц или категорию.","No suitable room with an available rate was found. Change the month or category.","Mos tarifli xona topilmadi. Oy yoki toifani o‘zgartiring.","Мос тарифли хона топилмади. Ой ёки тоифани ўзгартиринг."); else -> t("Попробуйте другой месяц, длительность или категорию. Можно повторить поиск.","Try another month, duration or category, or retry the search.","Boshqa oy, muddat yoki toifani tanlang yoki qayta qidiring.","Бошқа ой, муддат ёки тоифани танланг ёки қайта қидиринг.") },fontSize=15.sp,color=MaterialTheme.colorScheme.onSurface.copy(alpha=.6f))
             OutlinedButton(onClick=onEdit) { Text(t("Изменить параметры","Edit preferences","Parametrlarni o‘zgartirish","Параметрларни ўзгартириш")) }
         }
     }
@@ -242,7 +245,7 @@ private fun localTime(raw:String?,airport:String,language:AppLanguage):String = 
     if(current.ordinal<stage.ordinal) return
     Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(12.dp)) {
         SmartIcon(symbol,46.dp); Text(title,Modifier.weight(1f),fontSize=15.sp,fontWeight=FontWeight.Medium)
-        if(current.ordinal>stage.ordinal) CupertinoIcon(CupertinoSymbol.CheckCircleFill,null,Modifier.size(20.dp)) else if(busy) CircularProgressIndicator(Modifier.size(20.dp),strokeWidth=2.dp) else CupertinoIcon(CupertinoSymbol.CheckCircle,null,Modifier.size(20.dp),MaterialTheme.colorScheme.onSurface.copy(alpha=.35f))
+        if(current.ordinal>stage.ordinal) CupertinoIcon(CupertinoSymbol.CheckCircleFill,null,Modifier.size(20.dp)) else if(busy) CircularProgressIndicator(Modifier.size(20.dp),strokeWidth=2.dp) else CupertinoIcon(CupertinoSymbol.CircleOutline,null,Modifier.size(20.dp),MaterialTheme.colorScheme.onSurface.copy(alpha=.35f))
     }
 }
 

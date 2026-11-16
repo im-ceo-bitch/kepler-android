@@ -1,6 +1,9 @@
 package com.iumrah.beta.ui.smart
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.border
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.semantics.Role
 import androidx.compose.foundation.selection.selectable
 import kotlinx.coroutines.launch
@@ -78,10 +81,13 @@ internal fun SmartConfiguratorScreen(language: AppLanguage, airports: AirportSea
     val index = steps.indexOf(step).coerceAtLeast(0)
     val scroll = rememberScrollState()
     LaunchedEffect(step) { scroll.scrollTo(0) }
+    val stepMotion = remember(step) { Animatable(if (step == 0) 1f else 0f) }
+    LaunchedEffect(step) { stepMotion.animateTo(1f, tween(250)) }
     LaunchedEffect(step, preferences, result != null) { if(step != 0) onSave(SmartDraft(preferences, step, result != null)) }
     LaunchedEffect(step, attempt) {
         if (step != 8 || attempt == 0) return@LaunchedEffect
         busy = true; failure = null; result = null; preview = null; excludedHotels = emptyMap(); replacementError = false
+        progress = SmartConfiguratorService.Progress.FLIGHTS; city = null
         try { result = service.assemble(preferences, preview = { preview = it }) { stage, location -> progress = stage; city = location } }
         catch (e: CancellationException) { throw e }
         catch (e: Exception) { failure = e.message ?: "SMART_QUOTE_UNAVAILABLE" }
@@ -91,7 +97,7 @@ internal fun SmartConfiguratorScreen(language: AppLanguage, airports: AirportSea
         1 -> preferences.origin.matches(Regex("[A-Z]{3}")) && preferences.origin !in setOf("JED", "MED")
         6 -> preferences.valid()
         7 -> preferences.valid()
-        8 -> result != null || failure != null
+        8 -> result?.state?.value?.let { it.hasFinalGeneratorQuote && it.quote?.bookingAllowed == true } ?: (failure != null)
         else -> true
     }
     val title = when (step) {
@@ -149,6 +155,10 @@ internal fun SmartConfiguratorScreen(language: AppLanguage, airports: AirportSea
                 val symbol = when (step) { 1 -> CupertinoSymbol.AirplaneTakeoff; 2 -> CupertinoSymbol.Calendar; 3 -> CupertinoSymbol.Clock; 4 -> CupertinoSymbol.MapFill; 5 -> CupertinoSymbol.AirplaneLand; 6 -> CupertinoSymbol.PersonsFill; 7 -> CupertinoSymbol.StarFill; 8 -> if(result != null) null else when(progress) { SmartConfiguratorService.Progress.FLIGHTS -> CupertinoSymbol.Airplane; SmartConfiguratorService.Progress.HOTELS -> CupertinoSymbol.BuildingFill; SmartConfiguratorService.Progress.TRANSFER -> CupertinoSymbol.Car; SmartConfiguratorService.Progress.PRICE -> CupertinoSymbol.CheckCircle; SmartConfiguratorService.Progress.READY -> null }; else -> null }
                 val assembled = result?.state?.value
                 SmartOrbitHeader(step, title, subtitle, symbol, assembled)
+                Column(Modifier.fillMaxWidth().graphicsLayer {
+                    alpha = stepMotion.value
+                    translationY = (1f - stepMotion.value) * 10.dp.toPx()
+                }) {
                 when (step) {
                     0 -> Column(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface, RoundedCornerShape(24.dp)).padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                         SmartFeature(CupertinoSymbol.Airplane, t("Рейсы по вашим датам", "Flights for your dates", "Sanangizga mos reyslar", "Санангизга мос рейслар"))
@@ -179,7 +189,12 @@ internal fun SmartConfiguratorScreen(language: AppLanguage, airports: AirportSea
                         SmartCounter(t("Взрослые", "Adults", "Kattalar", "Катталар"), preferences.adults, preferences.adults > 1, preferences.adults + preferences.childAges.size < 6) { delta -> preferences = preferences.copy(adults = preferences.adults + delta) }
                         HorizontalDivider(color=MaterialTheme.colorScheme.onSurface.copy(alpha=.12f))
                         SmartCounter(t("Дети", "Children", "Bolalar", "Болалар"), preferences.childAges.size, preferences.childAges.isNotEmpty(), preferences.adults + preferences.childAges.size < 6) { delta -> preferences = preferences.copy(childAges = if (delta > 0) preferences.childAges + 6 else preferences.childAges.dropLast(1)) }
-                        preferences.childAges.forEachIndexed { i, age -> SmartCounter(t("Возраст ребёнка", "Child age", "Bolaning yoshi", "Боланинг ёши") + " ${i+1}", age, age > 0, age < 11) { delta -> preferences = preferences.copy(childAges = preferences.childAges.mapIndexed { j, a -> if (i == j) a + delta else a }) } }
+                        preferences.childAges.forEachIndexed { i, age ->
+                            key(i) { SmartChildAgePicker(t("Возраст ребёнка", "Child age", "Bolaning yoshi", "Боланинг ёши") + " ${i+1}", age) { selected ->
+                                preferences = preferences.copy(childAges = preferences.childAges.mapIndexed { j, a -> if (i == j) selected else a })
+                            } }
+                        }
+                        if (preferences.infants > preferences.adults) Text(t("На каждого младенца нужен взрослый.", "Each infant needs an adult.", "Har bir chaqaloqqa katta hamroh kerak.", "Ҳар бир чақалоққа катта ҳамроҳ керак."), fontSize = 13.sp, color = MaterialTheme.colorScheme.error)
                     }
                     7 -> SmartCategoryRow(language, preferences.category) { preferences = preferences.copy(tier = it.wireValue) }
                     8 -> SmartAssemblyContent(language, progress, city, busy, assembled ?: preview, assembled != null, failure, replacingCity, replacementError, onEdit = { result = null; preview = null; failure = null; step = 2 }, onReplace = { selectedCity ->
@@ -201,15 +216,16 @@ internal fun SmartConfiguratorScreen(language: AppLanguage, airports: AirportSea
                         }
                     })
                 }
+                }
               }
             }
             Column(Modifier.fillMaxWidth().background(if(MaterialTheme.colorScheme.background == Color.Black) Color.Black else Color.White).navigationBarsPadding().padding(horizontal = 20.dp, vertical = 12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
               Column(Modifier.widthIn(max=570.dp).fillMaxWidth(), verticalArrangement=Arrangement.spacedBy(12.dp)) {
-                result?.state?.value?.quote?.takeIf { step==8 }?.let { quote ->
-                    SmartPriceLine(t("Итого за всех", "Total for everyone", "Hamma uchun jami", "Ҳамма учун жами"), smartMoney(quote.totalPackagePrice,quote.currency,language), true)
+                result?.state?.value?.takeIf { step == 8 && it.hasFinalGeneratorQuote && it.quote?.bookingAllowed == true }?.quote?.let { quote ->
+                    SmartPriceLine(t("Предварительно за всех", "Estimated total", "Taxminiy jami", "Тахминий жами"), smartMoney(quote.totalPackagePrice,quote.currency,language), true)
                     SmartPriceLine(t("На одного паломника", "Per pilgrim", "Bir ziyoratchi uchun", "Бир зиёратчи учун"),smartMoney(quote.pricePerPerson,quote.currency,language),false)
                 }
-                val action = when { step == 8 && result != null -> t("Проверить и забронировать", "Review and book", "Tekshirish va bronlash", "Текшириш ва бронлаш"); step == 8 && failure != null -> t("Повторить поиск", "Try again", "Qayta qidirish", "Қайта қидириш"); step == 7 -> t("Собрать мою Умру", "Build my Umrah", "Umramni tayyorlash", "Умрамни тайёрлаш"); step == 0 -> t("Начать", "Get started", "Boshlash", "Бошлаш"); else -> t("Продолжить", "Continue", "Davom etish", "Давом этиш") }
+                val action = when { step == 8 && result != null -> t("Посмотреть пакет", "Review package", "Paketni ko‘rish", "Пакетни кўриш"); step == 8 -> t("Повторить поиск", "Retry search", "Qayta qidirish", "Қайта қидириш"); step == 7 -> t("Собрать мою Умру", "Build my Umrah", "Umramni tayyorlash", "Умрамни тайёрлаш"); step == 0 -> t("Начать", "Get started", "Boshlash", "Бошлаш"); else -> t("Продолжить", "Continue", "Davom etish", "Давом этиш") }
                 SmartAction(action, false, canContinue && !busy && replacingCity == null) {
                     if (step == 8) { result?.let(onReview) ?: run { attempt++ } }
                     else { step = steps[(index + 1).coerceAtMost(steps.lastIndex)]; if (step == 8) attempt++ }
@@ -238,6 +254,23 @@ internal fun SmartConfiguratorScreen(language: AppLanguage, airports: AirportSea
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement=Arrangement.spacedBy(8.dp)) {
         Text("$label · $value", Modifier.weight(1f), fontWeight = FontWeight.SemiBold,fontSize=17.sp)
         SmartControl(CupertinoSymbol.Minus,44.dp,minus) { change(-1) }; SmartControl(CupertinoSymbol.Plus,44.dp,plus) { change(1) }
+    }
+}
+@Composable private fun SmartChildAgePicker(label: String, age: Int, onSelect: (Int) -> Unit) {
+    var expanded by remember { mutableStateOf(false) }
+    Row(Modifier.fillMaxWidth().heightIn(min = 44.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text(label, Modifier.weight(1f), fontSize = 17.sp)
+        Box {
+            Row(Modifier.clip(RoundedCornerShape(12.dp)).clickable { expanded = true }.padding(horizontal = 12.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text(age.toString(), fontSize = 17.sp)
+                CupertinoIcon(CupertinoSymbol.ChevronDown, null, Modifier.size(14.dp))
+            }
+            DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }, modifier = Modifier.heightIn(max = 320.dp)) {
+                (0..11).forEach { value -> DropdownMenuItem(text = { Text(value.toString()) }, onClick = { expanded = false; onSelect(value) },
+                    trailingIcon = { if (value == age) CupertinoIcon(CupertinoSymbol.Checkmark, null, Modifier.size(16.dp)) }) }
+            }
+        }
     }
 }
 @Composable private fun SmartAction(label: String, dark: Boolean, enabled: Boolean, action: () -> Unit) {

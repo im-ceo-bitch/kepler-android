@@ -35,6 +35,9 @@ import java.time.ZoneId
 import java.time.Instant
 import java.time.OffsetDateTime
 import java.math.BigDecimal
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
@@ -112,7 +115,7 @@ class JourneyStore {
     private var quoteRequestGeneration = 0L
 
     private fun quoteInputs(state: JourneyState): List<Any?> = listOf(
-        state.trip, state.packageFlightPath,
+        state.trip, state.packageFlightPath, state.selectedJourney, state.selectedOutboundJourney,
         state.makkahHotel?.id, state.makkahRoom?.id, state.makkahRoomCategory?.id,
         state.madinahHotel?.id, state.madinahRoom?.id, state.madinahRoomCategory?.id,
         state.selectedPublishedCompleteID, state.selectedPublishedOutboundID, state.selectedPublishedReturnID,
@@ -165,6 +168,27 @@ class JourneyStore {
                 !NuiteeRules.validRoomRate(selection.rate)) return@update current
             current.copy(nuitee = draft.copy(rooms = draft.rooms + (selection.key to selection),
                 pending = draft.pending - selection.key), quote = null, transferSelectionConfirmed = false)
+        }
+    }
+
+    /** Update one room's optional meals without losing the selected supplier rate or transfer. */
+    fun updateNuiteeRoomMeals(expected: NuiteeRoomSelection, meals: com.iumrah.beta.models.nuitee.NuiteeMealChoices) {
+        _state.update { current ->
+            val draft = current.nuitee ?: return@update current
+            val room = draft.rooms[expected.key] ?: return@update current
+            if (room != expected || room.meals == meals) return@update current
+            current.copy(nuitee = draft.copy(rooms = draft.rooms + (room.key to room.copy(meals = meals))),
+                quote = null, packageError = null)
+        }
+    }
+
+    /** Replace a room only if it is still the offer that opened the details sheet. */
+    fun replaceNuiteeRoom(expected: NuiteeRoomSelection, replacement: NuiteeRoomSelection) {
+        _state.update { current ->
+            val draft = current.nuitee ?: return@update current
+            if (draft.rooms[expected.key] != expected || replacement.copy(rate = expected.rate, meals = expected.meals) != expected ||
+                !NuiteeRules.validRoomRate(replacement.rate) || replacement == expected) return@update current
+            current.copy(nuitee = draft.copy(rooms = draft.rooms + (replacement.key to replacement)), quote = null, packageError = null)
         }
     }
 
@@ -847,6 +871,31 @@ class JourneyStore {
 
     fun resetTransferSelection() {
         _state.update { it.copy(selectedTransferVehicle = null, haramainTrainSelected = false, haramainFareClass = HaramainFareClass.ECONOMY, haramainAdultTickets = 0, haramainChildTickets = 0, transferSelectionConfirmed = false, quote = null) }
+    }
+
+    /** Only the latest request for the exact priced inputs may publish a transfer quote. */
+    suspend fun refreshTransferQuote(generate: suspend (JourneyState) -> PackageQuote): PackageQuote {
+        val snapshot = _state.value
+        val inputs = quoteInputs(snapshot)
+        val generation = ++quoteRequestGeneration
+        try {
+            val quote = generate(snapshot)
+            currentCoroutineContext().ensureActive()
+            check(generation == quoteRequestGeneration && quoteInputs(_state.value) == inputs) {
+                "PACKAGE_SELECTION_CHANGED"
+            }
+            check(snapshot.copy(quote = quote).hasFinalGeneratorQuote && quote.bookingAllowed != false &&
+                (snapshot.nuitee == null || quote.bookingAllowed == true)) { "PACKAGE_QUOTE_UNAVAILABLE" }
+            _state.update { it.copy(quote = quote, packageError = null) }
+            return quote
+        } catch (cancel: CancellationException) {
+            throw cancel
+        } catch (error: Exception) {
+            if (generation == quoteRequestGeneration && quoteInputs(_state.value) == inputs) {
+                _state.update { it.copy(quote = null, packageError = error.message) }
+            }
+            throw error
+        }
     }
 
     fun setQuote(quote: PackageQuote) { _state.update { it.copy(quote = quote, packageError = null) } }

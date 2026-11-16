@@ -399,6 +399,7 @@ internal fun NuiteeHotelDetailSheet(
     checkin: LocalDate, checkout: LocalDate, adults: Int, childrenAges: List<Int> = emptyList(),
     onDismiss: () -> Unit, onRate: (NuiteeRoomRate, NuiteeMealChoices) -> Unit,
     allowMealSelection: Boolean = false,
+    initialMeals: NuiteeMealChoices = NuiteeMealChoices(),
 ) {
     val context = LocalContext.current
     val account = (context.applicationContext as com.iumrah.beta.IumrahApplication).container.accountStore
@@ -410,7 +411,7 @@ internal fun NuiteeHotelDetailSheet(
     }
     val contentLanguage = if (language == AppLanguage.UZBEK_CYRILLIC) "uz-Cyrl" else language.code
     var detail by remember(hotel.id, contentLanguage) { mutableStateOf<NuiteeHotelDetail?>(null) }
-    var meals by remember(hotel.id, checkin, checkout, adults, childrenAges) { mutableStateOf(NuiteeMealChoices()) }
+    var meals by remember(hotel.id, checkin, checkout, adults, childrenAges) { mutableStateOf(initialMeals) }
     var reviews by remember(hotel.id, contentLanguage) { mutableStateOf<List<NuiteeGuestReview>>(emptyList()) }
     var showReviews by remember(hotel.id, contentLanguage) { mutableStateOf(false) }
     var nextOffset by remember(hotel.id, contentLanguage) { mutableStateOf<Int?>(0) }
@@ -445,7 +446,7 @@ internal fun NuiteeHotelDetailSheet(
             rates = response.rates.filter(NuiteeRules::validRoomRate)
             freshRates = !response.cached
             if (response.cached) failure = nuiteeText(language,
-                "Кэш тарифа. Перед заявкой требуется обновление.", "Cached rates need revalidation.",
+                "Проверьте актуальную стоимость перед бронированием.", "Check the current price before booking.",
                 "Narxni qayta tekshiring.", "Нархни қайта текширинг.")
         } catch (cancel: CancellationException) { throw cancel
         } catch (ex: Exception) { failure = ex.localizedMessage }
