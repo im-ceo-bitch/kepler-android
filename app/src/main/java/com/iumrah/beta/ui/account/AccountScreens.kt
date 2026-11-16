@@ -61,6 +61,7 @@ import com.iumrah.beta.ui.cupertino.CupertinoIcon
 import com.iumrah.beta.ui.cupertino.CupertinoSymbol
 import com.iumrah.beta.ui.cupertino.IumrahIconBadge
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.ensureActive
 
 private val Care = Color(0xFF30B0C7)
 private val Signal = Color(0xFF1677FF)
@@ -276,7 +277,7 @@ fun AccountRootScreen(
         onRefresh = {
             if (!isRefreshing) scope.launch {
                 isRefreshing = true
-                try { bookingStore.refreshAll(); rewardsRevision++ } finally { isRefreshing = false }
+                try { accountStore.restore(); bookingStore.refreshAll(); rewardsRevision++ } finally { isRefreshing = false }
             }
         },
         modifier = Modifier.fillMaxSize(),
@@ -826,8 +827,22 @@ fun AccountProfileEditorScreen(language:AppLanguage,accountStore:IumrahAccountSt
 
 @Composable
 fun AccountTravelersScreen(language:AppLanguage,accountStore:IumrahAccountStore,bookingStore:BookingStore,accountService:IumrahAccountService,chrome:AppChromeStore){
-    val sessions by bookingStore.state.collectAsState();var travelers by remember{mutableStateOf<List<Pair<StoredBookingSession,IumrahTravelerForm>>>(emptyList())};var loading by remember{mutableStateOf(true)}
-    LaunchedEffect(sessions.sessions,accountStore.bearerToken){loading=true;val rows=mutableListOf<Pair<StoredBookingSession,IumrahTravelerForm>>();sessions.sessions.forEach{s->runCatching{accountService.checkout(s.id,bookingStore.headersFor(s))}.getOrNull()?.travelers?.forEach{rows+=s to it}};travelers=rows;loading=false}
+    val sessions by bookingStore.state.collectAsState()
+    val accountState by accountStore.state.collectAsState()
+    val owner = accountStore.bearerToken
+    var travelers by remember(owner) { mutableStateOf<List<Pair<StoredBookingSession,IumrahTravelerForm>>>(emptyList()) }
+    var loading by remember(owner) { mutableStateOf(true) }
+    LaunchedEffect(sessions.sessions, owner, accountState.account?.iumrahID) {
+        loading = true
+        val rows = mutableListOf<Pair<StoredBookingSession,IumrahTravelerForm>>()
+        if (!owner.isNullOrBlank()) for (s in sessions.sessions) {
+            val visible = bookingStore.booking(s.id) ?: continue
+            runCatching { accountService.checkoutWithFallback(s.id, visible.accessToken, owner) }.getOrNull()?.travelers?.forEach { rows += visible to it }
+            kotlinx.coroutines.currentCoroutineContext().ensureActive()
+            if (owner != accountStore.bearerToken) return@LaunchedEffect
+        }
+        if (owner == accountStore.bearerToken) { travelers = rows; loading = false }
+    }
     AccountPage(tr(language,"Travel companions","Спутники","Hamrohlar","Ҳамроҳлар"),chrome){
         CardBlock{SectionHeader(CupertinoSymbol.Persons,tr(language,"Your pilgrims","Ваши паломники","Ziyoratchilaringiz","Зиёратчиларингиз"),tr(language,"Traveler details are attached to bookings and stay ready for the trip.","Данные паломников привязаны к бронированиям и готовы к поездке.","Sayohatchi ma’lumotlari bronlarga bog‘langan va safar uchun tayyor turadi.","Саёҳатчи маълумотлари бронларга боғланган ва сафар учун тайёр туради."))}
         when{loading->Box(Modifier.fillMaxWidth().padding(32.dp),contentAlignment=Alignment.Center){CircularProgressIndicator()};travelers.isEmpty()->CardBlock{EmptyRow(CupertinoSymbol.Persons,tr(language,"No companions yet","Пока нет спутников","Hali hamrohlar yo‘q","Ҳали ҳамроҳлар йўқ"))};else->travelers.forEach{(session,t)->CardBlock{Row(verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(12.dp)){IconBadge(CupertinoSymbol.PersonCircle,Care,44.dp,18.dp);Column(Modifier.weight(1f)){Text(listOf(t.firstName,t.lastName).filter{it.isNotBlank()}.joinToString(" ").ifBlank{tr(language,"Pilgrim ${t.position}","Паломник ${t.position}","Ziyoratchi ${t.position}","Зиёратчи ${t.position}")},fontWeight=FontWeight.Bold);Text("${session.displayBookingNumber} · ${if(t.completed) tr(language,"Ready","Готово","Tayyor","Тайёр") else tr(language,"Needs details","Нужны данные","Ma’lumot kerak","Маълумот керак")}",fontSize=12.sp,color=IosGray)}};Spacer(Modifier.height(12.dp));Button(onClick={chrome.openPilgrimCheckout(session.id)},shape=RoundedCornerShape(16.dp),modifier=Modifier.fillMaxWidth()){Text(tr(language,"Open traveler data","Открыть данные паломников","Ziyoratchi ma’lumotlarini ochish","Зиёратчи маълумотларини очиш"))}}}

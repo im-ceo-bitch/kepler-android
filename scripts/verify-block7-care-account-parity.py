@@ -15,8 +15,8 @@ def check(condition, message):
     assert condition, f"BLOCK 7: {message}"
     print("PASS", message)
 
-check('IumrahHeaderPills(listOf(' in CARE and CARE.index('IumrahHeaderPills(listOf(') < CARE.index('CareIntro(language = language'), "Care quick actions precede introduction")
-check('Arrangement.spacedBy(11.dp)' in CARE and '.height(105.dp)' in CARE and 'RoundedCornerShape(25.dp)' in CARE, "Care quick action tiles: 11dp spacing, 105dp, 25dp radius")
+check('IumrahHeaderPills(listOf(' in CARE and CARE.index('IumrahHeaderPills(listOf(') < CARE.index('CareHero('), "Care quick actions precede hero")
+check('CareHelpTopics(language = language, palette = palette)' in CARE and 'CareQuickAnswers(language = language, palette = palette)' in CARE and 'CareActionTile(' not in CARE.split('private fun CareActionTile(')[0], "Current Care hero and FAQ replace redundant action tiles")
 check('CupertinoSymbol.Message, activeSession != null' in CARE and '2 -> openChat()' in CARE, "Care chat is disabled without active booking")
 check('CupertinoSymbol.Phone' in CARE and 'CupertinoSymbol.Send' in CARE and 'CupertinoSymbol.ChatBubble' in CARE, "Care quick contacts preserve iOS action order")
 check('PullToRefreshBox(' in CARE and 'bookingStore.refreshAll()' in CARE, "Care refreshes all existing booking sessions")

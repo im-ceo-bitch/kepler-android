@@ -175,8 +175,8 @@ fun AppShell(
                 AppRoute.Root -> when (tab) {
                     AppTab.HOME -> HomeScreen(language, chrome, hotelCatalog, journey, airports, curatedFlights, bookingStore, notifications, accountStore.bearerToken, accountStore, packageEngine, settingsStore::setLanguage)
                     AppTab.HOTELS -> HotelsScreen(language, hotelCatalog, journey, airports, flightDiscovery, chrome, initialBoard = if (chromeState.discoveryFlights) HotelsBoard.FLIGHTS else HotelsBoard.HOTELS, unreadCount = shellNotificationState.unreadCount)
-                    AppTab.BOOKING -> BookingsHomeScreen(language, bookingStore, accountService, chatService, notifications, chrome)
-                    AppTab.CARE -> CareHomeScreen(language, bookingStore, chatService, notifications, chrome)
+                    AppTab.BOOKING -> BookingsHomeScreen(language, bookingStore, accountService, accountStore, chatService, notifications, chrome)
+                    AppTab.CARE -> CareHomeScreen(language, bookingStore, accountStore, chatService, notifications, chrome)
                     AppTab.ACCOUNT -> AccountRootScreen(language, accountStore, bookingStore, settingsStore, notifications, chrome)
                 }
 
@@ -300,7 +300,12 @@ fun AppShell(
                 is AppRoute.BookingHotelChange -> BookingHotelChangeScreen(route.bookingID, route.role, language, bookingStore, hotelCatalog, packageEngine, chrome)
                 is AppRoute.PilgrimCheckout -> PilgrimCheckoutScreen(route.bookingID, language, bookingStore, accountStore, accountService, chrome)
                 is AppRoute.BookingGuideTransfer -> IumrahGuideTransferScreen(route.bookingID, language, bookingStore, chatService, chrome)
-                is AppRoute.BookingChat -> BookingChatScreen(route.bookingID, language, bookingStore, chatService, chrome)
+                is AppRoute.BookingChat -> {
+                    val chatAccount by accountStore.state.collectAsState()
+                    androidx.compose.runtime.key(route.bookingID, chatAccount.account?.iumrahID, accountStore.bearerToken) {
+                        BookingChatScreen(route.bookingID, language, bookingStore, chatService, chrome)
+                    }
+                }
                 AppRoute.BookingZiyarats -> BookingZiyaratCatalogScreen(language, chrome)
                 AppRoute.Ziyarats -> ZiyaratJourneyScreen(language, chrome)
                 AppRoute.ESIM -> ESIMScreen(language, bookingStore, chrome)

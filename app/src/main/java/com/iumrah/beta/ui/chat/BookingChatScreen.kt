@@ -216,7 +216,7 @@ fun BookingChatScreen(
     val appearance = rememberCareAppearance(bookingID)
     val bookingState by bookingStore.state.collectAsState()
     val session = bookingState.sessions.firstOrNull { it.id == bookingID }
-    val headers = session?.let(bookingStore::headersFor).orEmpty()
+    val headers = bookingStore.careHeaders(bookingID)
     val dark = MaterialTheme.colorScheme.background.luminanceCompat() < .45f
     val page = if (dark) Color(0xFF000000) else Color(0xFFF7F7F8)
     val primary = if (appearance.wallpaper.isVisual) Color.White else MaterialTheme.colorScheme.onBackground
@@ -227,14 +227,14 @@ fun BookingChatScreen(
     var care by remember { mutableStateOf<IumrahPublicProfile?>(null) }
     var text by remember(bookingID, headers) { mutableStateOf("") }
     var isLoading by remember(bookingID, headers) { mutableStateOf(messages.isEmpty()) }
-    var isSending by remember { mutableStateOf(false) }
-    var isSendingPhoto by remember { mutableStateOf(false) }
+    var isSending by remember(bookingID, headers) { mutableStateOf(false) }
+    var isSendingPhoto by remember(bookingID, headers) { mutableStateOf(false) }
     var pendingText by remember(bookingID, headers) { mutableStateOf<String?>(null) }
-    var error by remember { mutableStateOf<String?>(null) }
+    var error by remember(bookingID, headers) { mutableStateOf<String?>(null) }
     var failedDraft by remember(bookingID, headers) { mutableStateOf<String?>(null) }
     var failedMessageID by remember(bookingID, headers) { mutableStateOf<String?>(null) }
     var showProfile by remember { mutableStateOf(false) }
-    var fullImagePath by remember { mutableStateOf<String?>(null) }
+    var fullImagePath by remember(bookingID, headers) { mutableStateOf<String?>(null) }
     var unseenCount by remember { mutableStateOf(0) }
     val focusRequester = remember { FocusRequester() }
     var composerFocused by remember { mutableStateOf(false) }
@@ -247,7 +247,7 @@ fun BookingChatScreen(
     }
 
     val photoLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
-        if (uri == null || session == null || isSendingPhoto || isSending) return@rememberLauncherForActivityResult
+        if (uri == null || headers.isEmpty() || isSendingPhoto || isSending) return@rememberLauncherForActivityResult
         isSendingPhoto = true
         error = null
         scope.launch {
@@ -462,8 +462,7 @@ fun BookingChatScreen(
                 onPhoto = { photoLauncher.launch("image/*") },
                 onSend = {
                     val body = text.trim()
-                    val current = session
-                    if (body.isBlank() || current == null || isSending || isSendingPhoto) return@CareComposer
+                    if (body.isBlank() || headers.isEmpty() || isSending || isSendingPhoto) return@CareComposer
                     text = ""
                     pendingText = body
                     val messageID = failedMessageID?.takeIf { failedDraft == body } ?: UUID.randomUUID().toString()
@@ -779,14 +778,14 @@ private fun AuthenticatedChatImage(
     modifier: Modifier = Modifier,
     fullScreen: Boolean = false,
 ) {
-    val session = bookingStore.booking(bookingID)
-    var image by remember(path) { mutableStateOf<ImageBitmap?>(null) }
-    var failed by remember(path) { mutableStateOf(false) }
-    LaunchedEffect(path, session) {
-        if (session == null) return@LaunchedEffect
+    val headers = bookingStore.careHeaders(bookingID)
+    var image by remember(path, headers) { mutableStateOf<ImageBitmap?>(null) }
+    var failed by remember(path, headers) { mutableStateOf(false) }
+    LaunchedEffect(path, headers) {
+        if (headers.isEmpty()) return@LaunchedEffect
         runCatching {
             withContext(Dispatchers.IO) {
-                chatService.loadAttachment(path, bookingStore.headersFor(session)).let { bytes ->
+                chatService.loadAttachment(path, headers).let { bytes ->
                     BitmapFactory.decodeByteArray(bytes, 0, bytes.size)?.asImageBitmap()
                 }
             }

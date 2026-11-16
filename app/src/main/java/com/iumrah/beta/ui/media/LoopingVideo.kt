@@ -11,6 +11,10 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -55,21 +59,29 @@ fun LoopingRawVideo(
             prepare()
         }
     }
-    DisposableEffect(player) {
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+    val requestedPlay by rememberUpdatedState(play)
+    DisposableEffect(player, lifecycle) {
         val listener = object : Player.Listener {
             override fun onPlaybackStateChanged(playbackState: Int) {
                 ready = playbackState == Player.STATE_READY
             }
         }
+        val observer = LifecycleEventObserver { _, _ ->
+            player.playWhenReady = requestedPlay && lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)
+        }
         player.addListener(listener)
+        ready = player.playbackState == Player.STATE_READY
+        lifecycle.addObserver(observer)
         onDispose {
+            lifecycle.removeObserver(observer)
             player.removeListener(listener)
             player.release()
         }
     }
     LaunchedEffect(play, muted, player) {
         player.volume = if (muted) 0f else 1f
-        player.playWhenReady = play
+        player.playWhenReady = play && lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)
     }
 
     Box(modifier) {

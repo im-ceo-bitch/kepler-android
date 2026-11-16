@@ -5,7 +5,6 @@ import com.iumrah.beta.ui.cupertino.CupertinoSymbol
 
 import android.os.Build
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -34,7 +33,12 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.animation.core.snap
+import com.iumrah.beta.core.design.rememberIumrahMotionAllowed
+import com.iumrah.beta.core.design.iosSpring
+import com.iumrah.beta.ui.components.IumrahOrbitV5
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -53,8 +57,6 @@ import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
@@ -105,8 +107,10 @@ fun OnboardingFlow(
     }
     val pager = rememberPagerState(pageCount = { pages.size })
     val scope = rememberCoroutineScope()
+    val motionAllowed = rememberIumrahMotionAllowed()
     val hapticView = LocalView.current
     var showIntro by remember { mutableStateOf(true) }
+    var introFading by remember { mutableStateOf(false) }
     var isFinishing by remember { mutableStateOf(false) }
     var isMuted by remember { mutableStateOf(true) }
     fun finish() {
@@ -120,13 +124,22 @@ fun OnboardingFlow(
     LaunchedEffect(Unit) {
         // Mirrors the deterministic SwiftUI launch sequence: settle -> 1.05 s hold -> fade -> pager.
         delay(1_050)
+        introFading = true
         delay(230) // Match SwiftUI: introductory copy fades before the cinematic pager mounts.
         showIntro = false
     }
-    LaunchedEffect(pager.currentPage, showIntro) {
-        if (!showIntro) { IumrahHaptics.selection(hapticView); IumrahIntelligence.record("onboarding_step", "onboarding", "step_${pager.currentPage}") }
+    var previousPage by remember { mutableStateOf<Int?>(null) }
+    LaunchedEffect(pager.settledPage, showIntro) {
+        if (!showIntro) {
+            if (previousPage != null && previousPage != pager.settledPage) IumrahHaptics.selection(hapticView)
+            previousPage = pager.settledPage
+            IumrahIntelligence.record("onboarding_step", "onboarding", "step_${pager.settledPage}")
+        }
     }
 
+    val finishScale by animateFloatAsState(if (isFinishing && motionAllowed) .975f else 1f, tween(340), label = "onboarding-finish-scale")
+    val finishAlpha by animateFloatAsState(if (isFinishing) .18f else 1f, tween(340), label = "onboarding-finish-alpha")
+    val finishBlur by animateFloatAsState(if (isFinishing && motionAllowed) 5f else 0f, tween(340), label = "onboarding-finish-blur")
     Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         AnimatedVisibility(
             visible = !showIntro,
@@ -137,26 +150,27 @@ fun OnboardingFlow(
                 Modifier
                     .fillMaxSize()
                     .graphicsLayer {
-                        alpha = if (isFinishing) .18f else 1f
-                        scaleX = if (isFinishing) .975f else 1f
-                        scaleY = if (isFinishing) .975f else 1f
+                        alpha = finishAlpha
+                        scaleX = finishScale
+                        scaleY = finishScale
                     }
-                    .then(if (Build.VERSION.SDK_INT >= 31 && isFinishing) Modifier.blur(5.dp) else Modifier),
+                    .then(if (Build.VERSION.SDK_INT >= 31 && finishBlur > .05f) Modifier.blur(finishBlur.dp) else Modifier),
             ) {
                 HorizontalPager(
                     state = pager,
                     modifier = Modifier.fillMaxSize(),
                     beyondViewportPageCount = 1,
+                    userScrollEnabled = !isFinishing,
                 ) { index ->
                     val offset = ((pager.currentPage - index) + pager.currentPageOffsetFraction)
                         .absoluteValue.coerceIn(0f, 1f)
-                    val pageScale = 1f - (0.035f * offset) // SwiftUI scrollTransition: 1 -> 0.965
+                    val pageScale = if (motionAllowed) 1f - (0.035f * offset) else 1f // SwiftUI scrollTransition: 1 -> 0.965
                     val pageAlpha = 1f - (0.42f * offset) // 1 -> 0.58
-                    val blurDp = 2.6f * offset
+                    val blurDp = if (motionAllowed) 2.6f * offset else 0f
                     OnboardingPageContent(
                         page = pages[index],
                         language = language,
-                        active = pager.currentPage == index,
+                        active = pager.currentPage == index && !isFinishing,
                         muted = isMuted,
                         onToggleMute = { isMuted = !isMuted },
                         modifier = Modifier
@@ -211,12 +225,12 @@ fun OnboardingFlow(
                                 scope.launch {
                                     pager.animateScrollToPage(
                                         pager.currentPage + 1,
-                                        animationSpec = IumrahMotion.content,
+                                        animationSpec = if (motionAllowed) iosSpring(.48f, .88f) else snap(),
                                     )
                                 }
                             }
                         },
-                        enabled = !isFinishing,
+                        enabled = !isFinishing && !pager.isScrollInProgress,
                     )
                 }
             }
@@ -227,7 +241,7 @@ fun OnboardingFlow(
             enter = fadeIn(tween(160)),
             exit = fadeOut(tween(220)),
         ) {
-            OnboardingIntro(language)
+            OnboardingIntro(language, fading = introFading)
         }
 
         AnimatedVisibility(
@@ -256,24 +270,25 @@ fun OnboardingFlow(
 }
 
 @Composable
-private fun OnboardingIntro(language: AppLanguage) {
+private fun OnboardingIntro(language: AppLanguage, fading: Boolean) {
     var settled by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { settled = true }
     val scale by animateFloatAsState(if (settled) 1f else .94f, IumrahMotion.softReveal, label = "intro-icon-scale")
     val wordmarkY by animateFloatAsState(if (settled) 0f else 8f, IumrahMotion.softReveal, label = "intro-wordmark-y")
-    val captionAlpha by animateFloatAsState(if (settled) .88f else 0f, tween(260), label = "intro-caption-alpha")
+    val captionAlpha by animateFloatAsState(if (settled && !fading) .88f else 0f, tween(if (fading) 220 else 260), label = "intro-caption-alpha")
+    val markAlpha by animateFloatAsState(if (settled && !fading) 1f else 0f, tween(220), label = "intro-mark-alpha")
 
     Box(Modifier.fillMaxSize().background(Color(0xFF0B0D0F)), contentAlignment = Alignment.Center) {
         Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(14.dp)) {
             Image(
                 painter = painterResource(R.drawable.iumrah_onboarding_brand),
                 contentDescription = null,
-                modifier = Modifier.size(132.dp).graphicsLayer { scaleX = scale; scaleY = scale },
+                modifier = Modifier.size(132.dp).graphicsLayer { scaleX = scale; scaleY = scale; alpha = markAlpha },
             )
             Image(
                 painter = painterResource(R.drawable.iumrah_header_wordmark_light),
                 contentDescription = "iumrah",
-                modifier = Modifier.width(225.dp).height(58.dp).graphicsLayer { translationY = wordmarkY },
+                modifier = Modifier.width(225.dp).height(58.dp).graphicsLayer { translationY = wordmarkY; alpha = markAlpha },
                 contentScale = ContentScale.Fit,
             )
             Text(
@@ -350,39 +365,47 @@ private fun OnboardingPageContent(
     onToggleMute: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val y by animateFloatAsState(if (active) 0f else 18f, IumrahMotion.softReveal,
+    val motionAllowed = rememberIumrahMotionAllowed()
+    val y by animateFloatAsState(if (active || !motionAllowed) 0f else 18f, IumrahMotion.softReveal,
         label = "onboarding-copy-y")
     BoxWithConstraints(modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
-        val availableHeight = maxHeight
-        val small = availableHeight < 730.dp
-        val sceneHeight = (availableHeight * if (small) .48f else .55f).coerceIn(255.dp, 470.dp)
-        Column(Modifier.fillMaxSize()) {
-            Box(Modifier.fillMaxWidth().height(if (page.scene == 4) availableHeight else sceneHeight)
+        val reserve = maxOf(WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding(), 20.dp) + 112.dp
+        val availableHeight = (maxHeight - reserve).coerceAtLeast(0.dp)
+        val small = availableHeight < 650.dp
+        val copyLength = L10n.text(page.title, language).length + L10n.text(page.body, language).length + L10n.text(page.footnote, language).length
+        val fraction = if (small) {
+            if (copyLength > 175) .46f else if (copyLength > 145) .49f else .52f
+        } else {
+            if (copyLength > 190) .56f else if (copyLength > 155) .59f else .62f
+        }
+        val sceneHeight = (availableHeight * fraction).coerceIn(if (small) 286.dp else 404.dp, if (small) 392.dp else 496.dp)
+        Column(Modifier.fillMaxWidth().height(availableHeight).verticalScroll(rememberScrollState())) {
+            Box(Modifier.fillMaxWidth().height(if (page.scene == 4) availableHeight.coerceAtLeast(490.dp) else sceneHeight)
                 .clip(RoundedCornerShape(bottomStart = if (page.scene == 4) 0.dp else 44.dp,
                     bottomEnd = if (page.scene == 4) 0.dp else 44.dp))) {
                 OnboardingScene(scene = page.scene, active = active, language = language,
                     muted = muted, onToggleMute = onToggleMute,
                     modifier = Modifier.fillMaxSize())
                 if (page.scene != 4) {
-                    Box(Modifier.fillMaxWidth().height(90.dp).align(Alignment.BottomCenter)
-                        .background(Brush.verticalGradient(listOf(Color.Transparent,
-                            MaterialTheme.colorScheme.background.copy(alpha = .68f)))))
+                    Box(Modifier.fillMaxWidth().height(176.dp).align(Alignment.BottomCenter)
+                        .background(Brush.verticalGradient(0f to Color.Transparent, .28f to MaterialTheme.colorScheme.background.copy(alpha = .18f), .62f to MaterialTheme.colorScheme.background.copy(alpha = .64f), .86f to MaterialTheme.colorScheme.background.copy(alpha = .94f), 1f to MaterialTheme.colorScheme.background)))
                 }
             }
             if (page.scene != 4) {
                 Column(Modifier.fillMaxWidth().graphicsLayer { translationY = y }
-                    .padding(horizontal = 22.dp, vertical = if (small) 10.dp else 18.dp),
-                    verticalArrangement = Arrangement.spacedBy(if (small) 9.dp else 12.dp)) {
-                    Text(L10n.text(page.kicker, language), style = MaterialTheme.typography.labelMedium,
+                    .padding(horizontal = 22.dp, vertical = if (small) 16.dp else 20.dp),
+                    verticalArrangement = Arrangement.spacedBy(if (small) 9.dp else 11.dp)) {
+                    Text(L10n.text(page.kicker, language), fontSize = 12.5.sp,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onBackground.copy(alpha = .52f),
-                        letterSpacing = 1.4.sp)
+                        letterSpacing = 2.2.sp)
                     Text(L10n.text(page.title, language),
-                        fontSize = if (small) 30.sp else 36.sp,
-                        lineHeight = if (small) 33.sp else 39.sp,
+                        fontSize = if (small) 33.sp else 36.sp,
+                        lineHeight = if (small) 36.sp else 39.sp,
+                        letterSpacing = (-.95).sp,
                         fontWeight = FontWeight.Bold)
                     Text(L10n.text(page.body, language),
-                        fontSize = if (small) 15.sp else 17.sp,
+                        fontSize = if (small) 16.sp else 17.sp,
                         lineHeight = if (small) 19.sp else 22.sp,
                         color = MaterialTheme.colorScheme.onBackground.copy(alpha = .7f))
                     Text(L10n.text(page.footnote, language),
@@ -399,9 +422,10 @@ private fun OnboardingPageContent(
 private fun OnboardingScene(scene: Int, active: Boolean, language: AppLanguage,
     muted: Boolean, onToggleMute: () -> Unit, modifier: Modifier = Modifier) {
     val radius = RoundedCornerShape(bottomStart = 44.dp, bottomEnd = 44.dp)
-    val scale by animateFloatAsState(if (active) 1f else .93f, IumrahMotion.cinematic, label = "scene-$scene-scale")
+    val motionAllowed = rememberIumrahMotionAllowed()
+    val scale by animateFloatAsState(if (active || !motionAllowed) 1f else .93f, IumrahMotion.cinematic, label = "scene-$scene-scale")
     val alpha by animateFloatAsState(if (active) 1f else .66f, tween(300), label = "scene-$scene-alpha")
-    val x by animateFloatAsState(if (active) 0f else 24f, IumrahMotion.cinematic, label = "scene-$scene-x")
+    val x by animateFloatAsState(if (active || !motionAllowed) 0f else 24f, IumrahMotion.cinematic, label = "scene-$scene-x")
 
     Box(
         modifier
@@ -454,33 +478,34 @@ private fun OnboardingScene(scene: Int, active: Boolean, language: AppLanguage,
                 OnboardingCarePreview(language, Modifier.fillMaxWidth(.87f).rotate(if (active) 3.0f else 1.2f))
             }
 
-            else -> Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                Image(
-                    painter = painterResource(R.drawable.iumrah_onboarding_brand),
-                    contentDescription = "iumrah",
-                    modifier = Modifier.size(128.dp),
-                    contentScale = ContentScale.Fit,
-                )
-                OnboardingOrbitPreview(active, Modifier.size(128.dp))
-                Image(
-                    painter = painterResource(if (androidx.compose.foundation.isSystemInDarkTheme()) R.drawable.iumrah_header_wordmark_light else R.drawable.iumrah_header_wordmark_dark),
-                    contentDescription = "iumrah",
-                    modifier = Modifier.width(205.dp).height(52.dp),
-                    contentScale = ContentScale.Fit,
-                )
-                Text(
-                    L10n.text("onboarding_closing_headline", language),
-                    style = MaterialTheme.typography.headlineSmall,
-                    textAlign = TextAlign.Center,
-                    fontWeight = FontWeight.Bold,
-                )
-                Text(
-                    L10n.text("onboarding_closing_message", language),
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onBackground.copy(alpha=.60f),
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.padding(horizontal = 18.dp),
-                )
+            else -> BoxWithConstraints(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                val compact = maxHeight < 760.dp
+                fun tr(ru: String, en: String, uz: String, cy: String) = when (language) {
+                    AppLanguage.RUSSIAN -> ru
+                    AppLanguage.UZBEK -> uz
+                    AppLanguage.UZBEK_CYRILLIC -> cy
+                    else -> en
+                }
+                Column(Modifier.fillMaxSize().padding(top = 54.dp, start = 22.dp, end = 22.dp).verticalScroll(rememberScrollState()), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(if (compact) 14.dp else 20.dp)) {
+                    Text("iumrah · " + tr("ЧАСТНАЯ УМРА", "PRIVATE UMRAH", "SHAXSIY UMRA", "ШАХСИЙ УМРА"), fontSize = 12.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.3.sp, color = MaterialTheme.colorScheme.onBackground.copy(alpha = .60f))
+                    IumrahOrbitV5(diameter = if (compact) 210.dp else 252.dp, lightOnDark = androidx.compose.foundation.isSystemInDarkTheme(), active = active, accessibilityTitle = "iumrah")
+                    Text(L10n.text("onboarding_closing_headline", language), fontSize = if (compact) 20.sp else 22.sp, textAlign = TextAlign.Center, fontWeight = FontWeight.Bold)
+                    Text(L10n.text("onboarding_closing_message", language), fontSize = 17.sp, lineHeight = 22.sp, color = MaterialTheme.colorScheme.onBackground.copy(alpha = .60f), textAlign = TextAlign.Center)
+                    val benefits = listOf(
+                        CupertinoSymbol.Airplane to tr("Рейсы", "Flights", "Reyslar", "Рейслар"),
+                        CupertinoSymbol.Building to tr("Отели", "Hotels", "Mehmonxonalar", "Меҳмонхоналар"),
+                        CupertinoSymbol.Persons to tr("Гид", "Guide", "Gid", "Гид"),
+                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                        benefits.forEach { (symbol, title) ->
+                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Icon(symbol, null, Modifier.size(12.dp))
+                                Text(title, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                            }
+                        }
+                    }
+                    Spacer(Modifier.height(16.dp))
+                }
             }
         }
     }
@@ -627,28 +652,6 @@ private fun OnboardingCarePreview(language: AppLanguage, modifier: Modifier = Mo
                         maxLines = 1, modifier = Modifier.weight(1f))
                 }
             }
-        }
-    }
-}
-
-@Composable
-private fun OnboardingOrbitPreview(active: Boolean, modifier: Modifier = Modifier) {
-    val transition = androidx.compose.animation.core.rememberInfiniteTransition(label = "onboarding-orbit")
-    val rotation by transition.animateFloat(
-        initialValue = 0f, targetValue = 360f,
-        animationSpec = androidx.compose.animation.core.infiniteRepeatable(
-            tween(13_000, easing = androidx.compose.animation.core.LinearEasing)),
-        label = "orbit-angle",
-    )
-    val ink = MaterialTheme.colorScheme.onSurface.copy(alpha = .28f)
-    Canvas(modifier) {
-        val radius = size.minDimension * .38f
-        drawCircle(ink, radius, style = Stroke(width = 1.5.dp.toPx()))
-        repeat(6) { index ->
-            val angle = (index * 60f + if (active) rotation else 0f) * kotlin.math.PI / 180
-            drawCircle(ink, radius = 5.dp.toPx(), center = Offset(
-                center.x + radius * kotlin.math.cos(angle).toFloat(),
-                center.y + radius * kotlin.math.sin(angle).toFloat()))
         }
     }
 }

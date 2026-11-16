@@ -71,6 +71,9 @@ import com.iumrah.beta.core.navigation.AppChromeStore
 import com.iumrah.beta.core.navigation.AppTab
 import com.iumrah.beta.core.settings.AppLanguage
 import com.iumrah.beta.data.account.IumrahAccountService
+import com.iumrah.beta.data.account.IumrahAccountStore
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.currentCoroutineContext
 import com.iumrah.beta.data.booking.BookingStore
 import com.iumrah.beta.data.chat.ChatService
 import com.iumrah.beta.data.chat.IumrahPublicProfile
@@ -97,7 +100,7 @@ import java.util.Locale
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-private enum class BookingPanel { BOOKING, STATUS, SCHEDULE }
+private enum class BookingPanel { BOOKING, STATUS, PACKAGE, SCHEDULE }
 
 private const val IOS_PAGE_PADDING = 18
 private val iOSGreen = Color(0xFF34C759)
@@ -114,50 +117,62 @@ fun BookingsHomeScreen(
     language: AppLanguage,
     bookingStore: BookingStore,
     accountService: IumrahAccountService,
+    accountStore: IumrahAccountStore,
     chatService: ChatService,
     notifications: ClientNotificationStore,
     chrome: AppChromeStore,
 ) {
     val bookingState by bookingStore.state.collectAsState()
+    val accountState by accountStore.state.collectAsState()
     val notificationState by notifications.state.collectAsState()
-    var panel by remember { mutableStateOf(BookingPanel.BOOKING) }
-    var checkout by remember { mutableStateOf<IumrahCheckoutResponse?>(null) }
-    var itinerary by remember { mutableStateOf<List<BookingItineraryItem>>(emptyList()) }
+    var panel by remember(accountState.account?.iumrahID) { mutableStateOf(BookingPanel.BOOKING) }
+    var selectedBookingID by remember(accountState.account?.iumrahID) { mutableStateOf<String?>(null) }
     var deleteError by remember { mutableStateOf<String?>(null) }
     var pendingDeleteID by remember { mutableStateOf<String?>(null) }
     var isDeleting by remember { mutableStateOf(false) }
-    var activeGuideProfile by remember { mutableStateOf<IumrahPublicProfile?>(null) }
+
     var isRefreshing by remember { mutableStateOf(false) }
     val refreshScope = rememberCoroutineScope()
 
     val activeSessions = bookingState.sessions.filterNot {
-        it.effectiveStatus.uppercase() in setOf("COMPLETED", "CANCELLED")
+        it.effectiveStatus.uppercase() in setOf("COMPLETED", "CANCELLED") || bookingStore.booking(it.id) == null
     }
-    val activeSession = activeSessions.firstOrNull()
+    val activeSession = activeSessions.firstOrNull { it.id == selectedBookingID } ?: activeSessions.firstOrNull()
+    val owner = bookingStore.accountBearerToken()
+    var checkout by remember(activeSession?.id, owner) { mutableStateOf<IumrahCheckoutResponse?>(null) }
+    var itinerary by remember(activeSession?.id, owner, language) { mutableStateOf<List<BookingItineraryItem>>(emptyList()) }
+    var activeGuideProfile by remember(activeSession?.id, activeSession?.guide?.id, owner) { mutableStateOf<IumrahPublicProfile?>(null) }
+    val currentSelectedID by androidx.compose.runtime.rememberUpdatedState(activeSession?.id)
 
     suspend fun refresh() {
+        val requestedID = activeSession?.id
+        val requestedOwner = bookingStore.accountBearerToken()
         bookingStore.refreshAll()
-        // Read the latest persisted session after server refresh, never the stale captured Compose object.
-        bookingStore.state.value.sessions.firstOrNull {
-            it.effectiveStatus.uppercase() !in setOf("COMPLETED", "CANCELLED")
-        }?.let { session ->
-            checkout = runCatching {
+        currentCoroutineContext().ensureActive()
+        if (requestedID != currentSelectedID || requestedOwner != bookingStore.accountBearerToken()) return
+        bookingStore.state.value.sessions.firstOrNull { it.id == requestedID }?.let { session ->
+            val loadedCheckout = runCatching {
                 accountService.checkoutWithFallback(
                     bookingID = session.id,
                     bookingToken = session.accessToken,
                     accountToken = bookingStore.accountBearerToken(),
                 )
             }.getOrNull()
-            itinerary = runCatching {
+            val loadedItinerary = runCatching {
                 bookingStore.service.fetchItinerary(session.id, bookingStore.headersFor(session))
             }.getOrDefault(emptyList()).let { localizeServerItinerary(it, language) }
+            currentCoroutineContext().ensureActive()
+            if (requestedID == currentSelectedID && requestedOwner == bookingStore.accountBearerToken()) {
+                checkout = loadedCheckout
+                itinerary = loadedItinerary
+            }
         } ?: run {
             checkout = null
             itinerary = emptyList()
         }
     }
 
-    LaunchedEffect(activeSession?.id, bookingState.sessions.size, language) {
+    LaunchedEffect(activeSession?.id, bookingState.sessions.size, language, owner) {
         refresh()
         while (true) {
             delay(60_000)
@@ -165,7 +180,7 @@ fun BookingsHomeScreen(
         }
     }
 
-    LaunchedEffect(activeSession?.guide?.id) {
+    LaunchedEffect(activeSession?.id, activeSession?.guide?.id, owner) {
         activeGuideProfile = null
         val guideID = activeSession?.guide?.id.orEmpty()
         if (guideID.isNotBlank()) {
@@ -173,6 +188,17 @@ fun BookingsHomeScreen(
         }
     }
 
+    if ((panel == BookingPanel.PACKAGE || panel == BookingPanel.STATUS) && activeSession != null) {
+        BookingDetailScreen(activeSession.id, language, bookingStore, accountStore, accountService, chrome,
+            initialPage = if (panel == BookingPanel.STATUS) BookingPrimaryPageAndroid.STATUS else BookingPrimaryPageAndroid.BOOKING,
+            embedded = true, embeddedHeader = {
+                IumrahRootPageHeader(title = L10n.text("tab_booking", language), chrome = chrome,
+                    showsConnectivityStatus = false, showsMakkahTime = false,
+                    unreadCount = notificationState.unreadCount, language = language,
+                    footer = { BookingPanelPicker(language, panel) { panel = it } })
+            }, onEmbeddedDelete = { panel = BookingPanel.BOOKING }, onEmbeddedSchedule = { panel = BookingPanel.SCHEDULE })
+        return
+    }
     PullToRefreshBox(
         isRefreshing = isRefreshing,
         onRefresh = {
@@ -206,10 +232,11 @@ fun BookingsHomeScreen(
                 otherSessions = activeSessions.filterNot { it.id == displayedSession.id },
                 panel = panel,
                 onPanel = { panel = it },
-                checkout = checkout,
-                itinerary = itinerary,
+                onSelectBooking = { selectedBookingID = it; panel = BookingPanel.BOOKING },
+                checkout = checkout.takeIf { displayedSession.id == activeSession?.id },
+                itinerary = if (displayedSession.id == activeSession?.id) itinerary else emptyList(),
                 unreadCount = notificationState.unreadCount,
-                activeGuideProfile = activeGuideProfile,
+                activeGuideProfile = activeGuideProfile.takeIf { displayedSession.id == activeSession?.id },
                 chrome = chrome,
                 onDelete = { id -> pendingDeleteID = id },
                 deleteError = deleteError,
@@ -248,6 +275,7 @@ private fun ActiveBookingHome(
     otherSessions: List<StoredBookingSession>,
     panel: BookingPanel,
     onPanel: (BookingPanel) -> Unit,
+    onSelectBooking: (String) -> Unit,
     checkout: IumrahCheckoutResponse?,
     itinerary: List<BookingItineraryItem>,
     unreadCount: Int,
@@ -279,15 +307,17 @@ private fun ActiveBookingHome(
                 footer = { BookingPanelPicker(language, panel, onPanel) },
             )
             Spacer(Modifier.height(16.dp))
-            JourneyTravelInfoPanel(language = language)
-            Spacer(Modifier.height(18.dp))
-            BookingIdentity(language, session)
-            Spacer(Modifier.height(18.dp))
+            if (panel == BookingPanel.BOOKING) {
+                BookingIdentity(language, session)
+                Spacer(Modifier.height(18.dp))
+            }
         }
 
         if (panel == BookingPanel.BOOKING) {
             item {
                 BookingProgress(language, session, chrome)
+                Spacer(Modifier.height(24.dp))
+                TripManagement(language, session, chrome)
                 Spacer(Modifier.height(38.dp))
             }
         } else if (panel == BookingPanel.STATUS) {
@@ -328,7 +358,7 @@ private fun ActiveBookingHome(
                 Spacer(Modifier.height(16.dp))
             }
             items(otherSessions, key = { it.id }) { other ->
-                CompactBookingCard(language, other, chrome, onDelete)
+                CompactBookingCard(language, other, chrome, onDelete, onSelect = { onSelectBooking(other.id) })
                 Spacer(Modifier.height(10.dp))
             }
             item { Spacer(Modifier.height(12.dp)) }
@@ -641,10 +671,11 @@ private fun BookingPanelPicker(
     selected: BookingPanel,
     onSelect: (BookingPanel) -> Unit,
 ) {
-    val panels = listOf(BookingPanel.BOOKING, BookingPanel.STATUS, BookingPanel.SCHEDULE)
+    val panels = listOf(BookingPanel.BOOKING, BookingPanel.STATUS, BookingPanel.PACKAGE, BookingPanel.SCHEDULE)
     IumrahHeaderPills(listOf(
         HeaderPill(t(language, "Статус брони", "Booking status", "Bron holati", "Брон ҳолати"), CupertinoSymbol.Suitcase),
         HeaderPill(t(language, "Документы", "Documents", "Hujjatlar", "Ҳужжатлар"), CupertinoSymbol.Document),
+        HeaderPill(t(language, "Пакет Умры", "Umrah package", "Umra paketi", "Умра пакети"), CupertinoSymbol.PackageBox),
         HeaderPill(t(language, "Расписание", "Schedule", "Jadval", "Жадвал"), CupertinoSymbol.Calendar),
     ), selected = panels.indexOf(selected), onSelect = { onSelect(panels[it]) })
 }
@@ -1879,10 +1910,11 @@ private fun CompactBookingCard(
     session: StoredBookingSession,
     chrome: AppChromeStore,
     onDelete: (String) -> Unit,
+    onSelect: () -> Unit = { chrome.openBookingDetail(session.id) },
 ) {
     val shape = RoundedCornerShape(22.dp)
     IumrahPressable(
-        onClick = { chrome.openBookingDetail(session.id) },
+        onClick = onSelect,
         modifier = Modifier
             .fillMaxWidth()
             .border(.7.dp, MaterialTheme.colorScheme.onBackground.copy(alpha = .055f), shape),

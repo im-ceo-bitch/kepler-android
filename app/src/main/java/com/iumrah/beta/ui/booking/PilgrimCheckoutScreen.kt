@@ -45,6 +45,7 @@ import kotlinx.coroutines.CancellationException
 import com.iumrah.beta.domain.booking.BookingRewardsPolicy
 import com.iumrah.beta.models.account.IumrahFriendsBookingSummary
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 
 /**
@@ -112,7 +113,11 @@ internal fun PilgrimCheckoutEmbedded(
         val token = accountStore.bearerToken
         try {
             val response = accountService.checkoutWithFallback(bookingID, session.accessToken, token)
+            kotlinx.coroutines.currentCoroutineContext().ensureActive()
             if (token != accountStore.bearerToken) return
+            // Do not keep a previous payment quote when the reward lookup fails.
+            rewardSummary = null
+            rewardUncertain = false
             checkout = response
             val idMatches = accountStore.state.value.iumrahID?.filter(Char::isDigit)?.takeIf { it.isNotEmpty() } == response.iumrahID.filter(Char::isDigit)
             if (token != null && idMatches && response.status.equals("payment_pending", true)) {
@@ -149,7 +154,7 @@ internal fun PilgrimCheckoutEmbedded(
         }
     }
 
-    LaunchedEffect(bookingID, accountStore.bearerToken) { load() }
+    LaunchedEffect(bookingID, ownerToken, session.effectiveStatus) { load() }
     creditConfirmation?.let { amount ->
         AlertDialog(onDismissRequest = { creditConfirmation = null },
             title = { Text(bookingText(language,"Списать бонусы в счёт этой поездки?","Apply rewards to this booking?","Bonuslarni ushbu bronga qo‘llaysizmi?","Бонусларни ушбу бронга қўллайсизми?")) },

@@ -42,6 +42,7 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.unit.dp
 import com.iumrah.beta.R
 import com.iumrah.beta.core.design.IumrahColors
+import com.iumrah.beta.core.design.rememberIumrahMotionAllowed
 import kotlin.math.sin
 
 /**
@@ -60,25 +61,18 @@ fun IumrahSignatureWorldBackground(
     waveIntensity: Float = .78f,
     isAnimating: Boolean = true,
 ) {
-    val context = LocalContext.current
-    val motionAllowed = remember(context) {
-        runCatching {
-            Settings.Global.getFloat(context.contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f) > 0f
-        }.getOrDefault(true)
-    }
-    // On iOS the shader receives elapsed seconds (TimelineView 30 FPS).
-    // Keeping time in SECONDS (not a 2π sweep) preserves wave propagation.
-    val clock = rememberInfiniteTransition(label = "iumrah-world-dots-wave")
-    val elapsedSeconds by clock.animateFloat(
-        initialValue = 0f,
-        targetValue = 3600f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 3_600_000, easing = LinearEasing),
-            repeatMode = RepeatMode.Restart,
-        ),
-        label = "world-dots-elapsed-seconds",
-    )
-    val t = if (motionAllowed && isAnimating) elapsedSeconds else 0f
+    val motionAllowed = rememberIumrahMotionAllowed()
+    // No infinite frame producer while the activity is paused or motion is disabled.
+    val t = if (motionAllowed && isAnimating) {
+        val clock = rememberInfiniteTransition(label = "iumrah-world-dots-wave")
+        val elapsedSeconds by clock.animateFloat(
+            initialValue = 0f,
+            targetValue = 3600f,
+            animationSpec = infiniteRepeatable(tween(durationMillis = 3_600_000, easing = LinearEasing), RepeatMode.Restart),
+            label = "world-dots-elapsed-seconds",
+        )
+        elapsedSeconds
+    } else 0f
     val gain = mapOpacity.coerceIn(0f, 1f)
     val intensity = if (motionAllowed && isAnimating) waveIntensity.coerceIn(0f, 1f) else 0f
     val speed = waveSpeed.coerceIn(0f, 3f)

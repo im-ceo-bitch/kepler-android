@@ -56,7 +56,7 @@ fun NuiteeJourneyReviewScreen(language: AppLanguage, journey: JourneyStore, acco
     var sending by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     var help by remember { mutableStateOf(false) }
-    var transferSheet by remember { mutableStateOf(false) }
+    var transferSheet by remember { mutableStateOf(!state.transferSelectionConfirmed && draft != null) }
     var editing by remember { mutableStateOf<NuiteeRoomSelection?>(null) }
     val roomsComplete = draft?.let { NuiteeBookingRules.complete(state.trip, it) && it.flights.size == 2 } == true
     val valid = roomsComplete && state.resolvedTransferVehicle.passengerCapacity >= state.trip.travelerCount

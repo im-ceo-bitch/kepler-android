@@ -13,6 +13,10 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentWidth
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import com.iumrah.beta.core.design.rememberIumrahMotionAllowed
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
@@ -48,26 +52,27 @@ fun IumrahPaymentMethodsMarquee(
     val spacing = if (compact) 14.dp else 18.dp
     val groupWidth = (itemWidth + spacing) * logos.size.toFloat()
     val groupWidthPx = with(LocalDensity.current) { groupWidth.toPx() }
-    val durationMillis = if (compact) 27_500 else 26_000
-    val transition = rememberInfiniteTransition(label = "payment-methods-marquee")
-    val offset by transition.animateFloat(
-        initialValue = 0f,
-        targetValue = groupWidthPx,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = durationMillis, easing = LinearEasing),
-            repeatMode = RepeatMode.Restart,
-        ),
-        label = "payment-methods-offset",
-    )
+    val durationMillis = (groupWidth.value / (if (compact) 21f else 25f) * 1000f).toInt()
+    val motionAllowed = rememberIumrahMotionAllowed()
+    val offset = if (motionAllowed) {
+        val transition = rememberInfiniteTransition(label = "payment-methods-marquee")
+        val animated by transition.animateFloat(
+            initialValue = 0f,
+            targetValue = groupWidthPx,
+            animationSpec = infiniteRepeatable(tween(durationMillis, easing = LinearEasing), RepeatMode.Restart),
+            label = "payment-methods-offset",
+        )
+        animated
+    } else 0f
     val tint = MaterialTheme.colorScheme.onSurface.copy(alpha = .78f)
 
     Box(
         modifier = modifier
             .height(if (compact) 44.dp else 54.dp)
-            .clipToBounds(),
+            .clipToBounds().clearAndSetSemantics { },
     ) {
         Row(
-            modifier = Modifier.graphicsLayer { translationX = -offset },
+            modifier = Modifier.wrapContentWidth(Alignment.Start, unbounded = true).graphicsLayer { translationX = -offset },
         ) {
             repeat(4) {
                 logos.forEach { logo ->
@@ -77,7 +82,7 @@ fun IumrahPaymentMethodsMarquee(
                         modifier = Modifier
                             .width(itemWidth)
                             .height(if (compact) 40.dp else 48.dp)
-                            .padding(horizontal = 7.dp),
+                            .padding(horizontal = 7.dp, vertical = ((if (compact) 40.dp else 48.dp) - itemHeight) / 2),
                         contentScale = ContentScale.Fit,
                         colorFilter = ColorFilter.tint(tint),
                     )

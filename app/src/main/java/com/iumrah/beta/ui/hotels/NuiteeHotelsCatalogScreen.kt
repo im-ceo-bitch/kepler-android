@@ -269,8 +269,6 @@ fun NuiteeHotelsCatalogScreen(
                 }
             }
         }
-        if (sandbox) item { Text(nuiteeText(language,"Тестовый каталог поставщика", "Supplier sandbox catalog", "Sinov katalogi", "Синов каталоги"),
-            fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) }
         if (pricesStale || rateError != null) item {
             Text(nuiteeText(language, "Актуальность цен не подтверждена: тариф уточняется при открытии номера.",
                 "Prices may be outdated. Recheck the room offer before selecting.", "Narxlar qayta tekshiriladi.", "Нархлар қайта текширилади."),
@@ -368,7 +366,7 @@ internal fun NuiteeListingCard(
             Spacer(Modifier.weight(1f))
             val rate = NuiteeRules.listedRate(hotel, stale)
             if (rate != null) {
-                if (sandbox) Text(nuiteeText(language, "Тестовый тариф", "Test rate", "Sinov tarifi", "Синов тарифи"), fontSize = 10.sp)
+                if (sandbox) Text(nuiteeText(language, "Ориентировочная цена", "Indicative price", "Taxminiy narx", "Тахминий нарх"), fontSize = 10.sp)
                 Text(nuiteeUSD(rate), fontSize = 23.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 if (nights > 0 && adults > 0) Text("$nights " + nuiteeText(language, "ночей · 1 номер ·", "nights · 1 room ·", "tun · 1 xona ·", "тун · 1 хона ·") + " $adults " + nuiteeText(language, "гостей", "guests", "mehmon", "меҳмон"), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2)
             } else {
@@ -433,10 +431,11 @@ internal fun NuiteeHotelDetailSheet(
     var rates by remember(hotel.id, checkin, checkout, adults, childrenAges) { mutableStateOf<List<NuiteeRoomRate>>(emptyList()) }
     var busy by remember(hotel.id, checkin, checkout, adults, childrenAges) { mutableStateOf(true) }
     var failure by remember(hotel.id, checkin, checkout, adults, childrenAges) { mutableStateOf<String?>(null) }
+    var indicativeRates by remember(hotel.id, checkin, checkout, adults, childrenAges) { mutableStateOf(false) }
     var freshRates by remember(hotel.id, checkin, checkout, adults, childrenAges) { mutableStateOf(false) }
     var retry by remember { mutableIntStateOf(0) }
     LaunchedEffect(hotel.id, checkin, checkout, adults, childrenAges, contentLanguage, retry) {
-        busy = true; rates = emptyList(); failure = null; freshRates = false
+        busy = true; rates = emptyList(); failure = null; freshRates = false; indicativeRates = false
         try {
             detail = service.detail(hotel.id, contentLanguage)
         } catch (cancel: CancellationException) { throw cancel
@@ -445,6 +444,7 @@ internal fun NuiteeHotelDetailSheet(
             val response = service.rates(hotel.id, checkin, checkout, adults, childrenAges, contentLanguage)
             rates = response.rates.filter(NuiteeRules::validRoomRate)
             freshRates = !response.cached
+            indicativeRates = response.sandbox
             if (response.cached) failure = nuiteeText(language,
                 "Проверьте актуальную стоимость перед бронированием.", "Check the current price before booking.",
                 "Narxni qayta tekshiring.", "Нархни қайта текширинг.")
@@ -526,11 +526,14 @@ internal fun NuiteeHotelDetailSheet(
                     .background(MaterialTheme.colorScheme.surfaceVariant).padding(15.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
                     Text(rate.roomName, fontWeight = FontWeight.Bold)
                     Text("${nuiteeUSD(rate.price)} · ${rate.mealPlan}", fontWeight = FontWeight.SemiBold)
+                    if (indicativeRates) Text(nuiteeText(language, "Стоимость, наличие и условия уточним перед оплатой.", "Price, availability and terms will be confirmed before payment.", "Narx, mavjudlik va shartlar to‘lovdan oldin tasdiqlanadi.", "Нарх, мавжудлик ва шартлар тўловдан олдин тасдиқланади."), fontSize = 12.sp)
+                    else {
                     Text(rate.cancellationDescription.ifBlank { rate.cancellationTag }, fontSize = 12.sp)
                     rate.cancellationDeadlines.forEach { Text("${it.until} · ${it.amount?.let(::nuiteeUSD).orEmpty()}", fontSize = 12.sp) }
                     rate.chargeOnArrival.forEach { charge -> Text(
                         nuiteeText(language,"Оплата в отеле", "Pay at hotel", "Mehmonxonada to‘lov", "Меҳмонхонада тўлов") +
                         ": ${charge.amount?.let(::nuiteeUSD) ?: "—"} ${charge.currency}", fontSize = 12.sp) }
+                    }
                     IumrahPrimaryButton(title = if (freshRates) nuiteeText(language,
                         "Выбрать номер", "Choose room", "Xonani tanlash", "Хонани танлаш") else
                         nuiteeText(language,"Обновите цену", "Recheck price", "Narxni tekshiring", "Нархни текширинг"),

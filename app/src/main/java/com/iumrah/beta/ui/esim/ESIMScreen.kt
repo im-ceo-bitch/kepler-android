@@ -79,6 +79,8 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import kotlin.math.roundToInt
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.CancellationException
+import com.iumrah.beta.core.design.rememberIumrahForeground
 import kotlinx.coroutines.launch
 import kotlin.math.max
 
@@ -95,22 +97,30 @@ fun ESIMScreen(
         status != "completed" && status != "cancelled"
     } ?: state.sessions.firstOrNull()
     val profiles = activeSession?.let { state.esimProfilesByBooking[it.id].orEmpty() }.orEmpty()
-    var refreshing by remember { mutableStateOf(false) }
-    var error by remember { mutableStateOf<String?>(null) }
+    val foreground = rememberIumrahForeground()
+    val sessionID = activeSession?.id
+    var refreshing by remember(sessionID) { mutableStateOf(false) }
+    var error by remember(sessionID) { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
 
     suspend fun refresh() {
         val session = activeSession ?: return
         if (refreshing) return
         refreshing = true
-        runCatching { bookingStore.loadESIMs(session.id) }
-            .onSuccess { error = null }
-            .onFailure { if (bookingStore.esimProfiles(session.id).isEmpty()) error = esimText(language, "refresh_unavailable") }
-        refreshing = false
+        try {
+            bookingStore.loadESIMs(session.id)
+            error = null
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (_: Exception) {
+            if (bookingStore.esimProfiles(session.id).isEmpty()) error = esimText(language, "refresh_unavailable")
+        } finally {
+            refreshing = false
+        }
     }
 
-    LaunchedEffect(activeSession?.id) {
-        if (activeSession != null) {
+    LaunchedEffect(sessionID, foreground) {
+        if (sessionID != null && foreground) {
             while (true) {
                 refresh()
                 delay(60_000)

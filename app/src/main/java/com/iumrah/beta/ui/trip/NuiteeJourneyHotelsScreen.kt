@@ -30,6 +30,8 @@ import com.iumrah.beta.domain.trip.JourneyScope
 import com.iumrah.beta.domain.trip.TripStayPlanner
 import com.iumrah.beta.models.nuitee.NuiteeHotel
 import com.iumrah.beta.ui.components.IumrahPrimaryButton
+import com.iumrah.beta.ui.cupertino.CupertinoIcon
+import com.iumrah.beta.ui.cupertino.CupertinoSymbol
 import com.iumrah.beta.ui.hotels.NuiteeCityChoice
 import com.iumrah.beta.ui.hotels.NuiteeHotelDetailSheet
 import com.iumrah.beta.ui.hotels.NuiteeListingCard
@@ -66,6 +68,7 @@ fun NuiteeJourneyHotelsScreen(language: AppLanguage, journey: JourneyStore, chro
     val roomChildren = childrenAges.withIndex().filter { it.index % trip.rooms == roomIndex }.map { it.value }
     val ready = childrenAges.size == trip.children + trip.infants && childrenAges.all { it in 0..17 } && roomAdults > 0
     val roomKey = "$city:$roomIndex"
+    var partyExpanded by remember { mutableStateOf(!ready) }
     val listState = rememberLazyListState()
     var visibleCount by remember(city, roomIndex, stars, stay.checkIn, stay.checkOut) { mutableIntStateOf(20) }
     LaunchedEffect(roomKey) { listState.scrollToItem(0) }
@@ -88,31 +91,38 @@ fun NuiteeJourneyHotelsScreen(language: AppLanguage, journey: JourneyStore, chro
     Scaffold(containerColor = MaterialTheme.colorScheme.background, bottomBar = {
         if (allComplete) Box(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.background)
             .navigationBarsPadding().padding(horizontal = 18.dp, vertical = 12.dp)) {
-            IumrahPrimaryButton(title = nuiteeText(language,"Продолжить к поездке", "Review trip",
-                "Safarni ko‘rish", "Сафарни кўриш"), onClick = { chrome.openNuiteeJourneyReview() })
+            IumrahPrimaryButton(title = nuiteeText(language,"Выбрать трансфер", "Choose transfer",
+                "Transferni tanlash", "Трансферни танлаш"), onClick = { chrome.openNuiteeJourneyReview() })
         }
     }) { scaffoldPadding ->
         LazyColumn(Modifier.fillMaxSize().padding(scaffoldPadding), state = listState, contentPadding = PaddingValues(18.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp)) {
             item {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    TextButton(onClick = { chrome.back() }) { Text("‹") }
+                Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(Color(0xFF111111)).padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                    TextButton(onClick = { chrome.back() }) { CupertinoIcon(CupertinoSymbol.ChevronLeft, null, Modifier.size(22.dp), Color.White) }
                     Column(Modifier.weight(1f)) {
                         Text(nuiteeText(language,"Отели и номера", "Hotels & rooms", "Mehmonxona va xonalar", "Меҳмонхона ва хоналар"),
-                            fontWeight = FontWeight.Bold, fontSize = 24.sp)
-                        Text("${trip.travelerCount} · ${trip.rooms} " + nuiteeText(language,"номер(ов)", "room(s)", "xona", "хона"), fontSize = 13.sp)
+                            fontWeight = FontWeight.Bold, fontSize = 24.sp, color = Color.White)
+                        Text("${trip.travelerCount} · ${trip.rooms} " + nuiteeText(language,"номер(ов)", "room(s)", "xona", "хона"), fontSize = 13.sp, color = Color.White.copy(alpha = .75f))
                     }
                 }
             }
             item {
                 Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(22.dp))
                     .background(MaterialTheme.colorScheme.surface).padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text(nuiteeText(language,"Состав поездки", "Travel party", "Sayohatchilar", "Саёҳатчилар"), fontWeight = FontWeight.Bold)
+                    Row(Modifier.fillMaxWidth().clickable { partyExpanded = !partyExpanded }, verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text(nuiteeText(language,"Состав поездки", "Travel party", "Sayohatchilar", "Саёҳатчилар"), fontWeight = FontWeight.Bold)
+                            Text("${stay.checkIn} — ${stay.checkOut} · ${trip.travelerCount}", fontSize = 12.sp)
+                        }
+                        CupertinoIcon(if (partyExpanded) CupertinoSymbol.ChevronUp else CupertinoSymbol.ChevronDown, null, Modifier.size(22.dp))
+                    }
+                    if (partyExpanded) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(nuiteeText(language,"Номеров", "Rooms", "Xonalar", "Хоналар"), Modifier.weight(1f))
-                        TextButton(enabled = trip.rooms > 1, onClick = { journey.changeNuiteeRoomCount(trip.rooms - 1); roomIndex = 0 }) { Text("−") }
+                        TextButton(enabled = trip.rooms > 1, onClick = { journey.changeNuiteeRoomCount(trip.rooms - 1); roomIndex = 0 }) { CupertinoIcon(CupertinoSymbol.Minus, null, Modifier.size(18.dp)) }
                         Text("${trip.rooms}")
-                        TextButton(enabled = trip.rooms < trip.adults, onClick = { journey.changeNuiteeRoomCount(trip.rooms + 1); roomIndex = 0 }) { Text("+") }
+                        TextButton(enabled = trip.rooms < trip.adults, onClick = { journey.changeNuiteeRoomCount(trip.rooms + 1); roomIndex = 0 }) { CupertinoIcon(CupertinoSymbol.Plus, null, Modifier.size(18.dp)) }
                     }
                     childrenAges.forEachIndexed { idx, age ->
                         var open by remember(idx) { mutableStateOf(false) }
@@ -122,12 +132,12 @@ fun NuiteeJourneyHotelsScreen(language: AppLanguage, journey: JourneyStore, chro
                                 OutlinedButton(onClick = { open = true }) { Text(if (age < 0) "—" else "$age") }
                                 DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
                                     (0..17).forEach { value -> DropdownMenuItem(text = { Text("$value") }, onClick = {
-                                        childrenAges = childrenAges.toMutableList().also { it[idx] = value }
-                                        journey.clearNuiteeRooms(); open = false
+                                        if (age != value) { childrenAges = childrenAges.toMutableList().also { it[idx] = value }; journey.clearNuiteeRooms() }; open = false
                                     }) }
                                 }
                             }
                         }
+                    }
                     }
                     if (!ready) Text(nuiteeText(language,
                         "Укажите возраст всех детей, чтобы поставщик рассчитал тариф.",
@@ -174,7 +184,6 @@ fun NuiteeJourneyHotelsScreen(language: AppLanguage, journey: JourneyStore, chro
                     }
                 }
             }
-            if (sandbox) item { Text("Nuitee sandbox", fontSize = 12.sp) }
             if (pricesStale || rateError != null) item { Text(nuiteeText(language,
                 "Для точной цены откройте номер и обновите тариф.", "Open a room to verify its current price.",
                 "Xona narxini tekshiring.", "Хона нархини текширинг."), fontSize = 12.sp) }
@@ -206,7 +215,7 @@ fun NuiteeJourneyHotelsScreen(language: AppLanguage, journey: JourneyStore, chro
                         roomKey, city, roomIndex, hotel, rate, stay.checkIn, stay.checkOut, roomAdults, roomChildren, meals))
                     val updated = journey.state.value
                     if (updated.nuitee?.rooms?.get(roomKey)?.rate == rate) {
-                        val next = updated.nuitee?.let { draft -> draft.requiredCities(trip).flatMap { c -> (0 until trip.rooms).map { c to it } }.firstOrNull { (c, i) -> "$c:$i" !in draft.rooms } }
+                        val next = updated.nuitee?.let { draft -> (listOf(city) + draft.requiredCities(trip).filter { it != city }).flatMap { c -> (0 until trip.rooms).map { c to it } }.firstOrNull { (c, i) -> "$c:$i" !in draft.rooms } }
                         if (next != null) { city = next.first; roomIndex = next.second; stars = 0 }
                         else if (updated.nuitee?.let { com.iumrah.beta.domain.nuitee.NuiteeBookingRules.complete(trip, it) } == true) chrome.openNuiteeJourneyReview()
                     }

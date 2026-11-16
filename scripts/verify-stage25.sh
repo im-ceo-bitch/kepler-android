@@ -70,3 +70,6 @@ python3 scripts/verify-pixel-perfect-block01.py
 
 # Home and navigation geometry/state regression contracts.
 python3 scripts/verify-pixel-perfect-block02.py
+
+# Final service, onboarding and motion regression contracts.
+python3 scripts/verify-pixel-perfect-block04c05.py

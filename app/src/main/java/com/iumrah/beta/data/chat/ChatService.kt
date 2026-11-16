@@ -76,7 +76,7 @@ class ChatService(private val api: APIClient) {
     @Synchronized fun mergeChat(bookingID: String, headers: Map<String, String>, fresh: List<ChatMessage>): List<ChatMessage> {
         val key = ChatDelta.scope(bookingID, headers) ?: return emptyList()
         val previous = cache[key] ?: ChatSnapshot(emptyList())
-        val result = mergeMessages(previous.messages, fresh.filter { it.bookingID == bookingID })
+        val result = mergeMessages(previous.messages, fresh.filter { bookingID == "account" || it.bookingID == bookingID })
         cache[key] = previous.copy(messages = result)
         return result
     }
@@ -100,7 +100,7 @@ class ChatService(private val api: APIClient) {
                     val current = cache[key] ?: previous
                     val reset = response.reset == true || (previous.scopeVersion != null && response.scopeVersion != null && previous.scopeVersion != response.scopeVersion)
                     val messages = mergeMessages(if (reset) emptyList() else current.messages,
-                        response.messages.filter { it.bookingID == bookingID }, response.staffReadMessageIDs.orEmpty().toSet())
+                        response.messages.filter { bookingID == "account" || it.bookingID == bookingID }, response.staffReadMessageIDs.orEmpty().toSet())
                     cache[key] = ChatSnapshot(messages, response.nextCursor ?: "0", response.scopeVersion)
                 }
                 if (response.hasMore != true || response.nextCursor == null || (response.nextCursor == after && response.reset != true)) return@withLock cachedChat(bookingID, headers)

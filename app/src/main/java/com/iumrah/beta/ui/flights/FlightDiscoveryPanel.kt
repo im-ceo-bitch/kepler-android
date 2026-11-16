@@ -122,7 +122,7 @@ fun FlightDiscoveryPanel(
     var infants by remember(trip.infants) { mutableStateOf(maxOf(0, trip.infants)) }
     var directOnly by rememberSaveable { mutableStateOf(false) }
     var mode by remember { mutableStateOf(FlightSearchMode.GLOBAL) }
-    var selectedAirlines by remember { mutableStateOf<Set<String>>(emptySet()) }
+    var selectedAirlines by remember(originCode, destinationCode) { mutableStateOf<Set<String>>(emptySet()) }
 
     var offers by remember { mutableStateOf<List<FlightDiscoveryOffer>>(emptyList()) }
     var calendar by remember { mutableStateOf<List<FlightDiscoveryCalendarDay>>(emptyList()) }
@@ -159,6 +159,9 @@ fun FlightDiscoveryPanel(
         IumrahIntelligence.record("search_started", "flights", "global")
         loading = true
         error = null
+        offers = emptyList()
+        calendar = emptyList()
+        selectedOffer = null
         val departure = departureDate.toString()
         val month = departure.take(7)
         val inbound = if (tripType == DiscoveryTripType.ROUND_TRIP) returnDate.toString() else null
@@ -202,6 +205,8 @@ fun FlightDiscoveryPanel(
 
     LaunchedEffect(mode, originCode, destinationCode, departureDate, returnDate, tripType, directOnly, adults, children, infants, trip.scope, retrySeed) {
         if (mode == FlightSearchMode.GLOBAL) {
+            offers = emptyList(); calendar = emptyList(); selectedOffer = null
+            loading = true
             delay(320)
             hasSearched = true
             refresh()
@@ -225,8 +230,8 @@ fun FlightDiscoveryPanel(
         }
     }
 
-    val filtered = remember(offers, selectedAirlines) {
-        offers.filter { selectedAirlines.isEmpty() || it.airlineCode.uppercase() in selectedAirlines }
+    val filtered = remember(offers, selectedAirlines, directOnly) {
+        offers.filter { (!directOnly || it.isDirect) && (selectedAirlines.isEmpty() || it.airlineCode.uppercase() in selectedAirlines) }
     }
     val ranked = remember(filtered) {
         filtered.sortedWith(compareByDescending<FlightDiscoveryOffer> { it.isDirect }
@@ -447,7 +452,7 @@ fun FlightDiscoveryPanel(
     }
     if (priceChart) {
         FlightPriceGraphV46(language, originCode, destinationCode, departureDate, returnDate,
-            tripType == DiscoveryTripType.ROUND_TRIP, service,
+            tripType == DiscoveryTripType.ROUND_TRIP, service, initialDirect = directOnly,
             onDismiss = { priceChart = false }, onSelect = { out, inbound ->
                 departureDate = out
                 returnDate = inbound
@@ -589,11 +594,16 @@ private fun FlightAirportPickerSheet(language: AppLanguage, service: AirportSear
 private fun FlightDiscoveryDateDialog(language: AppLanguage, departure: LocalDate, returnDate: LocalDate, type: DiscoveryTripType, onDismiss: () -> Unit, onApply: (LocalDate, LocalDate?) -> Unit) {
     var selectingReturn by remember { mutableStateOf(false) }
     var pendingDeparture by remember { mutableStateOf(departure) }
-    val state = rememberDatePickerState(initialSelectedDateMillis = departure.atStartOfDay(ZoneId.of("UTC")).toInstant().toEpochMilli())
+    val minimum = if (selectingReturn) pendingDeparture.plusDays(1) else LocalDate.now()
+    val state = rememberDatePickerState(initialSelectedDateMillis = departure.atStartOfDay(ZoneId.of("UTC")).toInstant().toEpochMilli(),
+        selectableDates = object : androidx.compose.material3.SelectableDates {
+            override fun isSelectableDate(utcTimeMillis: Long): Boolean = millisToDate(utcTimeMillis) >= LocalDate.now()
+            override fun isSelectableYear(year: Int): Boolean = year >= LocalDate.now().year
+        })
     DatePickerDialog(
         onDismissRequest = onDismiss,
         confirmButton = {
-            TextButton(onClick = {
+            TextButton(enabled = state.selectedDateMillis?.let(::millisToDate)?.let { it >= minimum } == true, onClick = {
                 val chosen = state.selectedDateMillis?.let(::millisToDate) ?: pendingDeparture
                 if (type == DiscoveryTripType.ROUND_TRIP && !selectingReturn) {
                     pendingDeparture = maxOf(LocalDate.now(), chosen)

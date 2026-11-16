@@ -41,6 +41,8 @@ import com.iumrah.beta.data.flight.FlightDiscoveryCalendarDay
 import com.iumrah.beta.ui.components.IumrahPressable
 import java.time.LocalDate
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.ensureActive
+import androidx.compose.foundation.verticalScroll
 import kotlinx.coroutines.launch
 
 private fun text(language:AppLanguage,ru:String,en:String,uz:String,cy:String)=when(language){
@@ -51,28 +53,38 @@ private fun text(language:AppLanguage,ru:String,en:String,uz:String,cy:String)=w
 internal fun FlightPriceGraphV46(
     language: AppLanguage, origin: String, destination: String, selectedDeparture: LocalDate,
     selectedReturn: LocalDate, roundTrip: Boolean, service: AviasalesFlightDiscoveryService,
-    onDismiss: () -> Unit, onSelect: (LocalDate, LocalDate) -> Unit,
+    initialDirect: Boolean = false, onDismiss: () -> Unit, onSelect: (LocalDate, LocalDate) -> Unit,
 ) {
     var selectedLeg by remember { mutableStateOf(0) }
-    var onlyDirect by remember { mutableStateOf(false) }
+    var onlyDirect by remember { mutableStateOf(initialDirect) }
     var outbound by remember { mutableStateOf<List<FlightDiscoveryCalendarDay>>(emptyList()) }
     var inbound by remember { mutableStateOf<List<FlightDiscoveryCalendarDay>>(emptyList()) }
     var departure by remember(selectedDeparture) { mutableStateOf(selectedDeparture) }
     var returnDate by remember(selectedReturn) { mutableStateOf(selectedReturn) }
     var loading by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf(false) }
-    LaunchedEffect(origin,destination,onlyDirect,selectedDeparture,selectedReturn,roundTrip) {
-        loading=true;error=false
+    var outboundCurrency by remember { mutableStateOf("USD") }
+    var inboundCurrency by remember { mutableStateOf("USD") }
+    val departureMonth = departure.toString().take(7)
+    val returnMonth = returnDate.toString().take(7)
+    LaunchedEffect(origin,destination,onlyDirect,departureMonth,returnMonth,roundTrip) {
+        loading=true;error=false;outbound=emptyList();inbound=emptyList()
         try {
-            outbound=service.calendar(origin,destination,departure.toString().take(7),onlyDirect).days
-            if(roundTrip) inbound=service.calendar(destination,origin,returnDate.toString().take(7),onlyDirect).days
+            val result = service.calendar(origin,destination,departureMonth,onlyDirect)
+            kotlinx.coroutines.currentCoroutineContext().ensureActive()
+            outbound=result.days; outboundCurrency=result.currency.uppercase()
+            if(roundTrip) {
+                val back = service.calendar(destination,origin,returnMonth,onlyDirect)
+                kotlinx.coroutines.currentCoroutineContext().ensureActive()
+                inbound=back.days; inboundCurrency=back.currency.uppercase()
+            }
         } catch(cancel:CancellationException) { throw cancel }
         catch(_:Exception) { error=true;outbound=emptyList();inbound=emptyList() }
         finally { loading=false }
     }
     ModalBottomSheet(onDismissRequest=onDismiss,containerColor=MaterialTheme.colorScheme.background,
         dragHandle=null,shape=RoundedCornerShape(topStart=30.dp,topEnd=30.dp)) {
-        Column(Modifier.fillMaxWidth().padding(20.dp).padding(bottom=25.dp),verticalArrangement=Arrangement.spacedBy(18.dp)) {
+        Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(20.dp).padding(bottom=25.dp),verticalArrangement=Arrangement.spacedBy(18.dp)) {
             Text(text(language,"График цен","Price chart","Narx grafigi","Нарх графиги"),fontSize=25.sp,fontWeight=FontWeight.Bold)
             Text("$origin → $destination",fontSize=15.sp,fontWeight=FontWeight.Bold)
             Text(text(language,"1 пассажир · эконом","1 passenger · economy","1 yo‘lovchi · ekonom","1 йўловчи · эконом"),
@@ -89,10 +101,16 @@ internal fun FlightPriceGraphV46(
                     }
                 }
             }
-            val days=if(selectedLeg==0)outbound else inbound
+            val days=(if(selectedLeg==0)outbound else inbound).filter { day ->
+                day.price.isFinite() && day.price > 0 && runCatching { LocalDate.parse(day.date) >= (if(selectedLeg==0) LocalDate.now() else departure.plusDays(1)) }.getOrDefault(false)
+            }
+            val fareCurrency=if(selectedLeg==0)outboundCurrency else inboundCurrency
             val selected=if(selectedLeg==0)departure else returnDate
             Text(if(selectedLeg==0) text(language,"Туда","Outbound","Borish","Бориш")
                 else text(language,"Обратно","Return","Qaytish","Қайтиш"),fontSize=17.sp,fontWeight=FontWeight.Bold)
+            days.firstOrNull { it.date == selected.toString() }?.let { day ->
+                Text(text(language,"Выбранная дата","Selected date","Tanlangan sana","Танланган сана") + ": ${day.price.toInt()} $fareCurrency",fontSize=14.sp,fontWeight=FontWeight.SemiBold)
+            }
             if (loading && days.isEmpty()) CircularProgressIndicator()
             else if(days.isEmpty()) Text(if(error) text(language,"Ошибка загрузки","Could not load fares","Narxlar yuklanmadi","Нархлар юкланмади")
                 else text(language,"Нет данных по этим датам","No fares for these dates","Bu sanalar uchun narx yo‘q","Бу саналар учун нарх йўқ"),
@@ -117,7 +135,7 @@ internal fun FlightPriceGraphV46(
                                 else if(parsed.isAfter(departure))returnDate=parsed
                             }
                         },horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.spacedBy(6.dp)) {
-                            Text(if(isSelected||cheapest)"$${day.price.toInt()}" else " ",fontSize=10.sp,fontWeight=FontWeight.Bold,color=color)
+                            Text(if(isSelected||cheapest)"${day.price.toInt()} $fareCurrency" else " ",fontSize=10.sp,fontWeight=FontWeight.Bold,color=color)
                             Box(Modifier.width(37.dp).height(height).clip(RoundedCornerShape(topStart=5.dp,topEnd=5.dp)).background(color))
                             Text(day.date.takeLast(2),fontSize=11.sp,fontWeight=FontWeight.SemiBold)
                         }
@@ -135,7 +153,7 @@ internal fun FlightPriceGraphV46(
                 Switch(checked=onlyDirect,onCheckedChange={onlyDirect=it})
             }
             IumrahPressable(onClick={onSelect(departure,returnDate);onDismiss()},modifier=Modifier.fillMaxWidth().height(55.dp),
-                cornerRadius=17.dp,background=Color(0xFF007AFF),shadowElevation=0.dp) {
+                cornerRadius=17.dp,background=Color.Black,shadowElevation=0.dp) {
                 Box(Modifier.fillMaxWidth().height(55.dp),contentAlignment=Alignment.Center) {
                     Text(text(language,"Готово","Done","Tayyor","Тайёр"),fontWeight=FontWeight.Bold,color=Color.White)
                 }

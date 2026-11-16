@@ -123,6 +123,17 @@ class BookingStore(
     /** Read-only account proof for fallback, not persisted with individual bookings. */
     fun accountBearerToken(): String? = accountStore.bearerToken
 
+    fun canUseCareChat(): Boolean = !accountBearerToken().isNullOrBlank() &&
+        state.value.sessions.any { isVisible(it) && it.effectiveStatus.uppercase() !in setOf("COMPLETED", "CANCELLED") }
+
+    fun careHeaders(bookingID: String): Map<String, String> {
+        if (bookingID == "account") {
+            if (!canUseCareChat()) return emptyMap()
+            return accountBearerToken()?.takeIf { it.isNotBlank() }?.let { mapOf("Authorization" to "Bearer $it") }.orEmpty()
+        }
+        return booking(bookingID)?.let(::headersFor).orEmpty()
+    }
+
     fun esimProfiles(bookingID: String): List<ClientESIMProfile> = _state.value.esimProfilesByBooking[bookingID].orEmpty()
     fun primaryESIM(bookingID: String): ClientESIMProfile? = esimProfiles(bookingID).firstOrNull()
 
@@ -137,9 +148,14 @@ class BookingStore(
             return emptyList()
         }
         val response = service.fetchOperationalTrip(bookingID, headers)
+        kotlinx.coroutines.currentCoroutineContext().ensureActive()
+        // Do not let an old account/session response repopulate private activation credentials.
+        val currentSession = booking(bookingID) ?: return emptyList()
+        if (headersFor(currentSession) != headers) return emptyList()
         val profiles = response.esims.orEmpty()
         _state.update { current ->
-            current.copy(esimProfilesByBooking = if (profiles.isEmpty()) current.esimProfilesByBooking - bookingID else current.esimProfilesByBooking + (bookingID to profiles))
+            if (current.sessions.none { it.id == bookingID && isVisible(it) && headersFor(it) == headers }) current
+            else current.copy(esimProfilesByBooking = if (profiles.isEmpty()) current.esimProfilesByBooking - bookingID else current.esimProfilesByBooking + (bookingID to profiles))
         }
         return profiles
     }

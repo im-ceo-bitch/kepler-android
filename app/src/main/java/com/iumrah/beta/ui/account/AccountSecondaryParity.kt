@@ -53,6 +53,7 @@ import java.time.OffsetDateTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.ensureActive
 
 private val ApCare = Color(0xFF30B0C7)
 private val ApGray = Color(0xFF8E8E93)
@@ -248,22 +249,28 @@ fun AccountTravelCompanionsParityScreen(
     chrome: AppChromeStore,
 ) {
     val bookingState by bookingStore.state.collectAsState()
+    val accountState by accountStore.state.collectAsState()
     val bearer = accountStore.bearerToken
-    var items by remember { mutableStateOf<List<CompanionItem>>(emptyList()) }
-    var loading by remember { mutableStateOf(true) }
-    var error by remember { mutableStateOf<String?>(null) }
+    var items by remember(bearer) { mutableStateOf<List<CompanionItem>>(emptyList()) }
+    var loading by remember(bearer) { mutableStateOf(true) }
+    var error by remember(bearer) { mutableStateOf<String?>(null) }
 
-    LaunchedEffect(bookingState.sessions, bearer) {
+    LaunchedEffect(bookingState.sessions, bearer, accountState.account?.iumrahID) {
         loading = true
         error = null
         val loaded = mutableListOf<CompanionItem>()
-        bookingState.sessions.forEach { session ->
-            runCatching { accountService.checkout(session.id, bookingStore.headersFor(session)) }.getOrNull()?.travelers?.forEach { traveler ->
+        if (!bearer.isNullOrBlank()) bookingState.sessions.forEach { session ->
+            val visible = bookingStore.booking(session.id) ?: return@forEach
+            val result = runCatching { accountService.checkoutWithFallback(visible.id, visible.accessToken, bearer) }.getOrNull()
+            kotlinx.coroutines.currentCoroutineContext().ensureActive()
+            if (accountStore.bearerToken != bearer) return@LaunchedEffect
+            result?.travelers?.forEach { traveler ->
                 val hotel = session.booking.hotelNames.makkah.trim()
                 val tripTitle = hotel.ifBlank { "${session.booking.route.originCode} → ${session.booking.route.outboundDestination}" }
                 loaded += CompanionItem(session.id, tripTitle, traveler)
             }
         }
+        if (accountStore.bearerToken != bearer) return@LaunchedEffect
         items = loaded.sortedWith(compareBy<CompanionItem> { it.tripTitle }.thenBy { it.traveler.position })
         if (loaded.isEmpty() && bookingState.sessions.isNotEmpty()) error = apTr(language, "Travelers could not be loaded. Pull down to try again.", "Не удалось загрузить участников. Попробуйте открыть страницу снова.", "Sayohatchilarni yuklab bo‘lmadi. Sahifani qayta ochib ko‘ring.", "Саёҳатчиларни юклаб бўлмади. Саҳифани қайта очиб кўринг.")
         loading = false

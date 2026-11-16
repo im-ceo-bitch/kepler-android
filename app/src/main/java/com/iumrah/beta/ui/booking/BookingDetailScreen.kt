@@ -71,22 +71,28 @@ fun BookingDetailScreen(
     accountService: IumrahAccountService,
     chrome: AppChromeStore,
     initialPage: BookingPrimaryPageAndroid = BookingPrimaryPageAndroid.BOOKING,
+    embedded: Boolean = false,
+    embeddedHeader: (@Composable () -> Unit)? = null,
+    onEmbeddedDelete: () -> Unit = {},
+    onEmbeddedSchedule: () -> Unit = {},
 ) {
     val storeState by bookingStore.state.collectAsState()
-    val session = storeState.sessions.firstOrNull { it.id == bookingID }
+    val accountState by accountStore.state.collectAsState()
+    val owner = accountStore.bearerToken
+    val session = storeState.sessions.firstOrNull { it.id == bookingID }?.let { bookingStore.booking(it.id) }
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val careService = remember { ChatService(APIClient()) }
     var careProfile by remember(bookingID) { mutableStateOf<IumrahPublicProfile?>(null) }
     var selectedPage by remember(bookingID, initialPage) { mutableStateOf(initialPage) }
-    var itinerary by remember(bookingID) { mutableStateOf<List<BookingItineraryItem>>(emptyList()) }
+    var itinerary by remember(bookingID, owner) { mutableStateOf<List<BookingItineraryItem>>(emptyList()) }
     var telegram by remember(session?.telegram) { mutableStateOf(session?.telegram.orEmpty()) }
     var whatsapp by remember(session?.whatsapp) { mutableStateOf(session?.whatsapp.orEmpty()) }
     var editContacts by remember { mutableStateOf(false) }
     var deletePrompt by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
 
-    LaunchedEffect(bookingID, language) {
+    LaunchedEffect(bookingID, language, owner, accountState.account?.iumrahID) {
         careProfile = runCatching { careService.loadCareProfile() }.getOrNull()
         val refreshed = bookingStore.refresh(bookingID) ?: return@LaunchedEffect
         itinerary = runCatching {
@@ -117,7 +123,7 @@ fun BookingDetailScreen(
                     deletePrompt = false
                     scope.launch {
                         runCatching { bookingStore.deleteBooking(bookingID) }
-                            .onSuccess { chrome.back() }
+                            .onSuccess { if (embedded) onEmbeddedDelete() else chrome.back() }
                             .onFailure { error = it.message }
                     }
                 }) { Text(bookingText(language, "Удалить", "Delete", "O‘chirish", "Ўчириш"), color = MaterialTheme.colorScheme.error) }
@@ -132,9 +138,9 @@ fun BookingDetailScreen(
         Modifier
             .fillMaxSize()
             .background(bookingIosPage())
-            .statusBarsPadding(),
+            .then(if (embedded) Modifier else Modifier.statusBarsPadding()),
     ) {
-        BookingNavigationBar(
+        if (embedded) embeddedHeader?.invoke() else BookingNavigationBar(
             title = L10n.text("booking_detail_title", language),
             subtitle = buildString {
                 append(bookingText(language, "Бронь ", "Booking ", "Bron ", "Брон "))
@@ -152,7 +158,7 @@ fun BookingDetailScreen(
                 .padding(top = 12.dp, bottom = 56.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            BookingPageSwitcher(language = language, selected = selectedPage, onSelected = { selectedPage = it })
+            if (!embedded) BookingPageSwitcher(language = language, selected = selectedPage, onSelected = { selectedPage = it })
 
             if (selectedPage == BookingPrimaryPageAndroid.BOOKING) {
                 BookingIdentityStrip(session, language)
@@ -170,7 +176,7 @@ fun BookingDetailScreen(
                     session = session,
                     remoteItems = itinerary,
                     fullScreen = false,
-                    onOpenFullSchedule = { selectedPage = BookingPrimaryPageAndroid.SCHEDULE },
+                    onOpenFullSchedule = { if (embedded) onEmbeddedSchedule() else selectedPage = BookingPrimaryPageAndroid.SCHEDULE },
                 )
 
                 BookingFlightFirstComponents(session, language, chrome)

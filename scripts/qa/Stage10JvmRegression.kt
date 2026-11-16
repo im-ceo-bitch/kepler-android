@@ -110,6 +110,13 @@ object Stage10JvmRegression {
         val selected = draft.copy(rooms=mapOf(exact.key to exact))
         val rules = NuiteeBookingRules
         checkThat("V6 exact complete rooms", rules.complete(trip, selected))
+        val twoRoomsTrip = trip.copy(rooms=2)
+        val firstRoom = exact.copy(adults=1)
+        val secondRoom = firstRoom.copy(key="makkah:1", roomIndex=1)
+        val twoRooms = selected.copy(rooms=mapOf(firstRoom.key to firstRoom, secondRoom.key to secondRoom))
+        checkThat("03D same hotel two rooms accepted", rules.complete(twoRoomsTrip,twoRooms))
+        checkThat("03D different hotels in same city rejected", !rules.complete(twoRoomsTrip,twoRooms.copy(rooms=twoRooms.rooms + (secondRoom.key to secondRoom.copy(hotel=hotel.copy(id="different"))))))
+
         checkThat("V6 no missing rooms", !rules.complete(trip, selected.copy(rooms=emptyMap())))
         checkThat("V6 no pending rooms", !rules.complete(trip, selected.copy(pending=mapOf(exact.key to NuiteePendingHotel(exact.key, exact.city, 0, hotel, day,ret,2,emptyList())))))
         checkThat("V6 changed dates invalidate", !rules.complete(trip.copy(returnDate=ret.plusDays(1)), selected))

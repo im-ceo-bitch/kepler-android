@@ -142,7 +142,8 @@ object NuiteeBookingRules {
         return draft.requiredCities(trip).all { city ->
             val window = (if (city == "madinah") windows.madinah else windows.makkah) ?: return@all false
             val selected = (0 until trip.rooms).map { draft.rooms.getValue("$city:$it") }
-            selected.sumOf { it.adults } == trip.adults && selected.sumOf { it.childrenAges.size } == trip.children + trip.infants &&
+            selected.map { it.hotel.id }.distinct().size == 1 &&
+                selected.sumOf { it.adults } == trip.adults && selected.sumOf { it.childrenAges.size } == trip.children + trip.infants &&
                 selected.all { room -> room.city == city && room.key == "$city:${room.roomIndex}" && room.roomIndex in 0 until trip.rooms &&
                     room.adults == trip.adults / trip.rooms + (if (room.roomIndex < trip.adults % trip.rooms) 1 else 0) &&
                     room.checkin == window.checkIn && room.checkout == window.checkOut &&

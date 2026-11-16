@@ -1626,7 +1626,7 @@ private fun AboutFooter(language: AppLanguage, chrome: AppChromeStore) {
 }
 
 @Composable
-private fun HomeCarouselDots(count: Int, selectedIndex: Int) {
+internal fun HomeCarouselDots(count: Int, selectedIndex: Int) {
     if (count <= 1) return
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
         repeat(count) { index ->

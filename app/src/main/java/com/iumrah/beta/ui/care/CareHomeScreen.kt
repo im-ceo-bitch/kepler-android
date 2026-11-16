@@ -57,6 +57,7 @@ import com.iumrah.beta.core.localization.L10n
 import com.iumrah.beta.core.navigation.AppChromeStore
 import com.iumrah.beta.core.settings.AppLanguage
 import com.iumrah.beta.data.booking.BookingStore
+import com.iumrah.beta.data.account.IumrahAccountStore
 import com.iumrah.beta.data.chat.ChatService
 import com.iumrah.beta.data.notification.ClientNotificationStore
 import com.iumrah.beta.models.booking.StoredBookingSession
@@ -77,19 +78,22 @@ import com.iumrah.beta.ui.cupertino.CupertinoSymbol
 fun CareHomeScreen(
     language: AppLanguage,
     bookingStore: BookingStore,
+    accountStore: IumrahAccountStore,
     chatService: ChatService,
     notifications: ClientNotificationStore,
     chrome: AppChromeStore,
 ) {
     val state by bookingStore.state.collectAsState()
     val notificationState by notifications.state.collectAsState()
+    val accountState by accountStore.state.collectAsState()
     val context = LocalContext.current
     val palette = carePalette()
     var telegram by remember { mutableStateOf("@saudiclub966") }
 
+    val chatAvailable = accountState.account != null && bookingStore.canUseCareChat()
     val activeSession = state.sessions.firstOrNull {
         it.effectiveStatus.uppercase() !in setOf("COMPLETED", "CANCELLED")
-    }
+    }.takeIf { chatAvailable }
     val scope = rememberCoroutineScope()
     var isRefreshing by remember { mutableStateOf(false) }
     // Use the same actions in both the quick contacts and the large Care card.
@@ -106,24 +110,21 @@ fun CareHomeScreen(
         }
         Unit
     }
-    val openChat: () -> Unit = { activeSession?.let { chrome.openBookingChat(it.id) }; Unit }
+    val openChat: () -> Unit = { if (chatAvailable) chrome.openBookingChat("account"); Unit }
 
-    LaunchedEffect(bookingStore, chatService) {
-        // Match the iOS screen's initial refresh behavior without introducing a
-        // new store architecture: refresh the sessions already known locally.
+    suspend fun refreshCare() {
         bookingStore.refreshAll()
         runCatching { chatService.loadCareProfile() }.getOrNull()?.telegram
-            ?.trim()
-            ?.takeIf { it.isNotEmpty() }
-            ?.let { telegram = it }
+            ?.trim()?.takeIf { it.isNotEmpty() }?.let { telegram = it }
     }
+    LaunchedEffect(bookingStore, chatService, accountState.account?.iumrahID) { refreshCare() }
 
     PullToRefreshBox(
         isRefreshing = isRefreshing,
         onRefresh = {
             if (!isRefreshing) scope.launch {
                 isRefreshing = true
-                try { bookingStore.refreshAll() } finally { isRefreshing = false }
+                try { refreshCare() } finally { isRefreshing = false }
             }
         },
         modifier = Modifier.fillMaxSize(),
@@ -149,9 +150,7 @@ fun CareHomeScreen(
                     )) { index -> when (index) { 0 -> callCare(); 1 -> openTelegram(); 2 -> openChat() } }
                 },
             )
-            Spacer(Modifier.height(24.dp))
-            CareIntro(language = language, palette = palette)
-            Spacer(Modifier.height(24.dp))
+            Spacer(Modifier.height(18.dp))
 
             // Mirrors adaptiveLayout.isWide from SwiftUI without altering the
             // single-column geometry on phones.
@@ -398,46 +397,14 @@ private fun CareHero(
                 )
             }
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(9.dp),
-                verticalAlignment = Alignment.Top,
-            ) {
-                CareActionTile(
-                    modifier = Modifier.weight(1f),
-                    icon = if (activeSession != null) CupertinoSymbol.ChatBubble else CupertinoSymbol.Lock,
-                    title = tr(language, "Chat", "Чат", "Chat", "Чат"),
-                    subtitle = if (activeSession != null) {
-                        tr(language, "Available", "Доступен", "Mavjud", "Мавжуд")
-                    } else {
-                        tr(language, "After booking", "После брони", "Brondan keyin", "Брондан кейин")
-                    },
-                    enabled = activeSession != null,
-                    palette = palette,
-                    onClick = onChat,
-                )
-                CareActionTile(
-                    modifier = Modifier.weight(1f),
-                    icon = CupertinoSymbol.Phone,
-                    title = tr(language, "Call", "Позвонить", "Qo‘ng‘iroq", "Қўнғироқ"),
-                    subtitle = tr(language, "Contact", "Связаться", "Bog‘lanish", "Боғланиш"),
-                    enabled = true,
-                    palette = palette,
-                    onClick = onCall,
-                )
-                CareActionTile(
-                    modifier = Modifier.weight(1f),
-                    icon = CupertinoSymbol.Send,
-                    title = "Telegram",
-                    subtitle = tr(language, "Contact", "Связаться", "Bog‘lanish", "Боғланиш"),
-                    enabled = telegram.isNotBlank(),
-                    palette = palette,
-                    onClick = onTelegram,
-                )
-            }
-
             if (activeSession != null) {
-                ActiveBookingContext(activeSession, language, palette)
+                Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp))
+                    .background(palette.primary.copy(alpha = .05f)).clickable(onClick = onChat).padding(13.dp),
+                    verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(11.dp)) {
+                    CupertinoIcon(CupertinoSymbol.CheckCircle, null, Modifier.size(20.dp), palette.primary)
+                    Text(tr(language, "Your personal Care chat is available", "Ваш личный чат Care доступен", "Shaxsiy Care chatingiz mavjud", "Шахсий Care чатингиз мавжуд"),
+                        fontSize = 14.5.sp, fontWeight = FontWeight.SemiBold, color = palette.primary)
+                }
             } else {
                 LockedChatNote(language, palette)
             }

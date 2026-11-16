@@ -150,7 +150,6 @@ internal fun FlightDiscoveryDetailSheetV46(
     LaunchedEffect(initialOffer.monitorKey) { checkPrice() }
 
     // iOS opens this as a dedicated navigation destination, not a compact bottom sheet.
-    var help by remember { mutableStateOf(false) }
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
         val page = if(MaterialTheme.colorScheme.background.red < .5f) Color(0xFF0B0B0B) else Color(0xFFF2F2F2)
         Column(Modifier.fillMaxSize().background(page)) {
@@ -163,7 +162,6 @@ internal fun FlightDiscoveryDetailSheetV46(
                 Icon(CupertinoSymbol.Share, null,
                     Modifier.size(38.dp).clickable { share(context, offer, currency, adults, children, infants) }.padding(7.dp),
                     Color.White)
-                Icon(CupertinoSymbol.QuestionCircle, t(language,"Помощь","Help","Yordam","Ёрдам"), Modifier.size(38.dp).clickable { help=true }.padding(7.dp), Color.White)
             }
             Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).navigationBarsPadding().padding(start=20.dp,end=20.dp,bottom=20.dp), verticalArrangement=Arrangement.spacedBy(18.dp)) {
             FlightDetailLegV46(language, CupertinoSymbol.AirplaneTakeoff, t(language,"Рейс туда","Outbound flight","Borish reysi","Бориш рейси"),
@@ -269,11 +267,10 @@ internal fun FlightDiscoveryDetailSheetV46(
             }
         }
     }
-    if(help) AlertDialog(onDismissRequest={help=false},title={Text(t(language,"Данные рейса","Flight details","Reys ma’lumotlari","Рейс маълумотлари"))},text={Text(t(language,"Время показано по местному времени аэропорта. Цена и наличие подтверждаются у продавца. Оперативные данные обновляются отдельно.","Times are local to each airport. Confirm price and availability with the seller. Operational data is refreshed separately.","Vaqt aeroportning mahalliy vaqti bo‘yicha. Narx va mavjudlikni sotuvchidan tekshiring.","Вақт аэропортнинг маҳаллий вақти бўйича. Нарх ва мавжудликни сотувчидан текширинг."))},confirmButton={TextButton(onClick={help=false}){Text("OK")}})
 }
 
 @Composable
-private fun FlightDetailLegV46(language: AppLanguage, icon: CupertinoSymbol, title: String, from: String,
+internal fun FlightDetailLegV46(language: AppLanguage, icon: CupertinoSymbol, title: String, from: String,
     to: String, at: String, code: String, number: String, stops: Int?, durationMinutes: Int,
     segments: List<FlightDiscoveryVerifiedSegment>?, arrival: String? = null, pageHeroInset: Dp=0.dp) {
     val verified = FlightDiscoveryItineraryValidator.verified(segments, from, to, stops ?: -1)

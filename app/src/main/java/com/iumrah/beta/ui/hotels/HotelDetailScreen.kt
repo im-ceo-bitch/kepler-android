@@ -166,11 +166,11 @@ fun HotelDetailScreen(
     var categoryLoading by remember(hotelId) { mutableStateOf(true) }
     var error by remember(hotelId) { mutableStateOf<String?>(null) }
     var categoryError by remember(hotelId) { mutableStateOf<String?>(null) }
-    var galleryOpen by remember { mutableStateOf(false) }
-    var careOpen by remember { mutableStateOf(false) }
-    var packageShareError by remember { mutableStateOf<String?>(null) }
+    var galleryOpen by remember(hotelId) { mutableStateOf(false) }
+    var careOpen by remember(hotelId) { mutableStateOf(false) }
+    var packageShareError by remember(hotelId, origin) { mutableStateOf<String?>(null) }
     var favorite by remember(hotelId) { mutableStateOf(hotelId in favoritePrefs.getStringSet("hotel_ids", emptySet()).orEmpty()) }
-    var selectedPackage by remember(hotelId) { mutableIntStateOf(0) }
+    var selectedPackage by remember(hotelId, origin) { mutableIntStateOf(0) }
     var selectionSummary by remember(hotelId, selectionRole) { mutableStateOf<HotelSummary?>(null) }
     var didAutoOpenConfigurator by remember(hotelId, autoOpenConfigurator) { mutableStateOf(false) }
     var priceTelemetrySent by remember(hotelId) { mutableStateOf(false) }
@@ -230,8 +230,11 @@ fun HotelDetailScreen(
             // An empty server build cursor must never hide already-rendered
             // offers from the same departure airport.
             if (ready.isNotEmpty()) {
+                val previousID = packages.getOrNull(selectedPackage)?.id
+                val previousIndex = selectedPackage
                 packages = ready
-                selectedPackage = selectedPackage.coerceIn(0, (ready.size - 1).coerceAtLeast(0))
+                selectedPackage = ready.indexOfFirst { it.id == previousID }.takeIf { it >= 0 }
+                    ?: previousIndex.coerceIn(0, ready.lastIndex)
             }
         }
         applyPackagePage()
@@ -280,12 +283,14 @@ fun HotelDetailScreen(
         }
     }
 
+    var pageHelp by remember(hotelId) { mutableStateOf(false) }
     val hotel = detail
     Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         HotelNativeBar(
             title = hotel?.name.orEmpty(),
             favorite = favorite,
             onBack = onBack,
+            onHelp = { pageHelp = true },
             onShare = {
                 val snapshot = packages.getOrNull(selectedPackage)
                 if (snapshot != null) {
@@ -356,6 +361,10 @@ fun HotelDetailScreen(
         }
     }
 
+    if (pageHelp) AlertDialog(onDismissRequest = { pageHelp = false },
+        title = { Text(nuiteeText(language, "Об отеле", "About this hotel", "Mehmonxona haqida", "Меҳмонхона ҳақида")) },
+        text = { Text(nuiteeText(language, "Посмотрите фотографии, удобства, номера и условия проживания. Цена пакета подтверждается при расчёте.", "Explore photos, amenities, rooms and stay conditions. Package pricing is confirmed at quote.", "Rasmlar, qulayliklar, xonalar va shartlarni ko‘ring. Paket narxi hisobda tasdiqlanadi.", "Расмлар, қулайликлар, хоналар ва шартларни кўринг. Пакет нархи ҳисобда тасдиқланади.")) },
+        confirmButton = { TextButton(onClick = { pageHelp = false }) { Text("OK") } })
     if (galleryOpen && hotel != null) {
         HotelGalleryDialog(hotel = hotel, language = language, onDismiss = { galleryOpen = false })
     }
@@ -380,6 +389,7 @@ private fun HotelNativeBar(
     favorite: Boolean,
     onBack: () -> Unit,
     onShare: () -> Unit,
+    onHelp: () -> Unit,
     onFavorite: () -> Unit,
 ) {
     Row(
@@ -403,6 +413,7 @@ private fun HotelNativeBar(
         )
         Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
             GlassIconButton(CupertinoSymbol.Share, "Share", onShare)
+            GlassIconButton(CupertinoSymbol.QuestionCircle, "Help", onHelp)
             GlassIconButton(if (favorite) CupertinoSymbol.HeartFill else CupertinoSymbol.Heart, "Favorite", onFavorite)
         }
     }

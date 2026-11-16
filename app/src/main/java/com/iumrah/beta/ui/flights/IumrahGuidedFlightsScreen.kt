@@ -26,6 +26,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -114,12 +115,15 @@ fun IumrahGuidedFlightsScreen(
     var busy by remember { mutableStateOf(false) }
     var loadingError by remember { mutableStateOf<String?>(null) }
     var selectionError by remember { mutableStateOf<String?>(null) }
+    var pending by remember { mutableStateOf<GuidedFlightChoice?>(null) }
+    val listState = rememberLazyListState()
     var detail by remember { mutableStateOf<GuidedFlightChoice?>(null) }
     var dateField by remember { mutableStateOf<Boolean?>(null) } // false departure, true return
     var refreshKey by remember { mutableIntStateOf(0) }
 
     LaunchedEffect(trip.originCode, trip.outboundDestinationCode, trip.returnOriginCode,
         trip.departureDate, trip.returnDate, trip.effectiveFlightFilters.cabinClass, refreshKey) {
+        pending = null
         outbound = null
         inbound = null
         stepReturn = false
@@ -177,17 +181,18 @@ fun IumrahGuidedFlightsScreen(
     val groupExact = results.filter { GuidedFlightRules.departureDay(it.departureAt) == target && it.stops == 0 }
     val groupNearby = results.filter { GuidedFlightRules.departureDay(it.departureAt) != target }
     val groupConnecting = results.filter { GuidedFlightRules.departureDay(it.departureAt) == target && it.stops > 0 }
-    val chosen = if (stepReturn) inbound else outbound
+    val chosen = pending ?: if (stepReturn) inbound else outbound
+    LaunchedEffect(stepReturn) { pending = null; listState.scrollToItem(0) }
 
-    fun commit() {
-        if (!GuidedFlightRules.compatible(outbound, inbound)) {
+    fun commit(returnChoice: GuidedFlightChoice? = inbound) {
+        if (!GuidedFlightRules.compatible(outbound, returnChoice)) {
             selectionError = guidedTr(language,
                 "Выберите совместимые рейсы одного источника.", "Choose compatible flights from one source.",
                 "Bitta manbadan mos reyslarni tanlang.", "Битта манбадан мос рейсларни танланг.")
             return
         }
         val first = requireNotNull(outbound)
-        val back = requireNotNull(inbound)
+        val back = requireNotNull(returnChoice)
         val outDay = requireNotNull(GuidedFlightRules.departureDay(first.departureAt))
         val backDay = requireNotNull(GuidedFlightRules.departureDay(back.departureAt))
         val nextTrip = trip.copy(
@@ -230,29 +235,45 @@ fun IumrahGuidedFlightsScreen(
         chrome.openNuiteeJourneyHotels()
     }
 
+    fun confirmChoice(choice: GuidedFlightChoice) {
+        if (stepReturn) {
+            if (!GuidedFlightRules.compatible(outbound, choice)) {
+                selectionError = guidedTr(language, "Выберите совместимые рейсы одного источника.", "Choose compatible flights from one source.", "Bitta manbadan mos reyslarni tanlang.", "Битта манбадан мос рейсларни танланг.")
+                return
+            }
+            inbound = choice
+            IumrahIntelligence.record("flight_selected", "flight_builder", "inbound")
+            pending = null
+            commit(choice)
+        } else {
+            if (outbound?.id != choice.id) inbound = null
+            outbound = choice
+            IumrahIntelligence.record("flight_selected", "flight_builder", "outbound")
+            pending = null
+            stepReturn = true
+        }
+    }
+
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         bottomBar = {
-            if (outbound != null) {
+            if (chosen != null) {
                 Box(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.background)
                     .navigationBarsPadding().padding(horizontal = 20.dp, vertical = 9.dp)) {
                     IumrahPrimaryButton(
                         title = if (!stepReturn)
-                            guidedTr(language, "Выбрать обратный перелёт", "Choose return flight",
-                                "Qaytish reysini tanlash", "Қайтиш рейсини танлаш")
-                        else guidedTr(language, "Продолжить к отелям", "Continue to hotels",
-                            "Mehmonxonalarga davom etish", "Меҳмонхоналарга давом этиш"),
-                        enabled = !stepReturn || GuidedFlightRules.compatible(outbound, inbound),
-                        onClick = { if (!stepReturn) stepReturn = true else commit() },
+                            guidedTr(language, "Выбрать этот авиабилет", "Choose this flight", "Shu reysni tanlash", "Шу рейсни танлаш")
+                        else guidedTr(language, "Выбрать обратный рейс", "Choose this return flight", "Qaytish reysini tanlash", "Қайтиш рейсини танлаш"),
+                        onClick = { chosen?.let(::confirmChoice) },
                     )
                 }
             }
         },
     ) { padding ->
-        LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(bottom = 25.dp)) {
+        LazyColumn(Modifier.fillMaxSize().padding(padding), state = listState, contentPadding = PaddingValues(bottom = 50.dp)) {
             item {
-                GuidedFlightHero(language, trip.originCode, trip.outboundDestinationCode,
-                    trip.returnOriginCode, trip.travelerCount, trip.departureDate, trip.returnDate,
+                GuidedFlightHero(language, if (stepReturn) trip.returnOriginCode else trip.originCode, if (stepReturn) trip.originCode else trip.outboundDestinationCode,
+                    stepReturn, trip.travelerCount, trip.departureDate, trip.returnDate,
                     editing, { chrome.back() }, onEdit = { editing = !editing },
                     onRefresh = { refreshKey += 1 })
             }
@@ -319,10 +340,10 @@ fun IumrahGuidedFlightsScreen(
                 Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 15.dp),
                     horizontalArrangement = Arrangement.spacedBy(9.dp)) {
                     GuidedStepChip(
-                        guidedTr(language, "Туда", "Outbound", "Borish", "Бориш") + " · ${trip.departureDate}",
+                        guidedTr(language, "Туда", "Outbound", "Borish", "Бориш"),
                         selected = !stepReturn, enabled = true, modifier = Modifier.weight(1f)) { stepReturn = false }
                     GuidedStepChip(
-                        guidedTr(language, "Обратно", "Return", "Qaytish", "Қайтиш") + " · ${trip.returnDate}",
+                        guidedTr(language, "Обратно", "Return", "Qaytish", "Қайтиш"),
                         selected = stepReturn, enabled = outbound != null, modifier = Modifier.weight(1f)) { stepReturn = true }
                 }
             }
@@ -367,38 +388,25 @@ fun IumrahGuidedFlightsScreen(
                 "Прямые на выбранную дату", "Non-stop on your date", "Tanlangan kundagi to‘g‘ri reyslar",
                 "Танланган кундаги тўғри рейслар")) }
             items(groupExact, key = { it.id }) { choice ->
-                GuidedFlightRow(choice, selected = chosen?.id == choice.id, language = language) { detail = choice }
+                GuidedFlightRow(choice, selected = chosen?.id == choice.id, language = language, onSelect = { pending = choice }) { detail = choice }
             }
             if (groupNearby.isNotEmpty()) item { GuidedSectionTitle(guidedTr(language,
                 "Ближайшие даты", "Nearby dates", "Yaqin sanalar", "Яқин саналар")) }
             items(groupNearby, key = { it.id }) { choice ->
-                GuidedFlightRow(choice, selected = chosen?.id == choice.id, language = language) { detail = choice }
+                GuidedFlightRow(choice, selected = chosen?.id == choice.id, language = language, onSelect = { pending = choice }) { detail = choice }
             }
             if (groupConnecting.isNotEmpty()) item { GuidedSectionTitle(guidedTr(language,
                 "С пересадкой", "Connecting", "Transferli", "Трансферли")) }
             items(groupConnecting, key = { it.id }) { choice ->
-                GuidedFlightRow(choice, selected = chosen?.id == choice.id, language = language) { detail = choice }
+                GuidedFlightRow(choice, selected = chosen?.id == choice.id, language = language, onSelect = { pending = choice }) { detail = choice }
             }
         }
     }
     detail?.let { item ->
         Dialog(onDismissRequest = { detail = null }, properties=DialogProperties(usePlatformDefaultWidth=false, decorFitsSystemWindows=false)) {
-            GuidedFlightDetail(item, language, onDismiss={ detail=null }) {
-                if (stepReturn) {
-                    if (outbound?.source != item.source) {
-                        selectionError = guidedTr(language, "Источники рейсов должны совпадать.",
-                            "Flight sources must match.", "Reys manbalari bir xil bo‘lishi kerak.",
-                            "Рейс манбалари бир хил бўлиши керак.")
-                    } else {
-                        inbound = item
-                        IumrahIntelligence.record("flight_selected", "flight_builder", "inbound")
-                    }
-                } else {
-                    outbound = item
-                    inbound = null
-                    IumrahIntelligence.record("flight_selected", "flight_builder", "outbound")
-                }
+            GuidedFlightDetail(item, language, trip.adults, trip.children, trip.infants, onDismiss={ detail=null }) {
                 detail = null
+                confirmChoice(item)
             }
         }
     }
@@ -435,7 +443,7 @@ fun IumrahGuidedFlightsScreen(
 
 @Composable
 private fun GuidedFlightHero(language: AppLanguage, origin: String, destination: String,
-    returnOrigin: String, count: Int, outboundDay: LocalDate, returnDay: LocalDate,
+    stepReturn: Boolean, count: Int, outboundDay: LocalDate, returnDay: LocalDate,
     editing: Boolean, onBack: () -> Unit, onEdit: () -> Unit, onRefresh: () -> Unit) {
     Column(Modifier.fillMaxWidth().background(Color(0xFF090909))
         .padding(start = 20.dp, end = 20.dp, top = 21.dp, bottom = 25.dp),
@@ -445,8 +453,7 @@ private fun GuidedFlightHero(language: AppLanguage, origin: String, destination:
                 .clickable(onClick = onBack), contentAlignment = Alignment.Center) {
                 Icon(CupertinoSymbol.ChevronLeft, "Back", Modifier.size(20.dp), Color.White)
             }
-            Text(guidedTr(language, "Выбор авиабилета", "Choose your flights", "Reys tanlash",
-                "Рейс танлаш"), color = Color.White, style = MaterialTheme.typography.titleLarge,
+            Text(if (stepReturn) guidedTr(language, "Выберите обратный рейс", "Choose return flight", "Qaytish reysini tanlang", "Қайтиш рейсини танланг") else guidedTr(language, "Выберите рейс туда", "Choose outbound flight", "Borish reysini tanlang", "Бориш рейсини танланг"), color = Color.White, style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f), textAlign = TextAlign.Center)
             Box(Modifier.size(44.dp).clip(CircleShape).background(Color.White.copy(alpha = .1f))
                 .clickable(onClick = onRefresh), contentAlignment = Alignment.Center) {
@@ -457,7 +464,7 @@ private fun GuidedFlightHero(language: AppLanguage, origin: String, destination:
             .background(Color.White).border(1.dp, Color.White.copy(alpha = .35f), RoundedCornerShape(23.dp))
             .clickable(onClick = onEdit).padding(16.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("$origin → $destination  ·  $returnOrigin → $origin",
+                Text("$origin → $destination",
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.Bold, color = Color(0xFF181818), modifier = Modifier.weight(1f))
                 Icon(if (editing) CupertinoSymbol.ChevronUp else CupertinoSymbol.ChevronDown,
@@ -479,7 +486,7 @@ private fun GuidedEditorButton(title: String, modifier: Modifier = Modifier, onC
 @Composable
 private fun GuidedStepChip(title: String, selected: Boolean, enabled: Boolean,
     modifier: Modifier = Modifier, onClick: () -> Unit) {
-    Box(modifier.height(53.dp).clip(RoundedCornerShape(28.dp))
+    Box(modifier.height(58.dp).clip(RoundedCornerShape(28.dp))
         .background(if (selected) Color.Black else MaterialTheme.colorScheme.surface)
         .clickable(enabled = enabled, onClick = onClick).padding(horizontal = 8.dp),
         contentAlignment = Alignment.Center) {
@@ -497,7 +504,7 @@ private fun GuidedSectionTitle(title: String) {
 
 @Composable
 private fun GuidedFlightRow(choice: GuidedFlightChoice, selected: Boolean,
-    language: AppLanguage, onClick: () -> Unit) {
+    language: AppLanguage, onSelect: () -> Unit, onClick: () -> Unit) {
     val shape = RoundedCornerShape(22.dp)
     Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 5.dp)
         .clip(shape).background(MaterialTheme.colorScheme.surface)
@@ -510,12 +517,14 @@ private fun GuidedFlightRow(choice: GuidedFlightChoice, selected: Boolean,
             Icon(CupertinoSymbol.Airplane, null, Modifier.size(20.dp))
             Text(choice.airlineName, modifier = Modifier.weight(1f), fontWeight = FontWeight.Bold,
                 style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            if (selected) Icon(CupertinoSymbol.CheckCircleFill, "Selected", Modifier.size(19.dp), Color(0xFF2B8A69))
+            IconButton(onClick = onSelect, modifier = Modifier.size(44.dp)) {
+                Icon(if (selected) CupertinoSymbol.CheckCircleFill else CupertinoSymbol.CheckCircle, guidedTr(language, "Выбрать рейс", "Select flight", "Reysni tanlash", "Рейсни танлаш"), Modifier.size(24.dp), if (selected) Color(0xFF2B8A69) else MaterialTheme.colorScheme.onSurfaceVariant)
+            }
             Text(choice.flightNumber, style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         Row(verticalAlignment = Alignment.CenterVertically) {
-            GuidedClock(choice.departureAt.substringAfter('T', "").take(5).ifBlank { "—" },
+            GuidedClock(com.iumrah.beta.data.flight.FlightDataParity.localTime(choice.departureAt, choice.origin),
                 choice.origin, Modifier.weight(1f), Alignment.Start)
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Box(Modifier.width(55.dp).height(2.dp).background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .3f)))
@@ -524,7 +533,7 @@ private fun GuidedFlightRow(choice: GuidedFlightChoice, selected: Boolean,
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            GuidedClock(choice.arrivalAt?.substringAfter('T', "")?.take(5)?.ifBlank { "—" }
+            GuidedClock(choice.arrivalAt?.let { com.iumrah.beta.data.flight.FlightDataParity.localTime(it, choice.destination) }
                 ?: "—", choice.destination, Modifier.weight(1f), Alignment.End)
         }
         HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = .07f))
@@ -558,18 +567,18 @@ private fun GuidedNotice(text: String, language: AppLanguage, onRetry: () -> Uni
 }
 
 @Composable
-private fun GuidedFlightDetail(choice: GuidedFlightChoice, language: AppLanguage, onDismiss: () -> Unit, onSelect: () -> Unit) {
+private fun GuidedFlightDetail(choice: GuidedFlightChoice, language: AppLanguage, adults: Int, children: Int, infants: Int, onDismiss: () -> Unit, onSelect: () -> Unit) {
     val context=LocalContext.current
-    var help by remember { mutableStateOf(false) }
     Column(Modifier.fillMaxSize().background(if(MaterialTheme.colorScheme.background.red<.5f) Color(0xFF0B0B0B) else Color(0xFFF2F2F2))) {
         Row(Modifier.fillMaxWidth().background(FlightHeroColor).statusBarsPadding().height(48.dp).padding(horizontal=16.dp),verticalAlignment=Alignment.CenterVertically) {
             Icon(CupertinoSymbol.ChevronLeft, guidedTr(language,"Назад","Back","Orqaga","Орқага"),Modifier.size(40.dp).clickable(onClick=onDismiss).padding(8.dp),Color.White)
             Text(choice.airlineName,Modifier.weight(1f),color=Color.White,fontWeight=FontWeight.Bold,fontSize=17.sp,maxLines=1)
             IconButton(onClick={ runCatching { context.startActivity(android.content.Intent.createChooser(android.content.Intent(android.content.Intent.ACTION_SEND).apply { type="text/plain"; putExtra(android.content.Intent.EXTRA_TEXT,"${choice.airlineName} ${choice.flightNumber}\n${choice.origin} → ${choice.destination}\n${choice.departureAt}") },null)) } }) { Icon(CupertinoSymbol.Share,guidedTr(language,"Поделиться","Share","Ulashish","Улашиш"),Modifier.size(20.dp),Color.White) }
-            IconButton(onClick={help=true}) { Icon(CupertinoSymbol.QuestionCircle,guidedTr(language,"Помощь","Help","Yordam","Ёрдам"),Modifier.size(20.dp),Color.White) }
         }
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).navigationBarsPadding().padding(start=18.dp,end=18.dp,bottom=18.dp),verticalArrangement=Arrangement.spacedBy(14.dp)) {
-            IumrahPremiumFlightDetail(PremiumFlightLeg(choice.origin,choice.destination,choice.departureAt,choice.arrivalAt,choice.airlineCode,choice.flightNumber,choice.airlineName,choice.stops,choice.durationMinutes),language,pageHeroInset=18.dp)
+            FlightDetailLegV46(language, CupertinoSymbol.Airplane, choice.airlineName, choice.origin, choice.destination,
+                choice.departureAt, choice.airlineCode, choice.flightNumber, choice.stops, choice.durationMinutes,
+                (choice as? GuidedFlightChoice.Data)?.offer?.outboundSegments, choice.arrivalAt, pageHeroInset=18.dp)
         Text(if (choice.source == GuidedFlightChoice.Source.PUBLISHED)
             guidedTr(language, "Опубликованный рейс iumrah · цена подтверждается при расчёте",
                 "iumrah published flight · price verified at quote", "iumrah reysi · narx hisobda tekshiriladi",
@@ -584,9 +593,12 @@ private fun GuidedFlightDetail(choice: GuidedFlightChoice, language: AppLanguage
         }
         IumrahPrimaryButton(title = guidedTr(language, "Выбрать этот рейс", "Select this flight",
             "Shu reysni tanlash", "Шу рейсни танлаш"), onClick = onSelect)
+        val searchUrl = com.iumrah.beta.data.flight.AviasalesSearchLinkBuilder.searchUrl(choice.origin, choice.destination, choice.departureAt, null, adults, children, infants)
+        if (searchUrl != null) androidx.compose.material3.OutlinedButton(modifier = Modifier.fillMaxWidth(), onClick = {
+            runCatching { context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(searchUrl))) }
+        }) { Text(guidedTr(language,"Проверить на Aviasales", "Check on Aviasales", "Aviasales’da tekshirish", "Aviasales’да текшириш")) }
         }
     }
-    if(help) AlertDialog(onDismissRequest={help=false},title={Text(guidedTr(language,"Данные рейса","Flight details","Reys tafsilotlari","Рейс тафсилотлари"))},text={Text(guidedTr(language,"Выберите подходящий рейс. Время указано по местному времени аэропорта. Цена и наличие проверяются при расчёте.","Choose your flight. Times are local to the airport. Fare and availability are verified at quote.","Reysni tanlang. Vaqt aeroportning mahalliy vaqti bo‘yicha. Narx hisobda tekshiriladi.","Рейсни танланг. Вақт аэропортнинг маҳаллий вақти бўйича. Нарх ҳисобда текширилади."))},confirmButton={TextButton(onClick={help=false}){Text("OK")}})
 }
 
 private fun guidedTr(language: AppLanguage, ru: String, en: String, uz: String, cy: String) = when (language) {

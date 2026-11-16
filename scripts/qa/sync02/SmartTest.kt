@@ -71,6 +71,13 @@ fun main() = runBlocking {
     verify(fare.flight(out,null,null,0)==null)
     verify(fare.flight(out.copy(providerItineraryID="aviasales:pair:1"),out.copy(providerItineraryID="aviasales:pair:1"),ret.copy(providerItineraryID="aviasales:pair:1"),2)?.roundTrip==false)
     manual.adoptSmartResult(result)
+    val priorRooms = manual.state.value.nuitee!!.rooms
+    val hotelSwitch = priorRooms.getValue("makkah:0")
+    manual.chooseNuiteeRoom(hotelSwitch.copy(hotel=hotelSwitch.hotel.copy(id="another-hotel")))
+    verify(manual.state.value.nuitee!!.rooms.filterKeys { it.startsWith("makkah:") }.keys == setOf("makkah:0"))
+    verify(manual.state.value.nuitee!!.rooms.filterKeys { it.startsWith("madinah:") } == priorRooms.filterKeys { it.startsWith("madinah:") })
+    verify(manual.state.value.quote == null && !manual.state.value.transferSelectionConfirmed)
+    manual.adoptSmartResult(result)
     val previousTrip = manual.state.value.trip
     manual.startHomePublishedSearch(previousTrip)
     verify(manual.state.value.trip == previousTrip.copy(saudiArrivalDate=null, flightTripType=FlightTripType.ROUND_TRIP, flexibility=DateFlexibility.EXACT))

@@ -166,8 +166,10 @@ class JourneyStore {
                 selection.checkin != expected.checkIn || selection.checkout != expected.checkOut ||
                 !NuiteeRules.validStay(selection.checkin, selection.checkout, selection.adults, selection.childrenAges) ||
                 !NuiteeRules.validRoomRate(selection.rate)) return@update current
-            current.copy(nuitee = draft.copy(rooms = draft.rooms + (selection.key to selection),
-                pending = draft.pending - selection.key), quote = null, transferSelectionConfirmed = false)
+            val sameCityHotel = draft.rooms.filterValues { it.city != selection.city || it.hotel.id == selection.hotel.id }
+            val compatiblePending = draft.pending.filterValues { it.city != selection.city || it.hotel.id == selection.hotel.id }
+            current.copy(nuitee = draft.copy(rooms = sameCityHotel + (selection.key to selection),
+                pending = compatiblePending - selection.key), quote = null, transferSelectionConfirmed = false)
         }
     }
 

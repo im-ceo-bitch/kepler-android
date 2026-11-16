@@ -14,10 +14,10 @@ checks = {
         (r'en\[key\]\?\.let\s*\{\s*com\.iumrah\.beta\.core\.localization\.L10n\.phrase\(it,\s*language\)', 'translate string rather than dictionary'),
     ),
     'ui/onboarding/OnboardingFlow.kt': (
-        (r'(?m)^import androidx\.compose\.animation\.core\.animateFloat\s*$', 'animateFloat import'),
+        (r'IumrahOrbitV5\(diameter\s*=', 'shared Orbit V5 implementation'),
         (r'(?m)^import androidx\.compose\.ui\.unit\.sp\s*$', 'sp import'),
-        (r'val availableHeight\s*=\s*maxHeight', 'capture BoxWithConstraints height'),
-        (r'height\(if\s*\(page\.scene\s*==\s*4\)\s*availableHeight\s*else\s*sceneHeight\)', 'use captured height inside Column'),
+        (r'val availableHeight\s*=\s*\(maxHeight - reserve\)\.coerceAtLeast\(0\.dp\)', 'capture BoxWithConstraints height minus footer reserve'),
+        (r'height\(if\s*\(page\.scene\s*==\s*4\)\s*availableHeight\.coerceAtLeast\(490\.dp\)\s*else\s*sceneHeight\)', 'use captured height inside Column'),
     ),
     'ui/shell/AppShell.kt': (
         (r'(?m)^import com\.iumrah\.beta\.ui\.account\.AccountPasswordSecurityScreen\s*$', 'account security screen import'),

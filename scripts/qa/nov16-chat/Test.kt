@@ -18,5 +18,14 @@ fun main() = runBlocking {
  check(svc.loadChat("b",headers).map{it.id}==listOf("c"))
  check(svc.cachedChat("b",mapOf("x-booking-token" to "other")).isEmpty())
  svc.clearCache();check(svc.cachedChat("b",headers).isEmpty())
- println("ChatService: paging, cursor, read receipts, reset, auth scope, clear passed")
+ val accountHeaders=mapOf("Authorization" to "Bearer account-A")
+ api.onGet={path, proof ->
+   check(path.contains("/chats/account/messages"));check(proof==accountHeaders)
+   ChatListResponse(messages=listOf(msg("account-msg"),msg("other-trip").copy(bookingID="trip-two")),nextCursor="account:1")
+ }
+ check(svc.loadChat("account",accountHeaders).map{it.id}==listOf("account-msg","other-trip"))
+ check(svc.cachedChat("account",mapOf("Authorization" to "Bearer account-B")).isEmpty())
+ check(svc.mergeChat("account",accountHeaders,listOf(msg("sent").copy(bookingID="trip-two"))).size==3)
+ check(svc.mergeChat("b",headers,listOf(msg("foreign").copy(bookingID="trip-two"))).isEmpty())
+ println("ChatService: paging, cursor, read receipts, reset, auth scope, clear and account thread passed")
 }
