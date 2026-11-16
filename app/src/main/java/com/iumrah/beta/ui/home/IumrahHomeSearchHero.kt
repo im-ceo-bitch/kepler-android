@@ -94,6 +94,7 @@ fun IumrahHomeSearchHero(
     curatedFlights: CuratedFlightRecommendationService,
     chrome: AppChromeStore,
     expanded: Boolean,
+    onSearch: (TripDraft) -> Unit = {},
     onExpandedChange: (Boolean) -> Unit,
 ) {
     var calendarOpen by remember { mutableStateOf(false) }
@@ -257,6 +258,7 @@ fun IumrahHomeSearchHero(
                                     outboundID = journey.state.value.selectedPublishedOutboundID,
                                     returnID = journey.state.value.selectedPublishedReturnID,
                                 )
+                                onSearch(journey.state.value.trip)
                                 onExpandedChange(false)
                                 IumrahIntelligence.record("tap", "home", "start_trip_search")
                                 chrome.openGuidedFlights()

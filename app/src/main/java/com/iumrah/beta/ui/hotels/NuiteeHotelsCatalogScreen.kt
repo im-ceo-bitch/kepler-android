@@ -95,13 +95,14 @@ fun NuiteeHotelsCatalogScreen(
     language: AppLanguage, chrome: AppChromeStore, onBoard: (HotelsBoard) -> Unit,
     service: NuiteeHotelService = rememberNuiteeHotelService(),
     unreadCount: Int = 0,
+    initialCity: String = "makkah",
 ) {
     val context = LocalContext.current
     val staySelections = remember { NuiteeStaySelectionStore(context) }
     var selectionRevision by remember { mutableIntStateOf(0) }
     val prefs = remember { context.getSharedPreferences("iumrah_nuitee_favorites", 0) }
     var favorites by remember { mutableStateOf(prefs.getStringSet("hotels", emptySet()).orEmpty().toSet()) }
-    var city by remember { mutableStateOf("makkah") }
+    var city by remember(initialCity) { mutableStateOf(initialCity) }
     val savedStay = remember(city, selectionRevision) { staySelections.selected(city) }
     val pendingStay = remember(city, selectionRevision) { staySelections.pending(city) }
     var searchExpanded by remember { mutableStateOf(false) }

@@ -123,6 +123,15 @@ class JourneyStore {
     private val _state = MutableStateFlow(JourneyState())
     val state: StateFlow<JourneyState> = _state
 
+    /** Smart is assembled privately. Publish only a complete verified journey on explicit review. */
+    fun adoptSmartResult(result: JourneyStore) {
+        val value = result.state.value
+        require(value.hasFinalGeneratorQuote && value.quote?.bookingAllowed == true &&
+            value.nuitee?.let { com.iumrah.beta.domain.nuitee.NuiteeBookingRules.complete(value.trip, it) } == true)
+        quoteRequestGeneration++
+        _state.value = value
+    }
+
     /** Flight-first Nuitee selections are resolved by PackageEngine before booking. */
     fun startNuiteeJourney(flights: List<NuiteeFlightSnapshot>) {
         require(flights.size == 2)

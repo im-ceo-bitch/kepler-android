@@ -73,6 +73,7 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -95,6 +96,16 @@ import com.iumrah.beta.data.flight.CuratedFlightRecommendationService
 import com.iumrah.beta.data.notification.ClientNotificationStore
 import com.iumrah.beta.data.booking.BookingStore
 import com.iumrah.beta.domain.journey.JourneyStore
+import com.iumrah.beta.data.account.IumrahAccountStore
+import com.iumrah.beta.data.hotel.RemotePackageEngineClient
+import com.iumrah.beta.data.nuitee.NuiteeHotelService
+import com.iumrah.beta.data.smart.HomeActivityStore
+import com.iumrah.beta.data.smart.SmartConfiguratorService
+import com.iumrah.beta.domain.smart.SmartDraft
+import com.iumrah.beta.domain.smart.SmartRules
+import com.iumrah.beta.domain.trip.PackageFlightPath
+import com.iumrah.beta.ui.smart.SmartConfiguratorHomeCard
+import com.iumrah.beta.ui.smart.SmartConfiguratorScreen
 import com.iumrah.beta.models.hotel.StorefrontFlightOption
 import com.iumrah.beta.models.hotel.StorefrontPackageSnapshot
 import com.iumrah.beta.models.notification.ClientSystemNotification
@@ -125,7 +136,24 @@ fun HomeScreen(
     bookingStore: BookingStore,
     notifications: ClientNotificationStore,
     accountToken: String?,
+    accountStore: IumrahAccountStore,
+    packageEngine: RemotePackageEngineClient,
+    onLanguage: (AppLanguage) -> Unit,
 ) {
+    val context = LocalContext.current
+    val accountState by accountStore.state.collectAsState()
+    val owner = if (accountState.isRestoring) null else SmartRules.owner(accountState.isAuthenticated, accountState.iumrahID)
+    val history = remember(context) { HomeActivityStore(context) }
+    val revision by history.revision.collectAsState()
+    val activity = remember(owner, revision) { history.snapshot(owner) }
+    val bookingState by bookingStore.state.collectAsState()
+    val activeBooking = if (accountState.isAuthenticated && !accountState.isRestoring && !accountToken.isNullOrBlank() && !accountState.iumrahID.isNullOrBlank()) bookingState.sessions.firstOrNull {
+        it.accountOwnerID == accountState.iumrahID && bookingStore.booking(it.id) != null && it.effectiveStatus.uppercase() !in setOf("COMPLETED", "CANCELLED", "CANCELED")
+    } else null
+    val smartService = remember(context, curatedFlights, packageEngine) { SmartConfiguratorService(curatedFlights, NuiteeHotelService(context), packageEngine) }
+    var smartOpen by remember(owner) { mutableStateOf(false) }
+    var resumeSmart by remember(owner) { mutableStateOf<SmartDraft?>(null) }
+    val startSmart: () -> Unit = { resumeSmart = null; smartOpen = true }
     var storyStartIndex by remember { mutableStateOf<Int?>(null) }
     var searchExpanded by remember { mutableStateOf(false) }
     val discoveryState by chrome.state.collectAsState()
@@ -193,17 +221,27 @@ fun HomeScreen(
                     },
                 )
             }, search = {
-                IumrahHomeSearchHero(language, journeyState.trip, journey, airports, curatedFlights, chrome, searchExpanded) { searchExpanded = it }
+                IumrahHomeSearchHero(language, journeyState.trip, journey, airports, curatedFlights, chrome, searchExpanded, onSearch = { history.saveFlight(owner, it) }) { searchExpanded = it }
             })
         }
         item { IumrahHomeHelpCard(language) }
+        if (activity.smart != null || activity.flight != null || activeBooking != null) item {
+            HomeRecentActivitySection(language, activity, activeBooking, chrome,
+                resume = { resumeSmart = it; smartOpen = true }, repeat = { trip ->
+                    journey.clearStagedAviasalesFlights()
+                    journey.commitTripBuilder(trip, PackageFlightPath.PUBLISHED_DIRECT)
+                    chrome.openGuidedFlights()
+                })
+        }
         if (notificationState.home.isNotEmpty()) {
             item { HomeNotificationCarousel(language, notificationState.home, chrome, notifications, accountToken) }
         }
         item { EmotionalPrompt(language = language, onOpen = { storyStartIndex = 0 }) }
         item { HomeVideoCarousel(language = language, isStoryPresented = storyStartIndex != null, onOpenStory = { storyStartIndex = it }) }
         item { IumrahServicesCarousel(language, chrome) }
-        item { BuildMyUmrahSection(language, chrome) }
+        item { SmartConfiguratorHomeCard(language, startSmart) }
+        item { HomeDestinationsSection(language, chrome::openHomeHotelSearch) }
+        item { HomeAvailablePackagesSection(language, storefrontOrigin, chrome, startSmart) }
         item { JourneyTravelInfoPanel(language) }
         item { AudienceSection(language) }
         item { HomeIntegrationsSection(language, chrome) }
@@ -213,10 +251,18 @@ fun HomeScreen(
         item { ConnectedTripCard(language) }
         item { PersonalUmrahFAQ(language) }
         item { AboutFooter(language, chrome) }
+        item { HomeWhyAndPreferencesSection(language, history, owner, revision) }
     }
 
     } // PullToRefreshBox
 
+    if (smartOpen) SmartConfiguratorScreen(language, airports, smartService, resumeSmart,
+        onSave = { history.saveSmart(owner, it) }, onClose = { smartOpen = false }, onReview = { result ->
+            // The private draft only replaces the manual selection on explicit review.
+            journey.adoptSmartResult(result)
+            smartOpen = false
+            chrome.openNuiteeJourneyReview()
+        }, onLanguage = onLanguage)
     storyStartIndex?.let { start -> EmotionalJourneyFullscreen(language = language, initialPage = start, onClose = { storyStartIndex = null }) }
 }
 

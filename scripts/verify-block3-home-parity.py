@@ -29,7 +29,7 @@ def main():
         'item { EmotionalPrompt(',
         'item { HomeVideoCarousel(',
         'item { IumrahServicesCarousel(',
-        'item { BuildMyUmrahSection(',
+        'item { SmartConfiguratorHomeCard(',
         'item { JourneyTravelInfoPanel(',
         'item { AudienceSection(',
         'item { HomeIntegrationsSection(',
@@ -41,7 +41,7 @@ def main():
         'item { AboutFooter(',
     ]
     check(all(x in home for x in ordering) and [home.index(x) for x in ordering]==sorted(home.index(x) for x in ordering),'Home sections preserve current SwiftUI marketing order')
-    check('IumrahHomeSearchHero(language, journeyState.trip, journey, airports, curatedFlights, chrome, searchExpanded)' in home, 'iOS collapsed journey search uses real JourneyStore and published catalog')
+    check('IumrahHomeSearchHero(language, journeyState.trip, journey, airports, curatedFlights, chrome, searchExpanded, onSearch = { history.saveFlight(owner, it) })' in home, 'iOS collapsed journey search uses real JourneyStore and published catalog')
     check('IumrahServicesCarousel(language, chrome)' in home, 'Nine services carousel replaces legacy product-only cards')
     check('item { HotelFirstPackagesSection(' not in home, 'Home omits historical Hotel-First cards like current iOS')
     check('private fun HomeTripToolsSection' in home and 'Arrangement.spacedBy(13.dp)' in home,'Pilgrim tools block present with 13dp section spacing')
@@ -51,7 +51,7 @@ def main():
         check(action in home,'Trip tool destination (current iOS Umrah Flow) '+action)
     check('AppRoute.HomeWeather -> HomeWeatherScreen(language, chrome)' in shell and 'fun openHomeWeather()' in nav,'Weather tool routes to working screen')
     check('JourneyTravelInfoPanel(language, initialPage = 1)' in weather and 'initialPage: Int = 0' in panel,'Weather view opens real travel weather forecast, existing Booking keeps default prayer tab')
-    check('HomeScreen(language, chrome, hotelCatalog, journey, airports, curatedFlights, bookingStore, notifications, accountStore.bearerToken)' in shell,'Home receives real airport/flight data, bookings and notification token')
+    check('HomeScreen(language, chrome, hotelCatalog, journey, airports, curatedFlights, bookingStore, notifications, accountStore.bearerToken, accountStore, packageEngine, settingsStore::setLanguage)' in shell,'Home receives real airport/flight data, bookings and notification token')
     check('coroutineScope.launch { store.markOpened(item, accountToken) }' in home,'Home open event marks notification as read')
     check('private val homeReadyCardWidth = 318.dp' in home and 'private val homeReadyCardHeight = 398.dp' in home,'Ready package carousel footprint 318x398dp matches iOS')
     check(home.count('Modifier.width(homeReadyCardWidth).height(homeReadyCardHeight)')==2,'Both ready flight package cards share 318x398 footprint')

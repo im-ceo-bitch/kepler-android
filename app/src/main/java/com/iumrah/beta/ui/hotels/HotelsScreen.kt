@@ -162,7 +162,8 @@ fun HotelsScreen(
     // iOS November 2026: the Hotels tab is supplier-backed Nuitee, not legacy
     // generated-package storefront. Keep the existing Flights/Sunday boards intact.
     if (board == HotelsBoard.HOTELS) {
-        NuiteeHotelsCatalogScreen(language, chrome, onBoard = selectBoard, unreadCount = unreadCount)
+        val chromeState by chrome.state.collectAsState()
+        NuiteeHotelsCatalogScreen(language, chrome, onBoard = selectBoard, unreadCount = unreadCount, initialCity = chromeState.homeHotelCity ?: "makkah")
         return
     }
 

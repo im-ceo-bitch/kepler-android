@@ -170,7 +170,7 @@ fun AppShell(
         ) { (route, tab) ->
             when (route) {
                 AppRoute.Root -> when (tab) {
-                    AppTab.HOME -> HomeScreen(language, chrome, hotelCatalog, journey, airports, curatedFlights, bookingStore, notifications, accountStore.bearerToken)
+                    AppTab.HOME -> HomeScreen(language, chrome, hotelCatalog, journey, airports, curatedFlights, bookingStore, notifications, accountStore.bearerToken, accountStore, packageEngine, settingsStore::setLanguage)
                     AppTab.HOTELS -> HotelsScreen(language, hotelCatalog, journey, airports, flightDiscovery, chrome, initialBoard = if (chromeState.discoveryFlights) HotelsBoard.FLIGHTS else HotelsBoard.HOTELS, unreadCount = shellNotificationState.unreadCount)
                     AppTab.BOOKING -> BookingsHomeScreen(language, bookingStore, accountService, chatService, notifications, chrome)
                     AppTab.CARE -> CareHomeScreen(language, bookingStore, chatService, notifications, chrome)

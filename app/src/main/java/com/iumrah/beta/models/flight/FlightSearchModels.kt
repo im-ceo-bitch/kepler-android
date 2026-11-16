@@ -1,12 +1,18 @@
 package com.iumrah.beta.models.flight
 
 import java.time.LocalDate
+import kotlinx.serialization.Serializable
 
+@Serializable
 enum class FlightCabinClass(val wireValue: String) { ECONOMY("economy"), PREMIUM_ECONOMY("premium_economy"), BUSINESS("business"), FIRST("first") }
+@Serializable
 enum class FlightStopsPreference(val wireValue: String, val maxStops: Int?) { ANY("any", null), NONSTOP("nonstop", 0), UP_TO_ONE("upToOne", 1), UP_TO_TWO("upToTwo", 2) }
+@Serializable
 enum class FlightTimeWindow(val wireValue: String, val range: IntRange?) { ANY("any", null), NIGHT("night", 0..5), MORNING("morning", 6..11), AFTERNOON("afternoon", 12..17), EVENING("evening", 18..23) }
+@Serializable
 enum class FlightInfantSeating(val wireValue: String) { LAP("lap"), SEAT("seat") }
 
+@Serializable
 data class FlightSearchFilters(
     val cabinClass: FlightCabinClass = FlightCabinClass.ECONOMY,
     val stops: FlightStopsPreference = FlightStopsPreference.ANY,

@@ -1,0 +1,4 @@
+package com.iumrah.beta.core.serialization
+object BigDecimalJsonSerializer
+object InstantIsoSerializer
+object LocalDateIsoSerializer

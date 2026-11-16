@@ -64,7 +64,7 @@ def main():
     check('PullToRefreshBox(' in home and 'bookingStore.refreshAll()' in home and
           'notifications.refresh(accountToken)' in home and 'refreshVersion += 1' in home,
           'actual pull-to-refresh reloads Home inventories and notifications')
-    check('IumrahHomeSearchHero(language, journeyState.trip, journey, airports, curatedFlights, chrome, searchExpanded)' in home,
+    check('IumrahHomeSearchHero(language, journeyState.trip, journey, airports, curatedFlights, chrome, searchExpanded, onSearch = { history.saveFlight(owner, it) })' in home,
           'Home search receives real journey and network data services')
     check('ConfiguratorAirportSelector(' in search and
           'journey.updateTrip(trip.copy(origin = selected.iata, originAirport = selected))' in search,
@@ -98,7 +98,7 @@ def main():
           home.index('item { EmotionalPrompt('), 'iOS Home help shown before marketing')
     check('refreshVersion' in home and 'LaunchedEffect(origin, refreshVersion)' in home,
           'storefront refresh actually invalidates cached package carousel')
-    check('AppTab.HOME -> HomeScreen(language, chrome, hotelCatalog, journey, airports, curatedFlights, bookingStore, notifications, accountStore.bearerToken)' in shell,
+    check('AppTab.HOME -> HomeScreen(language, chrome, hotelCatalog, journey, airports, curatedFlights, bookingStore, notifications, accountStore.bearerToken, accountStore, packageEngine, settingsStore::setLanguage)' in shell,
           'all new Home dependencies injected from existing AppShell')
     codes = re.findall(r'^\s+([A-Z]+)\("([a-z]+)", R.drawable.',services,re.M)
     check([code for _, code in codes] ==

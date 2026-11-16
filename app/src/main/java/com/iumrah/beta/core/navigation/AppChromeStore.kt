@@ -87,6 +87,7 @@ data class AppChromeState(
     val isSidebarOpen: Boolean = false,
     val discoveryFlights: Boolean = false,
     val discoveryBuild: Boolean = false,
+    val homeHotelCity: String? = null,
 )
 
 class AppChromeStore {
@@ -94,13 +95,17 @@ class AppChromeStore {
     val state: StateFlow<AppChromeState> = _state
 
     fun navigate(tab: AppTab) {
-        _state.update { it.copy(currentTab = tab, route = AppRoute.Root, backStack = emptyList(), isImmersive = false, isSidebarOpen = false, discoveryFlights = false, discoveryBuild = false) }
+        _state.update { it.copy(currentTab = tab, route = AppRoute.Root, backStack = emptyList(), isImmersive = false, isSidebarOpen = false, discoveryFlights = false, discoveryBuild = false, homeHotelCity = null) }
+    }
+    fun openHomeHotelSearch(city: String) {
+        require(city in setOf("makkah", "madinah"))
+        _state.update { it.copy(currentTab = AppTab.HOTELS, route = AppRoute.Root, backStack = emptyList(), isImmersive = false, isSidebarOpen = false, discoveryFlights = false, discoveryBuild = false, homeHotelCity = city) }
     }
     fun openDiscoveryFlights() {
-        _state.update { it.copy(currentTab = AppTab.HOTELS, route = AppRoute.Root, backStack = emptyList(), isImmersive = false, isSidebarOpen = false, discoveryFlights = true, discoveryBuild = false) }
+        _state.update { it.copy(currentTab = AppTab.HOTELS, route = AppRoute.Root, backStack = emptyList(), isImmersive = false, isSidebarOpen = false, discoveryFlights = true, discoveryBuild = false, homeHotelCity = null) }
     }
     fun openDiscoveryBuild() {
-        _state.update { it.copy(currentTab = AppTab.HOME, route = AppRoute.Root, backStack = emptyList(), isImmersive = false, isSidebarOpen = false, discoveryFlights = false, discoveryBuild = true) }
+        _state.update { it.copy(currentTab = AppTab.HOME, route = AppRoute.Root, backStack = emptyList(), isImmersive = false, isSidebarOpen = false, discoveryFlights = false, discoveryBuild = true, homeHotelCity = null) }
     }
     fun setDiscoveryFlights(value: Boolean) { _state.update { it.copy(discoveryFlights = value) } }
     fun consumeDiscoveryBuild() { _state.update { it.copy(discoveryBuild = false) } }
