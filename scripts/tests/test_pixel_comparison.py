@@ -35,4 +35,26 @@ class TestExactComparison(unittest.TestCase):
             (android/'screen.png').unlink()
             self.assertNotEqual(subprocess.run(cmd,capture_output=True).returncode,0)
 
+    def test_required_coverage_and_stale_report(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root=Path(temp); ios=root/'ios'; android=root/'android'; out=root/'out'
+            ios.mkdir(); android.mkdir()
+            for folder in (ios, android):
+                Image.new('RGB',(8,8)).save(folder/'a.png')
+            manifest=root/'required.txt'; manifest.write_text('a.png\nb.png\n')
+            cmd=[sys.executable,str(SCRIPT),'--ios',str(ios),'--android',str(android),'--out',str(out),'--exact']
+            self.assertEqual(subprocess.run(cmd,capture_output=True).returncode,0)
+            self.assertTrue((out/'comparison.json').exists())
+            strict=cmd+['--required-list',str(manifest)]
+            self.assertNotEqual(subprocess.run(strict,capture_output=True).returncode,0)
+            self.assertFalse((out/'comparison.json').exists())
+            for folder in (ios, android):
+                Image.new('RGB',(8,8)).save(folder/'b.png')
+            self.assertEqual(subprocess.run(strict,capture_output=True).returncode,0)
+            row=json.loads((out/'comparison.json').read_text())
+            self.assertEqual(row['required_capture_count'],2)
+            self.assertEqual(row['compared_capture_count'],2)
+            self.assertNotEqual(subprocess.run(cmd+['--out',str(ios)],capture_output=True).returncode,0)
+            self.assertNotEqual(subprocess.run(cmd+['--android',str(ios)],capture_output=True).returncode,0)
+
 if __name__ == '__main__': unittest.main()
