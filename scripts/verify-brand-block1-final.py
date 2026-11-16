@@ -36,7 +36,7 @@ check('.clearAndSetSemantics { }' in world and 'contentDescription = null' in wo
 check('if (drawsSignatureBackground) Modifier.iumrahSignatureBleed()' in header and 'IumrahRootPageHeader(' in hotels and 'placeable.placeRelative(-bleedPx, 0)' in world and 'maxWidth + bleedPx * 2' in world, 'header and Hotels map use deterministic two-sided 18dp bleed, without double expansion')
 # The November iOS source supersedes the older small/medium/wide brand row.
 # It uses two matching 48dp slot / 44dp menus with a centered 187.2dp wordmark.
-check('SignatureHeaderButton(CupertinoSymbol.Menu, 44.dp, 0, chrome::openSidebar,' in header
+check('SignatureHeaderButton(CupertinoSymbol.Menu, 44.dp, chrome::openSidebar,' in header
       and 'IumrahDesign.SignatureLogoWidth' in header
       and 'IumrahDesign.SignatureLogoHeight' in header
       and 'IumrahDesign.SignatureHeaderTop' in header,
@@ -45,7 +45,7 @@ check('val bottomRadius = if (roundedBottom || discovery) IumrahDesign.Signature
       'Discovery headers curved / other root tabs straight, matching current iOS')
 check('Color.White.copy(alpha = .105f)' in header and 'BorderStroke(.8.dp, Color.White.copy(alpha = .25f))' in header,
       'Native tappable header buttons retain iOS translucent surface')
-check('unreadCount > 9) 26.dp else 16.dp' in header and '.offset(x = 3.dp, y = (-4).dp)' in header and 'if (unreadCount > 9) "9+"' in header, 'notification badge displays numbered 16dp or 9+ capsule, not a 7dp dot')
+check('if (unreadCount > 0) CupertinoSymbol.BellBadge else CupertinoSymbol.Bell' in header and 'unreadCount > 9) 26.dp else 16.dp' not in header, 'Current iOS uses only bell.badge, with no duplicate numeric overlay')
 check('val gradientStops = listOf(' in header and 'Color.White.copy(alpha = .55f)' in header and 'Color.White.copy(alpha = .98f)' in header and 'Brush.sweepGradient(*rotatedStops.toTypedArray())' in header and 'tween(1550, easing = LinearEasing)' in header, 'connectivity pill uses moving WHITE/GRAY angular gradient at reference speed')
 check('spring(dampingRatio = .82f, stiffness = 220f)' in header and 'delay(1_650)' in header and 'delay(3_650)' in header and 'delay(620)' in header, 'pill spring and cycle approximate iOS response and timing')
 check('showsConnectivityStatus = false' in home and 'language = language' in home, 'Home follows current iOS: no redundant connectivity subtitle')

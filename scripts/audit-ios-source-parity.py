@@ -40,7 +40,7 @@ def geometry(swift: str, kt: str):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--ios', required=True, type=Path, help='Root of kepler-ios-main repository')
-    parser.add_argument('--report', type=Path, default=ROOT / 'docs/parity/IOS_ANDROID_SOURCE_COMPARISON_20261025.md')
+    parser.add_argument('--report', type=Path, default=ROOT / 'docs/parity/IOS_ANDROID_SOURCE_COMPARISON_20261116.md')
     args = parser.parse_args()
     ios = args.ios.resolve()
     assert (ios / 'Sources/Core/DesignSystem.swift').is_file(),f'Not an iOS source checkout: {ios}'
@@ -51,7 +51,7 @@ def main():
     values = geometry((ios/'Sources/Core/DesignSystem.swift').read_text(),
                       (ROOT/'app/src/main/java/com/iumrah/beta/core/design/IumrahTheme.kt').read_text())
     swift_joined = '\n'.join(f.read_text(encoding='utf-8') for f in swift_files)
-    ios_lato_count = len(re.findall(r'\.font\(IumrahLato\.font\(', swift_joined))
+    ios_lato_count = len(re.findall(r'\.font\(Iumrah(?:Type\.(?:regular|bold)|Lato\.font)\(', swift_joined))
     sys_name_calls = len(re.findall(r'Image\(systemName:', swift_joined))
     sys_font_references = len(re.findall(r'\.font\(\.system\(', swift_joined))
     light_page = 'LightPage = Color(0xFFF2F2F7)' in (ROOT/'app/src/main/java/com/iumrah/beta/core/design/IumrahTheme.kt').read_text()
@@ -66,7 +66,7 @@ def main():
     }
     args.report.parent.mkdir(parents=True, exist_ok=True)
     metrics_rows='\n'.join('| '+k+' | '+str(v.get('ios_points','?'))+' | '+str(v.get('android_dp','?'))+' | '+('✓' if v.get('same_nominal_value') else '✗')+' |' for k,v in values.items())
-    args.report.write_text(f'''# iumrah iOS ↔ Android source visual parity audit (2026-10-25)
+    args.report.write_text(f'''# iumrah iOS ↔ Android source visual parity audit (2026-11-16)
 
 Read-only comparison against the **original, unchanged uploaded SwiftUI iOS** tree. Changes are applied exclusively to Android.
 

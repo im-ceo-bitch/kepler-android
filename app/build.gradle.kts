@@ -96,6 +96,7 @@ val bootstrapCupertinoIcons by tasks.registering(Exec::class) {
     group = "visual assets"
     description = "Install official Flutter CupertinoIcons font and exhaustive Kotlin glyph mapping."
     commandLine("python3", rootProject.file("scripts/install-cupertino-assets.py").absolutePath)
+    inputs.file(rootProject.file("scripts/install-cupertino-assets.py"))
     inputs.file(rootProject.file("third_party/cupertino_icons/symbol-map.json"))
     inputs.file(file("src/main/java/com/iumrah/beta/ui/cupertino/CupertinoIcons.kt"))
     outputs.file(file("src/main/res/font/cupertino_icons.ttf"))

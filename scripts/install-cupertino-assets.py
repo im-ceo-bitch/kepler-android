@@ -8,6 +8,7 @@ registry, and builds an exhaustive Kotlin lookup table. It NEVER draws icons.
 Network is required on the first build, thereafter all outputs are cached.
 """
 import argparse
+import hashlib
 import http.client
 import io
 import json
@@ -162,12 +163,13 @@ def main() -> int:
         assert LOOKUP.exists() and AUDIT.exists(), "Glyph codepoint map not installed"
         assert all((FONT.parent / f).is_file() for f in LATO_FILES), "Lato typefaces not installed"
         info = json.loads(AUDIT.read_text(encoding="utf-8"))
-        assert len(info["resolved"]) == len(symbols)
-        assert len(set(info["resolved"])) == len(symbols)
+        assert cache_matches(symbols), "Stale Cupertino mapping: rerun bootstrap"
         print(f"Verified {len(symbols)} Flutter Cupertino icons, package {PACKAGE_VERSION}.")
         return 0
     if not args.refresh and FONT.exists() and LOOKUP.exists() and AUDIT.exists() and all((FONT.parent / f).exists() for f in LATO_FILES):
-        return main_verify(symbols)
+        if cache_matches(symbols):
+            return main_verify(symbols)
+        print("Cupertino mapping changed; refreshing generated font lookup.")
 
     print(f"Fetching official cupertino_icons {PACKAGE_VERSION} + Flutter {FLUTTER_VERSION} icon registry")
     font_data, license_data = fetch_cupertino_package()
@@ -215,6 +217,7 @@ def main() -> int:
         "cupertino_icons_version": PACKAGE_VERSION,
         "flutter_sdk_version": FLUTTER_VERSION,
         "resolved": resolved, "candidate_fallbacks": fallback_selections,
+        "mapping_sha256": hashlib.sha256(MAPPING.read_bytes()).hexdigest(),
         "note": "Cupertino glyphs, not Apple SF Symbols. Fall-backs are not pixel-perfect."},
         indent=2, sort_keys=True) + "\n", encoding="utf-8")
     print(f"Installed {len(symbols)} genuine Cupertino glyphs and {len(LATO_FILES)} official Lato faces. Alternate variants: {len(fallback_selections)}")
@@ -223,9 +226,18 @@ def main() -> int:
     return 0
 
 
+def cache_matches(symbols: list[str]) -> bool:
+    try:
+        info = json.loads(AUDIT.read_text(encoding="utf-8"))
+        return (isinstance(info, dict) and isinstance(info.get("resolved"), dict)
+                and set(info["resolved"]) == set(symbols)
+                and info.get("mapping_sha256") == hashlib.sha256(MAPPING.read_bytes()).hexdigest())
+    except (OSError, ValueError, TypeError):
+        return False
+
+
 def main_verify(symbols: list[str]) -> int:
-    info = json.loads(AUDIT.read_text(encoding="utf-8"))
-    if len(info.get("resolved", {})) != len(symbols):
+    if not cache_matches(symbols):
         raise ValueError("Cached Cupertino font map is incomplete. Retry --refresh")
     print(f"Cached Cupertino asset: {len(symbols)} symbols")
     return 0

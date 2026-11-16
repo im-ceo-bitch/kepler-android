@@ -34,6 +34,7 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -130,6 +131,8 @@ fun IumrahPrimaryButton(
                 text = title,
                 color = if (enabled) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f),
                 style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.padding(horizontal = 18.dp),
+                textAlign = TextAlign.Center,
             )
         }
     }
@@ -153,7 +156,8 @@ fun IumrahSecondaryButton(
         haptic = false,
     ) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Text(title, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
+            Text(title, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.padding(horizontal = 18.dp), textAlign = TextAlign.Center)
         }
     }
 }
@@ -171,7 +175,7 @@ fun IumrahSectionHeader(
         verticalAlignment = Alignment.Bottom,
     ) {
         Column(modifier = Modifier.weight(1f)) {
-            Text(title, style = MaterialTheme.typography.titleLarge)
+            Text(title, style = MaterialTheme.typography.headlineSmall)
             if (!subtitle.isNullOrBlank()) {
                 Spacer(Modifier.height(5.dp))
                 Text(

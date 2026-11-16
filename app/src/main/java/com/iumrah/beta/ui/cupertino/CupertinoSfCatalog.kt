@@ -11,11 +11,27 @@ package com.iumrah.beta.ui.cupertino
  */
 object CupertinoSfCatalog {
     val currentIosSystemNames: Map<String, CupertinoSymbol> = mapOf(
+        // 2026-11-16 iOS catalog additions. Two Apple-only compound glyphs use
+        // explicit semantic approximations (message.badge.waveform / questionmark.bubble.fill).
+        "bag.fill" to CupertinoSymbol.BagFill,
+        "checkmark.circle" to CupertinoSymbol.CheckCircle,
+        "circle" to CupertinoSymbol.CircleOutline,
+        "circle.hexagongrid.fill" to CupertinoSymbol.CircleGridHexFill,
+        "circle.inset.filled" to CupertinoSymbol.CircleInsetFilled,
+        "creditcard" to CupertinoSymbol.CreditCard,
+        "list.bullet" to CupertinoSymbol.ListBullet,
+        "message.badge.waveform" to CupertinoSymbol.Message,
+        "moon" to CupertinoSymbol.Moon,
+        "paperplane" to CupertinoSymbol.Send,
+        "questionmark" to CupertinoSymbol.QuestionMark,
+        "questionmark.bubble.fill" to CupertinoSymbol.QuestionCircle,
+        "doc.text" to CupertinoSymbol.DocumentOutline,
+        "car.side" to CupertinoSymbol.Car,
         // Canonical forward-direction labels are widely used in the current SwiftUI source.
         "chevron.forward" to CupertinoSymbol.ChevronRight,
         "arrow.forward" to CupertinoSymbol.ArrowRight,
         "location.north.fill" to CupertinoSymbol.Location,
-        "creditcard.fill" to CupertinoSymbol.CreditCard,
+        "creditcard.fill" to CupertinoSymbol.CreditCardFill,
         "bell" to CupertinoSymbol.Bell,
         "bell.badge" to CupertinoSymbol.BellBadge,
         "checklist" to CupertinoSymbol.Checklist,
@@ -162,7 +178,7 @@ object CupertinoSfCatalog {
         "number.square.fill" to CupertinoSymbol.NumberSquare,
         "paperclip" to CupertinoSymbol.Paperclip,
         "paperplane.circle.fill" to CupertinoSymbol.Send,
-        "paperplane.fill" to CupertinoSymbol.Send,
+        "paperplane.fill" to CupertinoSymbol.SendFill,
         "pencil" to CupertinoSymbol.Pencil,
         "person.2" to CupertinoSymbol.Persons,
         "person.2.fill" to CupertinoSymbol.PersonsFill,

@@ -4,10 +4,13 @@
 Run: python3 -m unittest discover -s scripts/tests -p 'test_install_cupertino_assets.py' -v
 No network, Android SDK, icon font files, or credentials required.
 """
+import hashlib
 import importlib.util
 import io
+import json
 import pathlib
 import tarfile
+import tempfile
 import unittest
 from unittest.mock import patch
 
@@ -85,6 +88,32 @@ class TestCupertinoDownloader(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "after 3 attempts"):
                 bootstrap.fetch_cupertino_package()
         self.assertEqual(loader.call_count, 3)
+
+
+class TestCupertinoCache(unittest.TestCase):
+    def test_old_map_or_changed_symbol_candidates_are_not_accepted(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = pathlib.Path(temp)
+            mapping, audit = root / "symbol-map.json", root / "glyph-resolution.json"
+            mapping.write_text(json.dumps({"Bag": ["bag"]}))
+            digest = hashlib.sha256(mapping.read_bytes()).hexdigest()
+            with patch.object(bootstrap, "MAPPING", mapping), patch.object(bootstrap, "AUDIT", audit):
+                cases = [
+                    (None, False),
+                    ([], False),
+                    ({"resolved": {"Bag": {}}}, False),
+                    ({"resolved": {"Moon": {}}, "mapping_sha256": digest}, False),
+                    ({"resolved": {"Bag": {}}, "mapping_sha256": digest}, True),
+                ]
+                for data, expected in cases:
+                    with self.subTest(data=data):
+                        if data is not None:
+                            audit.write_text(json.dumps(data))
+                        self.assertEqual(bootstrap.cache_matches(["Bag"]), expected)
+                mapping.write_text(json.dumps({"Bag": ["bag_fill", "bag"]}))
+                self.assertFalse(bootstrap.cache_matches(["Bag"]))
+                audit.write_text("{invalid")
+                self.assertFalse(bootstrap.cache_matches(["Bag"]))
 
 
 if __name__ == "__main__":

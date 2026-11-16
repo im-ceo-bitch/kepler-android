@@ -23,7 +23,7 @@ theme = (src/'core/design/IumrahTheme.kt').read_text()
 assert 'val SignatureBlack = Color(0xFF090909)' in theme
 assert 'IumrahSignatureWorldBackground(Modifier.matchParentSize(), mapOpacity = .33f, isAnimating = !discovery)' in header
 assert 'drawsSignatureBackground: Boolean = true' in header
-assert 'SignatureHeaderButton(CupertinoSymbol.Menu, 44.dp, 0, chrome::openSidebar,' in header
+assert 'SignatureHeaderButton(CupertinoSymbol.Menu, 44.dp, chrome::openSidebar,' in header
 assert 'val bottomRadius = if (roundedBottom || discovery) IumrahDesign.SignatureBottomRadius else 0.dp' in header
 assert 'IumrahDesign.SignatureLogoWidth' in header and 'IumrahDesign.SignatureLogoHeight' in header
 assert 'Color.White.copy(alpha = .105f)' in header

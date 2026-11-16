@@ -76,10 +76,11 @@ enum class IumrahIconRole(val color: Color) {
                 name.contains("calendar") -> CALENDAR
                 name.contains("clock") || name.contains("timer") -> WAITING
                 name.contains("phone") -> PHONE
-                name.contains("envelope") -> MAIL
-                name.contains("message") || name.contains("bubble") -> MESSAGE
-                name.contains("building") || name.contains("bed") || name.contains("house") -> HOTEL
-                name.contains("suitcase") || name.contains("bag") -> BOOKING
+                name.contains("envelope") || name.contains("mail") -> MAIL
+                listOf("paperplane", "message", "bubble", "chat").any { name.contains(it) } -> MESSAGE
+                name.contains("heart") -> CARE
+                listOf("building", "bed", "hotel").any { name.contains(it) } -> HOTEL
+                listOf("suitcase", "briefcase", "ticket").any { name.contains(it) } -> BOOKING
                 listOf("airplane", "car", "bus", "tram", "ferry").any { name.contains(it) } -> TRAVEL
                 name.contains("book") || name.contains("moon.stars") || name.contains("hands") || name.contains("sparkles") -> UMRAH
                 name.contains("person") || name.contains("figure") -> PROFILE

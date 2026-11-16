@@ -49,6 +49,7 @@ enum class CupertinoSymbol {
     Search, QuestionCircle, ChartBar, Cart, Ticket, SosCircle, ArrowUpDown,
     Wifi, WifiSlash, WifiWarning, Sunrise, CloudSun, Scan, Link,
     HomeFill, BellFill, BellSlashFill, InfoCircleFill, Tray, WarningTriangleFill, PhotoFill,
+    BagFill, CircleOutline, CircleInsetFilled, CircleGridHexFill, CreditCardFill, ListBullet, SendFill, QuestionMark, DocumentOutline,
 }
 
 

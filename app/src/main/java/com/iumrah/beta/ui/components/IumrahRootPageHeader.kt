@@ -100,8 +100,11 @@ fun IumrahRootPageHeader(
             // Exact iOS IumrahPrimaryHeaderBrandRow hierarchy:
             // menu (48) | flexible space | centered wordmark | flexible space | bell (48).
             // No app-specific connectivity caption and no second wordmark.
-            val headerWidth = maxWidth
-            val logoWidth = minOf(IumrahDesign.SignatureLogoWidth, (headerWidth - 108.dp).coerceAtLeast(112.dp))
+            // The bleed adds the two page insets back before the brand row is measured.
+            val headerWidth = maxWidth + if (drawsSignatureBackground) IumrahDesign.PagePadding * 2 else 0.dp
+            // iOS: 18pt edge insets, two 48pt slots, two minimum 4pt gaps.
+            val logoWidth = minOf(IumrahDesign.SignatureLogoWidth,
+                (headerWidth - IumrahDesign.PagePadding * 2 - 104.dp).coerceAtLeast(0.dp))
             val bottomRadius = if (roundedBottom || discovery) IumrahDesign.SignatureBottomRadius else 0.dp
             val container = if (drawsSignatureBackground) Modifier.iumrahSignatureBleed()
                 else Modifier.fillMaxWidth()
@@ -126,7 +129,7 @@ fun IumrahRootPageHeader(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween,
                     ) {
-                        SignatureHeaderButton(CupertinoSymbol.Menu, 44.dp, 0, chrome::openSidebar, headerCopy(language, "Меню", "Menu", "Menyu", "Меню"))
+                        SignatureHeaderButton(CupertinoSymbol.Menu, 44.dp, chrome::openSidebar, headerCopy(language, "Меню", "Menu", "Menyu", "Меню"))
                         Spacer(Modifier.weight(1f))
                         Image(
                             painterResource(R.drawable.iumrah_header_wordmark_dark),
@@ -137,7 +140,7 @@ fun IumrahRootPageHeader(
                         Spacer(Modifier.weight(1f))
                         SignatureHeaderButton(
                             if (unreadCount > 0) CupertinoSymbol.BellBadge else CupertinoSymbol.Bell,
-                            48.dp, unreadCount, chrome::openNotifications, headerCopy(language, "Уведомления", "Notifications", "Bildirishnomalar", "Билдиришномалар"),
+                            48.dp, chrome::openNotifications, headerCopy(language, "Уведомления", "Notifications", "Bildirishnomalar", "Билдиришномалар"),
                         )
                     }
                     if (!usesBrandLogo) {
@@ -233,7 +236,6 @@ fun IumrahRootPageHeader(
 private fun SignatureHeaderButton(
     symbol: CupertinoSymbol,
     size: Dp,
-    unreadCount: Int,
     onClick: () -> Unit,
     label: String,
 ) {
@@ -251,23 +253,7 @@ private fun SignatureHeaderButton(
                 CupertinoIcon(symbol, label, Modifier.size(17.dp), Color.White)
             }
         }
-        if (unreadCount > 0) {
-            // iOS unreadDot: a 16pt red capsule, white 1pt outline,
-            // numeral (or 9+) and topTrailing offset (+3, -4).
-            Box(
-                modifier = Modifier.align(Alignment.TopEnd)
-                    .offset(x = 3.dp, y = (-4).dp)
-                    .height(16.dp)
-                    .clip(RoundedCornerShape(50))
-                    .background(Color(0xFFFF3B30))
-                    .border(1.dp, Color.White.copy(alpha = .95f), RoundedCornerShape(50))
-                    .width(if (unreadCount > 9) 26.dp else 16.dp),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(if (unreadCount > 9) "9+" else unreadCount.toString(), color = Color.White,
-                    fontSize = 9.sp, lineHeight = 10.sp, fontWeight = FontWeight.Bold, maxLines = 1)
-            }
-        }
+        // Current iOS notificationAction uses bell.badge, without a second numeric overlay.
     }
 }
 

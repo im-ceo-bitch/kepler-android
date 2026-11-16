@@ -59,6 +59,9 @@
     "bag_fill",
     "circle"
   ],
+  "BagFill": [
+    "bag_fill"
+  ],
   "Bed": [
     "bed_double",
     "bed_double_fill",
@@ -175,6 +178,15 @@
     "chevron_up",
     "circle"
   ],
+  "CircleGridHexFill": [
+    "circle_grid_hex_fill"
+  ],
+  "CircleInsetFilled": [
+    "circle_filled"
+  ],
+  "CircleOutline": [
+    "circle"
+  ],
   "Clock": [
     "clock",
     "circle"
@@ -202,6 +214,9 @@
     "creditcard_fill",
     "circle"
   ],
+  "CreditCardFill": [
+    "creditcard_fill"
+  ],
   "CrownFill": [
     "crown_fill",
     "star_fill",
@@ -224,6 +239,9 @@
     "doc_text_fill",
     "doc_text",
     "circle"
+  ],
+  "DocumentOutline": [
+    "doc_text"
   ],
   "Download": [
     "square_arrow_down",
@@ -354,6 +372,9 @@
     "link",
     "link_circle",
     "circle"
+  ],
+  "ListBullet": [
+    "list_bullet"
   ],
   "Location": [
     "location",
@@ -511,6 +532,9 @@
     "questionmark_circle",
     "circle"
   ],
+  "QuestionMark": [
+    "question"
+  ],
   "Refresh": [
     "arrow_clockwise",
     "refresh",
@@ -548,6 +572,9 @@
     "paperplane",
     "paperplane_fill",
     "circle"
+  ],
+  "SendFill": [
+    "paperplane_fill"
   ],
   "Share": [
     "square_arrow_up",

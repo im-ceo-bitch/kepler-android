@@ -47,9 +47,9 @@ def main():
           'val LightPage = Color(0xFFF2F2F7)' in theme, 'current iOS signature and accent palette')
     check('Font(R.font.lato_regular' in theme and 'Font(R.font.lato_bold' in theme,
           'Lato Regular/Bold is application typography')
-    check('SignatureHeaderButton(CupertinoSymbol.Menu, 44.dp, 0, chrome::openSidebar,' in header and
+    check('SignatureHeaderButton(CupertinoSymbol.Menu, 44.dp, chrome::openSidebar,' in header and
           'Modifier.width(logoWidth).height(IumrahDesign.SignatureLogoHeight)' in header and
-          '48.dp, unreadCount, chrome::openNotifications' in header,
+          '48.dp, chrome::openNotifications' in header,
           'centered wordmark with symmetrical menu and notification chrome')
     check('val bottomRadius = if (roundedBottom || discovery) IumrahDesign.SignatureBottomRadius else 0.dp' in header,
           'Discovery headers curved; other root tabs straight')

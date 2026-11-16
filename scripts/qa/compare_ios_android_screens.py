@@ -19,7 +19,10 @@ def main():
     p.add_argument('--android', type=Path, required=True)
     p.add_argument('--out', type=Path, required=True)
     p.add_argument('--max-mae', type=float, default=8, help='Mean RGB error on 0–255 scale, not a guarantee of UX parity')
+    p.add_argument('--exact', action='store_true', help='Fail for any differing RGB pixel; no tolerance or resizing')
     args = p.parse_args()
+    if args.max_mae < 0:
+        p.error('--max-mae must be nonnegative')
     try:
         from PIL import Image, ImageChops, ImageEnhance, ImageStat
     except ImportError:
@@ -43,21 +46,29 @@ def main():
             diff = ImageChops.difference(i,a)
             means = ImageStat.Stat(diff).mean
             mae = sum(means)/3
-            pix = list(diff.getdata())
-            mismatched = sum(max(color) > 20 for color in pix)
-            ratio = mismatched / len(pix)
+            total = i.width * i.height
+            changed = 0
+            mismatched = 0
+            for color in diff.getdata():
+                peak = max(color)
+                changed += peak > 0
+                mismatched += peak > 20
+            ratio = mismatched / total
+            identical = changed == 0
+            passed = identical if args.exact else mae <= args.max_mae
             preview = args.out / relative
             preview.parent.mkdir(parents=True, exist_ok=True)
             ImageEnhance.Contrast(diff).enhance(3.5).save(preview)
             results.append({'screen':str(relative),'size':list(i.size),
                             'mae_rgb':round(mae,3), 'fraction_pixels_over_20':round(ratio,5),
-                            'within_mae_threshold':mae <= args.max_mae})
+                            'changed_pixels':changed, 'total_pixels':total, 'exact_rgb_match':identical,
+                            'within_mae_threshold':mae <= args.max_mae, 'passed':passed})
     report = args.out/'comparison.json'
-    report.write_text(json.dumps({'threshold_mae':args.max_mae,'results':results},indent=2,ensure_ascii=False)+'\n')
+    report.write_text(json.dumps({'mode':'exact_rgb' if args.exact else 'mae_tolerance', 'threshold_mae':args.max_mae,'results':results},indent=2,ensure_ascii=False)+'\n')
     for row in results:
-        print(f"{'PASS' if row['within_mae_threshold'] else 'REVIEW'} {row['screen']}: MAE={row['mae_rgb']}, changed={100*row['fraction_pixels_over_20']:.1f}%")
+        print(f"{'PASS' if row['passed'] else 'REVIEW'} {row['screen']}: MAE={row['mae_rgb']}, changed={100*row['fraction_pixels_over_20']:.1f}%")
     print(f'Wrote {report}; pixel scores cannot prove behavior/API parity.')
-    if not all(r['within_mae_threshold'] for r in results):
+    if not all(r['passed'] for r in results):
         sys.exit(1)
 
 if __name__ == '__main__':

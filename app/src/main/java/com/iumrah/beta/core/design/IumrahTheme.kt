@@ -168,16 +168,19 @@ val IumrahFontFamily = FontFamily(
     Font(R.font.lato_bold, FontWeight.Bold),
 )
 
+// Nominal IumrahType roles from Sources/Core/DesignSystem.swift:
+// display 34, screenTitle 28, sectionTitle 22, cardTitle 18,
+// body 16, secondary 14, caption 12. Line heights are Android approximations.
 private val IumrahTypography = Typography(
     displayLarge = TextStyle(
-        fontSize = 38.sp,
-        lineHeight = 42.sp,
+        fontSize = 34.sp,
+        lineHeight = 40.sp,
         fontWeight = FontWeight.Bold,
         letterSpacing = (-1.0).sp,
     ),
     headlineLarge = TextStyle(
-        fontSize = 31.sp,
-        lineHeight = 36.sp,
+        fontSize = 28.sp,
+        lineHeight = 34.sp,
         fontWeight = FontWeight.Bold,
         letterSpacing = (-0.8).sp,
     ),
@@ -188,14 +191,14 @@ private val IumrahTypography = Typography(
         letterSpacing = (-0.7).sp,
     ),
     headlineSmall = TextStyle(
-        fontSize = 23.sp,
-        lineHeight = 28.sp,
+        fontSize = 22.sp,
+        lineHeight = 27.sp,
         fontWeight = FontWeight.Bold,
         letterSpacing = (-0.45).sp,
     ),
     titleLarge = TextStyle(
-                fontSize = 20.sp,
-        lineHeight = 25.sp,
+                fontSize = 18.sp,
+        lineHeight = 23.sp,
         fontWeight = FontWeight.Bold,
     ),
     titleMedium = TextStyle(
@@ -216,6 +219,11 @@ private val IumrahTypography = Typography(
     bodyMedium = TextStyle(
                 fontSize = 14.sp,
         lineHeight = 19.sp,
+        fontWeight = FontWeight.Normal,
+    ),
+    bodySmall = TextStyle(
+        fontSize = 12.sp,
+        lineHeight = 16.sp,
         fontWeight = FontWeight.Normal,
     ),
     labelLarge = TextStyle(
