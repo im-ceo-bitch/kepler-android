@@ -165,6 +165,7 @@ fun FinalPackageScreen(
     ) {
         GeneratorHeader(GeneratorStage.READY, language, chrome, currentPriceText = "${quote.totalPackagePrice.setScale(0, java.math.RoundingMode.HALF_UP)} ${quote.currency}")
         FinalPackageHeader(language)
+        com.iumrah.beta.ui.components.IumrahClientPackageMoment(language, com.iumrah.beta.ui.components.selectedOrbitServices(state))
         val displayOptions = comparisonOptions.ifEmpty { listOf(TierComparisonOption(state.trip.packageTier, quote, state.makkahHotel, state.madinahHotel)) }
         val focusedOption = displayOptions.firstOrNull { it.tier == focusedTier } ?: displayOptions.first()
         PackageTierSection(

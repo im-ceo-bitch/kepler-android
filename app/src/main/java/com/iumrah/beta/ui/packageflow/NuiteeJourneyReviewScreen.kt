@@ -23,6 +23,12 @@ import com.iumrah.beta.domain.journey.JourneyStore
 import com.iumrah.beta.domain.trip.JourneyScope
 import com.iumrah.beta.domain.trip.TransferVehicleKind
 import com.iumrah.beta.ui.components.IumrahPrimaryButton
+import com.iumrah.beta.ui.components.IumrahClientPackageMoment
+import com.iumrah.beta.ui.components.selectedOrbitServices
+import com.iumrah.beta.ui.smart.SmartFlightCard
+import com.iumrah.beta.ui.smart.SmartHotelCard
+import com.iumrah.beta.ui.cupertino.CupertinoIcon
+import com.iumrah.beta.ui.cupertino.CupertinoSymbol
 import com.iumrah.beta.ui.hotels.nuiteeText
 import com.iumrah.beta.ui.hotels.nuiteeUSD
 import kotlinx.coroutines.CancellationException
@@ -64,7 +70,7 @@ fun NuiteeJourneyReviewScreen(language: AppLanguage, journey: JourneyStore, acco
         contentPadding = PaddingValues(start = 18.dp, end = 18.dp, top = 20.dp, bottom = 120.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)) {
         item {
-            TextButton(onClick = { chrome.back() }) { Text("‹") }
+            TextButton(onClick = { chrome.back() }) { CupertinoIcon(CupertinoSymbol.ChevronLeft, nuiteeText(language,"Назад","Back","Orqaga","Орқага"),Modifier.size(18.dp)) }
             Text(nuiteeText(language,"Ваша поездка", "Your trip", "Safaringiz", "Сафарингиз"),
                 fontWeight = FontWeight.Bold, fontSize = 27.sp)
             Text("${state.trip.travelerCount} · ${state.trip.rooms} " +
@@ -80,25 +86,18 @@ fun NuiteeJourneyReviewScreen(language: AppLanguage, journey: JourneyStore, acco
 
             }
         }
+        item { IumrahClientPackageMoment(language, selectedOrbitServices(state)) }
         item { Text(nuiteeText(language,"Авиабилеты", "Flights", "Reyslar", "Рейслар"),
             fontSize = 20.sp, fontWeight = FontWeight.Bold) }
         items(draft?.flights.orEmpty(), key = { it.id }) { flight ->
-            Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp))
-                .background(MaterialTheme.colorScheme.surface).padding(14.dp)) {
-                Text("${flight.origin} → ${flight.destination}", fontWeight = FontWeight.Bold)
-                Text("${flight.airline} · ${flight.flightNumber} · ${flight.departureAt}", fontSize = 12.sp)
-
-            }
+            SmartFlightCard(language,flight,draft?.flights?.firstOrNull()?.id==flight.id)
         }
         item { Text(nuiteeText(language,"Отели и номера", "Hotels & rooms", "Xonalar", "Хоналар"),
             fontSize = 20.sp, fontWeight = FontWeight.Bold) }
         items(draft?.rooms?.toSortedMap()?.values?.toList().orEmpty(), key = { it.key }) { room ->
-            Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp))
-                .background(MaterialTheme.colorScheme.surface).padding(14.dp)) {
-                Text(room.hotel.name, fontWeight = FontWeight.Bold)
-                Text("${room.city} · ${room.rate.roomName} · ${room.checkin} — ${room.checkout}", fontSize = 12.sp)
-                Text(room.rate.mealPlan, fontSize = 13.sp)
-                Text(room.rate.cancellationDescription.ifBlank { room.rate.cancellationTag }, fontSize = 12.sp)
+            Column(verticalArrangement=Arrangement.spacedBy(4.dp)) {
+                SmartHotelCard(language,room,false,null,{})
+                Text(room.rate.cancellationDescription.ifBlank { room.rate.cancellationTag },Modifier.padding(horizontal=12.dp),fontSize=12.sp)
             }
         }
         items(draft?.pending?.toSortedMap()?.values?.toList().orEmpty(), key = { "pending-${it.key}" }) { pending ->

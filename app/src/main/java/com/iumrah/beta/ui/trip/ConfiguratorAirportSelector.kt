@@ -162,7 +162,7 @@ fun ConfiguratorAirportSelector(
 }
 
 @Composable
-private fun ConfiguratorAirportPickerSheet(
+internal fun ConfiguratorAirportPickerSheet(
     language: AppLanguage,
     service: AirportSearchService,
     current: Airport?,

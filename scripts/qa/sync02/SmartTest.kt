@@ -45,6 +45,27 @@ fun main() = runBlocking {
     verify(progress.first()==SmartConfiguratorService.Progress.FLIGHTS && progress.last()==SmartConfiguratorService.Progress.READY)
     verify(manual.state.value==original); verify(runCatching { manual.adoptSmartResult(JourneyStore()) }.isFailure)
     manual.adoptSmartResult(result); verify(manual.state.value==result.state.value)
+    // Sync 03: replacement must be atomic and retain the exact previously priced journey on failure.
+    val previousSnapshot = result.state.value
+    val previousHotel = previousSnapshot.nuitee!!.rooms.getValue("makkah:0").hotel.id
+    hotels.catalog = { city,_,_,_ -> NuiteeHotelListEnvelope(ok=true,hotels=listOf(NuiteeHotel(city,"Old",city,stars=3.0),NuiteeHotel("new-$city","Replacement",city,stars=3.0))) }
+    val replacement = service.replaceHotel(p,result,"makkah",emptySet())
+    verify(result.state.value == previousSnapshot)
+    verify(replacement.state.value.nuitee!!.rooms.filterKeys { it.startsWith("makkah:") }.values.all { it.hotel.id == "new-makkah" })
+    verify(replacement.state.value.nuitee!!.rooms.filterKeys { it.startsWith("madinah:") } == previousSnapshot.nuitee!!.rooms.filterKeys { it.startsWith("madinah:") })
+    verify(replacement.state.value.nuitee!!.flights == previousSnapshot.nuitee!!.flights)
+    verify(replacement.state.value.hasFinalGeneratorQuote)
+    verify(runCatching { service.replaceHotel(p,result,"makkah",setOf("new-makkah",previousHotel)) }.isFailure)
+    verify(result.state.value == previousSnapshot)
+    engine.quote = { _ -> error("quote failure") }
+    verify(runCatching { service.replaceHotel(p,result,"makkah",emptySet()) }.isFailure)
+    verify(result.state.value == previousSnapshot)
+    engine.quote = { state -> com.iumrah.beta.domain.pricing.PackageQuote(BigDecimal(100), BigDecimal(50), "USD",false,"server-test","proof",bookingAllowed=true,resolvedTier=state.trip.packageTier.wireValue) }
+    val previews = mutableListOf<com.iumrah.beta.domain.journey.JourneyState>()
+    service.assemble(p,preview={ previews.add(it) }) { _,_-> }
+    verify(previews.first().nuitee!!.flights.size==2 && previews.first().nuitee!!.rooms.isEmpty())
+    verify(previews.last().nuitee!!.rooms.size==6 && previews.last().transferSelectionConfirmed)
+    verify(previews.all { it.quote == null })
     engine.quote = { state -> com.iumrah.beta.domain.pricing.PackageQuote(BigDecimal(100), BigDecimal(50), "USD",false,"server-test",null,bookingAllowed=true,resolvedTier=state.trip.packageTier.wireValue) }
     verify(runCatching { service.assemble(p) { _,_-> } }.isFailure)
     engine.quote = { state -> com.iumrah.beta.domain.pricing.PackageQuote(BigDecimal(100), BigDecimal(50), "USD",false,"server-test","proof",bookingAllowed=true,resolvedTier=state.trip.packageTier.wireValue) }
@@ -71,5 +92,5 @@ fun main() = runBlocking {
     api.reply = { _,body,_-> if((body as PlanRequest).source=="published") Plan(true) else Plan(true,dataPairs=listOf(dataPair.copy(outbound=dataPair.outbound.copy(transfers=1)))) }
     verify(runCatching { service.assemble(p.copy(childAges=emptyList())) { _,_-> } }.isFailure)
     verify(SmartRules.resume(SmartDraft(p.copy(adults=1,childAges=listOf(0,0)),8))?.step==6)
-    println("Smart Sync 02: $checks JVM assertions passed (actual service + JourneyStore, mocked network).")
+    println("Smart Sync 02–03: $checks JVM assertions passed (actual service + JourneyStore, mocked network).")
 }

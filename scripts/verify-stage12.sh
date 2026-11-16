@@ -26,7 +26,7 @@ python3 - "$HOME" <<'PY'
 import sys
 s=open(sys.argv[1], encoding='utf-8').read()
 aud=s.index('item { AudienceSection(language) }')
-build=s.index('item { SmartConfiguratorHomeCard(language, startSmart) }')
+build=s.index('item { SmartConfiguratorHomeCard(language, startSmart, active = !smartOpen && storyStartIndex == null) }')
 services=s.index('item { IumrahServicesCarousel(language, chrome) }')
 assert 'item { ServicesSection(language, chrome) }' not in s, 'Legacy services must not be displayed'
 travel=s.index('item { JourneyTravelInfoPanel(language) }')

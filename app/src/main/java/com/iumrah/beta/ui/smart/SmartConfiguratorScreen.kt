@@ -1,11 +1,16 @@
 package com.iumrah.beta.ui.smart
 
-import androidx.compose.foundation.Image
+import androidx.compose.foundation.border
+import androidx.compose.ui.semantics.Role
+import androidx.compose.foundation.selection.selectable
+import kotlinx.coroutines.launch
+import com.iumrah.beta.domain.journey.JourneyState
+import com.iumrah.beta.data.flight.FlightReferenceCatalog
+import com.iumrah.beta.ui.components.IumrahOrbitV5
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -15,52 +20,37 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
-import com.iumrah.beta.R
 import com.iumrah.beta.core.settings.AppLanguage
 import com.iumrah.beta.data.flight.AirportSearchService
 import com.iumrah.beta.data.smart.SmartConfiguratorService
 import com.iumrah.beta.domain.journey.JourneyStore
 import com.iumrah.beta.domain.smart.*
 import com.iumrah.beta.domain.trip.PackageTier
-import com.iumrah.beta.ui.components.IumrahSignatureWorldBackground
 import com.iumrah.beta.ui.cupertino.CupertinoIcon
 import com.iumrah.beta.ui.cupertino.CupertinoSymbol
 import com.iumrah.beta.ui.hotels.nuiteeText
-import com.iumrah.beta.ui.trip.ConfiguratorAirportSelector
-import java.time.YearMonth
-import java.time.format.DateTimeFormatter
-import java.util.Locale
+import com.iumrah.beta.ui.trip.ConfiguratorAirportPickerSheet
 import kotlinx.coroutines.CancellationException
 
 @Composable
-internal fun SmartConfiguratorHomeCard(language: AppLanguage, onOpen: () -> Unit) {
+internal fun SmartConfiguratorHomeCard(language: AppLanguage, onOpen: () -> Unit, active: Boolean = true) {
     Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(28.dp)).background(Color.Black).clickable(onClick = onOpen).padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text("iumrah Smart", color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
             Box(Modifier.size(40.dp).clip(CircleShape).background(Color.White.copy(alpha = .15f)), contentAlignment = Alignment.Center) { CupertinoIcon(CupertinoSymbol.ArrowUpRight, null, Modifier.size(18.dp), Color.White) }
         }
-        SmartOrbitPreview(Modifier.fillMaxWidth().height(310.dp), true, CupertinoSymbol.Sparkles)
+        BoxWithConstraints(Modifier.fillMaxWidth().height(310.dp), contentAlignment = Alignment.Center) {
+            IumrahOrbitV5(minOf(320.dp, maxWidth, maxHeight), lightOnDark = true, active = active)
+        }
         Text(nuiteeText(language, "Расскажите о своих планах. Остальное сделаем мы.", "Tell us your plans. We'll do the rest.", "Rejalaringizni ayting. Qolganini biz qilamiz.", "Режаларингизни айтинг. Қолганини биз қиламиз."), color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.Bold)
         Text(nuiteeText(language, "Подберём рейсы, отели и услуги в один пакет.", "We'll match flights, hotels and services in one package.", "Reyslar, mehmonxonalar va xizmatlarni bitta paketga jamlaymiz.", "Рейслар, меҳмонхоналар ва хизматларни битта пакетга жамлаймиз."), color = Color.White.copy(alpha = .72f), fontSize = 15.sp)
         SmartAction(nuiteeText(language, "Собрать мою Умру", "Build my Umrah", "Umramni tayyorlash", "Умрамни тайёрлаш"), true, true, onOpen)
-    }
-}
-
-/** Temporary shared motion surface; the SwiftUI Orbit V5 renderer is a separate parity task. */
-@Composable private fun SmartOrbitPreview(modifier: Modifier, dark: Boolean, symbol: CupertinoSymbol) {
-    Box(modifier.clip(RoundedCornerShape(26.dp)).background(Color.Black), contentAlignment = Alignment.Center) {
-        IumrahSignatureWorldBackground(Modifier.fillMaxSize(), mapOpacity = .58f)
-        if (dark) Image(painterResource(R.drawable.iumrah_header_wordmark_dark), "iumrah", Modifier.width(125.dp))
-        else Box(Modifier.size(84.dp).clip(CircleShape).background(Color.White.copy(alpha = .12f)), contentAlignment = Alignment.Center) {
-            CupertinoIcon(symbol, null, Modifier.size(40.dp), Color.White)
-        }
     }
 }
 
@@ -77,16 +67,22 @@ internal fun SmartConfiguratorScreen(language: AppLanguage, airports: AirportSea
     var result by remember { mutableStateOf<JourneyStore?>(null) }
     var failure by remember { mutableStateOf<String?>(null) }
     var busy by remember { mutableStateOf(false) }
+    var preview by remember { mutableStateOf<JourneyState?>(null) }
+    var replacingCity by remember { mutableStateOf<String?>(null) }
+    var replacementError by remember { mutableStateOf(false) }
+    var excludedHotels by remember { mutableStateOf<Map<String, Set<String>>>(emptyMap()) }
+    val scope = rememberCoroutineScope()
     var languageMenu by remember { mutableStateOf(false) }
+    var airportPicker by remember { mutableStateOf(false) }
     val steps = SmartRules.steps(preferences.both)
     val index = steps.indexOf(step).coerceAtLeast(0)
     val scroll = rememberScrollState()
     LaunchedEffect(step) { scroll.scrollTo(0) }
-    LaunchedEffect(step, preferences, result != null) { onSave(SmartDraft(preferences, step, result != null)) }
+    LaunchedEffect(step, preferences, result != null) { if(step != 0) onSave(SmartDraft(preferences, step, result != null)) }
     LaunchedEffect(step, attempt) {
         if (step != 8 || attempt == 0) return@LaunchedEffect
-        busy = true; failure = null; result = null
-        try { result = service.assemble(preferences) { stage, location -> progress = stage; city = location } }
+        busy = true; failure = null; result = null; preview = null; excludedHotels = emptyMap(); replacementError = false
+        try { result = service.assemble(preferences, preview = { preview = it }) { stage, location -> progress = stage; city = location } }
         catch (e: CancellationException) { throw e }
         catch (e: Exception) { failure = e.message ?: "SMART_QUOTE_UNAVAILABLE" }
         finally { busy = false }
@@ -111,20 +107,24 @@ internal fun SmartConfiguratorScreen(language: AppLanguage, airports: AirportSea
     }
     val subtitle = when (step) {
         0 -> t("Расскажите о своих планах. Мы подберём рейсы, отели и услуги в едином пакете.", "Tell us your plans. We'll find flights, hotels and services in one package.", "Rejalaringizni ayting. Reyslar, mehmonxonalar va xizmatlarni bitta paketda topamiz.", "Режаларингизни айтинг. Рейслар, меҳмонхоналар ва хизматларни битта пакетда топамиз.")
-        2 -> t("Точные даты подберём автоматически.", "We'll find the dates automatically.", "Aniq sanalarni avtomatik topamiz.", "Аниқ саналарни автоматик топамиз.")
+        1 -> t("Подберём вылет и возвращение в этот город.", "We will match departure and return to this city.", "Shu shahardan borish va qaytish reyslarini topamiz.", "Шу шаҳардан бориш ва қайтиш рейсларини топамиз.")
+        2 -> t("Точные даты подберём автоматически. Вылет — в выбранном месяце.", "We'll find the dates automatically. Departure stays within your chosen month.", "Aniq sanalarni avtomatik topamiz. Uchish tanlangan oyda bo‘ladi.", "Аниқ саналарни автоматик топамиз. Учиш танланган ойда бўлади.")
+        4 -> t("Выберите маршрут вашей поездки.", "Choose your journey route.", "Safaringiz yo‘nalishini tanlang.", "Сафарингиз йўналишини танланг.")
+        5 -> t("В Мекку — через Джидду. В Медину — через аэропорт Медины.", "Makkah via Jeddah, Madinah via Madinah airport.", "Makkaga Jidda, Madinaga Madina aeroporti orqali.", "Маккага Жидда, Мадинага Мадина аэропорти орқали.")
+        7 -> t("Прокрутите карточки, чтобы сравнить категории.", "Swipe to compare travel categories.", "Toifalarni solishtirish uchun kartalarni suring.", "Тоифаларни солиштириш учун карталарни суринг.")
         3 -> t("При необходимости расширим поиск на 3–4 дня.", "We may adjust the duration by 3–4 days to find flights.", "Zarur bo‘lsa, qidiruvni 3–4 kunga kengaytiramiz.", "Зарур бўлса, қидирувни 3–4 кунга кенгайтирамиз.")
         6 -> t("Возраст детей нужен для корректного тарифа.", "Children's ages help determine the right fare.", "To‘g‘ri tarif uchun bolalarning yoshi kerak.", "Тўғри тариф учун болаларнинг ёши керак.")
-        8 -> t("Проверяем компоненты и рассчитываем стоимость на сервере.", "Checking components and calculating the server price.", "Qismlarni tekshirib, serverda narxni hisoblayapmiz.", "Қисмларни текшириб, серверда нархни ҳисоблаяпмиз.")
+        8 -> if (result != null) t("Проверьте все детали перед бронированием.", "Review every detail before booking.", "Bron qilishdan oldin barcha tafsilotlarni tekshiring.", "Брон қилишдан олдин барча тафсилотларни текширинг.") else t("Проверяем компоненты и рассчитываем стоимость на сервере.", "Checking components and calculating the server price.", "Qismlarni tekshirib, serverda narxni hisoblayapmiz.", "Қисмларни текшириб, серверда нархни ҳисоблаяпмиз.")
         else -> ""
     }
     Dialog(onDismissRequest = onClose, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
-            Column(Modifier.fillMaxWidth().background(Color.Black).statusBarsPadding().padding(horizontal = 20.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.fillMaxWidth().background(Color.Black).statusBarsPadding().padding(start = 20.dp, end = 20.dp, top = 5.dp, bottom = 13.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     Box {
-                        SmartHeaderIcon(if (step == 0) CupertinoSymbol.Globe else CupertinoSymbol.ChevronLeft, !busy) {
+                        SmartHeaderIcon(if (step == 0) CupertinoSymbol.Globe else CupertinoSymbol.ChevronLeft, !busy && replacingCity == null) {
                             if (step == 0) languageMenu = true else {
-                                result = null; failure = null; step = steps[(index - 1).coerceAtLeast(0)]
+                                result = null; preview = null; failure = null; step = steps[(index - 1).coerceAtLeast(0)]
                             }
                         }
                         DropdownMenu(expanded = languageMenu, onDismissRequest = { languageMenu = false }) {
@@ -133,7 +133,7 @@ internal fun SmartConfiguratorScreen(language: AppLanguage, airports: AirportSea
                             }
                         }
                     }
-                    Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(3.dp)) {
                         Text("iumrah Smart", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 17.sp)
                         Text(t("Персональная поездка", "Personal journey", "Shaxsiy safar", "Шахсий сафар"), color = Color.White.copy(alpha = .7f), fontSize = 11.sp)
                     }
@@ -141,53 +141,80 @@ internal fun SmartConfiguratorScreen(language: AppLanguage, airports: AirportSea
                 }
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                     steps.forEach { value -> Box(Modifier.weight(1f).height(3.dp).clip(CircleShape).background(Color.White.copy(alpha = if (value <= step) 1f else .23f))) }
-                    Text("${index + 1}/${steps.size}", color = Color.White, fontSize = 11.sp)
+                    Text("${index + 1}/${steps.size}", color = Color.White, fontSize = 11.sp, modifier=Modifier.padding(start=5.dp))
                 }
             }
-            Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(scroll).padding(horizontal = 20.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(20.dp)) {
-                val symbol = when (step) { 1 -> CupertinoSymbol.AirplaneTakeoff; 2 -> CupertinoSymbol.Calendar; 3 -> CupertinoSymbol.Clock; 4 -> CupertinoSymbol.MapFill; 5 -> CupertinoSymbol.AirplaneLand; 6 -> CupertinoSymbol.PersonsFill; 7 -> CupertinoSymbol.StarFill; else -> CupertinoSymbol.Sparkles }
-                SmartOrbitPreview(Modifier.fillMaxWidth().height(if (step == 0 || step == 8) 300.dp else 210.dp), step == 0, symbol)
-                Text(title, fontSize = 25.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
-                if (subtitle.isNotEmpty()) Text(subtitle, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
+            Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(scroll), horizontalAlignment = Alignment.CenterHorizontally) {
+              Column(Modifier.widthIn(max = 570.dp).fillMaxWidth().padding(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(22.dp)) {
+                val symbol = when (step) { 1 -> CupertinoSymbol.AirplaneTakeoff; 2 -> CupertinoSymbol.Calendar; 3 -> CupertinoSymbol.Clock; 4 -> CupertinoSymbol.MapFill; 5 -> CupertinoSymbol.AirplaneLand; 6 -> CupertinoSymbol.PersonsFill; 7 -> CupertinoSymbol.StarFill; 8 -> if(result != null) null else when(progress) { SmartConfiguratorService.Progress.FLIGHTS -> CupertinoSymbol.Airplane; SmartConfiguratorService.Progress.HOTELS -> CupertinoSymbol.BuildingFill; SmartConfiguratorService.Progress.TRANSFER -> CupertinoSymbol.Car; SmartConfiguratorService.Progress.PRICE -> CupertinoSymbol.CheckCircle; SmartConfiguratorService.Progress.READY -> null }; else -> null }
+                val assembled = result?.state?.value
+                SmartOrbitHeader(step, title, subtitle, symbol, assembled)
                 when (step) {
-                    1 -> ConfiguratorAirportSelector(language, airports, preferences.airport, preferences.origin) { airport -> preferences = preferences.copy(origin = airport.iata, airport = airport) }
-                    2 -> Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        (0..11).forEach { n -> val month = YearMonth.now().plusMonths(n.toLong()); SmartChoice(month.format(DateTimeFormatter.ofPattern("MMMM yyyy", Locale.forLanguageTag(language.localeTag))), month.toString() == preferences.month, Modifier.width(146.dp).height(100.dp)) { preferences = preferences.copy(month = month.toString()) } }
+                    0 -> Column(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface, RoundedCornerShape(24.dp)).padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                        SmartFeature(CupertinoSymbol.Airplane, t("Рейсы по вашим датам", "Flights for your dates", "Sanangizga mos reyslar", "Санангизга мос рейслар"))
+                        SmartFeature(CupertinoSymbol.BuildingFill, t("Отели с доступными номерами", "Hotels with available rooms", "Bo‘sh xonali mehmonxonalar", "Бўш хонали меҳмонхоналар"))
+                        SmartFeature(CupertinoSymbol.CheckCircle, t("Один пакет и единая стоимость", "One package, one total", "Bitta paket va umumiy narx", "Битта пакет ва умумий нарх"))
                     }
-                    3 -> listOf(3, 7, 10, 14, 20, 25).chunked(3).forEach { row -> Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) { row.forEach { n -> SmartChoice("$n " + t("дн.", "days", "kun", "кун"), n == preferences.duration, Modifier.weight(1f)) { preferences = preferences.copy(duration = n) } } } }
-                    4 -> { SmartChoice(t("Мекка", "Makkah", "Makka", "Макка") + " · JED → JED", !preferences.both) { preferences = preferences.copy(both = false) }; SmartChoice(t("Мекка и Медина", "Makkah & Madinah", "Makka va Madina", "Макка ва Мадина") + " · JED ↔ MED", preferences.both) { preferences = preferences.copy(both = true) } }
+                    1 -> Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        SmartAirportCard(preferences.airport?.city ?: FlightReferenceCatalog.airport(preferences.origin)?.city ?: preferences.origin, preferences.origin) { airportPicker = true }
+                        if(airportPicker) ConfiguratorAirportPickerSheet(language, airports, preferences.airport, preferences.origin, onDismiss={ airportPicker=false }, onSelect={ airport -> preferences=preferences.copy(origin=airport.iata,airport=airport); airportPicker=false })
+                        listOf("TAS", "SKD", "FEG", "NMA", "BHK", "UGC", "KSQ", "TMJ").chunked(2).forEach { row ->
+                            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) { row.forEach { code -> SmartChoice(FlightReferenceCatalog.airport(code)?.city ?: code, code, preferences.origin == code, Modifier.weight(1f)) { preferences = preferences.copy(origin = code, airport = null) } } }
+                        }
+                    }
+                    2 -> SmartMonthRow(language, preferences.month) { preferences = preferences.copy(month = it) }
+                    3 -> Column(verticalArrangement = Arrangement.spacedBy(10.dp)) { listOf(3, 7, 10, 14, 20, 25).chunked(3).forEach { row -> Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) { row.forEach { n -> SmartChoice("$n", t(if(n == 3) "дня" else "дней", "days", "kun", "кун"), n == preferences.duration, Modifier.weight(1f)) { preferences = preferences.copy(duration = n) } } } } }
+                    4 -> Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                        Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(9.dp)).background(smartSecondary()).padding(2.dp), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                            listOf(false,true).forEach { both -> val label = if(both) t("Мекка и Медина", "Makkah & Madinah", "Makka va Madina", "Макка ва Мадина") else t("Мекка", "Makkah", "Makka", "Макка"); Box(Modifier.weight(1f).heightIn(min=32.dp).clip(RoundedCornerShape(7.dp)).background(if(preferences.both==both) MaterialTheme.colorScheme.surface else Color.Transparent).selectable(preferences.both==both, role=Role.Tab) { preferences=preferences.copy(both=both) }.padding(5.dp), contentAlignment=Alignment.Center) { Text(label,fontSize=13.sp,fontWeight=FontWeight.Medium,textAlign=TextAlign.Center) } }
+                        }
+                        SmartChoice(t("Мекка", "Makkah", "Makka", "Макка"), "JED → JED", !preferences.both) { preferences = preferences.copy(both = false) }
+                        SmartChoice(t("Мекка и Медина", "Makkah & Madinah", "Makka va Madina", "Макка ва Мадина"), "JED ↔ MED", preferences.both) { preferences = preferences.copy(both = true) }
+                    }
                     5 -> Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        SmartChoice(t("Мекка", "Makkah", "Makka", "Макка") + " · JED", preferences.firstCity == "JED", Modifier.weight(1f)) { preferences = preferences.copy(firstCity = "JED") }
-                        SmartChoice(t("Медина", "Madinah", "Madina", "Мадина") + " · MED", preferences.firstCity == "MED", Modifier.weight(1f)) { preferences = preferences.copy(firstCity = "MED") }
+                        SmartChoice(t("Мекка", "Makkah", "Makka", "Макка"), "JED", preferences.firstCity == "JED", Modifier.weight(1f)) { preferences = preferences.copy(firstCity = "JED") }
+                        SmartChoice(t("Медина", "Madinah", "Madina", "Мадина"), "MED", preferences.firstCity == "MED", Modifier.weight(1f)) { preferences = preferences.copy(firstCity = "MED") }
                     }
-                    6 -> {
+                    6 -> Column(Modifier.fillMaxWidth().background(smartSecondary(), RoundedCornerShape(22.dp)).padding(18.dp), verticalArrangement = Arrangement.spacedBy(15.dp)) {
                         SmartCounter(t("Взрослые", "Adults", "Kattalar", "Катталар"), preferences.adults, preferences.adults > 1, preferences.adults + preferences.childAges.size < 6) { delta -> preferences = preferences.copy(adults = preferences.adults + delta) }
+                        HorizontalDivider(color=MaterialTheme.colorScheme.onSurface.copy(alpha=.12f))
                         SmartCounter(t("Дети", "Children", "Bolalar", "Болалар"), preferences.childAges.size, preferences.childAges.isNotEmpty(), preferences.adults + preferences.childAges.size < 6) { delta -> preferences = preferences.copy(childAges = if (delta > 0) preferences.childAges + 6 else preferences.childAges.dropLast(1)) }
                         preferences.childAges.forEachIndexed { i, age -> SmartCounter(t("Возраст ребёнка", "Child age", "Bolaning yoshi", "Боланинг ёши") + " ${i+1}", age, age > 0, age < 11) { delta -> preferences = preferences.copy(childAges = preferences.childAges.mapIndexed { j, a -> if (i == j) a + delta else a }) } }
                     }
-                    7 -> Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(12.dp)) { PackageTier.entries.forEach { tier -> SmartChoice(tierTitle(language, tier) + "\n" + tier.selectableHotelStars.sorted().joinToString("–") + " ★", preferences.tier == tier.wireValue, Modifier.width(222.dp).height(180.dp)) { preferences = preferences.copy(tier = tier.wireValue) } } }
-                    8 -> {
-                        val assembled = result?.state?.value
-                        if (assembled != null) {
-                            assembled.nuitee?.flights.orEmpty().forEach { f -> Text("${f.origin} → ${f.destination} · ${f.flightNumber}\n${f.departureAt}", fontWeight = FontWeight.Medium) }
-                            assembled.nuitee?.rooms?.values?.forEach { room -> Text("${room.hotel.name} · ${room.rate.roomName}\n${room.checkin} — ${room.checkout}", fontWeight = FontWeight.Medium) }
-                            Text(assembled.resolvedTransferVehicle.modelName)
-                            assembled.quote?.let { Text("${it.totalPackagePrice.toPlainString()} ${it.currency}", fontSize = 28.sp, fontWeight = FontWeight.Bold) }
-                        } else if (failure != null) {
-                            Text(if (failure == "SMART_AVIASALES_PARTY_FARE_UNAVAILABLE") t("Для семьи нет подходящих опубликованных рейсов. Выберите другой месяц или длительность.", "No suitable published flights for your family. Try another month or duration.", "Oilaviy safar uchun mos reyslar topilmadi.", "Оилавий сафар учун мос рейслар топилмади.") else t("Попробуйте другой месяц, длительность или категорию. Можно повторить поиск.", "Try another month, duration or category, or retry the search.", "Boshqa oy, muddat yoki toifani tanlang yoki qayta qidiring.", "Бошқа ой, муддат ёки тоифани танланг ёки қайта қидиринг."), color = MaterialTheme.colorScheme.error)
-                        } else {
-                            LinearProgressIndicator(Modifier.fillMaxWidth())
-                            Text(when (progress) { SmartConfiguratorService.Progress.FLIGHTS -> t("Авиабилеты", "Flights", "Reyslar", "Рейслар"); SmartConfiguratorService.Progress.HOTELS -> t("Отели", "Hotels", "Mehmonxonalar", "Меҳмонхоналар") + (city?.let { " · $it" } ?: ""); SmartConfiguratorService.Progress.TRANSFER -> t("Трансфер", "Transfer", "Transfer", "Трансфер"); SmartConfiguratorService.Progress.PRICE -> t("Стоимость", "Price", "Narx", "Нарх"); SmartConfiguratorService.Progress.READY -> t("Готово", "Ready", "Tayyor", "Тайёр") })
+                    7 -> SmartCategoryRow(language, preferences.category) { preferences = preferences.copy(tier = it.wireValue) }
+                    8 -> SmartAssemblyContent(language, progress, city, busy, assembled ?: preview, assembled != null, failure, replacingCity, replacementError, onEdit = { result = null; preview = null; failure = null; step = 2 }, onReplace = { selectedCity ->
+                        val previous = result
+                        if(previous != null && replacingCity == null && !busy) {
+                            val currentID = previous.state.value.nuitee?.rooms?.get("$selectedCity:0")?.hotel?.id
+                            if(currentID != null) {
+                                replacingCity = selectedCity; replacementError = false
+                                scope.launch {
+                                    try {
+                                        val excluded = excludedHotels[selectedCity].orEmpty() + currentID
+                                        val next = service.replaceHotel(preferences, previous, selectedCity, excluded)
+                                        excludedHotels = excludedHotels + (selectedCity to excluded)
+                                        result = next; preview = next.state.value
+                                    } catch(e: CancellationException) { throw e } catch(_: Exception) { replacementError = true }
+                                    finally { replacingCity = null }
+                                }
+                            }
                         }
-                    }
+                    })
                 }
+              }
             }
-            Column(Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 20.dp, vertical = 12.dp)) {
-                val action = when { step == 8 && result != null -> t("Проверить пакет", "Review package", "Paketni tekshirish", "Пакетни текшириш"); step == 8 && failure != null -> t("Повторить поиск", "Try again", "Qayta qidirish", "Қайта қидириш"); step == 7 -> t("Собрать мою Умру", "Build my Umrah", "Umramni tayyorlash", "Умрамни тайёрлаш"); else -> t("Продолжить", "Continue", "Davom etish", "Давом этиш") }
-                SmartAction(action, false, canContinue && !busy) {
+            Column(Modifier.fillMaxWidth().background(if(MaterialTheme.colorScheme.background == Color.Black) Color.Black else Color.White).navigationBarsPadding().padding(horizontal = 20.dp, vertical = 12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+              Column(Modifier.widthIn(max=570.dp).fillMaxWidth(), verticalArrangement=Arrangement.spacedBy(12.dp)) {
+                result?.state?.value?.quote?.takeIf { step==8 }?.let { quote ->
+                    SmartPriceLine(t("Итого за всех", "Total for everyone", "Hamma uchun jami", "Ҳамма учун жами"), smartMoney(quote.totalPackagePrice,quote.currency,language), true)
+                    SmartPriceLine(t("На одного паломника", "Per pilgrim", "Bir ziyoratchi uchun", "Бир зиёратчи учун"),smartMoney(quote.pricePerPerson,quote.currency,language),false)
+                }
+                val action = when { step == 8 && result != null -> t("Проверить и забронировать", "Review and book", "Tekshirish va bronlash", "Текшириш ва бронлаш"); step == 8 && failure != null -> t("Повторить поиск", "Try again", "Qayta qidirish", "Қайта қидириш"); step == 7 -> t("Собрать мою Умру", "Build my Umrah", "Umramni tayyorlash", "Умрамни тайёрлаш"); step == 0 -> t("Начать", "Get started", "Boshlash", "Бошлаш"); else -> t("Продолжить", "Continue", "Davom etish", "Давом этиш") }
+                SmartAction(action, false, canContinue && !busy && replacingCity == null) {
                     if (step == 8) { result?.let(onReview) ?: run { attempt++ } }
                     else { step = steps[(index + 1).coerceAtMost(steps.lastIndex)]; if (step == 8) attempt++ }
                 }
+              }
             }
         }
     }
@@ -196,21 +223,27 @@ internal fun SmartConfiguratorScreen(language: AppLanguage, airports: AirportSea
 @Composable private fun SmartHeaderIcon(symbol: CupertinoSymbol, enabled: Boolean, action: () -> Unit) {
     Box(Modifier.size(44.dp).clip(CircleShape).background(Color.White.copy(alpha = .12f)).clickable(enabled = enabled, onClick = action), contentAlignment = Alignment.Center) { CupertinoIcon(symbol, null, Modifier.size(18.dp), Color.White.copy(alpha = if (enabled) 1f else .5f)) }
 }
-@Composable private fun SmartChoice(title: String, selected: Boolean, modifier: Modifier = Modifier.fillMaxWidth(), action: () -> Unit) {
-    val ink = if (selected) Color.White else MaterialTheme.colorScheme.onSurface
-    Box(modifier.heightIn(min = 64.dp).clip(RoundedCornerShape(22.dp)).background(if (selected) Color.Black else MaterialTheme.colorScheme.surface).clickable(onClick = action).padding(15.dp), contentAlignment = Alignment.Center) { Text(title, color = ink, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center) }
+@Composable internal fun smartPrimary(): Color = if(MaterialTheme.colorScheme.background == Color.Black) Color.White else Color.Black
+@Composable internal fun smartOnPrimary(): Color = if(MaterialTheme.colorScheme.background == Color.Black) Color.Black else Color.White
+@Composable internal fun smartSecondary(): Color = if(MaterialTheme.colorScheme.background == Color.Black) Color(0xFF1C1C1E) else Color(0xFFF2F2F7)
+@Composable private fun SmartChoice(title: String, subtitle: String, selected: Boolean, modifier: Modifier = Modifier.fillMaxWidth(), action: () -> Unit) {
+    val ink = if(selected) smartOnPrimary() else MaterialTheme.colorScheme.onSurface
+    Column(modifier.heightIn(min=100.dp).clip(RoundedCornerShape(20.dp)).background(if(selected) smartPrimary() else smartSecondary()).selectable(selected, role=Role.RadioButton, onClick=action).padding(14.dp), verticalArrangement=Arrangement.spacedBy(8.dp)) {
+        Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.End) { if(selected) CupertinoIcon(CupertinoSymbol.CheckCircleFill,null,Modifier.size(18.dp),ink) else Box(Modifier.size(18.dp).border(1.5.dp,ink.copy(alpha=.35f),CircleShape)) }
+        Text(title,color=ink,fontWeight=FontWeight.Bold,fontSize=17.sp)
+        Text(subtitle,color=ink.copy(alpha=.7f),fontSize=15.sp)
+    }
 }
 @Composable private fun SmartCounter(label: String, value: Int, minus: Boolean, plus: Boolean, change: (Int) -> Unit) {
-    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(MaterialTheme.colorScheme.surface).padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-        Text("$label · $value", Modifier.weight(1f), fontWeight = FontWeight.SemiBold)
-        TextButton(onClick = { change(-1) }, enabled = minus) { Text("−") }
-        TextButton(onClick = { change(1) }, enabled = plus) { Text("+") }
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+        Text("$label · $value", Modifier.weight(1f), fontWeight = FontWeight.SemiBold,fontSize=17.sp)
+        SmartControl(CupertinoSymbol.Minus,44.dp,minus) { change(-1) }; SmartControl(CupertinoSymbol.Plus,44.dp,plus) { change(1) }
     }
 }
 @Composable private fun SmartAction(label: String, dark: Boolean, enabled: Boolean, action: () -> Unit) {
-    Box(Modifier.fillMaxWidth().height(52.dp).clip(RoundedCornerShape(16.dp)).background((if (dark) Color.White else Color.Black).copy(alpha = if (enabled) 1f else .45f)).clickable(enabled = enabled, onClick = action), contentAlignment = Alignment.Center) { Text(label, color = if (dark) Color.Black else Color.White, fontWeight = FontWeight.Bold) }
+    Box(Modifier.fillMaxWidth().heightIn(min=if(dark) 48.dp else 54.dp).clip(RoundedCornerShape(if(dark) 16.dp else 18.dp)).background((if (dark) Color.White else smartPrimary()).copy(alpha = if (enabled) 1f else .45f)).clickable(enabled = enabled, onClick = action).padding(vertical=if(dark) 14.dp else 8.dp), contentAlignment = Alignment.Center) { Text(label, color = if (dark) Color.Black else smartOnPrimary(), fontWeight = FontWeight.Bold,fontSize=17.sp,textAlign=TextAlign.Center) }
 }
-private fun tierTitle(language: AppLanguage, tier: PackageTier) = when (tier) {
+internal fun tierTitle(language: AppLanguage, tier: PackageTier) = when (tier) {
     PackageTier.ECONOMY -> nuiteeText(language, "Эконом", "Economy", "Ekonom", "Эконом")
     PackageTier.STANDARD -> nuiteeText(language, "Стандарт", "Standard", "Standart", "Стандарт")
     PackageTier.COMFORT -> nuiteeText(language, "Комфорт", "Comfort", "Komfort", "Комфорт")

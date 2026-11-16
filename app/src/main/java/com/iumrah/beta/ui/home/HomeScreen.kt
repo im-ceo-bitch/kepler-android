@@ -239,7 +239,7 @@ fun HomeScreen(
         item { EmotionalPrompt(language = language, onOpen = { storyStartIndex = 0 }) }
         item { HomeVideoCarousel(language = language, isStoryPresented = storyStartIndex != null, onOpenStory = { storyStartIndex = it }) }
         item { IumrahServicesCarousel(language, chrome) }
-        item { SmartConfiguratorHomeCard(language, startSmart) }
+        item { SmartConfiguratorHomeCard(language, startSmart, active = !smartOpen && storyStartIndex == null) }
         item { HomeDestinationsSection(language, chrome::openHomeHotelSearch) }
         item { HomeAvailablePackagesSection(language, storefrontOrigin, chrome, startSmart) }
         item { JourneyTravelInfoPanel(language) }

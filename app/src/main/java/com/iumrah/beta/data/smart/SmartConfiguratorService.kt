@@ -30,7 +30,7 @@ class SmartConfiguratorService(private val curated: CuratedFlightRecommendationS
         "/api/package/smart/plan", PlanRequest(p.origin, p.month, p.duration, p.both, p.firstCity, source),
         timeoutSeconds = if (source == "published") 25 else 90).also { check(it.ok) { "SMART_PLAN_UNAVAILABLE" } }
 
-    suspend fun assemble(p: SmartPreferences, progress: (Progress, String?) -> Unit): JourneyStore {
+    suspend fun assemble(p: SmartPreferences, preview: (com.iumrah.beta.domain.journey.JourneyState) -> Unit = {}, progress: (Progress, String?) -> Unit): JourneyStore {
         require(p.valid()) { "SMART_INVALID_PREFERENCES" }
         progress(Progress.FLIGHTS, null)
         val journey = JourneyStore()
@@ -71,15 +71,18 @@ class SmartConfiguratorService(private val curated: CuratedFlightRecommendationS
             }
         }
         check(selected) { "SMART_NO_MATCHING_FLIGHTS" }
+        preview(journey.state.value)
         val windows = TripStayPlanner.windows(journey.state.value.trip)
         val stays = listOfNotNull("makkah" to windows.makkah, windows.madinah?.let { "madinah" to it }).sortedBy { it.second.checkIn }
         for ((city, window) in stays) {
             progress(Progress.HOTELS, city)
             selectRooms(p, city, window).forEach(journey::chooseNuiteeRoom)
+            preview(journey.state.value)
         }
         currentCoroutineContext().ensureActive()
         progress(Progress.TRANSFER, null)
         journey.chooseTransferVehicle(TransferVehicleKind.CARNIVAL); journey.confirmTransferSelection()
+        preview(journey.state.value)
         progress(Progress.PRICE, null)
         journey.prepareNuiteePackage(curated, engine).getOrThrow()
         currentCoroutineContext().ensureActive()
@@ -88,12 +91,30 @@ class SmartConfiguratorService(private val curated: CuratedFlightRecommendationS
         return journey
     }
 
-    private suspend fun selectRooms(p: SmartPreferences, city: String, window: TripStayWindow): List<NuiteeRoomSelection> {
+    /** Preserve the previous verified result until an independent replacement is fully quoted. */
+    suspend fun replaceHotel(p: SmartPreferences, previous: JourneyStore, city: String, excluding: Set<String>): JourneyStore {
+        val old = previous.state.value
+        val current = requireNotNull(old.nuitee?.rooms?.get("$city:0"))
+        require(old.hasFinalGeneratorQuote && old.quote?.bookingAllowed == true && old.trip.rooms == p.roomCount)
+        val rooms = selectRooms(p, city, TripStayWindow(current.checkin, current.checkout), excluding + current.hotel.id)
+        currentCoroutineContext().ensureActive()
+        val next = JourneyStore()
+        next.adoptSmartResult(previous)
+        rooms.forEach(next::chooseNuiteeRoom)
+        next.confirmTransferSelection()
+        next.prepareNuiteePackage(curated, engine).getOrThrow()
+        currentCoroutineContext().ensureActive()
+        check(next.state.value.hasFinalGeneratorQuote && next.state.value.quote?.bookingAllowed == true &&
+            next.state.value.nuitee?.rooms?.get("$city:0")?.hotel?.id != current.hotel.id) { "SMART_QUOTE_UNAVAILABLE" }
+        return next
+    }
+
+    private suspend fun selectRooms(p: SmartPreferences, city: String, window: TripStayWindow, excluding: Set<String> = emptySet()): List<NuiteeRoomSelection> {
         check(window.checkOut > window.checkIn) { "SMART_ROOM_UNAVAILABLE" }
         val catalog = hotels.hotels(city, window.checkIn, window.checkOut, (0 until p.roomCount).maxOf { p.occupancy(it).first }, smartTimeout = true)
         check(catalog.ok && !catalog.sandbox) { "SMART_HOTEL_UNAVAILABLE" }
         fun hint(h: NuiteeHotel): Double = h.minimumRate?.takeIf { it.currency.equals("USD", true) && it.price.isFinite() && it.price > 0 }?.price ?: Double.POSITIVE_INFINITY
-        val candidates = catalog.hotels.filter { SmartRules.starEligible(it.stars, p.category) }.sortedWith(compareBy<NuiteeHotel> { hint(it) }.thenByDescending { it.rating ?: 0.0 }).take(12)
+        val candidates = catalog.hotels.filter { it.id !in excluding && SmartRules.starEligible(it.stars, p.category) }.sortedWith(compareBy<NuiteeHotel> { hint(it) }.thenByDescending { it.rating ?: 0.0 }).take(12)
         var consecutiveErrors = 0; var hadError = false
         for (hotel in candidates) {
             currentCoroutineContext().ensureActive()
