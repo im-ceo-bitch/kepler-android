@@ -22,11 +22,13 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
@@ -180,22 +182,26 @@ fun OnboardingFlow(
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
                         .fillMaxWidth()
-                        .navigationBarsPadding()
-                        .padding(horizontal = 26.dp, vertical = 18.dp),
+                        .padding(horizontal = 26.dp).padding(bottom = maxOf(WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding(), 20.dp) + 8.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-                        pages.indices.forEach { IumrahDot(selected = pager.currentPage == it) }
+                        pages.indices.forEach { index ->
+                            val selected = pager.currentPage == index
+                            val width by animateFloatAsState(if (selected) 25f else 7f, tween(220), label = "onboarding-dot")
+                            Box(Modifier.size(width.dp, 7.dp).clip(CircleShape)
+                                .background(MaterialTheme.colorScheme.onBackground.copy(alpha = if (selected) 1f else .18f)))
+                        }
                     }
                     if (pager.currentPage == pages.lastIndex) {
-                        Spacer(Modifier.height(9.dp))
+                        Spacer(Modifier.height(10.dp))
                         Text(
                             L10n.text("onboarding_bismillah", language),
-                            style = MaterialTheme.typography.labelLarge,
+                            fontSize = 13.5.sp, fontWeight = FontWeight.SemiBold,
                             color = MaterialTheme.colorScheme.onBackground.copy(alpha = .55f),
                         )
                     }
-                    Spacer(Modifier.height(12.dp))
+                    Spacer(Modifier.height(10.dp))
                     IumrahPrimaryButton(
                         title = if (pager.currentPage == pages.lastIndex) L10n.text("onboarding_start", language) else L10n.text("onboarding_next", language),
                         onClick = {
@@ -292,12 +298,12 @@ private fun OnboardingTopBar(
     var expanded by remember { mutableStateOf(false) }
     val foreground = if (darkChrome) Color.White else MaterialTheme.colorScheme.onSurface
     Row(
-        modifier.fillMaxWidth().statusBarsPadding().padding(top = 12.dp, start = 22.dp, end = 22.dp),
+        modifier.fillMaxWidth().padding(top = maxOf(WindowInsets.statusBars.asPaddingValues().calculateTopPadding(), 44.dp) + 12.dp, start = 22.dp, end = 22.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
         Box(
-            Modifier.height(48.dp).clip(RoundedCornerShape(24.dp)).clickable(onClick = onSkip)
+            Modifier.height(44.dp).clip(RoundedCornerShape(24.dp)).clickable(onClick = onSkip)
                 .padding(horizontal = 8.dp), contentAlignment = Alignment.Center,
         ) {
             Text(L10n.text("onboarding_skip", language), color = foreground,
@@ -316,10 +322,9 @@ private fun OnboardingTopBar(
                 }
             }
             DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-                listOf(AppLanguage.RUSSIAN, AppLanguage.ENGLISH, AppLanguage.UZBEK,
-                    AppLanguage.UZBEK_CYRILLIC).forEach { item ->
+                AppLanguage.entries.forEach { item ->
                     DropdownMenuItem(
-                        text = { Text(languageTitle(item)) },
+                        text = { Text(item.nativeTitle) },
                         trailingIcon = { if (item == language) Icon(CupertinoSymbol.Checkmark, contentDescription = null) },
                         onClick = { expanded = false; onLanguageChange(item) },
                     )

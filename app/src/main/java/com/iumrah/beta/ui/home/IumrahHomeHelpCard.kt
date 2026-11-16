@@ -1,88 +1,80 @@
 package com.iumrah.beta.ui.home
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.animateContentSize
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.shrinkVertically
-import androidx.compose.animation.core.tween
-import androidx.compose.foundation.BorderStroke
+import android.content.Context
+import android.provider.Settings
+import android.view.accessibility.AccessibilityManager
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.window.DialogWindowProvider
 import com.iumrah.beta.core.design.IumrahDesign
 import com.iumrah.beta.core.settings.AppLanguage
-import com.iumrah.beta.ui.cupertino.CupertinoIcon
-import com.iumrah.beta.ui.cupertino.CupertinoSymbol
+import com.iumrah.beta.ui.components.iumrahAnimatedSearchBorder
+import kotlinx.coroutines.delay
 
-/** Mirror of IumrahPageHelpCard("home.default") in the supplied iOS snapshot.
- * Collapsed by default: the detailed explanatory copy should not consume
- * space unless the user asks for it. No fake actions or network data.
- */
+/** Home's helpContext = home.default: a header-triggered overlay, not a list item. */
 @Composable
-fun IumrahHomeHelpCard(language: AppLanguage) {
-    var expanded by remember { mutableStateOf(false) }
+fun IumrahHomeHelpCard(language: AppLanguage, onDismiss: () -> Unit) {
     val copy = when (language) {
-        AppLanguage.RUSSIAN -> Triple("Что делать сейчас?", "Начните с маршрута", "Раскройте поиск: укажите аэропорт вылета, маршрут, даты и пассажиров. Нажмите «Найти авиабилеты», чтобы перейти к выбору перелётов.")
-        AppLanguage.UZBEK -> Triple("Hozir nima qilish kerak?", "Safar yo‘nalishidan boshlang", "Qidiruvni ochib, jo‘nash aeroporti, yo‘nalish, sanalar va yo‘lovchilarni belgilang. Parvozlarni tanlash uchun «Reyslarni topish» tugmasini bosing.")
-        AppLanguage.UZBEK_CYRILLIC -> Triple("Ҳозир нима қилиш керак?", "Сафар йўналишидан бошланг", "Қидирувни очиб, жўнаш аэропорти, йўналиш, саналар ва йўловчиларни белгиланг. Парвозларни танлаш учун «Рейсларни топиш» тугмасини босинг.")
-        else -> Triple("What should I do now?", "Start with your route", "Expand search and choose your departure airport, route, dates and travelers. Tap “Find flights” to choose your flights.")
+        AppLanguage.RUSSIAN -> Triple("Что делать здесь?", "Начните с маршрута", "Раскройте поиск: укажите аэропорт вылета, маршрут, даты и пассажиров. Нажмите «Найти авиабилеты», чтобы перейти к выбору перелётов.")
+        AppLanguage.UZBEK -> Triple("Bu yerda nima qilish kerak?", "Safar yo‘nalishidan boshlang", "Qidiruvni ochib, jo‘nash aeroporti, yo‘nalish, sanalar va yo‘lovchilarni belgilang. Parvozlarni tanlash uchun «Reyslarni topish» tugmasini bosing.")
+        AppLanguage.UZBEK_CYRILLIC -> Triple("Бу ерда нима қилиш керак?", "Сафар ёъналишидан бошланг", "Қидирувни очиб, жўнаш аеропорти, ёъналиш, саналар ва ёъловчиларни белгиланг. Парвозларни танлаш учун «Рейсларни топиш» тугмасини босинг.")
+        else -> Triple("What can I do here?", "Start with your route", "Expand search and choose your departure airport, route, dates and travelers. Tap “Find flights” to choose your flights.")
     }
-    val ink = MaterialTheme.colorScheme.onSurface
-    val shape = RoundedCornerShape(IumrahDesign.HeroRadius)
-    Column(
-        modifier = Modifier.fillMaxWidth().animateContentSize()
-            .clip(shape).background(MaterialTheme.colorScheme.surface)
-            .border(BorderStroke(3.dp, Brush.sweepGradient(listOf(
-                Color.Black.copy(alpha = .80f), Color.DarkGray, Color.LightGray,
-                Color.White, Color.DarkGray, Color.Black.copy(alpha = .80f),
-            ))), shape)
-            .padding(horizontal = 20.dp, vertical = 10.dp),
-    ) {
-        Row(
-            Modifier.fillMaxWidth().heightIn(min = 44.dp).clickable { expanded = !expanded },
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            Text(copy.first, fontSize = 17.sp, fontWeight = FontWeight.Bold,
-                color = ink, modifier = Modifier.weight(1f))
-            CupertinoIcon(if (expanded) CupertinoSymbol.ChevronUp else CupertinoSymbol.ChevronDown,
-                null, Modifier.size(15.dp), ink)
+    val context = LocalContext.current
+    val motion = remember(context) { runCatching { Settings.Global.getFloat(context.contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f) > 0f }.getOrDefault(true) }
+    val screenReader = remember(context) { (context.getSystemService(Context.ACCESSIBILITY_SERVICE) as? AccessibilityManager)?.isTouchExplorationEnabled == true }
+    var visible by remember(copy.third) { mutableStateOf(if (motion && !screenReader) "" else copy.third) }
+    val dismiss by rememberUpdatedState(onDismiss)
+    LaunchedEffect(copy.third, motion, screenReader) {
+        if (motion && !screenReader) {
+            for (count in 3..copy.third.length + 2 step 3) {
+                visible = copy.third.take(count)
+                delay(18)
+            }
         }
-        AnimatedVisibility(
-            visible = expanded,
-            enter = fadeIn(tween(250)) + expandVertically(tween(250)),
-            exit = fadeOut(tween(200)) + shrinkVertically(tween(200)),
-        ) {
-            Column(Modifier.fillMaxWidth().padding(top = 12.dp, bottom = 8.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text(copy.second, fontSize = 22.sp, fontWeight = FontWeight.Bold, color = ink)
-                Text(copy.third, fontSize = 17.sp, lineHeight = 23.sp, color = ink)
+        visible = copy.third
+        if (!screenReader) { delay(2500); dismiss() }
+    }
+    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
+        val view = LocalView.current
+        SideEffect { (view.parent as? DialogWindowProvider)?.window?.setDimAmount(0f) }
+        BoxWithConstraints(Modifier.fillMaxSize()) {
+            val panelLimit = maxHeight * .75f
+            Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = .30f)).clickable(
+                interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onDismiss))
+            Column(Modifier.align(Alignment.TopCenter).statusBarsPadding().padding(top = 52.dp, start = 18.dp, end = 18.dp)
+                .fillMaxWidth().heightIn(max = panelLimit)
+                .iumrahAnimatedSearchBorder(RoundedCornerShape(IumrahDesign.HeroRadius), motion, guidance = true)
+                .verticalScroll(rememberScrollState()).padding(22.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                Text(copy.first, fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(copy.second, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+                    Box(Modifier.fillMaxWidth().clearAndSetSemantics { contentDescription = copy.third }) {
+                        Text(copy.third, fontSize = 17.sp, lineHeight = 23.sp, modifier = Modifier.alpha(0f))
+                        Text(visible, fontSize = 17.sp, lineHeight = 23.sp)
+                    }
+                }
             }
         }
     }

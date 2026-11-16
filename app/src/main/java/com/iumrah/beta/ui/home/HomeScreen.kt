@@ -1,4 +1,4 @@
-@file:OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@file:OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class, androidx.compose.foundation.ExperimentalFoundationApi::class)
 package com.iumrah.beta.ui.home
 import com.iumrah.beta.ui.cupertino.Icon
 
@@ -42,6 +42,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.LocalOverscrollFactory
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.PageSize
@@ -156,42 +158,35 @@ fun HomeScreen(
     val startSmart: () -> Unit = { resumeSmart = null; smartOpen = true }
     var storyStartIndex by remember { mutableStateOf<Int?>(null) }
     var searchExpanded by remember { mutableStateOf(false) }
+    var helpOpen by remember { mutableStateOf(true) }
+    val homeListState = rememberLazyListState()
     val discoveryState by chrome.state.collectAsState()
     LaunchedEffect(discoveryState.discoveryBuild) {
         if (discoveryState.discoveryBuild) {
             searchExpanded = true
             chrome.consumeDiscoveryBuild()
+            homeListState.animateScrollToItem(0)
         }
     }
     val journeyState by journey.state.collectAsState()
     val notificationState by notifications.state.collectAsState()
     val storefrontOrigin = journeyState.trip.originCode.ifBlank { "TAS" }.uppercase()
-    val refreshScope = rememberCoroutineScope()
-    var refreshing by remember { mutableStateOf(false) }
-    var refreshVersion by remember { mutableIntStateOf(0) }
-
-    // Mirrors HomeDashboardView.onRefresh using existing *real* stores. The
-    // refreshed storefront carousel is reloaded; no fabricated package prices.
-    PullToRefreshBox(
-        isRefreshing = refreshing,
-        onRefresh = {
-            if (!refreshing) refreshScope.launch {
-                refreshing = true
-                try {
-                    kotlinx.coroutines.coroutineScope {
-                        val booking = launch { runCatching { bookingStore.refreshAll() } }
-                        val signals = launch { runCatching { notifications.refresh(accountToken) } }
-                        booking.join()
-                        signals.join()
-                    }
-                    searchExpanded = false
-                    refreshVersion += 1
-                } finally { refreshing = false }
-            }
-        },
-        modifier = Modifier.fillMaxSize(),
-    ) {
+    // Current SwiftUI non-sticky root disables top rubber band and refresh indicator.
+    // Booking refresh starts after the first frame, not on a synthetic pull gesture.
+    LaunchedEffect(activeBooking?.id, accountToken) {
+        delay(650)
+        bookingStore.refreshAll()
+        notifications.refresh(accountToken)
+        while (true) {
+            try { activeBooking?.id?.let { bookingStore.loadESIMs(it) } }
+            catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled }
+            catch (_: Exception) { /* Existing booking remains available offline. */ }
+            delay(120_000)
+        }
+    }
+    CompositionLocalProvider(LocalOverscrollFactory provides null) {
     LazyColumn(
+        state = homeListState,
         modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background),
         contentPadding = PaddingValues(start = 18.dp, end = 18.dp, top = 0.dp, bottom = 118.dp),
         verticalArrangement = Arrangement.spacedBy(30.dp),
@@ -208,6 +203,7 @@ fun HomeScreen(
                     language = language,
                     unreadCount = notificationState.unreadCount,
                     discovery = true,
+                    onHelp = { helpOpen = true },
                     footer = {
                         IumrahDiscoveryPills(language, 0) { index ->
                             when (index) {
@@ -224,17 +220,15 @@ fun HomeScreen(
                 IumrahHomeSearchHero(language, journeyState.trip, journey, airports, curatedFlights, chrome, searchExpanded, onSearch = { history.saveFlight(owner, it) }) { searchExpanded = it }
             })
         }
-        item { IumrahHomeHelpCard(language) }
-        if (activity.smart != null || activity.flight != null || activeBooking != null) item {
+        if (activity.smart != null || activity.flight != null || activity.hotels.isNotEmpty() || activeBooking != null) item {
             HomeRecentActivitySection(language, activity, activeBooking, chrome, owner,
                 resume = { resumeSmart = it; smartOpen = true }, repeat = { trip ->
-                    journey.clearStagedAviasalesFlights()
-                    journey.commitTripBuilder(trip, PackageFlightPath.PUBLISHED_DIRECT)
+                    journey.startHomePublishedSearch(trip)
                     chrome.openGuidedFlights()
                 })
         }
         if (notificationState.home.isNotEmpty()) {
-            item { HomeNotificationCarousel(language, notificationState.home, chrome, notifications, accountToken) }
+            item { HomeNotificationCarousel(language, notificationState.home.take(5), chrome, notifications, accountToken) }
         }
         item { EmotionalPrompt(language = language, onOpen = { storyStartIndex = 0 }) }
         item { HomeVideoCarousel(language = language, isStoryPresented = storyStartIndex != null, onOpenStory = { storyStartIndex = it }) }
@@ -256,7 +250,8 @@ fun HomeScreen(
         item { HomeWhyAndPreferencesSection(language, history, owner, revision) }
     }
 
-    } // PullToRefreshBox
+    } // no overscroll on current iOS Home
+    if (helpOpen && !smartOpen && storyStartIndex == null) IumrahHomeHelpCard(language) { helpOpen = false }
 
     if (smartOpen) SmartConfiguratorScreen(language, airports, smartService, resumeSmart,
         onSave = { history.saveSmart(owner, it) }, onClose = { smartOpen = false }, onReview = { result ->

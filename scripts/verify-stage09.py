@@ -9,7 +9,7 @@ checks = [
     ('core/navigation/AppChromeStore.kt', ['data object UmrahFlow', 'fun openUmrahFlow()']),
     ('ui/shell/AppShell.kt', ['AppRoute.UmrahFlow -> UmrahFlowScreen(language, chrome)']),
     ('ui/home/HomeScreen.kt', ['chrome.openUmrahFlow()']),
-    ('ui/shell/SidebarDrawer.kt', ['chrome.openUmrahFlow()']),
+    ('ui/home/HomeScreen.kt', ['IumrahPressable(onClick = { chrome.openUmrahFlow() }']),
     ('domain/umrahflow/UmrahFlowProgress.kt', ['enum class UmrahPhase', 'fun completeTawafTurn()', 'fun completeSaiLeg()', 'tawafCompleted == 7', 'saiCompleted == 7']),
     ('domain/umrahflow/UmrahFlowAudioUrlPolicy.kt', ['AppConfig.API_BASE_URL', '/api/services/advisor/audio/']),
     ('domain/umrahflow/UmrahFlowCheckpointStore.kt', ['fun restore()', 'fun save(', 'fun clear()']),

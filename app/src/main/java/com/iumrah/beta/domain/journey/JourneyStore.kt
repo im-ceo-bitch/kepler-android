@@ -9,6 +9,7 @@ import com.iumrah.beta.domain.trip.HaramainFareClass
 import com.iumrah.beta.domain.trip.JourneyScope
 import com.iumrah.beta.domain.trip.PackageFlightPath
 import com.iumrah.beta.domain.trip.FlightTripType
+import com.iumrah.beta.domain.trip.DateFlexibility
 import com.iumrah.beta.domain.trip.SaudiArrivalAirport
 import com.iumrah.beta.domain.trip.FlightFareScope
 import com.iumrah.beta.domain.trip.PackageMealSelection
@@ -274,6 +275,14 @@ class JourneyStore {
                 nuitee = null, quote = null, packageError = null, transferSelectionConfirmed = false,
             )
         }
+    }
+
+    /** Home starts a genuinely new search even when its trip parameters did not change. */
+    fun startHomePublishedSearch(value: TripDraft) {
+        quoteRequestGeneration++
+        _state.value = JourneyState(trip = value.copy(saudiArrivalDate = null,
+            flightTripType = FlightTripType.ROUND_TRIP, flexibility = DateFlexibility.EXACT),
+            packageFlightPath = PackageFlightPath.PUBLISHED_DIRECT)
     }
 
     /** Commits the first configurator step while preserving the iOS published-flight path/selection. */

@@ -3,18 +3,17 @@ package com.iumrah.beta.ui.home
 import android.provider.Settings
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
-import androidx.compose.animation.animateContentSize
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
-import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.platform.LocalView
+import com.iumrah.beta.core.design.IumrahHaptics
+import com.iumrah.beta.ui.components.iumrahAnimatedSearchBorder
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -43,7 +42,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
@@ -62,7 +60,6 @@ import com.iumrah.beta.domain.journey.JourneyStore
 import com.iumrah.beta.domain.trip.DateFlexibility
 import com.iumrah.beta.domain.trip.FlightTripType
 import com.iumrah.beta.domain.trip.JourneyScope
-import com.iumrah.beta.domain.trip.PackageFlightPath
 import com.iumrah.beta.domain.trip.SaudiArrivalAirport
 import com.iumrah.beta.domain.trip.TripDraft
 import com.iumrah.beta.models.flight.FlightCabinClass
@@ -127,26 +124,14 @@ fun IumrahHomeSearchHero(
     val shape = RoundedCornerShape(IumrahDesign.HeroRadius)
     val ok = trip.canContinue && !trip.departureDate.isBefore(LocalDate.now()) && trip.infants <= trip.adults
     val dateFormatter = remember(language) { DateTimeFormatter.ofPattern("d MMM", homeLocale(language)) }
-    // The monochrome animated highlight is intentionally independent of the
-    // material content card, matching SwiftUI IumrahAnimatedSearchBorder.
-    val glowTransition = rememberInfiniteTransition(label = "home-search-border")
-    val highlight by glowTransition.animateFloat(
-        initialValue = 0.12f, targetValue = 0.42f,
-        animationSpec = infiniteRepeatable(tween(2500)), label = "home-search-highlight",
-    )
-    val stroke = if (motionAllowed) highlight else .23f
+    val view = LocalView.current
     Column(
-        Modifier.fillMaxWidth()
-            .animateContentSize()
-            .clip(shape)
-            .background(MaterialTheme.colorScheme.surface)
-            .border(BorderStroke(3.dp, Brush.sweepGradient(listOf(
-                ink.copy(alpha = stroke), ink.copy(alpha = .10f),
-                ink.copy(alpha = .30f), ink.copy(alpha = .08f),
-            ))), shape),
+        Modifier.fillMaxWidth().heightIn(min = 62.dp)
+            .iumrahAnimatedSearchBorder(shape, motionAllowed),
     ) {
         Row(
             Modifier.fillMaxWidth().clickable {
+                IumrahHaptics.selection(view)
                 onExpandedChange(!expanded)
                 IumrahIntelligence.record("tap", "home", if (!expanded) "search_expand" else "search_collapse")
             }.padding(horizontal = 14.dp, vertical = 10.dp).heightIn(min = 42.dp),
@@ -163,21 +148,22 @@ fun IumrahHomeSearchHero(
                     fontSize = 12.sp, color = ink.copy(alpha = .58f), maxLines = 1)
             }
             CupertinoIcon(if (expanded) CupertinoSymbol.ChevronUp else CupertinoSymbol.ChevronDown,
-                null, Modifier.size(14.dp), ink.copy(alpha = .65f))
+                null, Modifier.size(13.dp), ink.copy(alpha = .65f))
         }
         AnimatedVisibility(
             visible = expanded,
-            enter = expandVertically(tween(260)) + fadeIn(tween(180)),
-            exit = shrinkVertically(tween(210)) + fadeOut(tween(160)),
+            enter = expandVertically(tween(200)) + fadeIn(tween(200)),
+            exit = shrinkVertically(tween(200)) + fadeOut(tween(200)),
         ) {
             Column(Modifier.fillMaxWidth()) {
                 HorizontalDivider(thickness = 1.dp, color = ink.copy(alpha = .12f))
-                Column(Modifier.padding(15.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text(homeTr(language, "Аэропорт вылета", "Departure airport", "Jo‘nash aeroporti", "Жўнаш аэропорти"),
-                        fontSize = 12.sp, color = ink.copy(alpha = .58f))
+                val limit = if (androidx.compose.ui.platform.LocalDensity.current.fontScale >= 1.5f) 420.dp else 330.dp
+                Column(Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                    .heightIn(max = limit).verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(5.dp)) {
                     ConfiguratorAirportSelector(
                         language = language, service = airports,
-                        airport = trip.originAirport, fallbackCode = trip.originCode,
+                        airport = trip.originAirport, fallbackCode = trip.originCode, compactMonochrome = true,
                         onSelect = { selected ->
                             journey.updateTrip(trip.copy(origin = selected.iata, originAirport = selected))
                             IumrahIntelligence.record("tap", "home", "change_departure_airport")
@@ -219,7 +205,7 @@ fun IumrahHomeSearchHero(
                     Row(
                         Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp))
                             .clickable { calendarOpen = true }
-                            .padding(vertical = 9.dp, horizontal = 3.dp)
+                            .heightIn(min = 44.dp).padding(horizontal = 4.dp)
                             .semantics { contentDescription = homeTr(language, "Выбрать даты поездки", "Choose travel dates", "Safar sanalarini tanlash", "Сафар саналарини танлаш") },
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -232,7 +218,7 @@ fun IumrahHomeSearchHero(
                     HorizontalDivider(color = ink.copy(alpha = .12f))
                     Row(
                         Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp))
-                            .clickable { travelersOpen = true }.padding(vertical = 10.dp, horizontal = 3.dp),
+                            .clickable { travelersOpen = true }.heightIn(min = 44.dp).padding(horizontal = 4.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(10.dp),
                     ) {
@@ -245,19 +231,12 @@ fun IumrahHomeSearchHero(
                         CupertinoIcon(CupertinoSymbol.ChevronRight, null, Modifier.size(14.dp), ink.copy(alpha = .45f))
                     }
                     Box(
-                        Modifier.fillMaxWidth().height(IumrahDesign.ControlHeight)
+                        Modifier.fillMaxWidth().height(48.dp)
                             .clip(CircleShape)
                             .background(Color(0xFF090909).copy(alpha = if (ok) 1f else .5f))
                             .clickable(enabled = ok) {
                                 // Exactly the same Store used by TripBuilder / flight results.
-                                journey.commitTripBuilder(
-                                    trip.copy(flightTripType = FlightTripType.ROUND_TRIP,
-                                        flexibility = DateFlexibility.EXACT),
-                                    PackageFlightPath.PUBLISHED_DIRECT,
-                                    completeID = journey.state.value.selectedPublishedCompleteID,
-                                    outboundID = journey.state.value.selectedPublishedOutboundID,
-                                    returnID = journey.state.value.selectedPublishedReturnID,
-                                )
+                                journey.startHomePublishedSearch(trip)
                                 onSearch(journey.state.value.trip)
                                 onExpandedChange(false)
                                 IumrahIntelligence.record("tap", "home", "start_trip_search")
@@ -268,11 +247,7 @@ fun IumrahHomeSearchHero(
                         Text(homeTr(language, "Найти авиабилеты", "Find flights", "Reyslarni topish", "Рейсларни топиш"),
                             fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White)
                     }
-                    Text(homeTr(language, "Рейс → Отель → Трансфер → Итог", "Flight → Hotel → Transfer → Review",
-                        "Reys → Mehmonxona → Transfer → Yakun", "Рейс → Меҳмонхона → Трансфер → Якун"),
-                        fontSize = 12.sp, color = ink.copy(alpha = .60f),
-                        modifier = Modifier.fillMaxWidth(),
-                    )
+
                 }
             }
         }
@@ -325,13 +300,13 @@ private fun <T> HomeSearchSegmented(options: List<Pair<T, String>>, selected: T,
     Row(
         Modifier.fillMaxWidth().clip(CircleShape)
             .background(MaterialTheme.colorScheme.onSurface.copy(alpha = .06f))
-            .padding(3.dp),
-        horizontalArrangement = Arrangement.spacedBy(3.dp),
+            .padding(2.dp),
+        horizontalArrangement = Arrangement.spacedBy(2.dp),
     ) {
         options.forEach { (key, caption) ->
             val active = key == selected
             Box(
-                Modifier.weight(1f).height(42.dp).clip(CircleShape)
+                Modifier.weight(1f).height(28.dp).clip(CircleShape)
                     .background(if (active) MaterialTheme.colorScheme.surface else Color.Transparent)
                     .clickable { onSelect(key) }
                     .padding(horizontal = 6.dp),

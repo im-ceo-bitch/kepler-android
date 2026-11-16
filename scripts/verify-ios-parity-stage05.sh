@@ -22,7 +22,8 @@ assert 'openPrayerTimes()' in nav and 'AppRoute.PrayerTimes -> PrayerTimesScreen
 for name in ('sea','rows','crowd','motion','kaaba_corner','touch','sujud'):
     assert (root/f'res/drawable-nodpi/prayer_wallpaper_{name}.jpg').stat().st_size>10000
 assert 'PrayerAlarmScheduler.sync' in ui
-assert 'openPrayerTimes()' in (app/'ui/shell/SidebarDrawer.kt').read_text()
+assert 'JourneyTravelInfoPanel(language)' in (app/'ui/home/HomeScreen.kt').read_text()
+assert 'AppRoute.PrayerTimes -> PrayerTimesScreen' in shell
 print('Stage05 prayer navigation, receiver manifest, iOS wallpapers and UI invariants passed.')
 PYIN
 if command -v kotlinc >/dev/null 2>&1; then

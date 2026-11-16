@@ -67,3 +67,6 @@ python3 scripts/verify-release-v10.py
 
 # Latest iOS design-system reference, static guard only (use --jvm separately).
 python3 scripts/verify-pixel-perfect-block01.py
+
+# Home and navigation geometry/state regression contracts.
+python3 scripts/verify-pixel-perfect-block02.py

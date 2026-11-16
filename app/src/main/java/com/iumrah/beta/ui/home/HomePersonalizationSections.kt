@@ -2,6 +2,7 @@ package com.iumrah.beta.ui.home
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
@@ -45,11 +46,11 @@ import com.iumrah.beta.ui.account.rememberRewardsDashboard
 import com.iumrah.beta.ui.hotels.NuiteeHotelDetailSheet
 import com.iumrah.beta.core.navigation.AppTab
 
-@Composable private fun HomePersonalHeader(title: String) = Text(title, fontSize = 22.sp, fontWeight = FontWeight.Bold)
-@Composable private fun HomeSmallActivityCard(symbol: CupertinoSymbol, label: String, action: () -> Unit, content: @Composable ColumnScope.() -> Unit) {
-    Column(Modifier.width(220.dp).height(184.dp).clip(RoundedCornerShape(22.dp)).background(MaterialTheme.colorScheme.surface).clickable(onClick = action).padding(15.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+@Composable private fun HomePersonalHeader(title: String) = Text(title, fontSize = 31.sp, lineHeight = 36.sp, letterSpacing = (-.8).sp, fontWeight = FontWeight.Bold)
+@Composable private fun HomeSmallActivityCard(symbol: CupertinoSymbol, label: String, action: () -> Unit, accent: Color = Color(0xFF007AFF), content: @Composable ColumnScope.() -> Unit) {
+    Column(Modifier.width(220.dp).height(184.dp).clip(RoundedCornerShape(22.dp)).background(MaterialTheme.colorScheme.surface).border(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = .06f), RoundedCornerShape(22.dp)).clickable(onClick = action).padding(15.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.size(42.dp).clip(CircleShape).background(MaterialTheme.colorScheme.onSurface.copy(alpha = .07f)), contentAlignment = Alignment.Center) { CupertinoIcon(symbol, null, Modifier.size(20.dp), Color(0xFF007AFF)) }
+            Box(Modifier.size(42.dp).clip(CircleShape).background(MaterialTheme.colorScheme.onSurface.copy(alpha = .07f)), contentAlignment = Alignment.Center) { CupertinoIcon(symbol, null, Modifier.size(20.dp), accent) }
             Spacer(Modifier.weight(1f)); CupertinoIcon(CupertinoSymbol.ArrowUpRight, null, Modifier.size(13.dp), MaterialTheme.colorScheme.onSurfaceVariant)
         }
         Text(label, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2)
@@ -64,21 +65,21 @@ import com.iumrah.beta.core.navigation.AppTab
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         HomePersonalHeader(t("Продолжите с того места, где остановились", "Pick up where you left off", "To‘xtagan joyingizdan davom eting", "Тўхтаган жойингиздан давом этинг"))
         LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            booking?.let { b -> item { HomeSmallActivityCard(CupertinoSymbol.SuitcaseFill, t("Ваша поездка", "Your journey", "Safaringiz", "Сафарингиз"), { chrome.openBookingDetail(b.id) }) {
-                Text("${b.booking.input.originCode} → ${b.booking.input.arrivalAirportCode}", fontWeight = FontWeight.Bold, fontSize = 20.sp)
+            booking?.let { b -> item { HomeSmallActivityCard(CupertinoSymbol.SuitcaseFill, t("Ваша поездка", "Your journey", "Safaringiz", "Сафарингиз"), { chrome.openBookingDetail(b.id) }, accent = Color(0xFF34C759)) {
+                Text("${b.booking.input.originCode} → ${b.booking.input.arrivalAirportCode}", fontWeight = FontWeight.Bold, fontSize = 22.sp)
                 Text(L10n.status(b.effectiveStatus, language), fontSize = 13.sp, maxLines = 2)
                 Text(b.displayBookingNumber, fontSize = 12.sp)
             } } }
             activity.smart?.let { draft -> item { HomeSmallActivityCard(if (draft.wasAssembled) CupertinoSymbol.CheckCircleFill else CupertinoSymbol.Sparkles,
                 if (draft.wasAssembled) t("Недавно собранный пакет", "Recently assembled package", "Yaqinda tuzilgan paket", "Яқинда тузилган пакет") else t("Незавершённая Умра", "Unfinished Umrah", "Tugallanmagan Umra", "Тугалланмаган Умра"), { resume(draft) }) {
                 Text("iumrah Smart", fontWeight = FontWeight.Bold, fontSize = 19.sp)
-                Text("${draft.preferences.month} · ${draft.preferences.duration} " + t("дн.", "days", "kun", "кун"), fontSize = 12.sp)
+                Text("${runCatching { java.time.YearMonth.parse(draft.preferences.month).format(java.time.format.DateTimeFormatter.ofPattern("MMMM yyyy", language.locale)) }.getOrDefault(draft.preferences.month)} · ${draft.preferences.duration} " + t("дн.", "days", "kun", "кун"), fontSize = 12.sp)
                 if (!draft.wasAssembled) LinearProgressIndicator(progress = { draft.step.coerceIn(0, 8) / 8f }, modifier = Modifier.fillMaxWidth())
                 Text(if (draft.wasAssembled) t("Проверить пакет", "Recheck package", "Paketni tekshirish", "Пакетни текшириш") else t("Продолжить сборку", "Continue", "Davom etish", "Давом этиш"), fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
             } } }
             activity.flight?.trip()?.let { trip -> item { HomeSmallActivityCard(CupertinoSymbol.Airplane, t("Недавний поиск", "Recent search", "So‘nggi qidiruv", "Сўнгги қидирув"), { repeat(trip) }) {
                 Text("${trip.originCode} → ${trip.outboundDestinationCode}", fontSize = 20.sp, fontWeight = FontWeight.Bold)
-                Text(trip.departureDate.toString(), fontSize = 12.sp)
+                Text(trip.departureDate.format(java.time.format.DateTimeFormatter.ofLocalizedDate(java.time.format.FormatStyle.MEDIUM).withLocale(language.locale)), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Text(t("Повторить поиск", "Search again", "Qayta qidirish", "Қайта қидириш"), fontWeight = FontWeight.SemiBold, fontSize = 12.sp)
             } } }
             items(activity.hotels.take(4), key = { "recent-hotel-${it.hotel.id}" }) { visit ->
@@ -189,11 +190,11 @@ import com.iumrah.beta.core.navigation.AppTab
 
 @Composable private fun HomeRecommendedHotelCard(visit:HomeHotelVisit,language:AppLanguage,recent:Boolean=false,onClick:()->Unit){
     val hotel=visit.hotel
-    Column(Modifier.width(205.dp).height(202.dp).clip(RoundedCornerShape(22.dp)).background(MaterialTheme.colorScheme.surface).clickable(onClick=onClick).padding(10.dp),verticalArrangement=Arrangement.spacedBy(8.dp)){
-        AsyncImage(hotel.coverImageURL,hotel.name,Modifier.fillMaxWidth().height(110.dp).clip(RoundedCornerShape(13.dp)),contentScale=ContentScale.Crop)
+    Column(Modifier.width(if (recent) 220.dp else 205.dp).height(if (recent) 184.dp else 202.dp).clip(RoundedCornerShape(22.dp)).background(MaterialTheme.colorScheme.surface).clickable(onClick=onClick).padding(10.dp),verticalArrangement=Arrangement.spacedBy(8.dp)){
+        AsyncImage(hotel.coverImageURL,hotel.name,Modifier.fillMaxWidth().height(if (recent) 88.dp else 110.dp).clip(RoundedCornerShape(if (recent) 12.dp else 13.dp)),contentScale=ContentScale.Crop)
         if(recent) Text(nuiteeText(language,"Просмотренный отель","Viewed hotel","Ko‘rilgan mehmonxona","Кўрилган меҳмонхона"),fontSize=10.sp,color=MaterialTheme.colorScheme.onSurfaceVariant,maxLines=1)
         Text(hotel.name,fontWeight=FontWeight.Bold,fontSize=15.sp,maxLines=2)
-        Row(horizontalArrangement=Arrangement.spacedBy(6.dp),verticalAlignment=Alignment.CenterVertically){repeat(hotel.roundedStars){CupertinoIcon(CupertinoSymbol.StarFill,null,Modifier.size(11.dp),MaterialTheme.colorScheme.onSurfaceVariant)};hotel.rating?.let{Text(String.format(java.util.Locale.US,"%.1f",it),fontSize=12.sp,fontWeight=FontWeight.Bold)}}
+        Row(horizontalArrangement=Arrangement.spacedBy(6.dp),verticalAlignment=Alignment.CenterVertically){repeat(hotel.roundedStars){CupertinoIcon(CupertinoSymbol.StarFill,null,Modifier.size(11.dp),MaterialTheme.colorScheme.onSurfaceVariant)};if(!recent) hotel.rating?.let{Text(String.format(java.util.Locale.US,"%.1f",it),fontSize=12.sp,fontWeight=FontWeight.Bold)}}
     }
 }
 @Composable private fun HomeHotelVisitDetail(visit:HomeHotelVisit,language:AppLanguage,onDismiss:()->Unit){

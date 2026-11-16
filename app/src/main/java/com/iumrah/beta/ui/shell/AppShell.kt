@@ -8,6 +8,9 @@ import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.ContentTransform
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -378,7 +381,7 @@ private fun IumrahBottomBar(
     ) {
         Row(
             modifier = Modifier.fillMaxWidth()
-                .shadow(8.dp, shape, clip = false, ambientColor = Color.Black.copy(alpha = .055f), spotColor = Color.Black.copy(alpha = .055f))
+                .shadow(20.dp, shape, clip = false, ambientColor = Color.Black.copy(alpha = .055f), spotColor = Color.Black.copy(alpha = .055f))
                 .clip(shape)
                 .background(Color.White.copy(alpha = .96f))
                 .border(.8.dp, Color.Black.copy(alpha = .10f), shape)
@@ -409,12 +412,13 @@ private fun RowScope.BottomTabItem(
     onClick: () -> Unit,
 ) {
     val shape = RoundedCornerShape(25.dp)
+    val selectionColor by animateColorAsState(if (selected) com.iumrah.beta.core.design.IumrahColors.SignatureBlack else Color.Transparent, tween(180, easing = CubicBezierEasing(.42f, 0f, .58f, 1f)), label = "tab-selection")
     Column(
         modifier = Modifier
             .weight(1f)
             .height(65.dp)
             .clip(shape)
-            .background(if (selected) com.iumrah.beta.core.design.IumrahColors.SignatureBlack else Color.Transparent)
+            .background(selectionColor)
             .selectable(selected = selected, role = Role.Tab, onClick = onClick),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(5.dp, Alignment.CenterVertically),

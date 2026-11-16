@@ -61,9 +61,9 @@ def main():
           'masthead.height + card.height - overlap' in pills and
           'card.placeRelative(0, masthead.height - overlap, zIndex = 1f)' in pills,
           'search overlaps header by 40dp inside parent hit bounds')
-    check('PullToRefreshBox(' in home and 'bookingStore.refreshAll()' in home and
-          'notifications.refresh(accountToken)' in home and 'refreshVersion += 1' in home,
-          'actual pull-to-refresh reloads Home inventories and notifications')
+    check('CompositionLocalProvider(LocalOverscrollFactory provides null)' in home and 'bookingStore.refreshAll()' in home and
+          'notifications.refresh(accountToken)' in home and 'delay(650)' in home,
+          'current Home disables overscroll and refreshes on entry')
     check('IumrahHomeSearchHero(language, journeyState.trip, journey, airports, curatedFlights, chrome, searchExpanded, onSearch = { history.saveFlight(owner, it) })' in home,
           'Home search receives real journey and network data services')
     check('ConfiguratorAirportSelector(' in search and
@@ -85,19 +85,17 @@ def main():
           'infants = infants.coerceAtMost(adults)' in search and
           'minOf(adults, 9 - adults - children)' in search,
           'traveler sheet enforces adult/infant and maximum party limits')
-    check('journey.commitTripBuilder(' in search and 'chrome.openGuidedFlights()' in search and
+    check('journey.startHomePublishedSearch(trip)' in search and 'chrome.openGuidedFlights()' in search and
           'fun openGuidedFlights() = push(AppRoute.GuidedFlights' in nav and
-          'PackageFlightPath.PUBLISHED_DIRECT' in search,
+          'packageFlightPath = PackageFlightPath.PUBLISHED_DIRECT' in journey,
           'real flight-catalog route and shared trip builder, no mock prices')
     check('fun updateTrip(value: TripDraft)' in journey and 'fun commitTripBuilder(' in journey,
           'shared state methods used by current Android configurator')
-    check('var expanded by remember' in helpcard and 'AnimatedVisibility(' in helpcard and
-          '"Что делать сейчас?"' in helpcard and '"What should I do now?"' in helpcard,
-          'localized, initially collapsed iOS HelpCard')
-    check(home.index('item { IumrahHomeHelpCard(language) }') <
-          home.index('item { EmotionalPrompt('), 'iOS Home help shown before marketing')
-    check('refreshVersion' in home and 'LaunchedEffect(origin, refreshVersion)' in home,
-          'storefront refresh actually invalidates cached package carousel')
+    check('Dialog(onDismissRequest = onDismiss' in helpcard and 'delay(18)' in helpcard and
+          '"Что делать здесь?"' in helpcard and '"What can I do here?"' in helpcard,
+          'localized, typed iOS header help overlay')
+    check('onHelp = { helpOpen = true }' in home and 'item { IumrahHomeHelpCard' not in home,
+          'help is not a scroll item')
     check('AppTab.HOME -> HomeScreen(language, chrome, hotelCatalog, journey, airports, curatedFlights, bookingStore, notifications, accountStore.bearerToken, accountStore, packageEngine, settingsStore::setLanguage)' in shell,
           'all new Home dependencies injected from existing AppShell')
     codes = re.findall(r'^\s+([A-Z]+)\("([a-z]+)", R.drawable.',services,re.M)
@@ -121,10 +119,10 @@ def main():
                       'bottomRadius: CGFloat = 30'):
             check(token in geometry, 'iOS source geometry '+token)
         for token in ('IumrahHomeJourneySearchHero','searchCardOverlap: 40',
-                      'publishedOnly: true','IumrahPageHelpCard("home.default")'):
+                      'publishedOnly: true','helpContext: "home.default"'):
             check(token in swiftHome, 'current source Home '+token)
-        check('private var expanded = false' in swiftHelp,
-              'iOS HelpCard is initially collapsed')
+        check('IumrahHelpOverlayHost' in swiftHelp and 'automaticPageHelp = true' in swiftHelp,
+              'iOS help is a contextual overlay')
     print('STAGES 01+02 Android source/asset contract: PASS. Android CI and visual QA still mandatory.')
 
 if __name__ == '__main__':

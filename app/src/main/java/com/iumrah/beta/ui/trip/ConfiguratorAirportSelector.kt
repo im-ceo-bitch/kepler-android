@@ -27,6 +27,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
@@ -92,6 +93,7 @@ fun ConfiguratorAirportSelector(
     service: AirportSearchService,
     airport: Airport?,
     fallbackCode: String,
+    compactMonochrome: Boolean = false,
     onSelect: (Airport) -> Unit,
 ) {
     val context = LocalContext.current
@@ -120,7 +122,8 @@ fun ConfiguratorAirportSelector(
     }
 
     Row(
-        Modifier.fillMaxWidth().clip(RoundedCornerShape(17.dp)).background(generatorRaisedColor()).padding(horizontal = 12.dp, vertical = 10.dp),
+        Modifier.fillMaxWidth().then(if (compactMonochrome) Modifier.heightIn(min = 44.dp)
+            else Modifier.clip(RoundedCornerShape(17.dp)).background(generatorRaisedColor()).padding(horizontal = 12.dp, vertical = 10.dp)),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Row(
@@ -128,14 +131,18 @@ fun ConfiguratorAirportSelector(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(13.dp),
         ) {
-            Box(Modifier.size(38.dp).clip(CircleShape).background(Color(0xFF007AFF).copy(alpha = .13f)), contentAlignment = Alignment.Center) {
+            if (compactMonochrome) {
+                Box(Modifier.size(34.dp).clip(CircleShape).background(generatorRaisedColor()), contentAlignment = Alignment.Center) {
+                    Icon(CupertinoSymbol.AirplaneTakeoff, null, Modifier.size(18.dp), MaterialTheme.colorScheme.onSurface)
+                }
+            } else Box(Modifier.size(38.dp).clip(CircleShape).background(Color(0xFF007AFF).copy(alpha = .13f)), contentAlignment = Alignment.Center) {
                 Icon(CupertinoSymbol.AirplaneTakeoff, null, Modifier.size(17.dp), Color(0xFF007AFF))
             }
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text(airportTitle(language), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = .55f))
                 if (airport != null) {
                     Text(airport.compactTitle, fontSize = 17.sp, lineHeight = 20.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Text(airport.name, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = .55f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    if (!compactMonochrome) Text(airport.name, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = .55f), maxLines = 1, overflow = TextOverflow.Ellipsis)
                 } else {
                     Text(fallbackCode.ifBlank { airportSearchTitle(language) }.uppercase(), fontSize = 17.sp, lineHeight = 20.sp, fontWeight = FontWeight.Bold, maxLines = 1)
                 }

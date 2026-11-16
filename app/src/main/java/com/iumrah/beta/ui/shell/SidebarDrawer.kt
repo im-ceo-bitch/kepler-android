@@ -5,6 +5,20 @@ import com.iumrah.beta.ui.cupertino.CupertinoSymbol
 
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.graphics.RectangleShape
+import com.iumrah.beta.R
+import com.iumrah.beta.core.design.iosSpring
+import com.iumrah.beta.core.localization.L10n
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -49,12 +63,13 @@ fun SidebarDrawerHost(
     chrome: AppChromeStore,
     content: @Composable () -> Unit,
 ) {
-    val width = (LocalConfiguration.current.screenWidthDp.dp * .74f).coerceAtMost(360.dp)
-    val contentScale = animateFloatAsState(if (open) .985f else 1f, IumrahMotion.sidebar, label = "sidebar-content-scale").value
-    val drawerX = animateFloatAsState(if (open) 0f else -1f, IumrahMotion.sidebar, label = "sidebar-x").value
-    val scrim = animateFloatAsState(if (open) .28f else 0f, IumrahMotion.fastFade, label = "sidebar-scrim").value
+    val contentScale = animateFloatAsState(if (open) .985f else 1f, iosSpring(.34f, .88f), label = "sidebar-content-scale").value
+    val drawerX = animateFloatAsState(if (open) 0f else -1f, iosSpring(.34f, .88f), label = "sidebar-x").value
+    val scrim = animateFloatAsState(if (open) .28f else 0f, iosSpring(.34f, .88f), label = "sidebar-scrim").value
 
-    Box(Modifier.fillMaxSize()) {
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+        val width = (maxWidth * .74f).coerceAtMost(360.dp)
+        val hiddenOffset = (maxWidth * .78f).coerceAtMost(380.dp)
         Box(
             Modifier.fillMaxSize().graphicsLayer {
                 scaleX = contentScale
@@ -63,7 +78,7 @@ fun SidebarDrawerHost(
             },
         ) { content() }
 
-        if (scrim > .001f) {
+        if (open || scrim > .001f) {
             Box(
                 Modifier.fillMaxSize()
                     .background(Color.Black.copy(alpha = scrim))
@@ -75,12 +90,12 @@ fun SidebarDrawerHost(
             )
         }
 
-        Box(
+        if (open || drawerX > -.999f) Box(
             Modifier
                 .width(width)
                 .fillMaxHeight()
-                .graphicsLayer { translationX = drawerX * width.toPx() }
-                .shadow(if (open) 30.dp else 0.dp, RoundedCornerShape(topEnd = 34.dp, bottomEnd = 34.dp)),
+                .graphicsLayer { translationX = drawerX * hiddenOffset.toPx() }
+                .shadow(if (open) 30.dp else 0.dp, RectangleShape),
         ) {
             SidebarDrawer(language, chrome)
         }
@@ -89,52 +104,47 @@ fun SidebarDrawerHost(
 
 @Composable
 private fun SidebarDrawer(language: AppLanguage, chrome: AppChromeStore) {
-    Column(
-        Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface).statusBarsPadding().padding(horizontal = 18.dp, vertical = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Text("iumrah", style = MaterialTheme.typography.headlineMedium)
-            Spacer(Modifier.weight(1f))
-            IumrahPressable(
-                onClick = chrome::closeSidebar,
-                modifier = Modifier.size(38.dp),
-                cornerRadius = 99.dp,
-                background = MaterialTheme.colorScheme.surfaceVariant,
-                pressedScale = .90f,
-            ) { Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Icon(CupertinoSymbol.Close, contentDescription = "Close") } }
+    Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface.copy(alpha = .98f))
+        .statusBarsPadding().navigationBarsPadding().padding(horizontal = 18.dp)) {
+        Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
+            Row(Modifier.fillMaxWidth().padding(top = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
+                    Image(painterResource(R.drawable.iumrah_header_wordmark_dark), contentDescription = "iumrah",
+                        modifier = Modifier.width(160.dp).height(42.dp),
+                        colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.onSurface), contentScale = ContentScale.Fit,
+                        alignment = Alignment.CenterStart)
+                }
+                IumrahPressable(onClick = chrome::closeSidebar, modifier = Modifier.size(44.dp), cornerRadius = 99.dp,
+                    background = MaterialTheme.colorScheme.surfaceVariant, pressedScale = .90f) {
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Icon(CupertinoSymbol.Close, contentDescription = L10n.text("cancel", language), modifier = Modifier.size(17.dp))
+                    }
+                }
+            }
+            Text(sidebarCopy(language).subtitle, modifier = Modifier.padding(top = 6.dp), fontSize = 13.sp,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = .52f))
+            Column(Modifier.padding(top = 22.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                DrawerRow(CupertinoSymbol.HomeFill, sidebarCopy(language).home) { chrome.navigate(AppTab.HOME) }
+                DrawerRow(CupertinoSymbol.SuitcaseFill, sidebarCopy(language).trips) { chrome.navigate(AppTab.BOOKING) }
+                DrawerRow(CupertinoSymbol.HeartFill, L10n.text("tab_care", language)) { chrome.navigate(AppTab.CARE) }
+                DrawerRow(CupertinoSymbol.PersonCircleFill, sidebarCopy(language).account) { chrome.navigate(AppTab.ACCOUNT) }
+            }
+            SidebarESIMCard(language, chrome)
+            Spacer(Modifier.height(18.dp))
         }
-        Text(sidebarCopy(language).subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface.copy(alpha = .52f))
-        Spacer(Modifier.size(8.dp))
-        DrawerRow(CupertinoSymbol.Home, sidebarCopy(language).home) { chrome.navigate(AppTab.HOME) }
-        DrawerRow(CupertinoSymbol.Suitcase, sidebarCopy(language).trips) { chrome.navigate(AppTab.BOOKING) }
-        DrawerRow(CupertinoSymbol.Heart, "iumrah Care") { chrome.navigate(AppTab.CARE) }
-        DrawerRow(CupertinoSymbol.PersonCircle, sidebarCopy(language).account) { chrome.navigate(AppTab.ACCOUNT) }
-        DrawerRow(CupertinoSymbol.MoonStarsFill, when (language) {
-            AppLanguage.RUSSIAN -> "Времена молитв"
-            AppLanguage.ENGLISH, AppLanguage.ARABIC, AppLanguage.TURKISH, AppLanguage.INDONESIAN, AppLanguage.MALAY -> "Prayer Times"
-            AppLanguage.UZBEK -> "Namoz vaqtlari"
-            AppLanguage.UZBEK_CYRILLIC -> "Намоз вақтлари"
-        }) { chrome.openPrayerTimes() }
-        DrawerRow(CupertinoSymbol.SignalWave, when (language) {
-            AppLanguage.RUSSIAN -> "Umrah Flow · Гид"
-            AppLanguage.UZBEK, AppLanguage.UZBEK_CYRILLIC -> "Umrah Flow · Yo‘riqnoma"
-            else -> "Umrah Flow · Guide"
-        }) { chrome.openUmrahFlow() }
-        SidebarESIMCard(language, chrome)
-        Spacer(Modifier.weight(1f))
-        Text("Independent Umrah · iumrah", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurface.copy(alpha = .35f))
+        Text("Independent Umrah · iumrah", modifier = Modifier.padding(bottom = 14.dp), fontSize = 12.sp,
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = .35f))
     }
 }
 
 @Composable
 private fun DrawerRow(icon: CupertinoSymbol, title: String, onClick: () -> Unit) {
     IumrahPressable(onClick = onClick, modifier = Modifier.fillMaxWidth(), cornerRadius = 18.dp, background = MaterialTheme.colorScheme.surfaceVariant, pressedScale = .975f) {
-        Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
-            Icon(icon, contentDescription = null, modifier = Modifier.size(22.dp))
-            Text(title, modifier = Modifier.padding(start = 14.dp), style = MaterialTheme.typography.titleMedium)
+        Row(Modifier.fillMaxWidth().height(52.dp).padding(horizontal = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.width(24.dp), contentAlignment = Alignment.Center) { Icon(icon, contentDescription = null, modifier = Modifier.size(17.dp)) }
+            Text(title, modifier = Modifier.padding(start = 14.dp), fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
             Spacer(Modifier.weight(1f))
-            Icon(CupertinoSymbol.ArrowRight, contentDescription = null, modifier = Modifier.size(17.dp), tint = MaterialTheme.colorScheme.onSurface.copy(alpha = .35f))
+            Icon(CupertinoSymbol.ChevronRight, contentDescription = null, modifier = Modifier.size(12.dp), tint = MaterialTheme.colorScheme.onSurface.copy(alpha = .35f))
         }
     }
 }
@@ -142,20 +152,20 @@ private fun DrawerRow(icon: CupertinoSymbol, title: String, onClick: () -> Unit)
 @Composable
 private fun SidebarESIMCard(language: AppLanguage, chrome: AppChromeStore) {
     val body = when (language) {
-        AppLanguage.RUSSIAN -> "Интернет для поездки и данные активации — прямо внутри Вашего пакета."
-        AppLanguage.ENGLISH, AppLanguage.ARABIC, AppLanguage.TURKISH, AppLanguage.INDONESIAN, AppLanguage.MALAY -> "Trip connectivity and activation data live directly inside your package."
-        AppLanguage.UZBEK -> "Safar interneti va faollashtirish ma’lumotlari to‘g‘ridan-to‘g‘ri paketingiz ichida."
-        AppLanguage.UZBEK_CYRILLIC -> "Сафар интернети ва фаоллаштириш маълумотлари тўғридан-тўғри пакетингиз ичида."
+        AppLanguage.RUSSIAN -> "Активация и остаток интернета прямо в приложении."
+        AppLanguage.ENGLISH, AppLanguage.ARABIC, AppLanguage.TURKISH, AppLanguage.INDONESIAN, AppLanguage.MALAY -> "Activation and data balance directly in the app."
+        AppLanguage.UZBEK -> "Faollashtirish va internet qoldig‘i ilovaning o‘zida."
+        AppLanguage.UZBEK_CYRILLIC -> "Фаоллаштириш ва интернет қолдиғи илованинг ўзида."
     }
     val badge = when (language) {
-        AppLanguage.RUSSIAN -> "ВНУТРИ ПАКЕТА"
-        AppLanguage.ENGLISH, AppLanguage.ARABIC, AppLanguage.TURKISH, AppLanguage.INDONESIAN, AppLanguage.MALAY -> "INSIDE PACKAGE"
-        AppLanguage.UZBEK -> "PAKET ICHIDA"
-        AppLanguage.UZBEK_CYRILLIC -> "ПАКЕТ ИЧИДА"
+        AppLanguage.RUSSIAN -> "В СОСТАВЕ ПАКЕТА"
+        AppLanguage.ENGLISH, AppLanguage.ARABIC, AppLanguage.TURKISH, AppLanguage.INDONESIAN, AppLanguage.MALAY -> "INCLUDED WITH PACKAGE"
+        AppLanguage.UZBEK -> "PAKET TARKIBIDA"
+        AppLanguage.UZBEK_CYRILLIC -> "ПАКЕТ ТАРКИБИДА"
     }
     IumrahPressable(
         onClick = chrome::openESIM,
-        modifier = Modifier.fillMaxWidth().padding(top = 10.dp),
+        modifier = Modifier.fillMaxWidth().padding(top = 18.dp),
         cornerRadius = 28.dp,
         background = Color.Transparent,
         pressedScale = .975f,
@@ -165,17 +175,17 @@ private fun SidebarESIMCard(language: AppLanguage, chrome: AppChromeStore) {
                 Brush.linearGradient(listOf(IumrahColors.CareDark, IumrahColors.Graphite)),
                 RoundedCornerShape(28.dp),
             ).padding(18.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Box(Modifier.size(52.dp).clip(RoundedCornerShape(18.dp)).background(Color.White.copy(alpha = .11f)), contentAlignment = Alignment.Center) {
-                    Icon(CupertinoSymbol.SignalWave, null, modifier = Modifier.size(22.dp), tint = Color.White)
+                    Icon(CupertinoSymbol.SimCard, null, modifier = Modifier.size(22.dp), tint = Color.White)
                 }
                 Spacer(Modifier.weight(1f))
-                Icon(CupertinoSymbol.ArrowUpRight, null, modifier = Modifier.size(15.dp), tint = Color.White.copy(alpha = .70f))
+                Icon(CupertinoSymbol.ArrowUpRight, null, modifier = Modifier.size(14.dp), tint = Color.White.copy(alpha = .70f))
             }
             Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                Text("iumrah eSIM", style = MaterialTheme.typography.headlineSmall, color = Color.White)
+                Text("iumrah eSIM", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = Color.White)
                 Text(body, style = MaterialTheme.typography.bodyMedium, color = Color.White.copy(alpha = .72f))
             }
             Box(Modifier.height(32.dp).clip(CircleShape).background(Color.White.copy(alpha = .12f)).padding(horizontal = 12.dp), contentAlignment = Alignment.Center) {

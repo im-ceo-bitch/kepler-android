@@ -45,6 +45,15 @@ fun main() = runBlocking {
     verify(progress.first()==SmartConfiguratorService.Progress.FLIGHTS && progress.last()==SmartConfiguratorService.Progress.READY)
     verify(manual.state.value==original); verify(runCatching { manual.adoptSmartResult(JourneyStore()) }.isFailure)
     manual.adoptSmartResult(result); verify(manual.state.value==result.state.value)
+    val previousTrip = manual.state.value.trip
+    manual.startHomePublishedSearch(previousTrip)
+    verify(manual.state.value.trip == previousTrip.copy(saudiArrivalDate=null, flightTripType=FlightTripType.ROUND_TRIP, flexibility=DateFlexibility.EXACT))
+    verify(manual.state.value.packageFlightPath == PackageFlightPath.PUBLISHED_DIRECT)
+    verify(manual.state.value.nuitee == null && manual.state.value.quote == null)
+    verify(manual.state.value.selectedPublishedCompleteID == null && manual.state.value.selectedPublishedOutboundID == null && manual.state.value.selectedPublishedReturnID == null)
+    verify(manual.state.value.stagedAviasalesRoundTrip == null && manual.state.value.stagedAviasalesOutbound == null && manual.state.value.stagedAviasalesReturn == null)
+    verify(!manual.state.value.transferSelectionConfirmed && manual.state.value.flightResults.isEmpty())
+    verify(result.state.value.hasFinalGeneratorQuote)
     // Sync 03: replacement must be atomic and retain the exact previously priced journey on failure.
     val previousSnapshot = result.state.value
     val previousHotel = previousSnapshot.nuitee!!.rooms.getValue("makkah:0").hotel.id

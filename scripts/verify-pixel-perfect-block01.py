@@ -41,7 +41,8 @@ def main():
     assert buttons.count('textAlign = TextAlign.Center') >= 2
     assert 'if (unreadCount > 0) CupertinoSymbol.BellBadge else CupertinoSymbol.Bell' in header
     assert 'unreadCount > 9) 26.dp else 16.dp' not in header
-    assert 'headerWidth - IumrahDesign.PagePadding * 2 - 104.dp' in header
+    assert 'headerWidth - IumrahDesign.PagePadding * 2 - slotWidth * 2 - 8.dp' in header
+    assert 'val slotWidth = if (onHelp != null) 88.dp else 48.dp' in header
     print(f'Pixel block 01: {len(REF["literal_sf_names"])} iOS names, 6 geometry and 7 type roles, 5 outline/fill pairs, button and header contracts PASS')
     if not opts.jvm:
         return

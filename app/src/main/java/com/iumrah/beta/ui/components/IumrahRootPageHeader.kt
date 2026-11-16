@@ -14,6 +14,8 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -89,6 +91,7 @@ fun IumrahRootPageHeader(
     language: AppLanguage = AppLanguage.ENGLISH,
     subtitle: String? = null,
     discovery: Boolean = false,
+    onHelp: (() -> Unit)? = null,
     footer: (@Composable () -> Unit)? = null,
 ) {
     BoxWithConstraints(
@@ -103,8 +106,9 @@ fun IumrahRootPageHeader(
             // The bleed adds the two page insets back before the brand row is measured.
             val headerWidth = maxWidth + if (drawsSignatureBackground) IumrahDesign.PagePadding * 2 else 0.dp
             // iOS: 18pt edge insets, two 48pt slots, two minimum 4pt gaps.
+            val slotWidth = if (onHelp != null) 88.dp else 48.dp
             val logoWidth = minOf(IumrahDesign.SignatureLogoWidth,
-                (headerWidth - IumrahDesign.PagePadding * 2 - 104.dp).coerceAtLeast(0.dp))
+                (headerWidth - IumrahDesign.PagePadding * 2 - slotWidth * 2 - 8.dp).coerceAtLeast(0.dp))
             val bottomRadius = if (roundedBottom || discovery) IumrahDesign.SignatureBottomRadius else 0.dp
             val container = if (drawsSignatureBackground) Modifier.iumrahSignatureBleed()
                 else Modifier.fillMaxWidth()
@@ -129,7 +133,9 @@ fun IumrahRootPageHeader(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween,
                     ) {
-                        SignatureHeaderButton(CupertinoSymbol.Menu, 44.dp, chrome::openSidebar, headerCopy(language, "Меню", "Menu", "Menyu", "Меню"))
+                        Box(Modifier.width(slotWidth), contentAlignment = Alignment.CenterStart) {
+                            SignatureHeaderButton(CupertinoSymbol.Menu, 44.dp, chrome::openSidebar, headerCopy(language, "Меню", "Menu", "Menyu", "Меню"))
+                        }
                         Spacer(Modifier.weight(1f))
                         Image(
                             painterResource(R.drawable.iumrah_header_wordmark_dark),
@@ -138,10 +144,16 @@ fun IumrahRootPageHeader(
                             contentScale = ContentScale.Fit,
                         )
                         Spacer(Modifier.weight(1f))
-                        SignatureHeaderButton(
+                        if (onHelp == null) SignatureHeaderButton(
                             if (unreadCount > 0) CupertinoSymbol.BellBadge else CupertinoSymbol.Bell,
                             48.dp, chrome::openNotifications, headerCopy(language, "Уведомления", "Notifications", "Bildirishnomalar", "Билдиришномалар"),
-                        )
+                        ) else Row(Modifier.width(88.dp).height(44.dp).clip(CircleShape)
+                            .background(Color.White.copy(alpha = .105f)).border(.8.dp, Color.White.copy(alpha = .25f), CircleShape),
+                            verticalAlignment = Alignment.CenterVertically) {
+                            SignatureGroupAction(if (unreadCount > 0) CupertinoSymbol.BellBadge else CupertinoSymbol.Bell,
+                                headerCopy(language, "Уведомления", "Notifications", "Bildirishnomalar", "Билдиришномалар"), chrome::openNotifications)
+                            SignatureGroupAction(CupertinoSymbol.QuestionMark, headerCopy(language, "Что делать здесь?", "What can I do here?", "Bu yerda nima qilish kerak?", "Бу ерда нима қилиш керак?"), onHelp)
+                        }
                     }
                     if (!usesBrandLogo) {
                         Text(
@@ -229,6 +241,13 @@ fun IumrahRootPageHeader(
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun RowScope.SignatureGroupAction(symbol: CupertinoSymbol, label: String, onClick: () -> Unit) {
+    Box(Modifier.weight(1f).height(44.dp).clickable(onClick = onClick), contentAlignment = Alignment.Center) {
+        CupertinoIcon(symbol, label, Modifier.size(19.dp), Color.White)
     }
 }
 
