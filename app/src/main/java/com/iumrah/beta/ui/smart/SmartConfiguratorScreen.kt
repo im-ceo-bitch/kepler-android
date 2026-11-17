@@ -110,11 +110,16 @@ internal fun SmartConfiguratorScreen(language: AppLanguage, airports: AirportSea
             finally { replacingCity = null }
         }
     }
+    // A single reactive quote snapshot drives both the UI and CTA.
+    // Key the subscription to the store so a replaced package cannot reuse old state.
+    val assembled = result?.let { journey ->
+        key(journey) { journey.state.collectAsState().value }
+    }
     val canContinue = when (step) {
         1 -> preferences.origin.matches(Regex("[A-Z]{3}")) && preferences.origin !in setOf("JED", "MED")
         6 -> preferences.valid()
         7 -> preferences.valid()
-        8 -> result?.state?.value?.let { it.hasFinalGeneratorQuote && it.quote?.bookingAllowed == true } ?: (failure != null)
+        8 -> assembled?.let { it.hasFinalGeneratorQuote && it.quote?.bookingAllowed == true } ?: (failure != null)
         else -> true
     }
     val title = when (step) {
@@ -167,7 +172,6 @@ internal fun SmartConfiguratorScreen(language: AppLanguage, airports: AirportSea
             Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(scroll), horizontalAlignment = Alignment.CenterHorizontally) {
               Column(Modifier.widthIn(max = 570.dp).fillMaxWidth().padding(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 val symbol = when (step) { 1 -> CupertinoSymbol.AirplaneTakeoff; 2 -> CupertinoSymbol.Calendar; 3 -> CupertinoSymbol.Clock; 4 -> CupertinoSymbol.MapFill; 5 -> CupertinoSymbol.AirplaneLand; 6 -> CupertinoSymbol.PersonsFill; 7 -> CupertinoSymbol.StarFill; 8 -> if(result != null) null else when(progress) { SmartConfiguratorService.Progress.FLIGHTS -> CupertinoSymbol.Airplane; SmartConfiguratorService.Progress.HOTELS -> CupertinoSymbol.BuildingFill; SmartConfiguratorService.Progress.TRANSFER -> CupertinoSymbol.Car; SmartConfiguratorService.Progress.PRICE -> CupertinoSymbol.CheckCircle; SmartConfiguratorService.Progress.READY -> null }; else -> null }
-                val assembled = result?.state?.value
                 SmartOrbitHeader(step, title, subtitle, symbol, assembled)
                 Column(Modifier.fillMaxWidth().graphicsLayer {
                     alpha = stepMotion.value
@@ -225,7 +229,7 @@ internal fun SmartConfiguratorScreen(language: AppLanguage, airports: AirportSea
             }
             Column(Modifier.fillMaxWidth().background(if(MaterialTheme.colorScheme.background == Color.Black) Color.Black else Color.White).navigationBarsPadding().padding(horizontal = 20.dp, vertical = 12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
               Column(Modifier.widthIn(max=570.dp).fillMaxWidth(), verticalArrangement=Arrangement.spacedBy(12.dp)) {
-                result?.state?.value?.takeIf { step == 8 && it.hasFinalGeneratorQuote && it.quote?.bookingAllowed == true }?.quote?.let { quote ->
+                assembled?.takeIf { step == 8 && it.hasFinalGeneratorQuote && it.quote?.bookingAllowed == true }?.quote?.let { quote ->
                     SmartPriceLine(t("Предварительно за всех", "Estimated total", "Taxminiy jami", "Тахминий жами"), smartMoney(quote.totalPackagePrice,quote.currency,language), true)
                     SmartPriceLine(t("На одного паломника", "Per pilgrim", "Bir ziyoratchi uchun", "Бир зиёратчи учун"),smartMoney(quote.pricePerPerson,quote.currency,language),false)
                 }

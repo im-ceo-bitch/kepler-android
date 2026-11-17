@@ -36,7 +36,7 @@ import com.iumrah.beta.ui.components.IumrahPrimaryButton
     airports: AirportSearchService, previous: JourneyStore, kind: String, onDismiss: () -> Unit, onApply: (JourneyStore) -> Unit) {
     val candidate = remember(previous, kind) { previous.smartEditCopy() }
     val state by candidate.state.collectAsState()
-    val original = previous.state.value
+    val original by previous.state.collectAsState()
     val context = LocalContext.current
     val favoritePrefs = remember(context) { context.getSharedPreferences("iumrah_nuitee_favorites", 0) }
     var favorites by remember(favoritePrefs) { mutableStateOf(favoritePrefs.getStringSet("hotels", emptySet()).orEmpty().toSet()) }

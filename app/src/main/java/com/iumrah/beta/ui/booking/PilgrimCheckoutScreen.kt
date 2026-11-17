@@ -283,7 +283,7 @@ internal fun PilgrimCheckoutEmbedded(
 
     travelerEditor?.let { traveler ->
         val token = accountStore.bearerToken
-        if (!token.isNullOrBlank() && BookingSessionPolicy.sameIdentity(accountStore.state.value.iumrahID, checkout?.iumrahID)) {
+        if (!token.isNullOrBlank() && BookingSessionPolicy.sameIdentity(accountState.iumrahID, checkout?.iumrahID)) {
             TravelerEditorSheet(
                 bookingID = bookingID,
                 traveler = traveler,
@@ -311,7 +311,8 @@ internal fun BookingPasswordlessAccessCard(
     onRestored: () -> Unit,
 ) {
     val scope = rememberCoroutineScope()
-    val prefill = session ?: bookingStore.state.value.sessions.firstOrNull { it.verifiedBookingEmail != null || it.verifiedBookingPhone != null }
+    val bookingState by bookingStore.state.collectAsState()
+    val prefill = session ?: bookingState.sessions.firstOrNull { it.verifiedBookingEmail != null || it.verifiedBookingPhone != null }
     val initialChannel = if (prefill?.verifiedBookingPhone != null && prefill.verifiedBookingEmail == null) "sms" else "email"
     var channel by remember(session?.id) { mutableStateOf(initialChannel) }
     var contact by remember(session?.id) { mutableStateOf(if (initialChannel == "sms") prefill?.verifiedBookingPhone.orEmpty() else prefill?.verifiedBookingEmail.orEmpty()) }
