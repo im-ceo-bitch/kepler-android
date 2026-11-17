@@ -25,6 +25,9 @@ import kotlinx.serialization.Serializable
 /** Isolated assembly: only a completed, server-authorized journey is returned. */
 class SmartConfiguratorService(private val curated: CuratedFlightRecommendationService, private val hotels: NuiteeHotelService,
                                private val engine: RemotePackageEngineClient, private val api: APIClient = APIClient()) {
+    internal val editHotels get() = hotels
+    internal val editCurated get() = curated
+    internal val editDiscovery get() = AviasalesFlightDiscoveryService(api)
     enum class Progress { FLIGHTS, HOTELS, TRANSFER, PRICE, READY }
     private suspend fun plan(p: SmartPreferences, source: String): Plan = api.post<Plan, PlanRequest>(
         "/api/package/smart/plan", PlanRequest(p.origin, p.month, p.duration, p.both, p.firstCity, source),
@@ -89,6 +92,65 @@ class SmartConfiguratorService(private val curated: CuratedFlightRecommendationS
         check(journey.state.value.hasFinalGeneratorQuote && journey.state.value.quote?.bookingAllowed == true) { "SMART_QUOTE_UNAVAILABLE" }
         progress(Progress.READY, null)
         return journey
+    }
+
+    data class EditResult(val journey: JourneyStore, val hotelsChanged: Boolean)
+
+    // The editor never publishes to the previous store. A new server quote is the commit point.
+    suspend fun applyEdit(p: SmartPreferences, previous: JourneyStore, candidate: JourneyStore, flightsChanged: Boolean): EditResult {
+        require(previous !== candidate)
+        val old = previous.state.value
+        val next = candidate.state.value
+        require(old.hasFinalGeneratorQuote && old.quote?.bookingAllowed == true)
+        require(next.trip.adults == old.trip.adults && next.trip.children == old.trip.children &&
+            next.trip.infants == old.trip.infants && next.trip.rooms == old.trip.rooms && next.trip.scope == old.trip.scope)
+        require(p.valid() && p.roomCount == next.trip.rooms)
+        var changed = false
+        if (flightsChanged) {
+            require(next.nuitee?.flights?.size == 2)
+            if (p.childAges.isNotEmpty()) require(next.packageFlightPath == PackageFlightPath.PUBLISHED_DIRECT)
+            candidate.chooseTransferVehicle(old.resolvedTransferVehicle)
+            candidate.setHaramainTrainSelected(old.haramainTrainSelected)
+            candidate.setHaramainFareClass(old.haramainFareClass)
+            if (old.haramainTrainSelected) {
+                candidate.setHaramainAdultTickets(old.haramainAdultTickets)
+                candidate.setHaramainChildTickets(old.haramainChildTickets)
+            }
+            val windows = TripStayPlanner.windows(next.trip)
+            for ((city, window) in listOfNotNull("makkah" to windows.makkah, windows.madinah?.let { "madinah" to it })) {
+                val prior = old.nuitee?.rooms.orEmpty().values.filter { it.city == city }.sortedBy { it.roomIndex }
+                val refreshed = if (prior.size == old.trip.rooms && prior.all { it.checkin == window.checkIn && it.checkout == window.checkOut }) prior
+                    else refreshPreviousRooms(prior, window, old.trip.rooms)
+                val rooms = refreshed ?: run {
+                    val category = when (prior.firstOrNull()?.hotel?.roundedStars) {
+                        1, 2 -> PackageTier.ECONOMY; 3 -> PackageTier.STANDARD; 4 -> PackageTier.COMFORT; 5 -> PackageTier.LUXURY; else -> p.category
+                    }
+                    val replacement = selectRooms(p.copy(tier = category.wireValue), city, window)
+                    changed = changed || replacement.firstOrNull()?.hotel?.id != prior.firstOrNull()?.hotel?.id
+                    replacement
+                }
+                rooms.forEach(candidate::chooseNuiteeRoom)
+            }
+        }
+        currentCoroutineContext().ensureActive()
+        candidate.confirmTransferSelection()
+        candidate.prepareNuiteePackage(curated, engine).getOrThrow()
+        currentCoroutineContext().ensureActive()
+        check(candidate.state.value.hasFinalGeneratorQuote && candidate.state.value.quote?.bookingAllowed == true) { "SMART_QUOTE_UNAVAILABLE" }
+        return EditResult(candidate, changed)
+    }
+
+    private suspend fun refreshPreviousRooms(old: List<NuiteeRoomSelection>, window: TripStayWindow, count: Int): List<NuiteeRoomSelection>? {
+        if (old.size != count || window.checkOut <= window.checkIn) return null
+        val result = mutableListOf<NuiteeRoomSelection>()
+        for (room in old) {
+            currentCoroutineContext().ensureActive()
+            val response = hotels.rates(room.hotel.id, window.checkIn, window.checkOut, room.adults, room.childrenAges, smartTimeout = true)
+            if (!response.ok || response.sandbox) return null
+            val rate = response.rates.filter { it.roomId == room.rate.roomId && NuiteeRules.validRoomRate(it) }.minByOrNull { it.price } ?: return null
+            result += room.copy(rate = rate, checkin = window.checkIn, checkout = window.checkOut)
+        }
+        return result
     }
 
     /** Preserve the previous verified result until an independent replacement is fully quoted. */

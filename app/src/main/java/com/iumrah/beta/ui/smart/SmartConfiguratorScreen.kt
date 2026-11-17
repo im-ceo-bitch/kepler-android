@@ -73,6 +73,8 @@ internal fun SmartConfiguratorScreen(language: AppLanguage, airports: AirportSea
     var preview by remember { mutableStateOf<JourneyState?>(null) }
     var replacingCity by remember { mutableStateOf<String?>(null) }
     var replacementError by remember { mutableStateOf(false) }
+    var editKind by remember { mutableStateOf<String?>(null) }
+    var hotelsChanged by remember { mutableStateOf(false) }
     var excludedHotels by remember { mutableStateOf<Map<String, Set<String>>>(emptyMap()) }
     val scope = rememberCoroutineScope()
     var languageMenu by remember { mutableStateOf(false) }
@@ -86,12 +88,27 @@ internal fun SmartConfiguratorScreen(language: AppLanguage, airports: AirportSea
     LaunchedEffect(step, preferences, result != null) { if(step != 0) onSave(SmartDraft(preferences, step, result != null)) }
     LaunchedEffect(step, attempt) {
         if (step != 8 || attempt == 0) return@LaunchedEffect
-        busy = true; failure = null; result = null; preview = null; excludedHotels = emptyMap(); replacementError = false
+        busy = true; failure = null; result = null; preview = null; excludedHotels = emptyMap(); replacementError = false; hotelsChanged = false
         progress = SmartConfiguratorService.Progress.FLIGHTS; city = null
         try { result = service.assemble(preferences, preview = { preview = it }) { stage, location -> progress = stage; city = location } }
         catch (e: CancellationException) { throw e }
         catch (e: Exception) { failure = e.message ?: "SMART_QUOTE_UNAVAILABLE" }
         finally { busy = false }
+    }
+    fun publishEdit(candidate: JourneyStore, kind: String) {
+        val previous = result ?: return
+        if (replacingCity != null || busy) return
+        editKind = null; replacingCity = kind; replacementError = false
+        scope.launch {
+            try {
+                val edited = service.applyEdit(preferences, previous, candidate, flightsChanged = kind == "flights")
+                if (result === previous) {
+                    result = edited.journey; preview = edited.journey.state.value; hotelsChanged = edited.hotelsChanged
+                }
+            } catch (cancel: CancellationException) { throw cancel }
+            catch (_: Exception) { replacementError = true }
+            finally { replacingCity = null }
+        }
     }
     val canContinue = when (step) {
         1 -> preferences.origin.matches(Regex("[A-Z]{3}")) && preferences.origin !in setOf("JED", "MED")
@@ -117,7 +134,7 @@ internal fun SmartConfiguratorScreen(language: AppLanguage, airports: AirportSea
         2 -> t("Точные даты подберём автоматически. Вылет — в выбранном месяце.", "We'll find the dates automatically. Departure stays within your chosen month.", "Aniq sanalarni avtomatik topamiz. Uchish tanlangan oyda bo‘ladi.", "Аниқ саналарни автоматик топамиз. Учиш танланган ойда бўлади.")
         4 -> t("Выберите маршрут вашей поездки.", "Choose your journey route.", "Safaringiz yo‘nalishini tanlang.", "Сафарингиз йўналишини танланг.")
         5 -> t("В Мекку — через Джидду. В Медину — через аэропорт Медины.", "Makkah via Jeddah, Madinah via Madinah airport.", "Makkaga Jidda, Madinaga Madina aeroporti orqali.", "Маккага Жидда, Мадинага Мадина аэропорти орқали.")
-        7 -> t("Прокрутите карточки, чтобы сравнить категории.", "Swipe to compare travel categories.", "Toifalarni solishtirish uchun kartalarni suring.", "Тоифаларни солиштириш учун карталарни суринг.")
+        7 -> t("Выберите категорию отелей.", "Choose a hotel category.", "Mehmonxona toifasini tanlang.", "Меҳмонхона тоифасини танланг.")
         3 -> t("При необходимости расширим поиск на 3–4 дня.", "We may adjust the duration by 3–4 days to find flights.", "Zarur bo‘lsa, qidiruvni 3–4 kunga kengaytiramiz.", "Зарур бўлса, қидирувни 3–4 кунга кенгайтирамиз.")
         6 -> t("Возраст детей нужен для корректного тарифа.", "Children's ages help determine the right fare.", "To‘g‘ri tarif uchun bolalarning yoshi kerak.", "Тўғри тариф учун болаларнинг ёши керак.")
         8 -> if (result != null) t("Проверьте все детали перед бронированием.", "Review every detail before booking.", "Bron qilishdan oldin barcha tafsilotlarni tekshiring.", "Брон қилишдан олдин барча тафсилотларни текширинг.") else t("Проверяем компоненты и рассчитываем стоимость на сервере.", "Checking components and calculating the server price.", "Qismlarni tekshirib, serverda narxni hisoblayapmiz.", "Қисмларни текшириб, серверда нархни ҳисоблаяпмиз.")
@@ -145,13 +162,10 @@ internal fun SmartConfiguratorScreen(language: AppLanguage, airports: AirportSea
                     }
                     SmartHeaderIcon(CupertinoSymbol.Close, true, onClose)
                 }
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    steps.forEach { value -> Box(Modifier.weight(1f).height(3.dp).clip(CircleShape).background(Color.White.copy(alpha = if (value <= step) 1f else .23f))) }
-                    Text("${index + 1}/${steps.size}", color = Color.White, fontSize = 11.sp, modifier=Modifier.padding(start=5.dp))
-                }
+
             }
             Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(scroll), horizontalAlignment = Alignment.CenterHorizontally) {
-              Column(Modifier.widthIn(max = 570.dp).fillMaxWidth().padding(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(22.dp)) {
+              Column(Modifier.widthIn(max = 570.dp).fillMaxWidth().padding(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 val symbol = when (step) { 1 -> CupertinoSymbol.AirplaneTakeoff; 2 -> CupertinoSymbol.Calendar; 3 -> CupertinoSymbol.Clock; 4 -> CupertinoSymbol.MapFill; 5 -> CupertinoSymbol.AirplaneLand; 6 -> CupertinoSymbol.PersonsFill; 7 -> CupertinoSymbol.StarFill; 8 -> if(result != null) null else when(progress) { SmartConfiguratorService.Progress.FLIGHTS -> CupertinoSymbol.Airplane; SmartConfiguratorService.Progress.HOTELS -> CupertinoSymbol.BuildingFill; SmartConfiguratorService.Progress.TRANSFER -> CupertinoSymbol.Car; SmartConfiguratorService.Progress.PRICE -> CupertinoSymbol.CheckCircle; SmartConfiguratorService.Progress.READY -> null }; else -> null }
                 val assembled = result?.state?.value
                 SmartOrbitHeader(step, title, subtitle, symbol, assembled)
@@ -178,8 +192,6 @@ internal fun SmartConfiguratorScreen(language: AppLanguage, airports: AirportSea
                         Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(9.dp)).background(smartSecondary()).padding(2.dp), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
                             listOf(false,true).forEach { both -> val label = if(both) t("Мекка и Медина", "Makkah & Madinah", "Makka va Madina", "Макка ва Мадина") else t("Мекка", "Makkah", "Makka", "Макка"); Box(Modifier.weight(1f).heightIn(min=32.dp).clip(RoundedCornerShape(7.dp)).background(if(preferences.both==both) MaterialTheme.colorScheme.surface else Color.Transparent).selectable(preferences.both==both, role=Role.Tab) { preferences=preferences.copy(both=both) }.padding(5.dp), contentAlignment=Alignment.Center) { Text(label,fontSize=13.sp,fontWeight=FontWeight.Medium,textAlign=TextAlign.Center) } }
                         }
-                        SmartChoice(t("Мекка", "Makkah", "Makka", "Макка"), "JED → JED", !preferences.both) { preferences = preferences.copy(both = false) }
-                        SmartChoice(t("Мекка и Медина", "Makkah & Madinah", "Makka va Madina", "Макка ва Мадина"), "JED ↔ MED", preferences.both) { preferences = preferences.copy(both = true) }
                     }
                     5 -> Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         SmartChoice(t("Мекка", "Makkah", "Makka", "Макка"), "JED", preferences.firstCity == "JED", Modifier.weight(1f)) { preferences = preferences.copy(firstCity = "JED") }
@@ -188,7 +200,7 @@ internal fun SmartConfiguratorScreen(language: AppLanguage, airports: AirportSea
                     6 -> Column(Modifier.fillMaxWidth().background(smartSecondary(), RoundedCornerShape(22.dp)).padding(18.dp), verticalArrangement = Arrangement.spacedBy(15.dp)) {
                         SmartCounter(t("Взрослые", "Adults", "Kattalar", "Катталар"), preferences.adults, preferences.adults > 1, preferences.adults + preferences.childAges.size < 6) { delta -> preferences = preferences.copy(adults = preferences.adults + delta) }
                         HorizontalDivider(color=MaterialTheme.colorScheme.onSurface.copy(alpha=.12f))
-                        SmartCounter(t("Дети", "Children", "Bolalar", "Болалар"), preferences.childAges.size, preferences.childAges.isNotEmpty(), preferences.adults + preferences.childAges.size < 6) { delta -> preferences = preferences.copy(childAges = if (delta > 0) preferences.childAges + 6 else preferences.childAges.dropLast(1)) }
+                        SmartCounter(t("Дети", "Children", "Bolalar", "Болалар"), preferences.childAges.size, preferences.childAges.isNotEmpty(), preferences.adults + preferences.childAges.size < 6) { delta -> preferences = preferences.copy(childAges = if (delta > 0) preferences.childAges + (-1) else preferences.childAges.dropLast(1)) }
                         preferences.childAges.forEachIndexed { i, age ->
                             key(i) { SmartChildAgePicker(t("Возраст ребёнка", "Child age", "Bolaning yoshi", "Боланинг ёши") + " ${i+1}", age) { selected ->
                                 preferences = preferences.copy(childAges = preferences.childAges.mapIndexed { j, a -> if (i == j) selected else a })
@@ -197,24 +209,16 @@ internal fun SmartConfiguratorScreen(language: AppLanguage, airports: AirportSea
                         if (preferences.infants > preferences.adults) Text(t("На каждого младенца нужен взрослый.", "Each infant needs an adult.", "Har bir chaqaloqqa katta hamroh kerak.", "Ҳар бир чақалоққа катта ҳамроҳ керак."), fontSize = 13.sp, color = MaterialTheme.colorScheme.error)
                     }
                     7 -> SmartCategoryRow(language, preferences.category) { preferences = preferences.copy(tier = it.wireValue) }
-                    8 -> SmartAssemblyContent(language, progress, city, busy, assembled ?: preview, assembled != null, failure, replacingCity, replacementError, onEdit = { result = null; preview = null; failure = null; step = 2 }, onReplace = { selectedCity ->
-                        val previous = result
-                        if(previous != null && replacingCity == null && !busy) {
-                            val currentID = previous.state.value.nuitee?.rooms?.get("$selectedCity:0")?.hotel?.id
-                            if(currentID != null) {
-                                replacingCity = selectedCity; replacementError = false
-                                scope.launch {
-                                    try {
-                                        val excluded = excludedHotels[selectedCity].orEmpty() + currentID
-                                        val next = service.replaceHotel(preferences, previous, selectedCity, excluded)
-                                        excludedHotels = excludedHotels + (selectedCity to excluded)
-                                        result = next; preview = next.state.value
-                                    } catch(e: CancellationException) { throw e } catch(_: Exception) { replacementError = true }
-                                    finally { replacingCity = null }
-                                }
-                            }
+                    8 -> {
+                        SmartAssemblyContent(language, progress, city, busy, assembled ?: preview, assembled != null, failure, replacingCity, replacementError,
+                            onEdit = { result = null; preview = null; failure = null; step = 2 },
+                            onReplace = { selectedCity -> if (result != null && replacingCity == null && !busy) editKind = selectedCity })
+                        if (assembled != null) Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            if (hotelsChanged) Text(t("После изменения рейсов некоторые отели заменены на аналогичные по категории.", "Some hotels were replaced in the same comfort category after the flight change.", "Reyslar o‘zgargach, ayrim mehmonxonalar shu toifadagilariga almashtirildi.", "Рейслар ўзгаргач, айрим меҳмонхоналар шу тоифадагиларига алмаштирилди."), fontSize = 13.sp)
+                            OutlinedButton(enabled = replacingCity == null && !busy, onClick = { editKind = "flights" }, modifier = Modifier.fillMaxWidth()) { Text(t("Изменить рейсы", "Change flights", "Reyslarni o‘zgartirish", "Рейсларни ўзгартириш")) }
+                            OutlinedButton(enabled = replacingCity == null && !busy, onClick = { editKind = "transfer" }, modifier = Modifier.fillMaxWidth()) { Text(t("Изменить трансфер", "Change transfer", "Transferni o‘zgartirish", "Трансферни ўзгартириш")) }
                         }
-                    })
+                    }
                 }
                 }
               }
@@ -225,6 +229,10 @@ internal fun SmartConfiguratorScreen(language: AppLanguage, airports: AirportSea
                     SmartPriceLine(t("Предварительно за всех", "Estimated total", "Taxminiy jami", "Тахминий жами"), smartMoney(quote.totalPackagePrice,quote.currency,language), true)
                     SmartPriceLine(t("На одного паломника", "Per pilgrim", "Bir ziyoratchi uchun", "Бир зиёратчи учун"),smartMoney(quote.pricePerPerson,quote.currency,language),false)
                 }
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    steps.forEach { value -> Box(Modifier.weight(1f).height(3.dp).clip(CircleShape).background(smartPrimary().copy(alpha = if (value <= step) 1f else .23f))) }
+                    Text("${index + 1}/${steps.size}", color = smartPrimary(), fontSize = 11.sp, modifier=Modifier.padding(start=5.dp))
+                }
                 val action = when { step == 8 && result != null -> t("Посмотреть пакет", "Review package", "Paketni ko‘rish", "Пакетни кўриш"); step == 8 -> t("Повторить поиск", "Retry search", "Qayta qidirish", "Қайта қидириш"); step == 7 -> t("Собрать мою Умру", "Build my Umrah", "Umramni tayyorlash", "Умрамни тайёрлаш"); step == 0 -> t("Начать", "Get started", "Boshlash", "Бошлаш"); else -> t("Продолжить", "Continue", "Davom etish", "Давом этиш") }
                 SmartAction(action, false, canContinue && !busy && replacingCity == null) {
                     if (step == 8) { result?.let(onReview) ?: run { attempt++ } }
@@ -234,6 +242,10 @@ internal fun SmartConfiguratorScreen(language: AppLanguage, airports: AirportSea
             }
         }
     }
+    val current = result
+    val kind = editKind
+    if (current != null && kind != null) SmartPackageEditDialog(language, service, airports, current, kind,
+        onDismiss = { editKind = null }, onApply = { candidate -> publishEdit(candidate, kind) })
 }
 
 @Composable private fun SmartHeaderIcon(symbol: CupertinoSymbol, enabled: Boolean, action: () -> Unit) {
@@ -244,7 +256,7 @@ internal fun SmartConfiguratorScreen(language: AppLanguage, airports: AirportSea
 @Composable internal fun smartSecondary(): Color = if(MaterialTheme.colorScheme.background == Color.Black) Color(0xFF1C1C1E) else Color(0xFFF2F2F7)
 @Composable private fun SmartChoice(title: String, subtitle: String, selected: Boolean, modifier: Modifier = Modifier.fillMaxWidth(), action: () -> Unit) {
     val ink = if(selected) smartOnPrimary() else MaterialTheme.colorScheme.onSurface
-    Column(modifier.heightIn(min=100.dp).clip(RoundedCornerShape(20.dp)).background(if(selected) smartPrimary() else smartSecondary()).selectable(selected, role=Role.RadioButton, onClick=action).padding(14.dp), verticalArrangement=Arrangement.spacedBy(8.dp)) {
+    Column(modifier.heightIn(min=68.dp).clip(RoundedCornerShape(20.dp)).background(if(selected) smartPrimary() else smartSecondary()).selectable(selected, role=Role.RadioButton, onClick=action).padding(10.dp), verticalArrangement=Arrangement.spacedBy(4.dp)) {
         Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.End) { if(selected) CupertinoIcon(CupertinoSymbol.CheckCircleFill,null,Modifier.size(18.dp),ink) else Box(Modifier.size(18.dp).border(1.5.dp,ink.copy(alpha=.35f),CircleShape)) }
         Text(title,color=ink,fontWeight=FontWeight.Bold,fontSize=17.sp)
         Text(subtitle,color=ink.copy(alpha=.7f),fontSize=15.sp)
@@ -263,7 +275,7 @@ internal fun SmartConfiguratorScreen(language: AppLanguage, airports: AirportSea
         Box {
             Row(Modifier.clip(RoundedCornerShape(12.dp)).clickable { expanded = true }.padding(horizontal = 12.dp, vertical = 10.dp),
                 verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text(age.toString(), fontSize = 17.sp)
+                Text(if (age < 0) "—" else age.toString(), fontSize = 17.sp)
                 CupertinoIcon(CupertinoSymbol.ChevronDown, null, Modifier.size(14.dp))
             }
             DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }, modifier = Modifier.heightIn(max = 320.dp)) {

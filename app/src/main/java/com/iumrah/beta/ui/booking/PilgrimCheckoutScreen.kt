@@ -43,6 +43,9 @@ import com.iumrah.beta.ui.media.LoopingRawVideo
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.CancellationException
 import com.iumrah.beta.domain.booking.BookingRewardsPolicy
+import com.iumrah.beta.domain.booking.BookingSessionPolicy
+import com.iumrah.beta.core.network.APIException
+import com.iumrah.beta.models.account.IumrahAccountAuthResponse
 import com.iumrah.beta.models.account.IumrahFriendsBookingSummary
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.ensureActive
@@ -98,28 +101,22 @@ internal fun PilgrimCheckoutEmbedded(
     val rewardMatch = !loading && BookingRewardsPolicy.confirmed(checkout?.rewards, rewardSummary) && !rewardUncertain
     var error by remember { mutableStateOf<String?>(null) }
     var busy by remember { mutableStateOf(false) }
-    var password by remember { mutableStateOf("") }
-    var confirmPassword by remember { mutableStateOf("") }
-    var loginPassword by remember { mutableStateOf("") }
-    var activationMethod by remember { mutableStateOf(CheckoutActivationMethod.IUMRAH_ID) }
-    var activationContact by remember(bookingID) { mutableStateOf("") }
-    var activationChallenge by remember(bookingID) { mutableStateOf<String?>(null) }
-    var activationCode by remember(bookingID) { mutableStateOf("") }
-    var travelerEditor by remember { mutableStateOf<IumrahTravelerForm?>(null) }
+    var travelerEditor by remember(bookingID, ownerToken) { mutableStateOf<IumrahTravelerForm?>(null) }
 
     suspend fun load(showLoader: Boolean = true) {
         loading = true
         error = null
         val token = accountStore.bearerToken
         try {
-            val response = accountService.checkoutWithFallback(bookingID, session.accessToken, token)
+            val matchingToken = token.takeIf { BookingSessionPolicy.sameIdentity(session.pilgrimID ?: session.accountOwnerID, accountStore.state.value.iumrahID) }
+            val response = accountService.checkoutWithFallback(bookingID, session.accessToken, matchingToken)
             kotlinx.coroutines.currentCoroutineContext().ensureActive()
             if (token != accountStore.bearerToken) return
             // Do not keep a previous payment quote when the reward lookup fails.
             rewardSummary = null
             rewardUncertain = false
             checkout = response
-            val idMatches = accountStore.state.value.iumrahID?.filter(Char::isDigit)?.takeIf { it.isNotEmpty() } == response.iumrahID.filter(Char::isDigit)
+            val idMatches = BookingSessionPolicy.sameIdentity(accountStore.state.value.iumrahID, response.iumrahID)
             if (token != null && idMatches && response.status.equals("payment_pending", true)) {
                 val summary = try { bookingService.friendsSummary(bookingID, accountStore.authorizationHeaders(session.accessToken)) }
                     catch (cancel: CancellationException) { throw cancel } catch (_: Exception) { null }
@@ -136,7 +133,7 @@ internal fun PilgrimCheckoutEmbedded(
 
     val receiptLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         val token = accountStore.bearerToken ?: return@rememberLauncherForActivityResult
-        if (uri == null || busy || loading || !rewardMatch || checkout?.status?.equals("payment_pending", true) != true) return@rememberLauncherForActivityResult
+        if (uri == null || busy || loading || !rewardMatch || checkout?.status?.equals("payment_pending", true) != true || !BookingSessionPolicy.sameIdentity(accountStore.state.value.iumrahID, checkout?.iumrahID)) return@rememberLauncherForActivityResult
         busy = true
         scope.launch {
             runCatching {
@@ -145,7 +142,7 @@ internal fun PilgrimCheckoutEmbedded(
                 }
                 check(accountStore.bearerToken == token) { "Account changed" }
                 val fresh = accountService.checkoutWithFallback(bookingID, session.accessToken, token)
-                check(fresh.status.equals("payment_pending", true) && fresh.rewards == checkout?.rewards && BookingRewardsPolicy.confirmed(fresh.rewards, rewardSummary)) { "Refresh payment amounts" }
+                check(BookingSessionPolicy.sameIdentity(accountStore.state.value.iumrahID, fresh.iumrahID) && fresh.status.equals("payment_pending", true) && fresh.rewards == checkout?.rewards && BookingRewardsPolicy.confirmed(fresh.rewards, rewardSummary)) { "Refresh payment amounts" }
                 check(accountStore.bearerToken == token) { "Account changed" }
                 accountService.uploadReceipt(bookingID, "manual_card", bytes, "image/jpeg", token)
             }.onSuccess { load(showLoader = false) }
@@ -205,88 +202,25 @@ internal fun PilgrimCheckoutEmbedded(
             }
         }
 
+        if (!loading && checkout == null) {
+            BookingPasswordlessAccessCard(language, session, accountStore, accountService, bookingStore) { scope.launch { load(showLoader = false) } }
+        }
         checkout?.let { value ->
-            val accountID = accountState.iumrahID?.filter(Char::isDigit).orEmpty()
-            val checkoutID = value.iumrahID.filter(Char::isDigit)
-            val accountMatchesTrip = accountID.isNotEmpty() && accountID == checkoutID
+            val accountMatchesTrip = ownerToken != null && BookingSessionPolicy.sameIdentity(accountState.iumrahID, value.iumrahID)
             val availability = value.status.lowercase() == "availability_check"
             val paymentPending = value.status.lowercase() == "payment_pending"
             val postPayment = value.status.lowercase() in setOf("paid", "booking_confirmed", "documents_ready", "ready_to_travel", "in_trip", "completed")
 
             if (!accountMatchesTrip) {
-                if (value.accountActive) {
-                    CheckoutLoginCard(
-                        language = language,
-                        value = value,
-                        password = loginPassword,
-                        onPassword = { loginPassword = it },
-                        busy = busy,
-                        onRecover = { chrome.openPasswordRecovery() },
-                        onLogin = {
-                            if (loginPassword.isBlank()) return@CheckoutLoginCard
-                            busy = true
-                            scope.launch {
-                                runCatching { accountStore.login(value.iumrahID, loginPassword) }
-                                    .onSuccess { loginPassword = ""; load(showLoader = false) }
-                                    .onFailure { error = it.message }
-                                busy = false
-                            }
-                        },
-                    )
-                } else {
-                    CheckoutActivationCard(
-                        language = language,
-                        value = value,
-                        method = activationMethod,
-                        onMethod = { activationMethod = it; activationChallenge = null; activationContact = ""; activationCode = ""; error = null },
-                        contact = activationContact,
-                        onContact = { activationContact = it },
-                        challenge = activationChallenge,
-                        code = activationCode,
-                        onCode = { activationCode = it.filter(Char::isDigit).take(6) },
-                        password = password,
-                        onPassword = { password = it },
-                        confirm = confirmPassword,
-                        onConfirm = { confirmPassword = it },
-                        busy = busy,
-                        onActivate = {
-                            if (busy) return@CheckoutActivationCard
-                            busy = true
-                            scope.launch {
-                                runCatching {
-                                    when (activationMethod) {
-                                        CheckoutActivationMethod.IUMRAH_ID -> {
-                                            require(password.length >= 8 && password == confirmPassword)
-                                            accountStore.activate(bookingID, session.accessToken, password, language.localeTag)
-                                        }
-                                        CheckoutActivationMethod.EMAIL -> {
-                                            if (activationChallenge == null) {
-                                                activationChallenge = accountStore.startActivationEmail(bookingID, session.accessToken, activationContact.trim().lowercase(), language.localeTag).challengeID
-                                                null
-                                            } else accountStore.confirmActivationEmail(bookingID, session.accessToken, activationChallenge!!, activationCode, language.localeTag)
-                                        }
-                                        CheckoutActivationMethod.SMS -> {
-                                            if (activationChallenge == null) {
-                                                activationChallenge = accountStore.startActivationSMS(bookingID, session.accessToken, activationContact.trim(), language.localeTag).challengeID
-                                                null
-                                            } else accountStore.confirmActivationSMS(bookingID, session.accessToken, activationChallenge!!, activationCode, language.localeTag)
-                                        }
-                                    }
-                                }.onSuccess { activated ->
-                                    if (activated != null) {
-                                        password = ""; confirmPassword = ""; activationCode = ""; activationChallenge = null
-                                        bookingStore.linkLocalBookingsToAccount()
-                                        load(showLoader = false)
-                                    }
-                                }
-                                    .onFailure { error = it.message }
-                                busy = false
-                            }
-                        },
-                    )
+                if (availability) {
+                    AvailabilityPaymentLockedCard(language)
+                    TravelDocumentsLockedCard(language)
+                }
+                BookingPasswordlessAccessCard(language, session, accountStore, accountService, bookingStore) {
+                    scope.launch { load(showLoader = false) }
                 }
             } else {
-                TravelersCard(language, value, onEdit = { travelerEditor = it })
+                TravelersCard(language, value, session.travelerName, onEdit = { travelerEditor = it })
 
                 if (availability) {
                     AvailabilityPaymentLockedCard(language)
@@ -349,7 +283,7 @@ internal fun PilgrimCheckoutEmbedded(
 
     travelerEditor?.let { traveler ->
         val token = accountStore.bearerToken
-        if (!token.isNullOrBlank()) {
+        if (!token.isNullOrBlank() && BookingSessionPolicy.sameIdentity(accountStore.state.value.iumrahID, checkout?.iumrahID)) {
             TravelerEditorSheet(
                 bookingID = bookingID,
                 traveler = traveler,
@@ -363,6 +297,116 @@ internal fun PilgrimCheckoutEmbedded(
             )
         } else {
             travelerEditor = null
+        }
+    }
+}
+
+@Composable
+internal fun BookingPasswordlessAccessCard(
+    language: AppLanguage,
+    session: StoredBookingSession?,
+    accountStore: IumrahAccountStore,
+    accountService: IumrahAccountService,
+    bookingStore: BookingStore,
+    onRestored: () -> Unit,
+) {
+    val scope = rememberCoroutineScope()
+    val prefill = session ?: bookingStore.state.value.sessions.firstOrNull { it.verifiedBookingEmail != null || it.verifiedBookingPhone != null }
+    val initialChannel = if (prefill?.verifiedBookingPhone != null && prefill.verifiedBookingEmail == null) "sms" else "email"
+    var channel by remember(session?.id) { mutableStateOf(initialChannel) }
+    var contact by remember(session?.id) { mutableStateOf(if (initialChannel == "sms") prefill?.verifiedBookingPhone.orEmpty() else prefill?.verifiedBookingEmail.orEmpty()) }
+    var challenge by remember(session?.id) { mutableStateOf<String?>(null) }
+    var code by remember(session?.id) { mutableStateOf("") }
+    var target by remember(session?.id) { mutableStateOf<StoredBookingSession?>(null) }
+    var expanded by remember(session?.id) { mutableStateOf(false) }
+    var bookingMode by remember(session?.id) { mutableStateOf(false) }
+    var verifiedSession by remember(session?.id) { mutableStateOf<IumrahAccountAuthResponse?>(null) }
+    var initialToken by remember(session?.id) { mutableStateOf<String?>(null) }
+    var busy by remember(session?.id) { mutableStateOf(false) }
+    var error by remember(session?.id) { mutableStateOf<String?>(null) }
+    val normalized = if (channel == "sms") BookingSessionPolicy.normalizedPhone(contact) else BookingSessionPolicy.normalizedEmail(contact)
+    val valid = if (channel == "sms") normalized.length in 9..16 else android.util.Patterns.EMAIL_ADDRESS.matcher(normalized).matches()
+    BookingCard {
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            IumrahPressable(onClick = { expanded = !expanded }, modifier = Modifier.fillMaxWidth(), cornerRadius = 16.dp, background = Color.Transparent) {
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    CupertinoIcon(CupertinoSymbol.Key, null, Modifier.size(23.dp))
+                    Text(if (session == null) bookingText(language,"Найти бронирование","Find booking","Bronni topish","Бронни топиш") else bookingText(language,"Подтвердить доступ к поездке","Confirm access to your trip","Safarga kirishni tasdiqlash","Сафарга киришни тасдиқлаш"), modifier=Modifier.weight(1f), fontSize=18.sp,fontWeight=FontWeight.Bold)
+                    CupertinoIcon(if (expanded) CupertinoSymbol.ChevronUp else CupertinoSymbol.ChevronDown, null, Modifier.size(14.dp))
+                }
+            }
+            Text(bookingText(language,"Подтвердите контакт бронирования, чтобы открыть оплату и документы. Пароль не нужен.","Verify your booking contact to access payment and documents. No password required.","To‘lov va hujjatlar uchun bron kontaktini tasdiqlang. Parol kerak emas.","Тўлов ва ҳужжатлар учун брон контактини тасдиқланг. Парол керак эмас."),fontSize=13.sp,lineHeight=18.sp)
+            if (expanded) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FilterChip(selected = channel == "email", enabled = !busy && challenge == null, onClick = { channel = "email"; contact = prefill?.verifiedBookingEmail.orEmpty() }, label = { Text("Email") })
+                FilterChip(selected = channel == "sms", enabled = !busy && challenge == null, onClick = { channel = "sms"; contact = prefill?.verifiedBookingPhone.orEmpty() }, label = { Text("SMS") })
+            }
+            OutlinedTextField(contact, { contact = it }, label = { Text(if(channel == "email") "Email" else bookingText(language,"Телефон","Phone","Telefon","Телефон")) }, enabled = !busy && challenge == null, singleLine = true, modifier = Modifier.fillMaxWidth(), keyboardOptions = KeyboardOptions(keyboardType=if(channel == "email") KeyboardType.Email else KeyboardType.Phone))
+            if (challenge != null && verifiedSession == null) {
+                OutlinedTextField(code, { code = it.filter { c -> c in '0'..'9' }.take(6) }, label = { Text(bookingText(language,"Код подтверждения","Verification code","Tasdiqlash kodi","Тасдиқлаш коди")) }, enabled = !busy, singleLine = true, modifier = Modifier.fillMaxWidth(), keyboardOptions = KeyboardOptions(keyboardType=KeyboardType.Number))
+            }
+            error?.let { Text(it,color=MaterialTheme.colorScheme.error,fontSize=13.sp) }
+            Button(enabled = !busy && valid && (challenge == null || code.length == 6 || verifiedSession != null), modifier = Modifier.fillMaxWidth(), onClick = {
+                if (!busy) {
+                    busy = true; error = null
+                    scope.launch {
+                        try {
+                            if (challenge == null) {
+                                initialToken = accountStore.bearerToken
+                                val explicit = session?.let { bookingStore.booking(it.id) ?: kotlin.error("Booking no longer available") }
+                                if (session != null) check(explicit?.accessToken == session.accessToken) { "Booking access changed" }
+                                val verified = if(channel == "email") explicit?.verifiedBookingEmail else explicit?.verifiedBookingPhone
+                                if (explicit?.verifiedBookingEmail != null || explicit?.verifiedBookingPhone != null) {
+                                    check(BookingSessionPolicy.matchesContact(channel, normalized, verified)) { bookingText(language,"Укажите подтверждённый контакт поездки.","Use the verified booking contact.","Tasdiqlangan bron kontaktini kiriting.","Тасдиқланган брон контактини киритинг.") }
+                                }
+                                target = explicit ?: bookingStore.state.value.sessions.filter { candidate -> candidate.accessToken.isNotBlank() && BookingSessionPolicy.matchesContact(channel, normalized, if (channel == "email") candidate.verifiedBookingEmail else candidate.verifiedBookingPhone) }.singleOrNull()
+                                try {
+                                    challenge = if (channel == "email") accountService.startEmailLogin(normalized, language.code).challengeID else accountService.startPhoneLogin(normalized, language.code).challengeID
+                                    bookingMode = false
+                                } catch (e: APIException.Server) {
+                                    val existing = target ?: throw e
+                                    if (e.code != 404 || e.serverMessage.uppercase() !in setOf("EMAIL_ACCOUNT_NOT_FOUND","PHONE_ACCOUNT_NOT_FOUND") || existing.accessToken.isBlank()) throw e
+                                    challenge = if(channel == "email") accountService.startActivationEmail(existing.id, existing.accessToken, normalized, language.code).challengeID else accountService.startActivationSMS(existing.id, existing.accessToken, normalized, language.code).challengeID
+                                    bookingMode = true
+                                }
+                                return@launch
+                            }
+                            check(accountStore.bearerToken == initialToken) { "Account changed" }
+                            val id = requireNotNull(challenge)
+                            val existing = target?.let { saved ->
+                                val latest = bookingStore.booking(saved.id) ?: kotlin.error("Booking no longer available")
+                                check(latest.accessToken == saved.accessToken) { "Booking access changed" }
+                                latest
+                            }
+                            val auth = verifiedSession ?: when {
+                                bookingMode && channel == "email" -> requireNotNull(existing).let { accountService.confirmActivationEmail(it.id,it.accessToken,id,code,language.code) }
+                                bookingMode -> requireNotNull(existing).let { accountService.confirmActivationSMS(it.id,it.accessToken,id,code,language.code) }
+                                channel == "email" -> accountService.confirmEmailLogin(id,code,language.code)
+                                else -> accountService.confirmPhoneLogin(id,code,language.code)
+                            }.also { check(it.ok && it.session.token.isNotBlank()); verifiedSession = it }
+                            check(accountStore.bearerToken == initialToken) { "Account changed" }
+                            val link = if(existing != null && existing.accessToken.isNotBlank()) {
+                                accountService.linkBooking(existing.id,existing.accessToken,auth.session.token).also {
+                                    check(it.ok && BookingSessionPolicy.sameIdentity(it.pilgrimID,auth.account.iumrahID)) { "Booking identity mismatch" }
+                                }
+                            } else if (existing != null) {
+                                val detail = accountService.tripDetail(existing.id,auth.session.token)
+                                check(detail.booking.id == existing.id && detail.trip.bookingID == existing.id && BookingSessionPolicy.sameIdentity(detail.trip.pilgrimID,auth.account.iumrahID)) { "Booking identity mismatch" }
+                                null
+                            } else null
+                            accountStore.acceptVerifiedSession(auth, initialToken)
+                            if(link != null && existing != null) bookingStore.adoptVerifiedBooking(existing.id,existing.accessToken,link)
+                            bookingStore.restoreAccountTrips()
+                            verifiedSession = null; code = ""; challenge = null
+                            onRestored()
+                        } catch (cancel: CancellationException) { throw cancel }
+                        catch (e: Exception) { error = e.message ?: "Access failed" }
+                        finally { busy = false }
+                    }
+                }
+            }) { Text(if(challenge == null) bookingText(language,"Получить код","Get code","Kod olish","Код олиш") else bookingText(language,"Подтвердить доступ","Verify access","Kirishni tasdiqlash","Киришни тасдиқлаш")) }
+            if(challenge != null && !busy && verifiedSession == null) TextButton(onClick={ challenge=null; code=""; error=null; target=null }) { Text(bookingText(language,"Изменить контакт / новый код","Change contact / new code","Kontaktni o‘zgartirish / yangi kod","Контактни ўзгартириш / янги код")) }
+            }
         }
     }
 }
@@ -559,7 +603,7 @@ private fun RequirementRow(title: String, ready: Boolean) {
 }
 
 @Composable
-private fun TravelersCard(language: AppLanguage, value: IumrahCheckoutResponse, onEdit: (IumrahTravelerForm) -> Unit) {
+private fun TravelersCard(language: AppLanguage, value: IumrahCheckoutResponse, holderName: String?, onEdit: (IumrahTravelerForm) -> Unit) {
     val attached = value.travelers.count { it.hasPassport }
     val total = value.travelers.size
     val ready = total > 0 && attached == total
@@ -573,21 +617,21 @@ private fun TravelersCard(language: AppLanguage, value: IumrahCheckoutResponse, 
         Text(
             if (ready)
                 bookingText(language, "Паспорта всех паломников прикреплены.", "Every pilgrim passport is attached.", "Barcha ziyoratchilar pasporti biriktirilgan.", "Барча зиёратчилар паспорти бириктирилган.")
-            else bookingText(language, "Достаточно чёткой фотографии страницы паспорта с данными. Ручное заполнение — по желанию.", "A clear photo of the passport information page is enough. Manual details are optional.", "Pasport ma’lumotlar sahifasining aniq rasmi yetarli. Qo‘lda to‘ldirish ixtiyoriy.", "Паспорт маълумотлар саҳифасининг аниқ расми етарли. Қўлда тўлдириш ихтиёрий."),
+            else bookingText(language, "Достаточно чёткой фотографии страницы паспорта с данными.", "A clear photo of the passport information page is enough.", "Pasport ma’lumotlar sahifasining aniq rasmi yetarli.", "Паспорт маълумотлар саҳифасининг аниқ расми етарли."),
             fontSize = 14.sp,
             lineHeight = 19.sp,
             color = MaterialTheme.colorScheme.onBackground.copy(alpha = .55f),
         )
         Spacer(Modifier.height(15.dp))
         value.travelers.sortedBy { it.position }.forEachIndexed { index, traveler ->
-            TravelerRow(language, traveler, onEdit)
+            TravelerRow(language, traveler, holderName.takeIf { traveler.relationship == "self" || (index == 0 && traveler.firstName.isBlank() && traveler.lastName.isBlank()) }, onEdit)
             if (index != value.travelers.lastIndex) Spacer(Modifier.height(10.dp))
         }
     }
 }
 
 @Composable
-private fun TravelerRow(language: AppLanguage, traveler: IumrahTravelerForm, onEdit: (IumrahTravelerForm) -> Unit) {
+private fun TravelerRow(language: AppLanguage, traveler: IumrahTravelerForm, holderName: String?, onEdit: (IumrahTravelerForm) -> Unit) {
     IumrahPressable(
         onClick = { onEdit(traveler) },
         modifier = Modifier.fillMaxWidth(),
@@ -608,7 +652,7 @@ private fun TravelerRow(language: AppLanguage, traveler: IumrahTravelerForm, onE
                 radius = 16.dp,
             )
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                Text(travelerDisplayName(language, traveler), fontSize = 14.sp, lineHeight = 18.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(holderName?.takeIf { it.isNotBlank() } ?: travelerDisplayName(language, traveler), fontSize = 14.sp, lineHeight = 18.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Text(
                     if (traveler.hasPassport) bookingText(language, "Паспорт прикреплён", "Passport attached", "Pasport biriktirilgan", "Паспорт бириктирилган")
                     else bookingText(language, "Прикрепите фото паспорта", "Attach passport photo", "Pasport rasmini biriktiring", "Паспорт расмини бириктиринг"),
@@ -639,11 +683,9 @@ private fun TravelerEditorSheet(
     onSaved: () -> Unit,
 ) {
     val context = LocalContext.current
+    val activeAccountStore = (context.applicationContext as com.iumrah.beta.IumrahApplication).container.accountStore
     val scope = rememberCoroutineScope()
-    var form by remember(traveler) { mutableStateOf(traveler) }
     var busyUpload by remember { mutableStateOf(false) }
-    var busyManual by remember { mutableStateOf(false) }
-    var showManual by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     var passportUri by remember { mutableStateOf<Uri?>(null) }
     var passportBytes by remember { mutableStateOf<ByteArray?>(null) }
@@ -680,28 +722,13 @@ private fun TravelerEditorSheet(
                     }
                     Text(bookingText(language, "Прикрепите паспорт", "Attach passport", "Pasportni biriktiring", "Паспортни бириктиринг"), fontSize = 29.sp, lineHeight = 33.sp, fontWeight = FontWeight.Bold)
                     Text(
-                        bookingText(language, "Достаточно чёткой фотографии страницы с данными. Заполнять данные вручную ниже не обязательно.", "A clear photo of the information page is enough. Manual entry below is optional.", "Ma’lumotlar sahifasining aniq rasmi yetarli. Quyidagi ma’lumotlarni qo‘lda kiritish shart emas.", "Маълумотлар саҳифасининг аниқ расми етарли. Қуйидаги маълумотларни қўлда киритиш шарт эмас."),
+                        bookingText(language, "Достаточно чёткой фотографии страницы с данными.", "A clear photo of the information page is enough.", "Ma’lumotlar sahifasining aniq rasmi yetarli.", "Маълумотлар саҳифасининг аниқ расми етарли."),
                         fontSize = 14.sp, lineHeight = 19.sp, color = MaterialTheme.colorScheme.onBackground.copy(alpha = .55f),
                     )
                 }
                 Spacer(Modifier.width(12.dp))
                 IumrahPressable(onClick = onDismiss, modifier = Modifier.size(38.dp), cornerRadius = 19.dp, background = bookingIosRaised(), pressedScale = .94f) {
                     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CupertinoIcon(CupertinoSymbol.Close, null, Modifier.size(14.dp), MaterialTheme.colorScheme.onBackground) }
-                }
-            }
-
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                LoopingRawVideo(
-                    resourceName = "iumrah_security_identity",
-                    modifier = Modifier.fillMaxWidth().height(190.dp).clip(RoundedCornerShape(28.dp)),
-                    muted = true,
-                )
-                Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(9.dp)) {
-                    CupertinoIcon(CupertinoSymbol.ShieldCheck, null, Modifier.size(16.dp), MaterialTheme.colorScheme.onBackground.copy(alpha = .52f))
-                    Text(
-                        bookingText(language, "Паспортные данные защищены и используются только для оформления поездки.", "Passport data is handled securely for your booking.", "Pasport ma’lumotlari himoyalangan va faqat safarni rasmiylashtirish uchun ishlatiladi.", "Паспорт маълумотлари ҳимояланган ва фақат сафарни расмийлаштириш учун ишлатилади."),
-                        Modifier.weight(1f), fontSize = 12.sp, lineHeight = 16.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onBackground.copy(alpha = .55f),
-                    )
                 }
             }
 
@@ -775,7 +802,11 @@ private fun TravelerEditorSheet(
                             if (busyUpload) return@BookingPrimaryAction
                             busyUpload = true; error = null
                             scope.launch {
-                                runCatching { accountService.uploadPassport(bookingID, traveler.position, bytes, "image/jpeg", token) }
+                                runCatching {
+                                    check(activeAccountStore.bearerToken == token) { "Account changed" }
+                                    accountService.uploadPassport(bookingID, traveler.position, bytes, "image/jpeg", token)
+                                    check(activeAccountStore.bearerToken == token) { "Account changed" }
+                                }
                                     .onSuccess {
                                         uploadedInSession = true
                                         passportBytes = null
@@ -791,59 +822,18 @@ private fun TravelerEditorSheet(
                 }
             }
 
-            BookingCard {
-                IumrahPressable(
-                    onClick = { showManual = !showManual },
-                    modifier = Modifier.fillMaxWidth(),
-                    cornerRadius = 16.dp,
-                    background = Color.Transparent,
-                    pressedScale = .985f,
-                ) {
-                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        BookingIconBadge(CupertinoSymbol.Pencil, Color(0xFF5856D6), 46.dp, 18.dp, 15.dp)
-                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Text(bookingText(language, "Заполнить вручную", "Fill in manually", "Qo‘lda to‘ldirish", "Қўлда тўлдириш"), fontSize = 17.sp, fontWeight = FontWeight.Bold)
-                                Text(bookingText(language, "Не обязательно", "Optional", "Ixtiyoriy", "Ихтиёрий"), Modifier.background(MaterialTheme.colorScheme.onBackground.copy(alpha = .08f), RoundedCornerShape(20.dp)).padding(horizontal = 8.dp, vertical = 4.dp), fontSize = 10.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onBackground.copy(alpha = .55f))
-                            }
-                            Text(bookingText(language, "Заполнять вручную не обязательно, но эти данные ускорят оформление бронирования.", "Manual details are not required, but they help our team process the booking faster.", "Qo‘lda to‘ldirish shart emas, lekin bu ma’lumotlar bronni tezroq rasmiylashtirishga yordam beradi.", "Қўлда тўлдириш шарт эмас, лекин бу маълумотлар бронни тезроқ расмийлаштиришга ёрдам беради."), fontSize = 12.sp, lineHeight = 16.sp, color = MaterialTheme.colorScheme.onBackground.copy(alpha = .55f))
-                        }
-                        CupertinoIcon(if (showManual) CupertinoSymbol.ChevronUp else CupertinoSymbol.ChevronDown, null, Modifier.size(13.dp), MaterialTheme.colorScheme.onBackground.copy(alpha = .30f))
-                    }
-                }
-
-                if (showManual) {
-                    Spacer(Modifier.height(15.dp))
-                    HorizontalDivider(color = MaterialTheme.colorScheme.onBackground.copy(alpha = .08f))
-                    Spacer(Modifier.height(15.dp))
-                    Column(verticalArrangement = Arrangement.spacedBy(11.dp)) {
-                        TravelerField(bookingText(language, "Имя как в паспорте", "First name as in passport", "Pasportdagi ism", "Паспортдаги исм"), form.firstName) { form = form.copy(firstName = it) }
-                        TravelerField(bookingText(language, "Фамилия как в паспорте", "Last name as in passport", "Pasportdagi familiya", "Паспортдаги фамилия"), form.lastName) { form = form.copy(lastName = it) }
-                        TravelerField(bookingText(language, "Номер паспорта", "Passport number", "Pasport raqami", "Паспорт рақами"), form.passportNumber) { form = form.copy(passportNumber = it.uppercase()) }
-                        TravelerField(bookingText(language, "Дата рождения · YYYY-MM-DD", "Date of birth · YYYY-MM-DD", "Tug‘ilgan sana · YYYY-MM-DD", "Туғилган сана · YYYY-MM-DD"), form.dateOfBirth) { form = form.copy(dateOfBirth = it) }
-                        TravelerField(bookingText(language, "Срок действия паспорта · YYYY-MM-DD", "Passport expiry · YYYY-MM-DD", "Pasport muddati · YYYY-MM-DD", "Паспорт муддати · YYYY-MM-DD"), form.passportExpiryDate) { form = form.copy(passportExpiryDate = it) }
-                        TravelerField(bookingText(language, "Гражданство", "Citizenship", "Fuqarolik", "Фуқаролик"), form.nationality) { form = form.copy(nationality = it) }
-                        BookingSegmentedControl(
-                            items = listOf("male" to bookingText(language, "Мужской", "Male", "Erkak", "Эркак"), "female" to bookingText(language, "Женский", "Female", "Ayol", "Аёл")),
-                            selected = form.gender,
-                            onSelect = { form = form.copy(gender = it) },
-                        )
-                        BookingPrimaryAction(
-                            title = if (busyManual) bookingText(language, "Сохраняем…", "Saving…", "Saqlanmoqda…", "Сақланмоқда…") else bookingText(language, "Сохранить ручные данные", "Save manual details", "Qo‘lda kiritilganlarni saqlash", "Қўлда киритилганларни сақлаш"),
-                            onClick = {
-                                if (busyManual) return@BookingPrimaryAction
-                                busyManual = true; error = null
-                                scope.launch {
-                                    val payload = form.copy(passportIssuingCountry = form.passportIssuingCountry.ifBlank { form.nationality })
-                                    runCatching { accountService.saveTraveler(bookingID, traveler.position, payload, token) }
-                                        .onSuccess { onSaved() }
-                                        .onFailure { error = it.message }
-                                    busyManual = false
-                                }
-                            },
-                            leading = CupertinoSymbol.Checkmark,
-                        )
-                    }
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                LoopingRawVideo(
+                    resourceName = "iumrah_security_identity",
+                    modifier = Modifier.fillMaxWidth().height(120.dp).clip(RoundedCornerShape(28.dp)),
+                    muted = true,
+                )
+                Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+                    CupertinoIcon(CupertinoSymbol.ShieldCheck, null, Modifier.size(16.dp), MaterialTheme.colorScheme.onBackground.copy(alpha = .52f))
+                    Text(
+                        bookingText(language, "Паспортные данные защищены и используются только для оформления поездки.", "Passport data is handled securely for your booking.", "Pasport ma’lumotlari himoyalangan va faqat safarni rasmiylashtirish uchun ishlatiladi.", "Паспорт маълумотлари ҳимояланган ва фақат сафарни расмийлаштириш учун ишлатилади."),
+                        Modifier.weight(1f), fontSize = 12.sp, lineHeight = 16.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onBackground.copy(alpha = .55f),
+                    )
                 }
             }
 

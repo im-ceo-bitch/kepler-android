@@ -16,7 +16,7 @@ data class SmartPreferences(
 ) {
     val category get() = PackageTier.entries.firstOrNull { it.wireValue == tier } ?: PackageTier.STANDARD
     val children get() = childAges.count { it >= 2 }
-    val infants get() = childAges.count { it < 2 }
+    val infants get() = childAges.count { it in 0..1 }
     val arrival get() = if (!both || firstCity == "JED") "JED" else "MED"
     val returning get() = if (both && firstCity == "JED") "MED" else "JED"
     val roomCount get() = minOf(adults, maxOf(1, (adults + childAges.size + 1) / 2))
@@ -50,7 +50,7 @@ object SmartRules {
     fun steps(both: Boolean): List<Int> = (0..8).filter { both || it != 5 }
     fun resume(draft: SmartDraft, today: LocalDate = LocalDate.now()): SmartDraft? =
         draft.takeIf { it.preferences.copy(childAges = emptyList()).valid(today) &&
-            it.preferences.adults + it.preferences.childAges.size <= 6 && it.preferences.childAges.all { age -> age in 0..11 } }
+            it.preferences.adults + it.preferences.childAges.size <= 6 && it.preferences.childAges.all { age -> age in -1..11 } }
             ?.let { it.copy(step = if (!it.preferences.valid(today) && it.step >= 6) 6 else it.step.takeIf { s -> s in steps(it.preferences.both) } ?: 4) }
     fun starEligible(stars: Double?, category: PackageTier): Boolean = stars != null && stars.isFinite() && stars in 0.0..5.0 &&
         kotlin.math.floor(stars + 0.5).toInt() in category.selectableHotelStars

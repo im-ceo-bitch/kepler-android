@@ -19,6 +19,22 @@
         <activity
             android:name="com.iumrah.beta.MainActivity"
             android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="iumrahapp" android:host="offer" />
+            </intent-filter>
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" android:host="iumrah.app" android:pathPrefix="/offer/" />
+                <data android:scheme="https" android:host="iumrah.uz" android:pathPrefix="/offer/" />
+                <data android:scheme="https" android:host="iumrah.us" android:pathPrefix="/offer/" />
+                <data android:scheme="https" android:host="iumrah-backend.helloiumrah.workers.dev" android:pathPrefix="/offer/" />
+                <data android:scheme="https" android:host="iumrah-backend.helloiumrah.workers.dev" android:path="/api/offers" />
+            </intent-filter>
             <intent-filter android:autoVerify="true">
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />

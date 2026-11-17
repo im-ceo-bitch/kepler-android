@@ -13,11 +13,12 @@ class BookingService {
  }
  suspend fun syncBookingProfile(id:String,token:String,profile:BookingPilgrimProfile,trace:BookingGeneratorTrace?=null):ClientTripResponse = requireNotNull(operational)
  suspend fun syncGeneratorReport(id:String,token:String,trace:BookingGeneratorTrace?):ClientTripResponse = requireNotNull(operational)
- suspend fun registerPushDevice(id:String,headers:Map<String,String>,token:String,locale:String)=PushResponse(true)
+ var pushCalls=0; var pushHeaders:Map<String,String> = emptyMap(); var pushToken:String?=null; var pushOK=true
+ suspend fun registerPushDevice(id:String,headers:Map<String,String>,token:String,locale:String):PushResponse { pushCalls++; pushHeaders=headers; pushToken=token; return PushResponse(true,pushOK,id) }
  suspend fun updateHotelSelection(id:String,headers:Map<String,String>,role:String,hotel:HotelSummary,room:HotelRoom?,category:IumrahRoomCategoryOption?) {}
  suspend fun updateContacts(id:String,headers:Map<String,String>,telegram:String,whatsapp:String) {}
  suspend fun updateZiyarat(id:String,headers:Map<String,String>,makkah:Boolean,madinah:Boolean) {}
  suspend fun updateESIM(id:String,headers:Map<String,String>,enabled:Boolean) {}
  suspend fun deleteBooking(id:String,headers:Map<String,String>) {}
- data class PushResponse(val ready:Boolean?)
+ data class PushResponse(val ready:Boolean?, val ok:Boolean = true, val bookingID:String? = null)
 }

@@ -15,7 +15,22 @@ enum class IumrahRoomCategory {
 }
 
 @Serializable
-data class BookingCreateEnvelope(val lang: String, val booking: BookingDraftRequest, val quoteProof: String? = null)
+data class BookingCreateEnvelope(val lang: String, val booking: BookingDraftRequest, val quoteProof: String? = null, val notificationIntent: BookingCreationNotificationIntent? = null)
+
+/** Client request only; proof is never persisted in the local booking vault. */
+@Serializable
+data class BookingCreationNotificationIntent(
+    val requestID: String,
+    val event: String = "booking_created",
+    val contactChannel: String,
+    val contact: String,
+    val verificationToken: String,
+    val locale: String,
+    val pushDeviceToken: String? = null,
+    val pushEnvironment: String = "production",
+    val appBundleID: String,
+    val installationID: String,
+)
 
 @Serializable
 data class BookingDraftRequest(
@@ -224,6 +239,7 @@ data class RemoteBooking(
     val customization: BookingCustomization? = null,
     val includedServices: List<String>? = null,
     val generatorTrace: BookingGeneratorTrace? = null,
+    val offerPackageID: String? = null,
 )
 
 @Serializable
@@ -351,6 +367,8 @@ data class StoredBookingSession(
     var pendingGeneratorQuoteProof: String? = null,
     // Only account-restored sessions without a booking proof use this scope.
     val accountOwnerID: String? = null,
+    val verifiedBookingEmail: String? = null,
+    val verifiedBookingPhone: String? = null,
 ) {
     /** UI-only iOS parity: never alter the raw server pilgrimID. */
     val displayPilgrimID: String? get() {
@@ -403,8 +421,9 @@ data class StoredBookingSession(
         "documents_ready", "ready_to_travel" -> "READY_TO_TRAVEL"
         "in_trip" -> "IN_TRIP"
         "completed" -> "COMPLETED"
-        "cancelled" -> "CANCELLED"
-        else -> booking.status
+        "cancelled", "canceled" -> "CANCELLED"
+        "deleted" -> "DELETED"
+        else -> operationStatus ?: booking.status
     }
 }
 

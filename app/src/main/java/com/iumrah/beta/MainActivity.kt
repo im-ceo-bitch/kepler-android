@@ -54,6 +54,17 @@ class MainActivity : ComponentActivity() {
         }
         val parts = uri.pathSegments.filter { it.isNotBlank() }
 
+        val offerToken = when {
+            uri.scheme.equals("iumrahapp", true) && uri.host.equals("offer", true) && parts.size == 1 -> parts[0]
+            uri.scheme.equals("https", true) && uri.host?.lowercase() in setOf("iumrah.app", "iumrah.uz", "iumrah.us", "iumrah-backend.helloiumrah.workers.dev") && parts.size == 2 && parts[0] == "offer" -> parts[1]
+            uri.scheme.equals("https", true) && uri.host.equals("iumrah-backend.helloiumrah.workers.dev", true) && parts == listOf("api", "offers") -> uri.fragment
+            else -> null
+        }
+        if (offerToken != null && com.iumrah.beta.models.booking.BusinessOfferPolicy.validToken(offerToken)) {
+            chrome.openBusinessOffer(offerToken)
+            return
+        }
+
         if (uri.scheme.equals("https", true) && uri.host.equals("iumrah.app", true) &&
             parts.size == 3 && parts[0] == "flights" && parts[1] == "package" && parts[2].matches(Regex("^\\d{10}$"))) {
             chrome.openFlightPackage(parts[2])

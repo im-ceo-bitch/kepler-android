@@ -126,11 +126,12 @@ import com.iumrah.beta.core.navigation.AppTab
         } }
     }
 }
-@Composable internal fun HomeWhyAndPreferencesSection(language: AppLanguage, history: HomeActivityStore, owner: String?, revision: Int) {
+@Composable internal fun HomeWhyAndPreferencesSection(language: AppLanguage, history: HomeActivityStore, owner: String?, revision: Int, showsWhy: Boolean = true, showsPreferences: Boolean = true) {
     fun t(ru: String, en: String, uz: String, cy: String) = nuiteeText(language, ru, en, uz, cy)
     var expanded by remember { mutableStateOf(false) }
     val enabled = remember(revision) { history.enabled }
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        if (showsWhy) {
         HomePersonalHeader(t("Почему iumrah?", "Why iumrah?", "Nega iumrah?", "Нега iumrah?"))
         val features = listOf(
             Triple(CupertinoSymbol.PersonsFill,t("С семьёй, без группы", "With family, not a group", "Oila bilan, guruhsiz", "Оила билан, гуруҳсиз"), t("Путешествуйте в удобном темпе", "Travel at your own pace", "O‘zingizga qulay sur’atda", "Ўзингизга қулай суръатда")),
@@ -142,7 +143,8 @@ import com.iumrah.beta.core.navigation.AppTab
                 CupertinoIcon(symbol, null, Modifier.size(32.dp)); Text(title, fontWeight = FontWeight.Bold); Text(desc, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         } }
-        Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(MaterialTheme.colorScheme.surface).padding(16.dp)) {
+        }
+        if (showsPreferences) Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(MaterialTheme.colorScheme.surface).padding(16.dp)) {
             Row(Modifier.fillMaxWidth().clickable { expanded = !expanded }, verticalAlignment = Alignment.CenterVertically) {
                 Text(t("Управление рекомендациями", "Manage recommendations", "Tavsiyalarni boshqarish", "Тавсияларни бошқариш"), Modifier.weight(1f), fontWeight = FontWeight.SemiBold)
                 CupertinoIcon(if (expanded) CupertinoSymbol.ChevronUp else CupertinoSymbol.ChevronDown, null, Modifier.size(16.dp))
@@ -156,14 +158,14 @@ import com.iumrah.beta.core.navigation.AppTab
     }
 }
 
-@Composable internal fun HomeRewardsOffersSection(language: AppLanguage, account: IumrahAccountStore, chrome: AppChromeStore) {
+@Composable internal fun HomeRewardsOffersSection(language: AppLanguage, account: IumrahAccountStore, chrome: AppChromeStore, showsRewards: Boolean = true, showsOffers: Boolean = true) {
     val live = rememberRewardsDashboard(account, pollSeconds=0)
     val state by account.state.collectAsState()
     val tier=live?.tier?.lowercase()?.takeIf { it in listOf("member","plus","elite") }?.replaceFirstChar { it.uppercase() }
     fun open(page: String) { if(state.isAuthenticated) chrome.openRewards(page) else chrome.navigate(AppTab.ACCOUNT) }
     fun t(ru:String,en:String,uz:String,cy:String)=nuiteeText(language,ru,en,uz,cy)
     Column(verticalArrangement=Arrangement.spacedBy(24.dp)) {
-        Column(verticalArrangement=Arrangement.spacedBy(12.dp)) {
+        if (showsRewards) Column(verticalArrangement=Arrangement.spacedBy(12.dp)) {
             HomePersonalHeader(t("Путешествуйте с преимуществами","Travel with benefits","Imtiyozlar bilan sayohat qiling","Имтиёзлар билан саёҳат қилинг"))
             LazyRow(horizontalArrangement=Arrangement.spacedBy(12.dp)) {
                 item { Column(Modifier.width(220.dp).height(184.dp).clip(RoundedCornerShape(22.dp)).background(Color.Black).clickable { open("rewards") }.padding(17.dp),verticalArrangement=Arrangement.spacedBy(10.dp)) {
@@ -174,7 +176,7 @@ import com.iumrah.beta.core.navigation.AppTab
                 if(tier!=null && tier!="Elite") item { HomeSmallActivityCard(CupertinoSymbol.Lock,t("Следующий уровень","Next level","Keyingi daraja","Кейинги даража"),{open("rewards")}){Text(if(tier=="Member")"iumrah Plus" else "iumrah Elite",fontWeight=FontWeight.Bold,fontSize=20.sp);Text(t("Условия и ваш прогресс","Requirements and your progress","Shartlar va natijangiz","Шартлар ва натижангиз"),fontSize=14.sp)} }
             }
         }
-        Column(verticalArrangement=Arrangement.spacedBy(12.dp)){
+        if (showsOffers) Column(verticalArrangement=Arrangement.spacedBy(12.dp)){
             HomePersonalHeader(t("Специальные предложения","Special offers","Maxsus takliflar","Махсус таклифлар"))
             Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(22.dp)).background(MaterialTheme.colorScheme.surface).clickable{open(if(live?.invitation!=null)"friends" else "rewards")}.padding(17.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(14.dp)){
                 Column(Modifier.weight(1f),verticalArrangement=Arrangement.spacedBy(7.dp)){

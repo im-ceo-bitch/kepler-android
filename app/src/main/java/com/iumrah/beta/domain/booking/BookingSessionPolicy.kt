@@ -2,6 +2,28 @@ package com.iumrah.beta.domain.booking
 
 /** Account-only cached trips must never be visible to a different account. */
 object BookingSessionPolicy {
+    // Canonical numeric pilgrim IDs; unlike arbitrary account labels, zero and malformed values are not identities.
+    fun sameIdentity(left: String?, right: String?): Boolean =
+        pilgrimDisplay(left)?.let { it == pilgrimDisplay(right) } == true
+
+    fun careIsActive(status: String): Boolean = status.trim().uppercase().let {
+        it.isNotEmpty() && it !in setOf("COMPLETED", "CANCELLED", "CANCELED", "DELETED")
+    }
+
+    fun careScope(status: String, bookingID: String, bookingToken: String, owner: String?, accountOwner: String?, accountToken: String?): String? {
+        if (!careIsActive(status) || bookingID.isBlank() || bookingID == "account") return null
+        if (!accountToken.isNullOrBlank() && sameIdentity(owner, accountOwner)) return "account"
+        return bookingID.takeIf { bookingToken.isNotBlank() }
+    }
+
+    fun normalizedEmail(value: String) = value.trim().lowercase(java.util.Locale.ROOT)
+    fun normalizedPhone(value: String) = "+" + value.filter { it in '0'..'9' }
+    fun matchesContact(channel: String, expected: String, actual: String?): Boolean = when (channel) {
+        "email" -> !actual.isNullOrBlank() && normalizedEmail(expected) == normalizedEmail(actual)
+        "sms" -> !actual.isNullOrBlank() && normalizedPhone(expected).length >= 9 && normalizedPhone(expected) == normalizedPhone(actual)
+        else -> false
+    }
+
     fun visible(bookingToken: String, ownerID: String?, accountID: String?): Boolean =
         bookingToken.isNotBlank() || (!ownerID.isNullOrBlank() && ownerID == accountID)
 

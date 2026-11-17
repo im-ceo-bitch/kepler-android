@@ -14,9 +14,10 @@
 GitHub Secrets (текущие имена; workflow поддерживает старые алиасы из V9):
 - `PLAY_UPLOAD_KEYSTORE_BASE64` (или `PLAY_KEYSTORE_BASE64`, `IUMRAH_UPLOAD_KEYSTORE_BASE64`)
 - `PLAY_STORE_PASSWORD`, `PLAY_KEY_ALIAS`, `PLAY_KEY_PASSWORD` (или соответствующие `IUMRAH_UPLOAD_*`)
-- `IUMRAH_FIREBASE_API_KEY`, `IUMRAH_FIREBASE_APP_ID`, `IUMRAH_FIREBASE_PROJECT_ID`, `IUMRAH_FIREBASE_SENDER_ID` — production Android Firebase, `com.iumrah.app`.
 
-GitHub Actions variable (не секрет): `PLAY_UPLOAD_CERT_SHA256` — отпечаток **upload key certificate**, не Google Play app signing certificate. Взять из Play Console → App integrity. V10 намеренно останавливается, если отпечаток либо конфигурация production FCM отсутствуют. Не создавать новый ключ без необходимости.
+Необязательно, только для удалённых push: `IUMRAH_FIREBASE_API_KEY`, `IUMRAH_FIREBASE_APP_ID`, `IUMRAH_FIREBASE_PROJECT_ID`, `IUMRAH_FIREBASE_SENDER_ID`.
+
+GitHub Actions variable (не секрет): `PLAY_UPLOAD_CERT_SHA256` — отпечаток **upload key certificate**, не Google Play app signing certificate. Взять из Play Console → App integrity. Сборка останавливается, если отпечаток отсутствует или не совпадает. Firebase не является условием сборки. Не создавать новый ключ без необходимости.
 
 ## Что проверяет release pipeline
 

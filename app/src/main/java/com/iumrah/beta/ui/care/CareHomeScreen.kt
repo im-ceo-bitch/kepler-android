@@ -90,10 +90,8 @@ fun CareHomeScreen(
     val palette = carePalette()
     var telegram by remember { mutableStateOf("@saudiclub966") }
 
-    val chatAvailable = accountState.account != null && bookingStore.canUseCareChat()
-    val activeSession = state.sessions.firstOrNull {
-        it.effectiveStatus.uppercase() !in setOf("COMPLETED", "CANCELLED")
-    }.takeIf { chatAvailable }
+    val chatKey = bookingStore.defaultCareChatKey()
+    val activeSession = state.sessions.firstOrNull { bookingStore.careChatKey(it.id) == chatKey && chatKey != null }
     val scope = rememberCoroutineScope()
     var isRefreshing by remember { mutableStateOf(false) }
     // Use the same actions in both the quick contacts and the large Care card.
@@ -110,7 +108,7 @@ fun CareHomeScreen(
         }
         Unit
     }
-    val openChat: () -> Unit = { if (chatAvailable) chrome.openBookingChat("account"); Unit }
+    val openChat: () -> Unit = { chatKey?.let { chrome.openBookingChat(it) }; Unit }
 
     suspend fun refreshCare() {
         bookingStore.refreshAll()

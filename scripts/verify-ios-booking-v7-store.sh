@@ -8,7 +8,7 @@ KOTLIN_HOME="$(cd "$(dirname "$(readlink -f "$(command -v kotlinc)")")/.." && pw
 CP="$KOTLIN_HOME/lib/kotlinx-coroutines-core-jvm.jar"
 sed 's/ListSerializer(StoredBookingSession.serializer())/ListSerializer(StoredBookingSession::class)/' "$S/data/booking/BookingStore.kt" > "$TMP/BookingStore.kt"
 kotlinc -cp "$CP" "$TMP/BookingStore.kt" scripts/qa/v7-store/*.kt scripts/qa/Stage10SerializationStubs.kt \
-  "$S/models/booking/BookingSharedModels.kt" "$S/models/account/IumrahAccountModels.kt" "$S/models/account/IumrahFriendsModels.kt" "$S/models/hotel/HotelModels.kt" \
+  "$S/models/booking/BookingSharedModels.kt" "$S/models/booking/BusinessOfferModels.kt" "$S/models/account/IumrahAccountModels.kt" "$S/models/account/IumrahFriendsModels.kt" "$S/models/hotel/HotelModels.kt" \
   "$S/models/nuitee/NuiteeModels.kt" "$S/domain/booking/BookingAuthFallbackPolicy.kt" "$S/domain/booking/BookingSessionPolicy.kt" \
   "$S/domain/trip/TransferModels.kt" "$S/domain/trip/TripModels.kt" "$S/models/flight/AirportModels.kt" "$S/models/flight/FlightSearchModels.kt" -d "$TMP/store.jar"
 kotlin -cp "$CP:$TMP/store.jar" TestKt

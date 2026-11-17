@@ -64,25 +64,19 @@ import java.util.Locale
 @Composable internal fun SmartOrbitHeader(step:Int,title:String,subtitle:String,symbol:CupertinoSymbol?,assembled:JourneyState?) {
     val dark=MaterialTheme.colorScheme.background==Color.Black
     val services=if(assembled==null) orbitShowcase else selectedOrbitServices(assembled)
+    val viewportHeight = androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp.dp
     BoxWithConstraints(Modifier.fillMaxWidth()) {
-        val large=step==0 || step==8
-        // Outer flow already supplies 20pt side padding; reconstruct the SwiftUI proxy width.
-        val proxyWidth=maxWidth+40.dp
-        val wide=proxyWidth>=520.dp && !large
-        val diameter=minOf(maxWidth, when { step==8 && assembled!=null -> minOf(190.dp,(proxyWidth-44.dp).coerceAtLeast(120.dp)); large -> minOf(340.dp,(proxyWidth-44.dp).coerceAtLeast(160.dp)); wide -> 220.dp; else -> minOf(260.dp,(proxyWidth-64.dp).coerceAtLeast(160.dp)) })
-        if(wide) Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(20.dp)) {
-            IumrahOrbitV5(diameter,lightOnDark=dark,pinnedSymbol=symbol,services=services)
-            SmartOrbitTitle(title,subtitle,large,false,Modifier.weight(1f))
-        } else Column(Modifier.fillMaxWidth(),horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.spacedBy(12.dp)) {
-            IumrahOrbitV5(diameter,lightOnDark=dark,pinnedSymbol=symbol,mergeToCenter=step==8 && assembled!=null,services=services)
-            SmartOrbitTitle(title,subtitle,large,true,Modifier.fillMaxWidth())
+        val diameter = minOf(maxWidth * .34f, viewportHeight * .19f, 148.dp).coerceAtLeast(76.dp)
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+            IumrahOrbitV5(diameter, lightOnDark = dark, pinnedSymbol = symbol, services = services)
+            SmartOrbitTitle(title, subtitle, false, false, Modifier.weight(1f))
         }
     }
 }
 @Composable private fun SmartOrbitTitle(title:String,subtitle:String,large:Boolean,center:Boolean,modifier:Modifier) {
     Column(modifier,verticalArrangement=Arrangement.spacedBy(9.dp)) {
-        Text(title,Modifier.fillMaxWidth(),fontSize=if(large) 30.sp else 27.sp,fontWeight=FontWeight.Bold,textAlign=if(center) TextAlign.Center else TextAlign.Start)
-        Text(subtitle,Modifier.fillMaxWidth(),fontSize=15.sp,color=MaterialTheme.colorScheme.onSurface.copy(alpha=.6f),textAlign=if(center) TextAlign.Center else TextAlign.Start)
+        Text(title,Modifier.fillMaxWidth(),fontSize=if(large) 26.sp else 21.sp,fontWeight=FontWeight.Bold,textAlign=if(center) TextAlign.Center else TextAlign.Start)
+        Text(subtitle,Modifier.fillMaxWidth(),fontSize=13.sp,color=MaterialTheme.colorScheme.onSurface.copy(alpha=.6f),textAlign=if(center) TextAlign.Center else TextAlign.Start)
     }
 }
 @Composable private fun SmartIcon(symbol:CupertinoSymbol,size:Dp=44.dp,ink:Color=MaterialTheme.colorScheme.onSurface) {
@@ -118,29 +112,21 @@ private fun tierSubtitle(language:AppLanguage,tier:PackageTier):String = when(ti
     PackageTier.LUXURY -> nuiteeText(language,"Отели 5★ для премиального проживания и максимально комфортной Умры.","5★ hotels for a premium stay and the most comfortable Umrah experience.","5★ mehmonxonalar — premium yashash va eng qulay Umra tajribasi uchun.","5★ меҳмонхоналар — премиум яшаш ва энг қулай Умра тажрибаси учун.")
 }
 @Composable internal fun SmartCategoryRow(language:AppLanguage,selected:PackageTier,onSelect:(PackageTier)->Unit) {
-    val state=rememberLazyListState(initialFirstVisibleItemIndex=selected.ordinal)
-    val select by rememberUpdatedState(onSelect)
-    val scope=rememberCoroutineScope()
-    LaunchedEffect(state) {
-        var scrolled=false
-        snapshotFlow { state.isScrollInProgress }.collect { moving ->
-            if(moving) scrolled=true else if(scrolled) {
-                PackageTier.entries.getOrNull(state.firstVisibleItemIndex)?.let(select)
-                scrolled=false
-            }
-        }
-    }
-    Column(verticalArrangement=Arrangement.spacedBy(20.dp)) {
-        BoxWithConstraints(Modifier.fillMaxWidth()) {
-          LazyRow(state=state,flingBehavior=rememberSnapFlingBehavior(lazyListState=state,snapPosition=SnapPosition.Start),horizontalArrangement=Arrangement.spacedBy(12.dp),contentPadding=PaddingValues(end=(maxWidth-222.dp).coerceAtLeast(0.dp))) {
-            items(PackageTier.entries,key={it.wireValue}) { tier ->
-                val chosen=tier==selected; val ink=if(chosen) smartOnPrimary() else MaterialTheme.colorScheme.onSurface
-                Column(Modifier.width(222.dp).height(180.dp).clip(RoundedCornerShape(24.dp)).background(if(chosen) smartPrimary() else smartSecondary()).selectable(chosen,role=Role.RadioButton) { onSelect(tier); scope.launch { state.animateScrollToItem(tier.ordinal) } }.padding(18.dp),verticalArrangement=Arrangement.spacedBy(12.dp)) {
-                    Row(verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(10.dp)) { SmartIcon(CupertinoSymbol.StarFill,44.dp,ink); Text(tier.selectableHotelStars.sorted().joinToString("–")+" ★",fontSize=12.sp,fontWeight=FontWeight.SemiBold,color=ink) }
-                    Spacer(Modifier.weight(1f)); Text(tierTitle(language,tier),fontSize=22.sp,fontWeight=FontWeight.Bold,color=ink,maxLines=1,overflow=TextOverflow.Ellipsis); Text(tierSubtitle(language,tier),fontSize=15.sp,color=ink,maxLines=3,overflow=TextOverflow.Ellipsis)
+    Column(verticalArrangement=Arrangement.spacedBy(12.dp)) {
+        PackageTier.entries.chunked(2).forEach { row ->
+            Row(horizontalArrangement=Arrangement.spacedBy(10.dp)) {
+                row.forEach { tier ->
+                    val chosen = tier == selected
+                    val ink = if (chosen) smartOnPrimary() else MaterialTheme.colorScheme.onSurface
+                    Column(Modifier.weight(1f).heightIn(min=78.dp).clip(RoundedCornerShape(18.dp))
+                        .background(if(chosen) smartPrimary() else smartSecondary())
+                        .selectable(chosen, role=Role.RadioButton) { onSelect(tier) }.padding(12.dp),
+                        verticalArrangement=Arrangement.spacedBy(6.dp)) {
+                        Text(tierTitle(language,tier), fontSize=16.sp, fontWeight=FontWeight.Bold, color=ink)
+                        Text(tier.selectableHotelStars.sorted().joinToString("–")+" ★", fontSize=13.sp, color=ink)
+                    }
                 }
             }
-          }
         }
         Column(verticalArrangement=Arrangement.spacedBy(10.dp)) {
             Text(tierTitle(language,selected),fontSize=22.sp,fontWeight=FontWeight.Bold)
@@ -212,7 +198,7 @@ private fun localTime(raw:String?,airport:String,language:AppLanguage):String = 
         SmartLabel(CupertinoSymbol.Calendar,"${room.checkin} – ${room.checkout}")
         val nights=ChronoUnit.DAYS.between(room.checkin,room.checkout)
         if(nights>0 && room.rate.price.isFinite() && room.rate.price>0) SmartPriceLine(t("В среднем за номер / ночь","Average per room / night","Xona / tun uchun o‘rtacha","Хона / тун учун ўртача"),smartMoney(BigDecimal.valueOf(room.rate.price/nights),room.rate.currency,language),true)
-        if(canReplace && room.roomIndex==0) Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(smartSecondary()).clickable(enabled=replacing==null) { onReplace(room.city) }.padding(12.dp),verticalAlignment=Alignment.CenterVertically) { Text(t("Подобрать другой отель","Find another hotel","Boshqa mehmonxona topish","Бошқа меҳмонхона топиш"),Modifier.weight(1f),fontSize=15.sp,fontWeight=FontWeight.SemiBold); if(replacing==room.city) CircularProgressIndicator(Modifier.size(22.dp),strokeWidth=2.dp) else SmartIcon(CupertinoSymbol.Refresh,30.dp) }
+        if(canReplace && room.roomIndex==0) Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(smartSecondary()).clickable(enabled=replacing==null) { onReplace(room.city) }.padding(12.dp),verticalAlignment=Alignment.CenterVertically) { Text(t("Изменить отель","Change hotel","Mehmonxonani o‘zgartirish","Меҳмонхонани ўзгартириш"),Modifier.weight(1f),fontSize=15.sp,fontWeight=FontWeight.SemiBold); if(replacing==room.city) CircularProgressIndicator(Modifier.size(22.dp),strokeWidth=2.dp) else SmartIcon(CupertinoSymbol.Refresh,30.dp) }
     }
 }
 @Composable internal fun SmartAssemblyContent(language:AppLanguage,progress:Progress,city:String?,busy:Boolean,preview:JourneyState?,ready:Boolean,failure:String?,replacing:String?,replacementError:Boolean,onEdit:()->Unit,onReplace:(String)->Unit) {
@@ -223,7 +209,7 @@ private fun localTime(raw:String?,airport:String,language:AppLanguage):String = 
         SmartProgressRow(progress,Progress.HOTELS,t("Отели и номера","Hotels and rooms","Mehmonxonalar va xonalar","Меҳмонхоналар ва хоналар"),CupertinoSymbol.BuildingFill,busy)
         preview?.nuitee?.rooms.orEmpty().values.sortedWith(compareBy<NuiteeRoomSelection>{it.checkin}.thenBy{it.key}).forEach { SmartHotelCard(language,it,ready,replacing,onReplace) }
         if(city!=null && busy) SmartLabel(CupertinoSymbol.Search,t("Подбираем варианты проживания","Finding stay options","Yashash variantlarini tanlaymiz","Яшаш вариантларини танлаймиз")+" · "+if(city=="madinah") t("Медина","Madinah","Madina","Мадина") else t("Мекка","Makkah","Makka","Макка"))
-        if(replacementError) Text(t("Не удалось подобрать и рассчитать другой отель. Текущий пакет сохранён.","Could not price another hotel. Your current package is unchanged.","Boshqa mehmonxona topilmadi. Joriy paket saqlandi.","Бошқа меҳмонхона топилмади. Жорий пакет сақланди."),fontSize=13.sp,color=MaterialTheme.colorScheme.onSurface.copy(alpha=.6f))
+        if(replacementError) Text(t("Не удалось пересчитать изменения. Текущий пакет сохранён.","Could not reprice changes. Your current package is unchanged.","O‘zgarishlar hisoblanmadi. Joriy paket saqlandi.","Ўзгаришлар ҳисобланмади. Жорий пакет сақланди."),fontSize=13.sp,color=MaterialTheme.colorScheme.onSurface.copy(alpha=.6f))
         SmartProgressRow(progress,Progress.TRANSFER,t("Маршрут и трансфер","Route and transfer","Yo‘nalish va transfer","Йўналиш ва трансфер"),CupertinoSymbol.Car,busy)
         if(preview!=null && preview.transferSelectionConfirmed) Box(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface,RoundedCornerShape(20.dp)).padding(14.dp)) { SmartFeature(CupertinoSymbol.Car,preview.resolvedTransferVehicle.modelName) }
         SmartProgressRow(progress,Progress.PRICE,t("Стоимость пакета","Package price","Paket narxi","Пакет нархи"),CupertinoSymbol.CheckCircle,busy)

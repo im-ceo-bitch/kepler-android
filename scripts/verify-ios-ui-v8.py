@@ -46,12 +46,12 @@ for screen, source, selection in [('Home',home,0), ('Hotels',hotels,1), ('Flight
 check('IumrahOverlappingMasthead(header = {' in home and 'IumrahOverlappingMasthead(header = {' in hotels, 'Home and hotel search share measured overlap')
 check('masthead.height + card.height - overlap' in pills and 'card.placeRelative(0, masthead.height - overlap, zIndex = 1f)' in pills, 'Search card in parent bounds, topmost hit target')
 check('searchExpanded = true' in home and 'onExpandedChange(!expanded)' in search and 'chrome.consumeDiscoveryBuild()' in home, 'Header Build controls the real search')
-check(ordered(home, ['item { EmotionalPrompt(', 'item { HomeVideoCarousel(', 'item { IumrahServicesCarousel(', 'item { SmartConfiguratorHomeCard(', 'item { JourneyTravelInfoPanel(', 'item { AudienceSection(', 'item { HomeIntegrationsSection(']), 'Current Home marketing order')
+check(ordered(home, ['item { SmartConfiguratorHomeCard(', 'item { EmotionalPrompt(', 'item { HomeVideoCarousel(', 'item { IumrahServicesCarousel(', 'item { JourneyTravelInfoPanel(', 'item { AudienceSection(', 'item { HomeIntegrationsSection(']), 'Current Home marketing order')
 check('item { ReadyPackagesSection(' not in home, 'No historical ready packages on Home')
 check('LocalDate.now().plusDays(14)' in hotels and 'var nights by remember { mutableIntStateOf(7) }' in hotels, 'Hotel discovery default dates and nights')
 check('footer = { BookingPanelPicker(language, panel, onPanel) }' in booking and '"Статус брони"' in booking and '"Документы"' in booking, 'Booking tabs in masthead, same state')
 check('CupertinoSymbol.Message, activeSession != null' in care and '2 -> openChat()' in care, 'Care chat is disabled without booking')
-check('var register by remember { mutableStateOf(referral.code != null) }' in account and 'LaunchedEffect(referral.code, profile)' in account and 'key(register) { GuestLoginCard(' in account and 'footer = guestFooter' in account, 'Guest header and actual form use one sign-in mode; switching resets old form')
+check('BookingPasswordlessAccessCard(language, null, accountStore' in account and 'key(register) { GuestLoginCard(' not in account and 'footer = guestFooter' not in account, 'Guest account root exposes booking recovery, not registration')
 check('initialBoard = if (chromeState.discoveryFlights)' in shell and 'Role.Tab' in shell and 'Box(Modifier.height(25.dp)' in shell, 'Root Flights stays on tabs; bottom icon slot and selection semantics')
 if args.ios:
     i = args.ios / 'Sources'

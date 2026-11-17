@@ -54,6 +54,7 @@ import com.iumrah.beta.data.notification.ClientNotificationStore
 import com.iumrah.beta.models.account.IumrahAccountProfile
 import com.iumrah.beta.models.account.IumrahTravelerForm
 import com.iumrah.beta.models.booking.StoredBookingSession
+import com.iumrah.beta.domain.booking.BookingSessionPolicy
 import com.iumrah.beta.models.notification.ClientSystemNotification
 import com.iumrah.beta.ui.booking.IumrahSecurityConfirmationPanel
 import com.iumrah.beta.ui.components.IumrahPaymentMethodsMarquee
@@ -125,10 +126,10 @@ private fun AccountIdentityUnlockSheetAndroid(
             )
             Text(
                 tr(language,
-                    "To activate your virtual iumrah ID, sign in to your account or create one with Google.",
-                    "Чтобы активировать виртуальную ID-карту iumrah, войдите в аккаунт или зарегистрируйтесь через Google.",
-                    "Virtual iumrah ID kartangizni faollashtirish uchun Google orqali kiring yoki ro‘yxatdan o‘ting.",
-                    "Виртуал iumrah ID картангизни фаоллаштириш учун Google орқали киринг ёки рўйхатдан ўтинг."),
+                    "Find your booking using the email or phone you confirmed.",
+                    "Найдите бронирование по подтверждённой почте или телефону.",
+                    "Tasdiqlangan email yoki telefon orqali bronni toping.",
+                    "Тасдиқланган email ёки телефон орқали бронни топинг."),
                 fontSize = 15.sp, lineHeight = 21.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -153,7 +154,7 @@ private fun AccountIdentityUnlockSheetAndroid(
             ) {
                 CupertinoIcon(CupertinoSymbol.PersonCircle, null, Modifier.size(19.dp), Color.White)
                 Spacer(Modifier.width(9.dp))
-                Text(tr(language, "Sign in or register", "Войти или зарегистрироваться", "Kirish yoki ro‘yxatdan o‘tish", "Кириш ёки рўйхатдан ўтиш"), fontWeight = FontWeight.Bold)
+                Text(tr(language, "Find booking", "Найти бронирование", "Bronni topish", "Бронни топиш"), fontWeight = FontWeight.Bold)
                 Spacer(Modifier.weight(1f))
                 CupertinoIcon(CupertinoSymbol.ArrowRight, null, Modifier.size(17.dp), Color.White)
             }
@@ -257,16 +258,12 @@ fun AccountRootScreen(
     }
     val profile = accountState.account
     var signOutConfirm by remember { mutableStateOf(false) }
-    var unlockSheet by remember { mutableStateOf(false) }
     var isRefreshing by remember { mutableStateOf(false) }
     val accountListState = rememberLazyListState()
-    val referral by app.container.referralStore.state.collectAsState()
-    var register by remember { mutableStateOf(referral.code != null) }
-    LaunchedEffect(referral.code, profile) { if (profile == null && referral.code != null) register = true }
     var rewardsRevision by remember { mutableIntStateOf(0) }
-    val activeTrip = remember(bookings.sessions) {
-        bookings.sessions.filterNot { it.isPastAccountTrip() }.minByOrNull { accountTripPriority(it) }
-    }
+    val visibleTrips = if (accountState.isRestoring) emptyList() else bookings.sessions.filter { bookingStore.booking(it.id) != null }
+    val accountTrips = visibleTrips.filter { BookingSessionPolicy.sameIdentity(it.pilgrimID ?: it.accountOwnerID, profile?.iumrahID) }
+    val activeTrip = accountTrips.filterNot { it.isPastAccountTrip() }.minByOrNull { accountTripPriority(it) }
 
     LaunchedEffect(accountState.account?.iumrahID) {
         bookingStore.refreshAll()
@@ -288,14 +285,12 @@ fun AccountRootScreen(
         contentPadding = PaddingValues(start = PagePad, end = PagePad, top = 0.dp, bottom = 130.dp),
         verticalArrangement = Arrangement.spacedBy(20.dp),
     ) {
-        item { AccountHeader(language, profile != null, signalState.unreadCount, chrome, register) {
-            register = it
-            if (profile == null) scope.launch { accountListState.animateScrollToItem(2) }
-        } }
+        item { AccountHeader(language, profile != null, signalState.unreadCount, chrome) }
         if (profile != null) {
             item { RewardsBalanceEntry(language, accountStore, chrome, rewardsRevision) }
             item { CardBlock { SettingsRow(CupertinoSymbol.Gift, "iumrah Friends", tr(language, "Invite a friend", "Пригласить друга", "Do‘stni taklif qilish", "Дўстни таклиф қилиш")) { chrome.openRewards("friends") } } }
             item { IumrahUserDataEntryCardAndroid(language, profile.displayName) { chrome.openAccountUserData() } }
+            item { AutomaticHelpCard(language, settings.automaticPageHelp, settingsStore::setAutomaticPageHelp) }
             item { RewardsAccountCarousel(language, chrome) { IumrahIdentityHeroAndroid(profile, language) } }
             item { TravelCompanionsParityCard(language) { chrome.openAccountTravelers() } }
             item { WalletSection(profile, language) }
@@ -315,9 +310,9 @@ fun AccountRootScreen(
                     CupertinoIcon(CupertinoSymbol.ChevronRight, null, Modifier.size(13.dp), MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             } }
-            item { TripsSection(bookings.sessions, language, chrome) }
+            item { TripsSection(visibleTrips, language, chrome) }
             item { TelegramIntegrationCard(language) { chrome.openAccountTelegramIntegration() } }
-            item { PaymentSecuritySection(language, activeTrip ?: bookings.sessions.firstOrNull(), true, chrome) }
+            item { PaymentSecuritySection(language, activeTrip ?: accountTrips.firstOrNull(), true, chrome) }
             item { ServicesSection(language, chrome) }
             item { SettingsSection(language, settings.appearance, signalState.unreadCount, notificationDeliveryStatus, chrome, context) }
             item {
@@ -331,20 +326,12 @@ fun AccountRootScreen(
                 }
             }
         } else {
-            item { IumrahLockedIdentityCardAndroid(language) { unlockSheet = true } }
-            item { key(register) { GuestLoginCard(language, accountStore, bookingStore, chrome, register) } }
-            item { TelegramIntegrationCard(language) { chrome.openAccountTelegramIntegration() } }
-            item { PaymentSecuritySection(language, bookings.sessions.firstOrNull(), false, chrome) }
+            item { SeamlessGuestProfile(language, visibleTrips.firstOrNull(), chrome) }
+            item { AutomaticHelpCard(language, settings.automaticPageHelp, settingsStore::setAutomaticPageHelp) }
+            item { com.iumrah.beta.ui.booking.BookingPasswordlessAccessCard(language, null, accountStore, app.container.accountService, bookingStore) {} }
             item { GuestSettingsSection(language, settings.appearance, signalState.unreadCount, notificationDeliveryStatus, chrome, context) }
         }
     }
-    }
-
-    if (unlockSheet) {
-        AccountIdentityUnlockSheetAndroid(language, onDismiss = { unlockSheet = false }) {
-            unlockSheet = false
-            scope.launch { accountListState.animateScrollToItem(2) }
-        }
     }
 
     if (signOutConfirm) {
@@ -361,21 +348,44 @@ fun AccountRootScreen(
 }
 
 @Composable
-private fun AccountHeader(language: AppLanguage, authenticated: Boolean, unread: Int, chrome: AppChromeStore,
-                          register: Boolean, onRegister: (Boolean) -> Unit) {
-    val guestFooter: (@Composable () -> Unit)? = if (authenticated) null else {
-        {
-            IumrahHeaderPills(listOf(
-                HeaderPill(tr(language, "Register", "Зарегистрироваться", "Ro‘yxatdan o‘tish", "Рўйхатдан ўтиш"), CupertinoSymbol.PlusPerson),
-                HeaderPill(tr(language, "Sign in", "Войти", "Kirish", "Кириш"), CupertinoSymbol.Key),
-            ), selected = if (register) 0 else 1, onSelect = { onRegister(it == 0) })
+private fun AutomaticHelpCard(language: AppLanguage, enabled: Boolean, onChange: (Boolean) -> Unit) {
+    CardBlock {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            CupertinoIcon(CupertinoSymbol.QuestionCircle, null, Modifier.size(44.dp), MaterialTheme.colorScheme.onSurface)
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(tr(language, "Automatic tips", "Автоматические подсказки", "Avtomatik maslahatlar", "Автоматик маслаҳатлар"), fontWeight = FontWeight.SemiBold)
+                Text(tr(language, "Show guidance when opening Home", "Показывать советы при открытии главной", "Bosh sahifada maslahatlarni ko‘rsatish", "Бош саҳифада маслаҳатларни кўрсатиш"), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
+            }
+            Switch(checked = enabled, onCheckedChange = onChange, colors = SwitchDefaults.colors(checkedTrackColor = Success))
         }
     }
+}
+
+@Composable
+private fun SeamlessGuestProfile(language: AppLanguage, session: StoredBookingSession?, chrome: AppChromeStore) {
+    CardBlock {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+            CupertinoIcon(CupertinoSymbol.Person, null, Modifier.size(48.dp), MaterialTheme.colorScheme.onSurface)
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(session?.travelerName?.takeIf { it.isNotBlank() } ?: tr(language, "Welcome to iumrah", "Добро пожаловать в iumrah", "iumrah’ga xush kelibsiz", "iumrah’га хуш келибсиз"), fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                Text(session?.displayPilgrimID?.let { "iumrah ID $it" } ?: tr(language, "Your profile appears with your first booking.", "Ваш профиль появится после первого бронирования.", "Profilingiz birinchi brondan keyin paydo bo‘ladi.", "Профилингиз биринчи брондан кейин пайдо бўлади."), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
+            }
+        }
+        Spacer(Modifier.height(14.dp))
+        Row(Modifier.fillMaxWidth().clickable { chrome.navigate(AppTab.BOOKING) }.padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            CupertinoIcon(CupertinoSymbol.Ticket, null, Modifier.size(20.dp), MaterialTheme.colorScheme.onSurface)
+            Text(tr(language, "My bookings", "Мои бронирования", "Bronlarim", "Бронларим"), Modifier.weight(1f), fontWeight = FontWeight.SemiBold)
+            CupertinoIcon(CupertinoSymbol.ChevronRight, null, Modifier.size(14.dp), MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+}
+
+@Composable
+private fun AccountHeader(language: AppLanguage, authenticated: Boolean, unread: Int, chrome: AppChromeStore) {
     IumrahRootPageHeader(
         title = tr(language, "Account", "Аккаунт", "Akkaunt", "Аккаунт"),
         chrome = chrome, unreadCount = unread, language = language,
         subtitle = if (authenticated) tr(language, "Your profile, iumrah ID and journeys", "Ваш профиль, iumrah ID и поездки", "Profilingiz, iumrah ID va safarlar", "Профилингиз, iumrah ID ва сафарлар") else null,
-        footer = guestFooter,
     )
 }
 

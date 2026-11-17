@@ -33,6 +33,7 @@ data class NuiteeHotelListEnvelope(
     val hotelCatalogStale: Boolean = false, val pricesStale: Boolean = false,
     val pricesUpdatedAt: Double? = null, val rateError: String? = null,
     val hotels: List<NuiteeHotel> = emptyList(),
+    val total: Int? = null, val nextOffset: Int? = null,
 )
 
 @Serializable data class NuiteePolicy(val title: String = "", val description: String = "")

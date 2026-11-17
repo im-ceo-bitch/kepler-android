@@ -73,3 +73,9 @@ python3 scripts/verify-pixel-perfect-block02.py
 
 # Final service, onboarding and motion regression contracts.
 python3 scripts/verify-pixel-perfect-block04c05.py
+
+# Current iOS Seamless Booking delta; do not require legacy registration/manual passport forms.
+python3 scripts/verify-seamless-booking-20261117.py
+
+# V2/V3 current Smart, paginated hotels, guest profile and offers.
+python3 scripts/verify-seamless-booking-v2-v3.py

@@ -23,6 +23,7 @@ data class IumrahPushEvent(
     val notificationID: String? = null,
     val destination: String? = null,
     val destinationBookingID: String? = null,
+    val pilgrimID: String? = null,
 )
 
 data class IumrahPushState(
@@ -142,6 +143,7 @@ class IumrahPushManager(context: Context) {
         notificationID = payload["notificationID"]?.trim()?.takeIf(String::isNotEmpty),
         destination = payload["destination"]?.trim()?.takeIf(String::isNotEmpty),
         destinationBookingID = payload["destinationBookingID"]?.trim()?.takeIf(String::isNotEmpty),
+        pilgrimID = payload["pilgrimID"]?.trim()?.takeIf(String::isNotEmpty),
     )
 
     private fun hasFirebaseConfig(): Boolean = listOf(
@@ -157,6 +159,6 @@ class IumrahPushManager(context: Context) {
         private const val PREFS = "iumrah.push.android.v1"
         private const val KEY_TOKEN = "fcm-device-token"
         private const val KEY_PERMISSION_REQUESTED = "notification-permission-requested"
-        val KNOWN_KEYS = listOf("type", "bookingID", "status", "notificationID", "destination", "destinationBookingID")
+        val KNOWN_KEYS = listOf("type", "bookingID", "status", "notificationID", "destination", "destinationBookingID", "pilgrimID")
     }
 }

@@ -83,6 +83,7 @@ import com.iumrah.beta.ui.packageflow.NuiteeJourneyReviewScreen
 import com.iumrah.beta.ui.trip.NuiteeJourneyHotelsScreen
 import com.iumrah.beta.ui.packageflow.FinalPackageScreen
 import com.iumrah.beta.ui.booking.BookingCheckoutScreen
+import com.iumrah.beta.ui.booking.BusinessOfferScreen
 import com.iumrah.beta.ui.booking.IumrahBookingCelebrationScreen
 import com.iumrah.beta.ui.booking.BookingDetailScreen
 import com.iumrah.beta.ui.booking.BookingHotelChangeScreen
@@ -287,6 +288,7 @@ fun AppShell(
                 AppRoute.TransferSelection -> TransferSelectionScreen(language, journey, packageGenerator, chrome)
 
                 AppRoute.FinalPackage -> FinalPackageScreen(language, journey, hotelCatalog, packageEngine, chrome, unreadCount = shellNotificationState.unreadCount)
+                is AppRoute.BusinessOffer -> BusinessOfferScreen(route.token, language, bookingStore, chrome)
                 AppRoute.BookingCheckout -> BookingCheckoutScreen(language, journey, bookingStore, accountStore, chrome, curatedFlights, packageEngine)
                 is AppRoute.BookingCelebration -> IumrahBookingCelebrationScreen(route.bookingID, language, bookingStore, chrome)
                 is AppRoute.BookingDetail -> BookingDetailScreen(
@@ -303,7 +305,7 @@ fun AppShell(
                 is AppRoute.BookingChat -> {
                     val chatAccount by accountStore.state.collectAsState()
                     androidx.compose.runtime.key(route.bookingID, chatAccount.account?.iumrahID, accountStore.bearerToken) {
-                        BookingChatScreen(route.bookingID, language, bookingStore, chatService, chrome)
+                        BookingChatScreen(bookingStore.careChatKey(route.bookingID) ?: route.bookingID, language, bookingStore, chatService, chrome)
                     }
                 }
                 AppRoute.BookingZiyarats -> BookingZiyaratCatalogScreen(language, chrome)

@@ -41,6 +41,7 @@ sealed interface AppRoute {
     data object TransferSelection : AppRoute
     data object FinalPackage : AppRoute
     data object BookingCheckout : AppRoute
+    data class BusinessOffer(val token: String) : AppRoute
     data class BookingDetail(val bookingID: String) : AppRoute
     data class BookingCelebration(val bookingID: String) : AppRoute
     data class BookingHotelChange(val bookingID: String, val role: String) : AppRoute
@@ -129,6 +130,7 @@ class AppChromeStore {
     fun openFlightDetails(id: String, direction: String) = push(AppRoute.FlightDetails(id, direction), tab = AppTab.BOOKING)
     fun openTransferSelection() = push(AppRoute.TransferSelection, tab = AppTab.BOOKING)
     fun openFinalPackage() = push(AppRoute.FinalPackage, tab = AppTab.BOOKING)
+    fun openBusinessOffer(token: String) = push(AppRoute.BusinessOffer(token), tab = AppTab.BOOKING)
     fun openBookingCheckout() = push(AppRoute.BookingCheckout, tab = AppTab.BOOKING)
     fun openBookingDetail(id: String) = push(AppRoute.BookingDetail(id), tab = AppTab.BOOKING)
     fun openBookingCelebration(id: String) = push(AppRoute.BookingCelebration(id), tab = AppTab.BOOKING)

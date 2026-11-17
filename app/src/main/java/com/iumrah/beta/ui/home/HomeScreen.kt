@@ -149,8 +149,9 @@ fun HomeScreen(
     val revision by history.revision.collectAsState()
     val activity = remember(owner, revision) { history.snapshot(owner) }
     val bookingState by bookingStore.state.collectAsState()
-    val activeBooking = if (accountState.isAuthenticated && !accountState.isRestoring && !accountToken.isNullOrBlank() && !accountState.iumrahID.isNullOrBlank()) bookingState.sessions.firstOrNull {
-        it.accountOwnerID == accountState.iumrahID && bookingStore.booking(it.id) != null && it.effectiveStatus.uppercase() !in setOf("COMPLETED", "CANCELLED", "CANCELED")
+    // Booking proof grants guest access; account-only entries still require matching identity.
+    val activeBooking = if (!accountState.isRestoring) bookingState.sessions.firstOrNull {
+        bookingStore.booking(it.id) != null && com.iumrah.beta.domain.booking.BookingSessionPolicy.careIsActive(it.effectiveStatus)
     } else null
     val smartService = remember(context, curatedFlights, packageEngine) { SmartConfiguratorService(curatedFlights, NuiteeHotelService(context), packageEngine) }
     var smartOpen by remember(owner) { mutableStateOf(false) }
@@ -158,7 +159,9 @@ fun HomeScreen(
     val startSmart: () -> Unit = { resumeSmart = null; smartOpen = true }
     var storyStartIndex by remember { mutableStateOf<Int?>(null) }
     var searchExpanded by remember { mutableStateOf(false) }
-    var helpOpen by remember { mutableStateOf(true) }
+    val homeSettings by (context.applicationContext as com.iumrah.beta.IumrahApplication).container.settingsStore.state.collectAsState()
+    var helpOpen by remember { mutableStateOf(homeSettings.automaticPageHelp) }
+    LaunchedEffect(homeSettings.automaticPageHelp) { if (!homeSettings.automaticPageHelp) helpOpen = false }
     val homeListState = rememberLazyListState()
     val discoveryState by chrome.state.collectAsState()
     LaunchedEffect(discoveryState.discoveryBuild) {
@@ -230,24 +233,26 @@ fun HomeScreen(
         if (notificationState.home.isNotEmpty()) {
             item { HomeNotificationCarousel(language, notificationState.home.take(5), chrome, notifications, accountToken) }
         }
-        item { EmotionalPrompt(language = language, onOpen = { storyStartIndex = 0 }) }
-        item { HomeVideoCarousel(language = language, isStoryPresented = storyStartIndex != null, onOpenStory = { storyStartIndex = it }) }
-        item { IumrahServicesCarousel(language, chrome) }
         item { SmartConfiguratorHomeCard(language, startSmart, active = !smartOpen && storyStartIndex == null) }
+        item { EmotionalPrompt(language = language, onOpen = { storyStartIndex = 0 }) }
+        item { HomeWhyAndPreferencesSection(language, history, owner, revision, showsPreferences = false) }
+        item { HomeVideoCarousel(language = language, isStoryPresented = storyStartIndex != null, onOpenStory = { storyStartIndex = it }) }
         item { HomeDestinationsSection(language, chrome::openHomeHotelSearch) }
+        item { IumrahServicesCarousel(language, chrome) }
         item { HomeAvailablePackagesSection(language, storefrontOrigin, chrome, startSmart) }
         item { JourneyTravelInfoPanel(language) }
         item { AudienceSection(language) }
+        item { HomeRewardsOffersSection(language, accountStore, chrome, showsOffers = false) }
         item { HomeIntegrationsSection(language, chrome) }
-        item { HomeRewardsOffersSection(language, accountStore, chrome) }
         item { HomeRecommendedHotelsSection(language, activity, owner, chrome) }
-        item { ProductsSection(language, chrome) }
+        item { HomeRewardsOffersSection(language, accountStore, chrome, showsRewards = false) }
         item { ConfidenceStrip(language) }
         item { PhilosophyCard(language) }
+        item { ProductsSection(language, chrome) }
         item { ConnectedTripCard(language) }
         item { PersonalUmrahFAQ(language) }
         item { AboutFooter(language, chrome) }
-        item { HomeWhyAndPreferencesSection(language, history, owner, revision) }
+        item { HomeWhyAndPreferencesSection(language, history, owner, revision, showsWhy = false) }
     }
 
     } // no overscroll on current iOS Home

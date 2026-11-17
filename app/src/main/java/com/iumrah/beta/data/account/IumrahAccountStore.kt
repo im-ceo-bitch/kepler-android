@@ -258,6 +258,12 @@ class IumrahAccountStore(
         return service.linkBooking(bookingID, bookingToken, expectedToken)
     }
 
+    /** Accept only a real, verified server session; never replace an account changed during OTP. */
+    fun acceptVerifiedSession(response: IumrahAccountAuthResponse, expectedToken: String?) {
+        check(token == expectedToken && response.ok && response.session.token.isNotBlank()) { "Account changed or invalid session" }
+        setSession(response)
+    }
+
     private fun setSession(response: IumrahAccountAuthResponse) {
         token = response.session.token
         saveSession(response.session.token, response.account)

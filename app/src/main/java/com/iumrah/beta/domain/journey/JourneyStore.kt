@@ -136,6 +136,13 @@ class JourneyStore {
         _state.value = value
     }
 
+    /** A private editable copy must not carry a bookable quote. */
+    fun smartEditCopy(): JourneyStore {
+        val value = state.value
+        require(value.hasFinalGeneratorQuote && value.quote?.bookingAllowed == true)
+        return JourneyStore().also { it._state.value = value.copy(quote = null, packageError = null) }
+    }
+
     /** Flight-first Nuitee selections are resolved by PackageEngine before booking. */
     fun startNuiteeJourney(flights: List<NuiteeFlightSnapshot>) {
         require(flights.size == 2)

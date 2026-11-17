@@ -11,6 +11,9 @@ class IumrahAccountService(
     private val deviceIdentity: IumrahAccountDeviceIdentity,
     private val referralHeaders: () -> Map<String, String> = { emptyMap() },
 ) {
+    suspend fun exchangeVerifiedBookingProfile(bookingID: String, bookingToken: String, proof: String, channel: String, locale: String): IumrahAccountAuthResponse =
+        api.post("/api/package/client/account/booking-session", VerifiedBookingExchange(bookingID, proof, channel, deviceIdentity.current(locale)), mapOf("x-booking-token" to bookingToken))
+
     suspend fun activate(bookingID: String, bookingToken: String, password: String, locale: String): IumrahAccountAuthResponse =
         api.post(IumrahAccountRoutes.ACTIVATE, IumrahAccountActivateRequest(bookingID, password, deviceIdentity.current(locale)), mapOf("x-booking-token" to bookingToken))
 
@@ -110,7 +113,8 @@ class IumrahAccountService(
     }
 
     suspend fun uploadPassport(bookingID: String, position: Int, data: ByteArray, contentType: String, token: String) {
-        api.upload<IumrahSimpleResponse>(IumrahAccountRoutes.travelerPassport(bookingID, position), data, contentType, bearer(token), 60)
+        val response = api.upload<IumrahSimpleResponse>(IumrahAccountRoutes.travelerPassport(bookingID, position), data, contentType, bearer(token), 60)
+        check(response.ok) { "Passport upload rejected" }
     }
 
     suspend fun uploadReceipt(bookingID: String, method: String, data: ByteArray, contentType: String, token: String): String {
@@ -178,3 +182,5 @@ class IumrahAccountService(
 
 @Serializable
 private class EmptyBody
+
+@Serializable private data class VerifiedBookingExchange(val bookingID: String, val verificationToken: String, val channel: String, val device: IumrahClientDevice)

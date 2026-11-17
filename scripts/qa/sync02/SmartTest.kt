@@ -17,7 +17,14 @@ fun main() = runBlocking {
     val p = SmartPreferences(month = YearMonth.from(day).toString(), adults = 3, childAges = listOf(7, 3))
     var checks = 0
     fun verify(value: Boolean) { check(value) { "Check ${checks+1} failed" }; checks++ }
-    verify(p.valid()); verify(p.roomCount == 3); verify((0 until p.roomCount).sumOf { p.occupancy(it).first } == 3)
+    verify(!p.copy(childAges=listOf(-1)).valid()); verify(SmartRules.resume(SmartDraft(p.copy(childAges=listOf(-1)),8))?.step==6)
+    val legacy = NuiteeHotelListEnvelope(ok=true,hotels=(1..35).map { NuiteeHotel("h$it","Hotel $it","makkah",stars=3.0) })
+    val pager = com.iumrah.beta.domain.nuitee.NuiteePaging
+    val firstPage=pager.normalize(legacy,0,3,"",null); val secondPage=pager.normalize(legacy,12,3,"",null); val thirdPage=pager.normalize(legacy,24,3,"",null)
+    verify(firstPage.hotels.size==12 && pager.next(firstPage,0)==12); verify(secondPage.hotels.size==12 && pager.next(secondPage,12)==24); verify(thirdPage.hotels.size==11 && pager.next(thirdPage,24)==null)
+    verify(pager.append(firstPage.hotels,firstPage.hotels).size==12); verify(pager.normalize(legacy,0,5,"",null).hotels.isEmpty()); verify(pager.normalize(legacy,0,3,"",setOf("h2")).hotels.single().id=="h2")
+    verify(pager.next(firstPage.copy(nextOffset=0),0)==null); verify(pager.next(firstPage.copy(nextOffset=null),0)==12); verify(pager.next(firstPage.copy(total=null),0)==12)
+    verify(pager.unpriced(firstPage).hotels.all { it.minimumRate==null }); verify(p.valid()); verify(p.roomCount == 3); verify((0 until p.roomCount).sumOf { p.occupancy(it).first } == 3)
     verify((0 until p.roomCount).flatMap { p.occupancy(it).second } == listOf(7,3))
     verify(!p.copy(childAges=listOf(0,0,0,0)).valid()); verify(!p.copy(origin="JED").valid())
     verify(SmartRules.steps(false) == listOf(0,1,2,3,4,6,7,8)); verify(SmartRules.owner(true,null)==null)
@@ -89,6 +96,12 @@ fun main() = runBlocking {
     verify(result.state.value.hasFinalGeneratorQuote)
     // Sync 03: replacement must be atomic and retain the exact previously priced journey on failure.
     val previousSnapshot = result.state.value
+    val candidate=result.smartEditCopy(); verify(candidate.state.value.quote==null); candidate.chooseTransferVehicle(TransferVehicleKind.YUKON)
+    val edited=service.applyEdit(p,result,candidate,false).journey
+    verify(edited.state.value.hasFinalGeneratorQuote); verify(edited.state.value.resolvedTransferVehicle==TransferVehicleKind.YUKON); verify(result.state.value==previousSnapshot)
+    val flightCandidate=result.smartEditCopy(); flightCandidate.startNuiteeJourney(previousSnapshot.nuitee!!.flights)
+    val flightEdited=service.applyEdit(p,result,flightCandidate,true).journey
+    verify(flightEdited.state.value.nuitee!!.rooms==previousSnapshot.nuitee!!.rooms); verify(result.state.value==previousSnapshot)
     val previousHotel = previousSnapshot.nuitee!!.rooms.getValue("makkah:0").hotel.id
     hotels.catalog = { city,_,_,_ -> NuiteeHotelListEnvelope(ok=true,hotels=listOf(NuiteeHotel(city,"Old",city,stars=3.0),NuiteeHotel("new-$city","Replacement",city,stars=3.0))) }
     val replacement = service.replaceHotel(p,result,"makkah",emptySet())

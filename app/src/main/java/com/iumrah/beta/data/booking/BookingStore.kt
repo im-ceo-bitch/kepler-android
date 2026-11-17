@@ -44,6 +44,7 @@ class BookingStore(
     private val refreshMutex = Mutex()
     private val restoreMutex = Mutex()
     private val linkMutex = Mutex()
+    private val pushMutex = Mutex()
     private var linkedAccountToken: String? = null
     private val linkedBookings = mutableSetOf<Pair<String, String>>()
     private val serializer = ListSerializer(StoredBookingSession.serializer())
@@ -103,7 +104,8 @@ class BookingStore(
             linkedBookings.clear()
         }
         if (token.isNullOrBlank()) return@withLock
-        val sessions = _state.value.sessions.filter { it.accessToken.isNotBlank() }
+        val owner = accountStore.state.value.iumrahID
+        val sessions = _state.value.sessions.filter { it.accessToken.isNotBlank() && BookingSessionPolicy.sameIdentity(it.pilgrimID, owner) }
         linkedBookings.retainAll(sessions.map { it.id to it.accessToken }.toSet())
         for (session in sessions) {
             if (onlyBookingID != null && session.id != onlyBookingID) continue
@@ -113,7 +115,7 @@ class BookingStore(
             val linked = attempt { accountStore.linkBookingForAccount(session.id, session.accessToken, token) } ?: continue
             if (accountStore.bearerToken != token) return@withLock
             val latest = booking(session.id) ?: continue
-            if (latest.accessToken != session.accessToken || !linked.ok) continue
+            if (latest.accessToken != session.accessToken || !linked.ok || !BookingSessionPolicy.sameIdentity(linked.pilgrimID, owner)) continue
             upsert(latest.copy(pilgrimID = linked.pilgrimID, bookingNumber = linked.bookingNumber ?: latest.bookingNumber,
                 bookingDisplayNumber = linked.bookingDisplayNumber ?: latest.bookingDisplayNumber))
             linkedBookings.add(key)
@@ -123,15 +125,44 @@ class BookingStore(
     /** Read-only account proof for fallback, not persisted with individual bookings. */
     fun accountBearerToken(): String? = accountStore.bearerToken
 
-    fun canUseCareChat(): Boolean = !accountBearerToken().isNullOrBlank() &&
-        state.value.sessions.any { isVisible(it) && it.effectiveStatus.uppercase() !in setOf("COMPLETED", "CANCELLED") }
+    private fun careScope(session: StoredBookingSession): String? = BookingSessionPolicy.careScope(
+        session.effectiveStatus, session.id, session.accessToken, session.pilgrimID ?: session.accountOwnerID,
+        accountStore.state.value.iumrahID, accountBearerToken(),
+    )
+
+    fun defaultCareChatKey(): String? {
+        val keys = state.value.sessions.filter(::isVisible).mapNotNull(::careScope)
+        return if ("account" in keys) "account" else keys.firstOrNull()
+    }
+
+    fun canUseCareChat(): Boolean = defaultCareChatKey() != null
+
+    fun careChatKey(bookingID: String): String? = if (bookingID == "account") {
+        "account".takeIf { defaultCareChatKey() == "account" }
+    } else booking(bookingID)?.let(::careScope)
+
+    fun careChatKeyForPush(bookingID: String, owner: String?): String? {
+        if (bookingID == "account") {
+            if (owner == null) return careChatKey("account")
+            if (BookingSessionPolicy.sameIdentity(owner, accountStore.state.value.iumrahID) && careChatKey("account") != null) return "account"
+            return state.value.sessions.filter(::isVisible).filter { BookingSessionPolicy.sameIdentity(it.pilgrimID, owner) && careScope(it) != null }
+                .singleOrNull()?.let(::careScope)
+        }
+        val session = booking(bookingID) ?: return null
+        if (owner != null && !BookingSessionPolicy.sameIdentity(owner, session.pilgrimID)) return null
+        return careScope(session)
+    }
 
     fun careHeaders(bookingID: String): Map<String, String> {
         if (bookingID == "account") {
-            if (!canUseCareChat()) return emptyMap()
+            if (careChatKey("account") == null) return emptyMap()
             return accountBearerToken()?.takeIf { it.isNotBlank() }?.let { mapOf("Authorization" to "Bearer $it") }.orEmpty()
         }
-        return booking(bookingID)?.let(::headersFor).orEmpty()
+        val session = booking(bookingID) ?: return emptyMap()
+        if (!BookingSessionPolicy.careIsActive(session.effectiveStatus)) return emptyMap()
+        // The booking-scoped route never receives an unrelated account bearer.
+        return session.accessToken.trim().takeIf { it.isNotEmpty() }?.let { mapOf("x-booking-token" to it) }
+            ?: if (careScope(session) == "account") headersFor(session) else emptyMap()
     }
 
     fun esimProfiles(bookingID: String): List<ClientESIMProfile> = _state.value.esimProfilesByBooking[bookingID].orEmpty()
@@ -160,16 +191,21 @@ class BookingStore(
         return profiles
     }
 
-    fun headersFor(session: StoredBookingSession): Map<String, String> =
-        accountStore.authorizationHeaders(session.accessToken).ifEmpty {
-            session.accessToken.takeIf { it.isNotBlank() }?.let { mapOf("x-booking-token" to it) }.orEmpty()
-        }
+    fun headersFor(session: StoredBookingSession): Map<String, String> {
+        val proof = session.accessToken.trim()
+        if (proof.isNotEmpty()) return mapOf("x-booking-token" to proof)
+        val owner = session.accountOwnerID ?: session.pilgrimID
+        val token = accountBearerToken()?.takeIf { it.isNotBlank() }
+        return if (token != null && BookingSessionPolicy.sameIdentity(owner, accountStore.state.value.iumrahID))
+            mapOf("Authorization" to "Bearer $token") else emptyMap()
+    }
 
     suspend fun create(
         journey: JourneyState,
         quote: PackageQuote,
         language: AppLanguage,
         pilgrimProfile: BookingPilgrimProfile?,
+        notificationIntent: BookingCreationNotificationIntent? = null,
     ): StoredBookingSession {
         // Reject concurrent checkout submissions rather than queueing a second booking.
         check(createMutex.tryLock()) { "Booking creation is already in progress." }
@@ -179,7 +215,7 @@ class BookingStore(
             if (quote.bookingAllowed == false || quote.quoteId?.startsWith("server-") != true || quoteProof.isEmpty()) {
                 throw IllegalStateException("The package price must be confirmed by the secure iumrah PackageEngine before booking.")
             }
-            val payload = BookingDraftBuilder.make(journey, quote, language, pilgrimProfile)
+            val payload = BookingDraftBuilder.make(journey, quote, language, pilgrimProfile).copy(notificationIntent = notificationIntent)
             val response = service.createBooking(payload)
             val token = response.accessToken?.trim().orEmpty()
             if (token.isBlank()) throw APIException.MissingBookingToken
@@ -203,8 +239,6 @@ class BookingStore(
                 upsert(session)
             }
 
-            linkLocalBookingsToAccount(onlyBookingID = session.id)
-            session = booking(session.id) ?: session
 
             val operational = syncGeneratorReportWithRetry(
                 id = session.id,
@@ -250,6 +284,41 @@ class BookingStore(
         }
     }
 
+    /** The offer API supplies the original booking proof; never create a second package locally. */
+    fun adoptOfferBooking(response: BookingCreateResponse, packageID: String, channel: String, contact: String): StoredBookingSession {
+        require(BusinessOfferPolicy.validReceipt(packageID, response))
+        require(channel in setOf("email", "sms") && contact.isNotBlank())
+        val remote = response.booking
+        val proof = requireNotNull(response.accessToken).trim()
+        val existing = booking(remote.id)
+        val session = (existing?.takeIf { it.accessToken == proof }?.let { mergeRemote(it, remote) }
+            ?: StoredBookingSession(id = remote.id, accessToken = proof, booking = remote,
+                travelerName = remote.pilgrimProfile?.displayName, telegram = remote.pilgrimProfile?.telegram,
+                whatsapp = remote.pilgrimProfile?.whatsapp, hotelSelection = remote.hotelSelection,
+                madinahHotelSelection = remote.madinahHotelSelection)).let {
+            if (channel == "email") it.copy(verifiedBookingEmail = contact) else it.copy(verifiedBookingPhone = contact)
+        }
+        upsert(session)
+        return session
+    }
+
+    fun adoptVerifiedBooking(id: String, expectedProof: String, link: com.iumrah.beta.models.account.IumrahAccountLinkBookingResponse) {
+        val current = booking(id) ?: return
+        if (current.accessToken != expectedProof || !link.ok || !BookingSessionPolicy.sameIdentity(link.pilgrimID, accountStore.state.value.iumrahID)) return
+        upsert(current.copy(pilgrimID = link.pilgrimID, bookingNumber = link.bookingNumber ?: current.bookingNumber,
+            bookingDisplayNumber = link.bookingDisplayNumber ?: current.bookingDisplayNumber))
+    }
+
+    fun recordVerifiedContact(id: String, expectedProof: String, channel: String, contact: String) {
+        val current = booking(id) ?: return
+        if (current.accessToken != expectedProof) return
+        upsert(when (channel) {
+            "email" -> current.copy(verifiedBookingEmail = contact)
+            "sms" -> current.copy(verifiedBookingPhone = contact)
+            else -> return
+        })
+    }
+
     private suspend fun commitPricingReportWithRetry(id: String, accessToken: String, quoteProof: String): Boolean {
         repeat(3) { attempt ->
             val ok = attempt { packageEngine.commitPricingReport(id, accessToken, quoteProof); true } ?: false
@@ -288,49 +357,45 @@ class BookingStore(
         } finally { refreshMutex.unlock() }
     }
 
-    suspend fun syncPushSubscriptions(deviceToken: String, locale: String) {
+    suspend fun syncPushSubscriptions(deviceToken: String, locale: String) = pushMutex.withLock {
         val token = deviceToken.trim()
-        if (token.isEmpty()) return
-
+        if (token.isEmpty()) return@withLock
+        val accountToken = accountStore.bearerToken
+        val owner = accountStore.state.value.iumrahID
         var registeredAny = false
         var observedReady: Boolean? = null
         var firstError: String? = null
-
         for (session in _state.value.sessions.filter(::isVisible)) {
+            if (accountStore.bearerToken != accountToken) return@withLock
             val candidates = buildList {
-                accountStore.bearerToken?.trim()?.takeIf { it.isNotEmpty() }?.let {
-                    add(mapOf("Authorization" to "Bearer $it"))
-                }
-                session.accessToken.trim().takeIf { it.isNotEmpty() }?.let {
-                    add(mapOf("x-booking-token" to it))
-                }
-            }.distinct()
+                session.accessToken.trim().takeIf { it.isNotEmpty() }?.let { add(mapOf("x-booking-token" to it)) }
+                if (!accountToken.isNullOrBlank() && BookingSessionPolicy.sameIdentity(session.pilgrimID ?: session.accountOwnerID, owner))
+                    add(mapOf("Authorization" to "Bearer $accountToken"))
+            }
             if (candidates.isEmpty()) continue
-
             var registered = false
             var lastError: Throwable? = null
             for (headers in candidates) {
                 try {
                     val response = service.registerPushDevice(session.id, headers, token, locale)
+                    if (accountStore.bearerToken != accountToken || booking(session.id)?.accessToken != session.accessToken) return@withLock
+                    check(response.ok && (response.bookingID == null || response.bookingID == session.id)) { "Push registration rejected" }
                     registeredAny = true
                     registered = true
                     response.ready?.let { ready -> observedReady = (observedReady ?: true) && ready }
                     break
-                } catch (error: CancellationException) {
-                    throw error
-                } catch (error: Throwable) {
+                } catch (error: CancellationException) { throw error }
+                catch (error: Throwable) {
                     lastError = error
+                    if (!BookingAuthFallbackPolicy.mayRetryWithAccount(error)) break
                 }
             }
-            if (!registered && firstError == null) firstError = lastError?.message
+            if (!registered && firstError == null) firstError = lastError?.message ?: "Push registration rejected"
         }
-
-        _state.update { current ->
-            current.copy(
-                pushRegistrationReady = if (registeredAny) observedReady else current.pushRegistrationReady,
-                pushRegistrationError = firstError,
-            )
-        }
+        _state.update { current -> current.copy(
+            pushRegistrationReady = if (firstError != null) false else if (registeredAny) observedReady else null,
+            pushRegistrationError = firstError,
+        ) }
     }
 
     suspend fun refreshCreatedBookingStatus(id: String): StoredBookingSession? {
@@ -347,7 +412,7 @@ class BookingStore(
 
     suspend fun refresh(id: String): StoredBookingSession? {
         val current = booking(id) ?: return null
-        val accountToken = accountStore.bearerToken
+        val accountToken = accountStore.bearerToken?.takeIf { BookingSessionPolicy.sameIdentity(current.pilgrimID ?: current.accountOwnerID, accountStore.state.value.iumrahID) }
         val bookingToken = current.accessToken.trim()
         var accountDetail: com.iumrah.beta.models.account.IumrahAccountTripDetailResponse? = null
         var remote: RemoteBooking? = null

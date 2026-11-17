@@ -17,6 +17,31 @@ class BookingService(private val api: APIClient) {
     suspend fun createBooking(request: BookingCreateEnvelope): BookingCreateResponse =
         api.post(AppConfig.PACKAGE_BOOKING_PATH, request)
 
+    suspend fun startGuestContact(channel: String, contact: String, locale: String): GuestContactChallenge {
+        val result: GuestContactChallenge = when (channel) {
+            "sms" -> api.post("/api/package/booking-contact/sms/start", GuestPhoneStart(contact))
+            "email" -> api.post("/api/package/booking-contact/email/start", GuestEmailStart(contact, locale))
+            else -> error("Unsupported contact channel")
+        }
+        check(result.ok && result.challengeID.isNotBlank()) { "Verification could not start" }
+        return result
+    }
+
+    suspend fun confirmGuestContact(channel: String, challengeID: String, code: String): GuestContactProof {
+        require(channel == "email" || channel == "sms")
+        val result: GuestContactProof = api.post("/api/package/booking-contact/$channel/confirm", GuestContactConfirm(challengeID, code))
+        check(result.ok && result.verificationToken.isNotBlank()) { "Verification rejected" }
+        return result
+    }
+
+    suspend fun attachGuestContact(id: String, bookingToken: String, channel: String, proof: String, locale: String) {
+        val suffix = when (channel) { "sms" -> "phone"; "email" -> "email"; else -> error("Unsupported contact channel") }
+        val result: com.iumrah.beta.models.account.IumrahSimpleResponse = api.post(
+            "/api/package/booking/$id/verified-$suffix", GuestContactAttach(proof, locale), mapOf("x-booking-token" to bookingToken),
+        )
+        check(result.ok) { "Contact attachment rejected" }
+    }
+
     suspend fun fetchBooking(id: String, accessToken: String): RemoteBooking =
         api.get<BookingCreateResponse>("/api/bookings/$id", headers = mapOf("x-booking-token" to accessToken)).booking
 
@@ -148,3 +173,10 @@ data class ClientPushRegistrationResponse(
     val ready: Boolean? = null,
     val bookingID: String? = null,
 )
+
+@Serializable private data class GuestPhoneStart(val phone: String)
+@Serializable private data class GuestEmailStart(val email: String, val locale: String)
+@Serializable private data class GuestContactConfirm(val challengeID: String, val code: String)
+@Serializable private data class GuestContactAttach(val verificationToken: String, val locale: String)
+@Serializable data class GuestContactChallenge(val ok: Boolean = true, val challengeID: String, val expiresAt: String)
+@Serializable data class GuestContactProof(val ok: Boolean = true, val verificationToken: String, val email: String? = null, val phone: String? = null)

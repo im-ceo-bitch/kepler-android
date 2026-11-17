@@ -24,10 +24,12 @@ Configure these GitHub Actions secrets:
 - `PLAY_KEY_PASSWORD` (or legacy `IUMRAH_UPLOAD_KEY_PASSWORD`)
 Add repository Variable `PLAY_UPLOAD_CERT_SHA256` with the SHA-256 fingerprint of the existing Play Console **Upload key certificate**. The release build stops if the restored keystore does not match it.
 
-- `IUMRAH_FIREBASE_API_KEY` (needed for production push)
-- `IUMRAH_FIREBASE_APP_ID` (needed for production push)
-- `IUMRAH_FIREBASE_PROJECT_ID` (needed for production push)
-- `IUMRAH_FIREBASE_SENDER_ID` (needed for production push)
+Optional only, if Android remote push is desired (not required to build or sign the AAB):
+
+- `IUMRAH_FIREBASE_API_KEY`
+- `IUMRAH_FIREBASE_APP_ID`
+- `IUMRAH_FIREBASE_PROJECT_ID`
+- `IUMRAH_FIREBASE_SENDER_ID`
 
 Do not create a different signing key for an update unless Play Console explicitly resets the upload key. The new bundle must keep package `com.iumrah.app`, use a higher `versionCode`, and be signed with the accepted upload key.
 

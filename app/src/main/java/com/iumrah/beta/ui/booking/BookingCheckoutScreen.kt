@@ -30,6 +30,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardType
+import com.iumrah.beta.domain.booking.BookingSessionPolicy
+import com.iumrah.beta.models.booking.BookingCreationNotificationIntent
+import com.iumrah.beta.models.booking.StoredBookingSession
+import kotlinx.coroutines.CancellationException
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
@@ -79,8 +86,16 @@ fun BookingCheckoutScreen(
     val scope = rememberCoroutineScope()
     var firstName by remember(account.account?.iumrahID) { mutableStateOf(account.account?.firstName.orEmpty()) }
     var lastName by remember(account.account?.iumrahID) { mutableStateOf(account.account?.lastName.orEmpty()) }
-    var telegram by remember(account.account?.iumrahID) { mutableStateOf(account.account?.telegram.orEmpty()) }
-    var whatsapp by remember(account.account?.iumrahID) { mutableStateOf(account.account?.whatsapp.orEmpty()) }
+    val context = LocalContext.current
+    val container = (context.applicationContext as com.iumrah.beta.IumrahApplication).container
+    var channel by remember { mutableStateOf("email") }
+    var contact by remember(account.account?.iumrahID) { mutableStateOf(account.account?.email.orEmpty()) }
+    var challenge by remember { mutableStateOf<String?>(null) }
+    var code by remember { mutableStateOf("") }
+    var proof by remember { mutableStateOf<String?>(null) }
+    var committed by remember { mutableStateOf<StoredBookingSession?>(null) }
+    var submitted by remember { mutableStateOf(false) }
+    val requestID = remember { java.util.UUID.randomUUID().toString() }
     var showProfile by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
@@ -90,7 +105,9 @@ fun BookingCheckoutScreen(
         if (quote != null) IumrahIntelligence.record("price_viewed", "checkout", "package_total")
         onDispose { IumrahIntelligence.detailDisappeared("checkout") }
     }
-    val validIdentity = firstName.trim().isNotEmpty() && lastName.trim().isNotEmpty() && (telegram.trim().isNotEmpty() || whatsapp.trim().isNotEmpty())
+    val normalizedContact = if (channel == "sms") BookingSessionPolicy.normalizedPhone(contact) else BookingSessionPolicy.normalizedEmail(contact)
+    val contactValid = if (channel == "sms") normalizedContact.length in 9..16 else android.util.Patterns.EMAIL_ADDRESS.matcher(normalizedContact).matches()
+    val validIdentity = firstName.isNotBlank() && lastName.isNotBlank() && contactValid
 
     Column(
         Modifier.fillMaxSize().background(generatorPageColor()).statusBarsPadding().verticalScroll(rememberScrollState()).padding(horizontal = GeneratorGeometry.pagePadding, vertical = 8.dp),
@@ -117,40 +134,88 @@ fun BookingCheckoutScreen(
             containerColor = generatorPageColor(),
             dragHandle = { Box(Modifier.padding(top=10.dp,bottom=10.dp).size(width=38.dp,height=5.dp).clip(CircleShape).background(MaterialTheme.colorScheme.onSurface.copy(alpha=.18f))) },
         ) {
-            Column(Modifier.fillMaxWidth().padding(horizontal=GeneratorGeometry.pagePadding).padding(bottom=34.dp),verticalArrangement=Arrangement.spacedBy(13.dp)) {
+            Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal=GeneratorGeometry.pagePadding).padding(bottom=34.dp),verticalArrangement=Arrangement.spacedBy(13.dp)) {
                 Text(checkoutTr(language,"Данные паломника","Pilgrim details","Ziyoratchi ma’lumotlari","Зиёратчи маълумотлари"),fontSize=27.sp,fontWeight=FontWeight.Bold)
                 Text(checkoutTr(language,"Подтвердите имя и контакт перед созданием бронирования. Эти данные будут привязаны к поездке.","Confirm your name and contact before creating the booking. These details will be linked to the trip.","Bron yaratishdan oldin ism va kontaktni tasdiqlang. Bu ma’lumotlar safarga biriktiriladi.","Брон яратишдан олдин исм ва контактни тасдиқланг. Бу маълумотлар сафарга бириктирилади."),fontSize=13.sp,lineHeight=18.sp,color=MaterialTheme.colorScheme.onSurface.copy(alpha=.56f))
-                BookingField(checkoutTr(language,"Имя","First name","Ism","Исм"),firstName){firstName=it}
-                BookingField(checkoutTr(language,"Фамилия","Last name","Familiya","Фамилия"),lastName){lastName=it}
-                BookingField("Telegram",telegram){telegram=it}
-                BookingField("WhatsApp",whatsapp){whatsapp=it}
-                GeneratorPrimaryButton(checkoutTr(language,"Сохранить и продолжить","Save & continue","Saqlash va davom etish","Сақлаш ва давом этиш"),enabled=validIdentity&&!busy&&canBook) {
+                // Once verified, lock contact and identity until the request has completed.
+                OutlinedTextField(firstName, { firstName = it }, label = { Text(checkoutTr(language,"Имя","First name","Ism","Исм")) }, modifier = Modifier.fillMaxWidth(), singleLine = true, enabled = !busy && challenge == null)
+                OutlinedTextField(lastName, { lastName = it }, label = { Text(checkoutTr(language,"Фамилия","Last name","Familiya","Фамилия")) }, modifier = Modifier.fillMaxWidth(), singleLine = true, enabled = !busy && challenge == null)
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    androidx.compose.material3.FilterChip(selected = channel == "email", enabled = !busy && challenge == null, onClick = { channel = "email"; contact = account.account?.email.orEmpty() }, label = { Text("Email") })
+                    androidx.compose.material3.FilterChip(selected = channel == "sms", enabled = !busy && challenge == null, onClick = { channel = "sms"; contact = account.account?.phone.orEmpty() }, label = { Text("SMS") })
+                }
+                OutlinedTextField(contact, { contact = it }, label = { Text(if (channel == "email") "Email" else checkoutTr(language,"Телефон","Phone","Telefon","Телефон")) }, modifier = Modifier.fillMaxWidth(), singleLine = true, enabled = !busy && challenge == null, keyboardOptions = KeyboardOptions(keyboardType = if (channel == "email") KeyboardType.Email else KeyboardType.Phone))
+                if (challenge != null && proof == null) {
+                    OutlinedTextField(code, { code = it.filter { c -> c in '0'..'9' }.take(6) }, label = { Text(checkoutTr(language,"Код подтверждения","Verification code","Tasdiqlash kodi","Тасдиқлаш коди")) }, modifier = Modifier.fillMaxWidth(), singleLine = true, enabled = !busy, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
+                }
+                if (challenge != null && !submitted && committed == null && !busy) {
+                    androidx.compose.material3.TextButton(onClick = { challenge = null; code = ""; proof = null; error = null }) { Text(checkoutTr(language,"Изменить контакт / новый код","Change contact / new code","Kontaktni o‘zgartirish / yangi kod","Контактни ўзгартириш / янги код")) }
+                }
+                error?.let { Text(it, color = MaterialTheme.colorScheme.error, fontSize = 13.sp) }
+                GeneratorPrimaryButton(
+                    if (challenge == null) checkoutTr(language,"Получить код","Get code","Kod olish","Код олиш")
+                    else if (committed != null) checkoutTr(language,"Подтвердить контакт","Confirm contact","Kontaktni tasdiqlash","Контактни тасдиқлаш")
+                    else checkoutTr(language,"Подтвердить и забронировать","Confirm and book","Tasdiqlash va bron qilish","Тасдиқлаш ва брон қилиш"),
+                    enabled = !busy && validIdentity && (committed != null || (!submitted && canBook)) && (challenge == null || code.length == 6 || proof != null),
+                ) {
+                    if (busy) return@GeneratorPrimaryButton
                     val currentQuote = quote
-                    if (currentQuote != null && !busy) {
-                        busy = true
-                        error = null
-                        IumrahIntelligence.record("tap", "checkout", "submit_booking")
-                        scope.launch {
-                            runCatching {
+                    busy = true; error = null
+                    scope.launch {
+                        try {
+                            if (challenge == null) {
+                                challenge = bookingStore.service.startGuestContact(channel, normalizedContact, language.code).challengeID
+                                return@launch
+                            }
+                            val verified = proof ?: bookingStore.service.confirmGuestContact(channel, requireNotNull(challenge), code).let { response ->
+                                check(BookingSessionPolicy.matchesContact(channel, normalizedContact, if (channel == "email") response.email else response.phone)) { "Contact verification mismatch" }
+                                response.verificationToken.also { proof = it }
+                            }
+                            val session = committed ?: run {
+                                check(!submitted && currentQuote != null) { "Booking already submitted" }
                                 val finalQuote = if (state.nuitee != null) {
                                     check(journey.state.value == state) { "PACKAGE_SELECTION_CHANGED" }
                                     val fresh = journey.prepareNuiteePackage(curated, packageEngine).getOrThrow()
-                                    check(fresh.totalPackagePrice.compareTo(currentQuote.totalPackagePrice) == 0 &&
-                                        fresh.pricePerPerson.compareTo(currentQuote.pricePerPerson) == 0 && fresh.currency == currentQuote.currency) {
+                                    check(fresh.totalPackagePrice.compareTo(currentQuote.totalPackagePrice) == 0 && fresh.pricePerPerson.compareTo(currentQuote.pricePerPerson) == 0 && fresh.currency == currentQuote.currency) {
                                         checkoutTr(language,"Цена изменилась. Проверьте новый итог перед бронированием.","Price changed. Review the new total before booking.","Narx o‘zgardi. Yangi summani tekshiring.","Нарх ўзгарди. Янги суммани текширинг.")
                                     }
                                     check(journey.state.value.quote == fresh && journey.state.value.nuitee == state.nuitee) { "PACKAGE_SELECTION_CHANGED" }
                                     fresh
                                 } else currentQuote
-                                bookingStore.create(
-                                    journey=if (state.nuitee != null) journey.state.value else state,
-                                    quote=finalQuote,
-                                    language=language,
-                                    pilgrimProfile=BookingPilgrimProfile(firstName.trim(),lastName.trim(),telegram.trim(),whatsapp.trim()),
-                                )
-                            }.onSuccess { session -> IumrahIntelligence.record("booking_submitted", "checkout"); busy=false;showProfile=false;chrome.openBookingCelebration(session.id) }
-                                .onFailure { cause -> IumrahIntelligence.record("error", "checkout", "booking_submit"); busy=false;if(state.nuitee != null) showProfile=false;error=cause.message ?: checkoutTr(language,"Не удалось создать бронирование.","Booking could not be created.","Bron yaratilmadi.","Брон яратилмади.") }
-                        }
+                                val push = container.pushManager
+                                val intent = BookingCreationNotificationIntent(requestID = requestID, contactChannel = channel, contact = normalizedContact,
+                                    verificationToken = verified, locale = language.code, pushDeviceToken = push.state.value.deviceToken.takeIf { push.hasNotificationPermission() },
+                                    appBundleID = com.iumrah.beta.BuildConfig.APPLICATION_ID, installationID = container.notificationStore.installationID)
+                                submitted = true // never replay a create POST after an ambiguous response
+                                bookingStore.create(if (state.nuitee != null) journey.state.value else state, finalQuote, language,
+                                    BookingPilgrimProfile(firstName.trim(), lastName.trim(), "", ""), intent).also { committed = it }
+                            }
+                            bookingStore.service.attachGuestContact(session.id, session.accessToken, channel, verified, language.code)
+                            bookingStore.recordVerifiedContact(session.id, session.accessToken, channel, normalizedContact)
+                            // A missing newer exchange route must not undo a valid guest booking.
+                            if (accountStore.bearerToken == null) {
+                                try {
+                                    val auth = container.accountService.exchangeVerifiedBookingProfile(session.id, session.accessToken, verified, channel, language.code)
+                                    check(auth.ok && auth.session.token.isNotBlank())
+                                    val link = container.accountService.linkBooking(session.id, session.accessToken, auth.session.token)
+                                    check(link.ok && BookingSessionPolicy.sameIdentity(link.pilgrimID, auth.account.iumrahID))
+                                    accountStore.acceptVerifiedSession(auth, null)
+                                    bookingStore.adoptVerifiedBooking(session.id, session.accessToken, link)
+                                } catch (cancel: CancellationException) { throw cancel } catch (_: Exception) { /* guest proof remains authoritative */ }
+                            }
+                            IumrahIntelligence.record("booking_submitted", "checkout")
+                            showProfile = false
+                            chrome.openBookingCelebration(session.id)
+                        } catch (cancel: CancellationException) { throw cancel }
+                        catch (cause: Exception) {
+                            IumrahIntelligence.record("error", "checkout", "booking_submit")
+                            error = if (submitted && committed == null) checkoutTr(language,"Результат создания не подтверждён. Проверьте бронирования или обратитесь в поддержку. Не отправляйте заявку повторно.","Booking result is unconfirmed. Check trips or contact support; do not submit again.","Bron natijasi tasdiqlanmadi. Safarlarni tekshiring yoki yordamga murojaat qiling.","Брон натижаси тасдиқланмади. Сафарларни текширинг ёки ёрдамга мурожаат қилинг.") else cause.message ?: "Booking failed"
+                        } finally { busy = false }
+                    }
+                }
+                committed?.let { saved ->
+                    androidx.compose.material3.TextButton(onClick = { showProfile = false; chrome.openBookingCelebration(saved.id) }, enabled = !busy) {
+                        Text(checkoutTr(language,"Открыть созданное бронирование","Open created booking","Yaratilgan bronni ochish","Яратилган бронни очиш"))
                     }
                 }
             }

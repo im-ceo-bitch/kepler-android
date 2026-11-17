@@ -22,6 +22,7 @@ import com.iumrah.beta.core.navigation.AppChromeStore
 import com.iumrah.beta.core.settings.AppLanguage
 import com.iumrah.beta.data.nuitee.NuiteeHotelService
 import com.iumrah.beta.ui.hotels.rememberNuiteeHotelService
+import com.iumrah.beta.ui.hotels.rememberNuiteePagedCatalog
 import com.iumrah.beta.domain.journey.JourneyStore
 import com.iumrah.beta.domain.nuitee.NuiteeRoomSelection
 import com.iumrah.beta.domain.nuitee.NuiteePendingHotel
@@ -53,14 +54,7 @@ fun NuiteeJourneyHotelsScreen(language: AppLanguage, journey: JourneyStore, chro
     var city by remember { mutableStateOf("makkah") }
     var roomIndex by remember { mutableIntStateOf(0) }
     var stars by remember { mutableIntStateOf(0) }
-    var hotels by remember { mutableStateOf<List<NuiteeHotel>>(emptyList()) }
-    var rateError by remember { mutableStateOf<String?>(null) }
-    var loading by remember { mutableStateOf(true) }
-    var sandbox by remember { mutableStateOf(false) }
-    var pricesStale by remember { mutableStateOf(false) }
-    var selectedHotel by remember { mutableStateOf<NuiteeHotel?>(null) }
     var refresh by remember { mutableIntStateOf(0) }
-    var handledRefresh by remember { mutableIntStateOf(0) }
     var childrenAges by remember { mutableStateOf(List(trip.children + trip.infants) { -1 }) }
     val windows = TripStayPlanner.windows(trip)
     val stay = if (city == "madinah") windows.madinah ?: windows.makkah else windows.makkah
@@ -68,25 +62,17 @@ fun NuiteeJourneyHotelsScreen(language: AppLanguage, journey: JourneyStore, chro
     val roomChildren = childrenAges.withIndex().filter { it.index % trip.rooms == roomIndex }.map { it.value }
     val ready = childrenAges.size == trip.children + trip.infants && childrenAges.all { it in 0..17 } && roomAdults > 0
     val roomKey = "$city:$roomIndex"
+    var selectedHotel by remember(roomKey, stay.checkIn, stay.checkOut, roomAdults, roomChildren) { mutableStateOf<NuiteeHotel?>(null) }
     var partyExpanded by remember { mutableStateOf(!ready) }
     val listState = rememberLazyListState()
-    var visibleCount by remember(city, roomIndex, stars, stay.checkIn, stay.checkOut) { mutableIntStateOf(20) }
     LaunchedEffect(roomKey) { listState.scrollToItem(0) }
     val allComplete = draft?.let { com.iumrah.beta.domain.nuitee.NuiteeBookingRules.complete(trip, it) } == true
-
-    LaunchedEffect(city, roomIndex, stay.checkIn, stay.checkOut, roomAdults, refresh) {
-        val forceRefresh = refresh != handledRefresh
-        handledRefresh = refresh
-        hotels = emptyList(); rateError = null; loading = true; pricesStale = false
-        try {
-            val response = service.hotels(city, stay.checkIn, stay.checkOut, roomAdults, forceRefresh = forceRefresh)
-            hotels = response.hotels; sandbox = response.sandbox
-            rateError = response.rateError
-            pricesStale = response.hotelCatalogStale || response.pricesStale
-        } catch (cancel: CancellationException) { throw cancel
-        } catch (ex: Exception) { rateError = ex.localizedMessage
-        } finally { loading = false }
-    }
+    val page = rememberNuiteePagedCatalog(service, city, stay.checkIn, stay.checkOut, roomAdults.coerceAtLeast(1), stars, refresh = refresh)
+    val hotels = page.hotels
+    val rateError = page.error ?: page.rateError
+    val loading = page.loading
+    val sandbox = page.sandbox
+    val pricesStale = page.stale
 
     Scaffold(containerColor = MaterialTheme.colorScheme.background, bottomBar = {
         if (allComplete) Box(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.background)
@@ -194,8 +180,7 @@ fun NuiteeJourneyHotelsScreen(language: AppLanguage, journey: JourneyStore, chro
                     TextButton(onClick = { refresh++ }) { Text(nuiteeText(language,"Повторить", "Retry", "Yana", "Яна")) }
                 }
             }
-            val filtered = hotels.filter { stars == 0 || it.roundedStars == stars }
-            items(filtered.take(visibleCount), key = { "journey-${it.id}" }) { hotel ->
+            items(hotels, key = { "journey-${it.id}" }) { hotel ->
                 NuiteeListingCard(hotel, language, pricesStale, favorite = hotel.id in favorites,
                     nights = java.time.temporal.ChronoUnit.DAYS.between(stay.checkIn, stay.checkOut).toInt(), adults = roomAdults, sandbox = sandbox,
                     onFavorite = {
@@ -203,7 +188,10 @@ fun NuiteeJourneyHotelsScreen(language: AppLanguage, journey: JourneyStore, chro
                         favoritePrefs.edit().putStringSet("hotels", favorites).apply()
                     }, onOpen = { if (ready) selectedHotel = hotel })
             }
-            if (filtered.size > visibleCount) item { OutlinedButton(onClick = { visibleCount += 20 }, modifier = Modifier.fillMaxWidth()) { Text(nuiteeText(language,"Показать ещё", "Load more", "Yana ko‘rsatish", "Яна кўрсатиш")) } }
+            if (page.error != null && hotels.isNotEmpty()) item {
+                OutlinedButton(enabled = !loading, onClick = page::retry, modifier = Modifier.fillMaxWidth()) { Text(nuiteeText(language, "Повторить", "Retry", "Qayta urinish", "Қайта уриниш")) }
+            }
+            if (page.error == null && page.nextOffset != null && hotels.isNotEmpty()) item { OutlinedButton(enabled = !loading, onClick = page::loadMore, modifier = Modifier.fillMaxWidth()) { Text(nuiteeText(language,"Показать ещё", "Load more", "Yana ko‘rsatish", "Яна кўрсатиш")) } }
         }
     }
     selectedHotel?.let { hotel ->

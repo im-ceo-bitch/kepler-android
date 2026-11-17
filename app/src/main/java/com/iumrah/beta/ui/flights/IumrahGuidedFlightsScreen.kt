@@ -86,6 +86,7 @@ import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
 
 /**
@@ -101,6 +102,9 @@ fun IumrahGuidedFlightsScreen(
     discovery: AviasalesFlightDiscoveryService,
     airports: AirportSearchService,
     chrome: AppChromeStore,
+    lockParty: Boolean = false,
+    onBack: () -> Unit = { chrome.back() },
+    onComplete: () -> Unit = { chrome.openNuiteeJourneyHotels() },
 ) {
     val state by journey.state.collectAsState()
     val trip = state.trip
@@ -120,27 +124,28 @@ fun IumrahGuidedFlightsScreen(
     var detail by remember { mutableStateOf<GuidedFlightChoice?>(null) }
     var dateField by remember { mutableStateOf<Boolean?>(null) } // false departure, true return
     var refreshKey by remember { mutableIntStateOf(0) }
+    val searchIdentity = listOf(trip.originCode, trip.outboundDestinationCode, trip.returnOriginCode, trip.departureDate, trip.returnDate,
+        trip.effectiveFlightFilters.cabinClass, trip.adults, trip.children, trip.infants)
+    var loadedIdentity by remember { mutableStateOf<List<Any>?>(null) }
 
-    LaunchedEffect(trip.originCode, trip.outboundDestinationCode, trip.returnOriginCode,
-        trip.departureDate, trip.returnDate, trip.effectiveFlightFilters.cabinClass, refreshKey) {
-        pending = null
-        outbound = null
-        inbound = null
-        stepReturn = false
-        editing = false
+    LaunchedEffect(searchIdentity, refreshKey) {
+        val sameSearch = loadedIdentity == searchIdentity
+        if (!sameSearch) {
+            pending = null; outbound = null; inbound = null; stepReturn = false; editing = false
+            published = emptyList(); dataOutbound = emptyList(); dataReturn = emptyList()
+        }
+        loadedIdentity = searchIdentity
         loadingError = null
-        published = emptyList()
-        dataOutbound = emptyList()
-        dataReturn = emptyList()
         busy = true
         IumrahIntelligence.record("search_started", "flight_builder", "published_and_data")
         var firstError: Throwable? = null
         try {
-            published = try {
-                curated.load(trip)
-            } catch (ex: CancellationException) { throw ex
-            } catch (ex: Exception) { firstError = ex; emptyList() }
-            if (trip.effectiveFlightFilters.cabinClass == FlightCabinClass.ECONOMY) {
+            val nextPublished = try { curated.load(trip) }
+            catch (ex: CancellationException) { throw ex }
+            catch (ex: Exception) { firstError = ex; null }
+            kotlinx.coroutines.currentCoroutineContext().ensureActive()
+            if (nextPublished != null) published = nextPublished
+            if (trip.effectiveFlightFilters.cabinClass == FlightCabinClass.ECONOMY && trip.children == 0 && trip.infants == 0) {
                 // Retain the same exact-day and surrounding-month fallback as SwiftUI.
                 val legs = listOf(
                     Triple(trip.originCode, trip.outboundDestinationCode, trip.departureDate),
@@ -150,16 +155,19 @@ fun IumrahGuidedFlightsScreen(
                     val (origin, destination, target) = leg
                     val months = (-3..3).map { target.plusDays(it.toLong()).toString().take(7) }.distinct()
                     val rows = mutableListOf<FlightDiscoveryOffer>()
+                    var loaded = false
                     for (dayOrMonth in months + target.toString()) {
                         try {
                             rows += discovery.offers(origin, destination, dayOrMonth, direct = false, limit = 100).offers
+                            loaded = true
                         } catch (ex: CancellationException) { throw ex
                         } catch (ex: Exception) { if (firstError == null) firstError = ex }
                     }
                     val filtered = rows.filter { it.origin.equals(origin, true) &&
                         it.destination.equals(destination, true) && !it.isRoundTrip }
                         .distinctBy { "${it.id}|${it.departureAt}|${it.flightNumber}" }
-                    if (index == 0) dataOutbound = filtered else dataReturn = filtered
+                    kotlinx.coroutines.currentCoroutineContext().ensureActive()
+                    if (loaded) { if (index == 0) dataOutbound = filtered else dataReturn = filtered }
                 }
             }
             if (published.isEmpty() && dataOutbound.isEmpty() && dataReturn.isEmpty() && firstError != null) {
@@ -232,7 +240,7 @@ fun IumrahGuidedFlightsScreen(
             arrivalAt = chosen.arrivalAt, adultFareUSD = chosen.priceUsd,
         ) })
         IumrahIntelligence.record("tap", "flight_builder", "continue_to_nuitee_hotels")
-        chrome.openNuiteeJourneyHotels()
+        onComplete()
     }
 
     fun confirmChoice(choice: GuidedFlightChoice) {
@@ -274,7 +282,7 @@ fun IumrahGuidedFlightsScreen(
             item {
                 GuidedFlightHero(language, if (stepReturn) trip.returnOriginCode else trip.originCode, if (stepReturn) trip.originCode else trip.outboundDestinationCode,
                     stepReturn, trip.travelerCount, trip.departureDate, trip.returnDate,
-                    editing, { chrome.back() }, onEdit = { editing = !editing },
+                    editing, onBack, onEdit = { editing = !editing },
                     onRefresh = { refreshKey += 1 })
             }
             item {
@@ -287,7 +295,7 @@ fun IumrahGuidedFlightsScreen(
                         ConfiguratorAirportSelector(language = language, service = airports,
                             airport = trip.originAirport, fallbackCode = trip.originCode,
                             onSelect = { journey.updateTrip(trip.copy(origin = it.iata, originAirport = it)) })
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        if (!lockParty) Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             listOf(JourneyScope.MAKKAH_ONLY, JourneyScope.MAKKAH_AND_MADINAH).forEach { scopeValue ->
                                 val selected = trip.scope == scopeValue
                                 Box(Modifier.weight(1f).height(42.dp).clip(RoundedCornerShape(22.dp))
@@ -313,12 +321,12 @@ fun IumrahGuidedFlightsScreen(
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                             Text(guidedTr(language, "Взрослые", "Adults", "Kattalar", "Катталар"),
                                 modifier = Modifier.weight(1f))
-                            TextButton(enabled = trip.adults > 1, onClick = {
+                            TextButton(enabled = !lockParty && trip.adults > 1, onClick = {
                                 journey.updateTrip(trip.copy(adults = trip.adults - 1,
                                     infants = minOf(trip.infants, trip.adults - 1)))
                             }) { Text("−", fontSize = 22.sp) }
                             Text("${trip.adults}")
-                            TextButton(enabled = trip.travelerCount < 9, onClick = {
+                            TextButton(enabled = !lockParty && trip.travelerCount < 9, onClick = {
                                 journey.updateTrip(trip.copy(adults = trip.adults + 1))
                             }) { Text("+", fontSize = 22.sp) }
                         }

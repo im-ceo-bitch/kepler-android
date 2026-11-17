@@ -67,6 +67,7 @@ data class AppSettingsState(
     val launcherIcon: String = "standard",
     val hasCompletedOnboarding: Boolean = false,
     val isLoaded: Boolean = false,
+    val automaticPageHelp: Boolean = true,
 ) {
     val displayName: String
         get() = listOf(firstName.trim(), lastName.trim()).filter { it.isNotBlank() }.joinToString(" ")
@@ -104,11 +105,13 @@ class AppSettingsStore(private val context: Context) {
             launcherIcon = values[Keys.LAUNCHER_ICON] ?: "standard",
             hasCompletedOnboarding = values[Keys.ONBOARDING] == "true",
             isLoaded = true,
+            automaticPageHelp = values[Keys.AUTO_PAGE_HELP] != "false",
         )
     }
 
     fun setAppearance(value: AppAppearance) = persist(Keys.APPEARANCE, value.wireValue) { copy(appearance = value) }
     fun setLanguage(value: AppLanguage) = persist(Keys.LANGUAGE, value.code) { copy(language = value) }
+    fun setAutomaticPageHelp(value: Boolean) = persist(Keys.AUTO_PAGE_HELP, value.toString()) { copy(automaticPageHelp = value) }
     fun completeOnboarding() = persist(Keys.ONBOARDING, "true") { copy(hasCompletedOnboarding = true) }
 
     fun setLauncherIcon(value: String) {
@@ -203,6 +206,7 @@ class AppSettingsStore(private val context: Context) {
         val EMERGENCY_PHONE = stringPreferencesKey("iumrah.profile.emergencyPhone")
         val EMERGENCY_RELATION = stringPreferencesKey("iumrah.profile.emergencyRelation")
         val LAUNCHER_ICON = stringPreferencesKey("iumrah.launcherIcon")
+        val AUTO_PAGE_HELP = stringPreferencesKey("iumrah.autoPageHelp")
         val ONBOARDING = stringPreferencesKey("iumrah.hasCompletedOnboarding.cinematic.v4")
     }
 

@@ -50,10 +50,20 @@ TOOLS="$SDK_ROOT/build-tools/36.0.0"
 for tool in apksigner zipalign aapt; do
   [[ -x "$TOOLS/$tool" ]] || { echo "STOP: missing Android build tool: $tool"; exit 1; }
 done
-# Reject a half-configured Firebase build; production push must be provisioned.
+# Firebase/FCM is optional. Gradle and IumrahPushManager already support
+# unconfigured builds; do not block a signed release on remote push setup.
+# The in-app notification feed is independent of FCM.
+fcm_configured=0
 for name in IUMRAH_FIREBASE_API_KEY IUMRAH_FIREBASE_APP_ID IUMRAH_FIREBASE_PROJECT_ID IUMRAH_FIREBASE_SENDER_ID; do
-  [[ -n "${!name:-}" ]] || { echo "STOP: missing production Firebase configuration: $name"; exit 1; }
+  if [[ "${!name:-}" =~ [^[:space:]] ]]; then
+    fcm_configured=$((fcm_configured + 1))
+  fi
 done
+if [[ "$fcm_configured" -eq 4 ]]; then
+  echo 'INFO: optional Firebase configuration supplied.'
+else
+  echo 'INFO: Firebase configuration absent or incomplete; continuing release without requiring remote push.'
+fi
 
 # User-requested production dependency audit. Resolve the exact release graph before compiling.
 "$GRADLE" --no-daemon --console=plain \

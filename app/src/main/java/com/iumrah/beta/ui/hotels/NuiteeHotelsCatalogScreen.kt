@@ -116,7 +116,6 @@ fun NuiteeHotelsCatalogScreen(
     var draftNights by remember { mutableIntStateOf(nights) }
     var draftAdults by remember { mutableIntStateOf(adults) }
     var refreshing by remember { mutableIntStateOf(0) }
-    var handledRefresh by remember { mutableIntStateOf(0) }
     var loadedDay by remember { mutableStateOf<LocalDate?>(null) }
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
@@ -126,53 +125,18 @@ fun NuiteeHotelsCatalogScreen(
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
-    var hotels by remember { mutableStateOf<List<NuiteeHotel>>(emptyList()) }
-    var sandbox by remember { mutableStateOf(false) }
-    var pricesStale by remember { mutableStateOf(false) }
-    var loading by remember { mutableStateOf(true) }
-    var requestError by remember { mutableStateOf<String?>(null) }
-    var rateError by remember { mutableStateOf<String?>(null) }
-    var selected by remember { mutableStateOf<NuiteeHotel?>(null) }
+    var selected by remember(city, checkin, nights, adults) { mutableStateOf<NuiteeHotel?>(null) }
     val checkout = checkin.plusDays(nights.toLong())
-    val visible = remember(hotels, stars, hotelQuery, favorites, favoritesOnly) {
-        NuiteeRules.filterHotels(if (favoritesOnly) hotels.filter { it.id in favorites } else hotels, stars, hotelQuery)
-    }
-
-    LaunchedEffect(city, checkin, nights, adults, refreshing) {
-        val forceRefresh = refreshing != handledRefresh
-        handledRefresh = refreshing
-        loadedDay = LocalDate.now()
-        hotels = emptyList() // no stale inventory from a previous date/city
-        requestError = null; rateError = null; pricesStale = false; loading = true
-        IumrahIntelligence.record("search_started", "hotels", "nuitee")
-        try {
-            val cached = if (!forceRefresh) service.cachedHotels(city, checkin, checkout, adults) else null
-            if (cached != null) {
-                hotels = cached.hotels
-                sandbox = cached.sandbox
-                pricesStale = cached.pricesStale || cached.hotelCatalogStale
-                rateError = cached.rateError
-                return@LaunchedEffect
-            }
-            val listing = service.hotels(city, checkin, checkout, adults, catalogOnly = true, forceRefresh = forceRefresh)
-            hotels = listing.hotels
-            sandbox = listing.sandbox
-            pricesStale = true // catalog-only prices are not a verified supplier quote
-            try {
-                val result = service.hotels(city, checkin, checkout, adults, forceRefresh = forceRefresh)
-                hotels = result.hotels
-                sandbox = result.sandbox
-                pricesStale = result.pricesStale || result.hotelCatalogStale
-                rateError = result.rateError
-            } catch (cancel: CancellationException) { throw cancel
-            } catch (ex: Exception) { rateError = ex.localizedMessage }
-            IumrahIntelligence.record("search_results", "hotels", if (hotels.isEmpty()) "empty" else "available")
-        } catch (cancel: CancellationException) { throw cancel
-        } catch (ex: Exception) {
-            requestError = ex.localizedMessage
-            IumrahIntelligence.record("error", "hotels", "nuitee")
-        } finally { loading = false }
-    }
+    val page = rememberNuiteePagedCatalog(service, city, checkin, checkout, adults, stars, hotelQuery,
+        favorites = favorites.takeIf { favoritesOnly }, refresh = refreshing)
+    val hotels = page.hotels
+    val visible = hotels
+    val sandbox = page.sandbox
+    val pricesStale = page.stale
+    val loading = page.loading
+    val requestError = page.error
+    val rateError = page.rateError
+    LaunchedEffect(city, checkin, nights, adults, refreshing) { loadedDay = LocalDate.now() }
 
     LazyColumn(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background),
         contentPadding = PaddingValues(start = 18.dp, end = 18.dp, bottom = 120.dp),
@@ -297,6 +261,14 @@ fun NuiteeHotelsCatalogScreen(
                     favorites = if (hotel.id in favorites) favorites - hotel.id else favorites + hotel.id
                     prefs.edit().putStringSet("hotels", favorites).apply()
                 }, onOpen = { selected = hotel; IumrahIntelligence.record("tap", "hotels", "nuitee_details") })
+        }
+        if (page.error != null && hotels.isNotEmpty()) item {
+            OutlinedButton(enabled = !loading, onClick = page::retry, modifier = Modifier.fillMaxWidth()) { Text(nuiteeText(language, "Повторить", "Retry", "Qayta urinish", "Қайта уриниш")) }
+        }
+        if (page.error == null && page.nextOffset != null && hotels.isNotEmpty()) item {
+            OutlinedButton(enabled = !loading, onClick = page::loadMore, modifier = Modifier.fillMaxWidth()) {
+                Text(nuiteeText(language, "Показать ещё", "Load more", "Yana ko‘rsatish", "Яна кўрсатиш"))
+            }
         }
     }
     selected?.let { hotel ->

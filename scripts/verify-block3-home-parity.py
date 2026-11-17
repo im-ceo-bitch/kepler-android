@@ -26,16 +26,16 @@ def main():
     panel=(PKG/'ui/booking/JourneyTravelInfoPanel.kt').read_text()
 
     ordering=[
+        'item { SmartConfiguratorHomeCard(',
         'item { EmotionalPrompt(',
         'item { HomeVideoCarousel(',
         'item { IumrahServicesCarousel(',
-        'item { SmartConfiguratorHomeCard(',
         'item { JourneyTravelInfoPanel(',
         'item { AudienceSection(',
         'item { HomeIntegrationsSection(',
-        'item { ProductsSection(',
         'item { ConfidenceStrip(',
         'item { PhilosophyCard(',
+        'item { ProductsSection(',
         'item { ConnectedTripCard(',
         'item { PersonalUmrahFAQ(',
         'item { AboutFooter(',

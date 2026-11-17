@@ -116,7 +116,7 @@ fun IumrahApp() {
     LaunchedEffect(
         settings.hasCompletedOnboarding,
         accountState.iumrahID,
-        bookingState.sessions.map { it.id to it.accessToken },
+        bookingState.sessions.map { Triple(it.id, it.accessToken, it.pilgrimID) },
         settings.language.code,
         pushState.deviceToken,
         permissionRevision,
@@ -254,7 +254,8 @@ private suspend fun routeOpenedPush(event: IumrahPushEvent?, container: com.iumr
     }
     event.bookingID?.let { id ->
         if (event.type.startsWith("chat_")) {
-            if (container.bookingStore.booking(id) != null) container.chromeStore.openBookingChat(id)
+            val key = container.bookingStore.careChatKeyForPush(id, event.pilgrimID)
+            if (key != null) container.chromeStore.openBookingChat(key)
             else container.chromeStore.navigate(AppTab.CARE)
         }
         else if (container.bookingStore.booking(id) != null) container.chromeStore.openBookingDetail(id)

@@ -30,7 +30,7 @@ build=s.index('item { SmartConfiguratorHomeCard(language, startSmart, active = !
 services=s.index('item { IumrahServicesCarousel(language, chrome) }')
 assert 'item { ServicesSection(language, chrome) }' not in s, 'Legacy services must not be displayed'
 travel=s.index('item { JourneyTravelInfoPanel(language) }')
-assert services < build < travel < aud, 'Current SwiftUI order is services, build, travel information, audience'
+assert build < services < travel < aud, 'Current SwiftUI order is Smart, services, travel information, audience'
 assert 'item { ReadyPackagesSection(' not in s, 'Current Home has no legacy ready packages section'
 PY
 grep -q 'isStoryPresented = storyStartIndex != null' "$HOME"
