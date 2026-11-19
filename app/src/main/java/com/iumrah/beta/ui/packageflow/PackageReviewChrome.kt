@@ -228,3 +228,43 @@ internal fun reviewTier(l: AppLanguage, tier: PackageTier) = when(tier) {
         }
     }
 }
+
+
+/** The same verified retail lines for both legacy and local-room review flows. */
+@Composable internal fun ReviewVerifiedPrice(l: AppLanguage, quote: PackageQuote) {
+    val price = quote.tripSummary?.takeIf { quote.hasVerifiedBreakdown }
+    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(22.dp)).background(generatorCardColor()).padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        ReviewSection(reviewText(l,"Детализация стоимости","Price breakdown","Narx tafsilotlari","Нарх тафсилотлари"))
+        if (price == null) {
+            Text(reviewText(l,"Обновите расчёт: детализация пока недоступна.","Refresh pricing: breakdown unavailable.","Hisobni yangilang: tafsilotlar mavjud emas.","Ҳисобни янгиланг: тафсилотлар мавжуд эмас."))
+        } else {
+            price.components.forEach { row -> ReviewPriceRow(l,row.label,row.amountUsd) }
+            HorizontalDivider()
+            ReviewPriceRow(l,reviewText(l,"Услуги","Services","Xizmatlar","Хизматлар"),price.servicesSubtotalUsd)
+            ReviewPriceRow(l,reviewText(l,"Комиссия платформы · 9%","Platform fee · 9%","Platforma komissiyasi · 9%","Платформа комиссияси · 9%"),price.supportAmountUsd)
+            ReviewPriceRow(l,reviewText(l,"Платёжная комиссия · 2%","Payment fee · 2%","To‘lov komissiyasi · 2%","Тўлов комиссияси · 2%"),price.paymentAmountUsd)
+            if (price.roundingUsd.signum()!=0) ReviewPriceRow(l,reviewText(l,"Округление","Rounding","Yaxlitlash","Яхлитлаш"),price.roundingUsd)
+            HorizontalDivider()
+            ReviewPriceRow(l,reviewText(l,"Итого","Total","Jami","Жами"),price.totalUsd)
+        }
+    }
+}
+@Composable private fun ReviewPriceRow(l: AppLanguage, title: String, amount: java.math.BigDecimal) {
+    Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(12.dp),verticalAlignment=Alignment.CenterVertically) {
+        Text(title,Modifier.weight(1f),fontSize=13.sp)
+        Text(smartMoney(amount,"USD",l),fontWeight=FontWeight.SemiBold,fontSize=14.sp)
+    }
+}
+@Composable internal fun ReviewItinerary(l: AppLanguage, events: List<com.iumrah.beta.domain.pricing.PackageItineraryPreviewItem>) {
+    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(22.dp)).background(generatorCardColor()).padding(16.dp),verticalArrangement=Arrangement.spacedBy(10.dp)) {
+        ReviewSection(reviewText(l,"Расписание · местное время","Schedule · local time","Jadval · mahalliy vaqt","Жадвал · маҳаллий вақт"))
+        events.sortedWith(compareBy<com.iumrah.beta.domain.pricing.PackageItineraryPreviewItem>{it.dateLocal}.thenBy{it.timeLocal ?: "99:99"}.thenBy{it.id}).groupBy { it.dateLocal }.forEach { (day, rows) ->
+            Text(day,fontWeight=FontWeight.SemiBold)
+            rows.forEach { event -> Row(horizontalArrangement=Arrangement.spacedBy(12.dp)) {
+                Text(event.timeLocal ?: "—",Modifier.width(52.dp),fontSize=12.sp)
+                Column(Modifier.weight(1f)) { Text(event.title,fontWeight=FontWeight.Medium); if(event.location.isNotBlank()) Text(event.location,fontSize=12.sp) }
+            } }
+        }
+    }
+}

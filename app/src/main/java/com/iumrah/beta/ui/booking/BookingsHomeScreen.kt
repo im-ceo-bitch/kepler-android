@@ -39,6 +39,7 @@ import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -135,12 +136,22 @@ fun BookingsHomeScreen(
     val refreshScope = rememberCoroutineScope()
 
     val activeSessions = bookingState.sessions.filterNot {
-        it.effectiveStatus.uppercase() in setOf("COMPLETED", "CANCELLED") || bookingStore.booking(it.id) == null
+        it.effectiveStatus.uppercase() in setOf("COMPLETED", "CANCELLED", "DELETED") || bookingStore.booking(it.id) == null
     }
-    val activeSession = activeSessions.firstOrNull { it.id == selectedBookingID } ?: activeSessions.firstOrNull()
+    val chromeState by chrome.state.collectAsState()
+    val activeSession = selectedBookingID?.let(bookingStore::booking) ?: activeSessions.firstOrNull()
+    LaunchedEffect(chromeState.requestedBookingID, bookingState.sessions) {
+        val id = chromeState.requestedBookingID ?: return@LaunchedEffect
+        if (bookingStore.canOpenBookingFromPush(id)) {
+            selectedBookingID = id
+            panel = BookingPanel.PACKAGE
+            chrome.consumeBookingPackageRequest(id)
+        }
+    }
     val owner = bookingStore.accountBearerToken()
     var checkout by remember(activeSession?.id, owner) { mutableStateOf<IumrahCheckoutResponse?>(null) }
     var itinerary by remember(activeSession?.id, owner, language) { mutableStateOf<List<BookingItineraryItem>>(emptyList()) }
+    var managedItinerary by remember(activeSession?.id,owner) { mutableStateOf(false) }
     var activeGuideProfile by remember(activeSession?.id, activeSession?.guide?.id, owner) { mutableStateOf<IumrahPublicProfile?>(null) }
     val currentSelectedID by androidx.compose.runtime.rememberUpdatedState(activeSession?.id)
 
@@ -155,28 +166,30 @@ fun BookingsHomeScreen(
                 accountService.checkoutWithFallback(
                     bookingID = session.id,
                     bookingToken = session.accessToken,
-                    accountToken = bookingStore.accountBearerToken(),
+                    accountToken = bookingStore.accountBearerToken()?.takeIf { com.iumrah.beta.domain.booking.BookingSessionPolicy.sameIdentity(session.pilgrimID ?: session.accountOwnerID, accountState.iumrahID) },
                 )
             }.getOrNull()
-            val loadedItinerary = runCatching {
-                bookingStore.service.fetchItinerary(session.id, bookingStore.headersFor(session))
-            }.getOrDefault(emptyList()).let { localizeServerItinerary(it, language) }
+            val schedule = runCatching { bookingStore.service.fetchItineraryResponse(session.id,bookingStore.headersFor(session)) }.getOrNull()
+            val loadedItinerary = localizeServerItinerary(schedule?.items.orEmpty(),language)
             currentCoroutineContext().ensureActive()
             if (requestedID == currentSelectedID && requestedOwner == bookingStore.accountBearerToken()) {
-                checkout = loadedCheckout
-                itinerary = loadedItinerary
+                if (loadedCheckout != null && loadedCheckout.ok) checkout = loadedCheckout
+                if (schedule != null) {
+                    itinerary = loadedItinerary
+                    managedItinerary = schedule.managed == true
+                }
             }
         } ?: run {
             checkout = null
             itinerary = emptyList()
+            managedItinerary = false
         }
     }
 
-    LaunchedEffect(activeSession?.id, bookingState.sessions.size, language, owner) {
-        refresh()
-        while (true) {
-            delay(60_000)
-            refresh()
+    val lifecycle = androidx.lifecycle.compose.LocalLifecycleOwner.current.lifecycle
+    LaunchedEffect(activeSession?.id, bookingState.sessions.size, language, owner, lifecycle) {
+        lifecycle.repeatOnLifecycle(androidx.lifecycle.Lifecycle.State.RESUMED) {
+            while (true) { refresh(); delay(60_000) }
         }
     }
 
@@ -188,6 +201,11 @@ fun BookingsHomeScreen(
         }
     }
 
+    Column(Modifier.fillMaxSize()) {
+    TextButton(onClick = chrome::openSavedJourneys, modifier = Modifier.fillMaxWidth().statusBarsPadding()) {
+        Text(t(language,"Сохранённые путешествия","Saved journeys","Saqlangan safarlar","Сақланган сафарлар"))
+    }
+    Box(Modifier.weight(1f)) {
     if ((panel == BookingPanel.PACKAGE || panel == BookingPanel.STATUS) && activeSession != null) {
         BookingDetailScreen(activeSession.id, language, bookingStore, accountStore, accountService, chrome,
             initialPage = if (panel == BookingPanel.STATUS) BookingPrimaryPageAndroid.STATUS else BookingPrimaryPageAndroid.BOOKING,
@@ -197,8 +215,7 @@ fun BookingsHomeScreen(
                     unreadCount = notificationState.unreadCount, language = language,
                     footer = { BookingPanelPicker(language, panel) { panel = it } })
             }, onEmbeddedDelete = { panel = BookingPanel.BOOKING }, onEmbeddedSchedule = { panel = BookingPanel.SCHEDULE })
-        return
-    }
+    } else {
     PullToRefreshBox(
         isRefreshing = isRefreshing,
         onRefresh = {
@@ -218,7 +235,7 @@ fun BookingsHomeScreen(
     ) { bookingID ->
         // Render the session tied to AnimatedContent's target state, not an
         // outer mutable selection that may change mid-transition.
-        val displayedSession = activeSessions.firstOrNull { it.id == bookingID }
+        val displayedSession = bookingID?.let(bookingStore::booking)
         if (displayedSession == null) {
             EmptyBookingHome(
                 language = language,
@@ -232,19 +249,24 @@ fun BookingsHomeScreen(
                 otherSessions = activeSessions.filterNot { it.id == displayedSession.id },
                 panel = panel,
                 onPanel = { panel = it },
-                onSelectBooking = { selectedBookingID = it; panel = BookingPanel.BOOKING },
+                onSelectBooking = { selectedBookingID = it; panel = BookingPanel.PACKAGE },
                 checkout = checkout.takeIf { displayedSession.id == activeSession?.id },
                 itinerary = if (displayedSession.id == activeSession?.id) itinerary else emptyList(),
+                managedItinerary = displayedSession.id == activeSession?.id && managedItinerary,
                 unreadCount = notificationState.unreadCount,
                 activeGuideProfile = activeGuideProfile.takeIf { displayedSession.id == activeSession?.id },
                 chrome = chrome,
-                onDelete = { id -> pendingDeleteID = id },
+                onDelete = { id -> if (bookingStore.booking(id)?.canDeleteUnpaid == true) pendingDeleteID = id else chrome.openBookingDetail(id) },
+                onCare = { id -> bookingStore.careChatKey(id)?.let(chrome::openBookingChat) ?: chrome.navigate(AppTab.CARE) },
                 deleteError = deleteError,
             )
         }
     }
     }
 
+    } // active booking detail / root
+    } // content
+    } // root column
     pendingDeleteID?.let { id ->
         AlertDialog(
             onDismissRequest = { if (!isDeleting) pendingDeleteID = null },
@@ -278,10 +300,12 @@ private fun ActiveBookingHome(
     onSelectBooking: (String) -> Unit,
     checkout: IumrahCheckoutResponse?,
     itinerary: List<BookingItineraryItem>,
+    managedItinerary: Boolean,
     unreadCount: Int,
     activeGuideProfile: IumrahPublicProfile?,
     chrome: AppChromeStore,
     onDelete: (String) -> Unit,
+    onCare: (String) -> Unit,
     deleteError: String?,
 ) {
     LazyColumn(
@@ -317,7 +341,14 @@ private fun ActiveBookingHome(
             item {
                 BookingProgress(language, session, chrome)
                 Spacer(Modifier.height(24.dp))
-                TripManagement(language, session, chrome)
+                if (shouldShowTravelReadyFlights(session)) {
+                    BookingStatusFlights(language, session, chrome)
+                    Spacer(Modifier.height(24.dp))
+                    TripPlanPreview(language, session, itinerary, managedItinerary) { onPanel(BookingPanel.SCHEDULE) }
+                    Spacer(Modifier.height(24.dp))
+                }
+                TripManagement(language, session, chrome, onManage = { onPanel(BookingPanel.PACKAGE) }, onAdd = { onCare(session.id) })
+                if (session.effectiveStatus !in setOf("COMPLETED","CANCELLED","DELETED")) TextButton(onClick = { onDelete(session.id) }) { Text(if(session.canDeleteUnpaid) t(language,"Удалить заявку","Delete booking","Bronni o‘chirish","Бронни ўчириш") else t(language,"Отмена и возврат","Cancellation and refund","Bekor qilish va qaytarish","Бекор қилиш ва қайтариш"),color=MaterialTheme.colorScheme.error) }
                 Spacer(Modifier.height(38.dp))
             }
         } else if (panel == BookingPanel.STATUS) {
@@ -332,9 +363,9 @@ private fun ActiveBookingHome(
                     Spacer(Modifier.height(34.dp))
                 }
 
-                TripPlanPreview(language, session, itinerary) { onPanel(BookingPanel.SCHEDULE) }
+                TripPlanPreview(language, session, itinerary, managedItinerary) { onPanel(BookingPanel.SCHEDULE) }
                 Spacer(Modifier.height(34.dp))
-                TripManagement(language, session, chrome)
+                TripManagement(language, session, chrome, onAdd = { onCare(session.id) })
                 Spacer(Modifier.height(if (otherSessions.isNotEmpty()) 36.dp else 12.dp))
             }
         } else {
@@ -343,6 +374,7 @@ private fun ActiveBookingHome(
                     language = language,
                     session = session,
                     remoteItems = itinerary,
+                    managed = managedItinerary,
                     fullScreen = true,
                 )
                 Spacer(Modifier.height(28.dp))
@@ -1273,9 +1305,9 @@ private fun BookingFulfillmentCenter(
     val passportCount = checkout?.travelers?.count { it.hasPassport } ?: 0
     val total = checkout?.travelers?.size ?: session.booking.input.travelers.totalPeople
     val passportsReady = total > 0 && passportCount == total
-    val receiptReady = !checkout?.receipts.isNullOrEmpty()
-    val documents = checkout?.documents.orEmpty()
     val paidOrLater = session.effectiveStatus.uppercase() in setOf("BOOKING_CONFIRMED", "DOCUMENTS_READY", "READY_TO_TRAVEL", "IN_TRIP", "COMPLETED")
+    val receiptReady = checkout?.paymentReview?.satisfied ?: paidOrLater
+    val documents = checkout?.documents.orEmpty().filter { it.publicationStatus == null || it.publicationStatus.equals("published",true) }
     val documentEnabled = paidOrLater || documents.isNotEmpty()
     val guideEnabled = session.guide != null || session.effectiveStatus.uppercase() in setOf("BOOKING_CONFIRMED", "DOCUMENTS_READY", "READY_TO_TRAVEL", "IN_TRIP", "COMPLETED")
 
@@ -1311,6 +1343,10 @@ private fun BookingFulfillmentCenter(
             title = t(language, "Оплата", "Payment", "To‘lov", "Тўлов"),
             body = if (paymentLocked) {
                 t(language, "Оплата откроется после подтверждения наличия. Пока ничего оплачивать не нужно.", "Payment opens after availability is confirmed. Nothing needs to be paid yet.", "To‘lov mavjudlik tasdiqlangach ochiladi. Hozircha hech narsa to‘lash shart emas.", "Тўлов мавжудлик тасдиқлангач очилади. Ҳозирча ҳеч нарса тўлаш шарт эмас.")
+            } else if (checkout?.receipts?.any { it.reviewStatus.equals("rejected",true) } == true && !receiptReady) {
+                t(language,"Чек требует исправления. Откройте оплату.","Receipt needs attention. Open payment.","Chekni tuzatish kerak.","Чекни тузатиш керак.")
+            } else if (!checkout?.receipts.isNullOrEmpty() && !receiptReady) {
+                t(language,"Чек отправлен на проверку.","Receipt sent for verification.","Chek tekshiruvga yuborildi.","Чек текширувга юборилди.")
             } else if (receiptReady) {
                 t(language, "Оплата получена. Чек сохранён в бронировании.", "Payment received. The receipt is saved with the booking.", "To‘lov qabul qilindi. Chek bronda saqlandi.", "Тўлов қабул қилинди. Чек бронда сақланди.")
             } else {
@@ -1497,7 +1533,7 @@ private fun shouldShowTravelReadyFlights(session: StoredBookingSession): Boolean
     session.effectiveStatus.uppercase() in setOf("READY_TO_TRAVEL", "IN_TRIP")
 
 @Composable
-private fun BookingStatusFlights(
+internal fun BookingStatusFlights(
     language: AppLanguage,
     session: StoredBookingSession,
     chrome: AppChromeStore,
@@ -1566,7 +1602,7 @@ private fun BookingStatusFlights(
         }
 
         IumrahPressable(
-            onClick = chrome::openFlights,
+            onClick = { chrome.openTripLiveFlights(session.id) },
             modifier = Modifier
                 .fillMaxWidth()
                 .height(52.dp),
@@ -1722,9 +1758,10 @@ private fun TripPlanPreview(
     language: AppLanguage,
     session: StoredBookingSession,
     remoteItems: List<BookingItineraryItem>,
+    managed: Boolean,
     onOpenSchedule: () -> Unit,
 ) {
-    val items = previewItineraryItems(session, remoteItems)
+    val items = if(managed || remoteItems.any{it.executionState!=null || !it.timeLocal.isNullOrBlank()}) remoteItems.take(5) else previewItineraryItems(session, remoteItems)
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         SectionHeader(t(language, "План поездки", "Trip plan", "Safar rejasi", "Сафар режаси"), null)
         val shape = RoundedCornerShape(25.dp)
@@ -1824,6 +1861,8 @@ private fun TripManagement(
     language: AppLanguage,
     session: StoredBookingSession,
     chrome: AppChromeStore,
+    onManage: () -> Unit = { chrome.openBookingDetail(session.id) },
+    onAdd: () -> Unit = { chrome.openBookingChat(session.id) },
 ) {
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         SectionHeader(t(language, "Управление поездкой", "Trip management", "Safarni boshqarish", "Сафарни бошқариш"), null)
@@ -1839,13 +1878,13 @@ private fun TripManagement(
                 CupertinoSymbol.Sliders,
                 t(language, "Управлять бронированием", "Manage booking", "Bronni boshqarish", "Бронни бошқариш"),
                 t(language, "Отели, данные, услуги и документы", "Hotels, details, services and documents", "Mehmonxona, ma’lumotlar, xizmatlar va hujjatlar", "Меҳмонхона, маълумотлар, хизматлар ва ҳужжатлар"),
-            ) { chrome.openBookingDetail(session.id) }
+            ) { onManage() }
             DividerLine(65.dp)
             ManagementRow(
                 CupertinoSymbol.PlusPerson,
                 t(language, "Добавить паломника", "Add pilgrim", "Ziyoratchi qo‘shish", "Зиёратчи қўшиш"),
                 t(language, "Запрос через iumrah Care", "Request via iumrah Care", "iumrah Care orqali so‘rov", "iumrah Care орқали сўров"),
-            ) { chrome.openBookingChat(session.id) }
+            ) { onAdd() }
             DividerLine(65.dp)
             ManagementRow(
                 CupertinoSymbol.Route,
@@ -1955,7 +1994,7 @@ private fun CompactBookingCard(
     ) {
         CupertinoIcon(CupertinoSymbol.Trash, null, Modifier.size(15.dp), iOSRed)
         Spacer(Modifier.width(7.dp))
-        Text(t(language, "Удалить бронирование", "Delete booking", "Bronni o‘chirish", "Бронни ўчириш"), fontSize = 12.sp, color = iOSRed)
+        Text(if(session.canDeleteUnpaid) t(language, "Удалить бронирование", "Delete booking", "Bronni o‘chirish", "Бронни ўчириш") else t(language,"Отмена и возврат","Cancellation and refund","Bekor qilish va qaytarish","Бекор қилиш ва қайтариш"), fontSize = 12.sp, color = iOSRed)
     }
 }
 

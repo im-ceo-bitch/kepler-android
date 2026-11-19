@@ -17,7 +17,7 @@ def check(expr, reason):
 
 check('ClipData.newPlainText(label, value)' in detail and 'ClipboardManager' in detail and 'enabled = value.isNotBlank() && value != "—"' in detail, 'Booking-number/iumrah ID copy buttons really copy and disable placeholders')
 check('val displayPilgrimID: String?' in model and 'BookingSessionPolicy.pilgrimDisplay(pilgrimID)' in model and ".padStart(8, '0')" in policy and 'session.displayPilgrimID' in detail, 'Display ID normalized to 8 digits, raw API identifier preserved')
-check('LaunchedEffect(bookingID, language, owner, accountState.account?.iumrahID)' in detail and 'localizeServerItinerary(it, language)' in detail, 'Itinerary reloads and relocalizes when language changes')
+check('LaunchedEffect(bookingID, language, owner, accountState.account?.iumrahID, lifecycle)' in detail and 'localizeServerItinerary(schedule.items, language)' in detail and 'repeatOnLifecycle(Lifecycle.State.RESUMED)' in detail, 'Itinerary reloads and relocalizes when language changes')
 for value in ['PAYMENT_PENDING','PENDING_PAYMENT','WAITING_PAYMENT','AWAITING_PAYMENT','PAYMENT_AND_DATA_PENDING','AWAITING_PAYMENT_AND_DATA']:
     check(value in detail, 'Server payment status recognized: '+value)
 check('bookingNeedsCheckout(session)' in detail and 'if (bookingNeedsCheckout(session)) {' in detail and 'chrome.openPilgrimCheckout(session.id)' in detail, 'All waiting-payment statuses expose real checkout flow')
@@ -26,7 +26,7 @@ check('onOpenFullSchedule = { if (embedded) onEmbeddedSchedule() else selectedPa
 check('dayItems.take(4)' in calendar and 'visibleDayItems.forEachIndexed' in calendar, 'Preview shows at most four events, full schedule retains all')
 check('PullToRefreshBox(' in home and 'try { refresh() } finally { isRefreshing = false }' in home and 'delay(60_000)' in home, 'Bookings support both manual pull-to-refresh and existing periodic refresh')
 check('BookingStatusFlights(' in home and 'BookingFulfillmentCenter(' in home and 'BookingItineraryCalendarAndroid(' in home and 'RootTelegramCompactCard(' in home, 'Booking status, itinerary and Telegram entry preserved')
-check('onDelete = { id ->' in home and 'bookingStore.deleteBooking(id)' in home, 'Existing deletion business operation preserved')
+check('onDelete = { id -> if (bookingStore.booking(id)?.canDeleteUnpaid == true)' in home and 'bookingStore.deleteBooking(id)' in home and 'else chrome.openBookingDetail(id)' in home, 'Existing deletion business operation preserved')
 parser=argparse.ArgumentParser();parser.add_argument('--ios',type=Path);args=parser.parse_args()
 if args.ios:
     iosdetail=(args.ios/'Sources/Views/Booking/BookingDetailView.swift').read_text()

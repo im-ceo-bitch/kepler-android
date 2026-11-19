@@ -141,6 +141,14 @@ class BookingStore(
         "account".takeIf { defaultCareChatKey() == "account" }
     } else booking(bookingID)?.let(::careScope)
 
+    fun canOpenBookingFromPush(id: String): Boolean = booking(id)?.let { headersFor(it).isNotEmpty() } == true
+
+    fun acceptsPushOwner(owner: String?, bookingID: String?): Boolean {
+        val session = bookingID?.let(::booking)
+        return BookingSessionPolicy.acceptsPushOwner(owner, accountStore.state.value.iumrahID,
+            session?.pilgrimID ?: session?.accountOwnerID, session?.accessToken)
+    }
+
     fun careChatKeyForPush(bookingID: String, owner: String?): String? {
         if (bookingID == "account") {
             if (owner == null) return careChatKey("account")
@@ -212,7 +220,7 @@ class BookingStore(
         _state.update { it.copy(isMutating = true, lastError = null) }
         try {
             val quoteProof = quote.quoteProof?.trim().orEmpty()
-            if (quote.bookingAllowed == false || quote.quoteId?.startsWith("server-") != true || quoteProof.isEmpty()) {
+            if (!journey.priceChangeAccepted || !quote.hasVerifiedBreakdown || !quote.allowsOccupancy(journey.trip.adults, journey.trip.rooms) || quote.bookingAllowed == false || quote.quoteId?.startsWith("server-") != true || quoteProof.isEmpty()) {
                 throw IllegalStateException("The package price must be confirmed by the secure iumrah PackageEngine before booking.")
             }
             val payload = BookingDraftBuilder.make(journey, quote, language, pilgrimProfile).copy(notificationIntent = notificationIntent)
@@ -291,15 +299,37 @@ class BookingStore(
         val remote = response.booking
         val proof = requireNotNull(response.accessToken).trim()
         val existing = booking(remote.id)
-        val session = (existing?.takeIf { it.accessToken == proof }?.let { mergeRemote(it, remote) }
-            ?: StoredBookingSession(id = remote.id, accessToken = proof, booking = remote,
-                travelerName = remote.pilgrimProfile?.displayName, telegram = remote.pilgrimProfile?.telegram,
-                whatsapp = remote.pilgrimProfile?.whatsapp, hotelSelection = remote.hotelSelection,
-                madinahHotelSelection = remote.madinahHotelSelection)).let {
+        require(response.trip == null || response.trip.bookingID == remote.id)
+        require(existing == null || existing.accessToken.isBlank() || existing.accessToken == proof)
+        val adopted = if (existing != null && existing.accessToken.isNotBlank()) existing else {
+            val initial = existing?.let { mergeRemote(it, remote).copy(accessToken = proof) }
+                ?: StoredBookingSession(id = remote.id, accessToken = proof, booking = remote,
+                    travelerName = remote.pilgrimProfile?.displayName, telegram = remote.pilgrimProfile?.telegram,
+                    whatsapp = remote.pilgrimProfile?.whatsapp, hotelSelection = remote.hotelSelection,
+                    madinahHotelSelection = remote.madinahHotelSelection)
+            response.trip?.let { initial.mergeOperationalTrip(it, null, null) } ?: initial
+        }
+        val session = adopted.let {
             if (channel == "email") it.copy(verifiedBookingEmail = contact) else it.copy(verifiedBookingPhone = contact)
         }
         upsert(session)
         return session
+    }
+
+    suspend fun recoverGuestBooking(number:String,channel:String,challengeID:String,code:String): StoredBookingSession {
+        val verified=service.confirmGuestContact(channel,challengeID,code)
+        val contact=if(channel=="email") verified.email else verified.phone
+        val response=service.recoverBooking(number,channel,verified.verificationToken)
+        val remote=response.booking; val proof=requireNotNull(response.accessToken).trim()
+        check(remote.id.isNotBlank() && proof.isNotBlank() && (response.trip==null || response.trip.bookingID==remote.id))
+        val existing=booking(remote.id)
+        val initial=existing?.let { mergeRemote(it,remote).copy(accessToken=proof) } ?: StoredBookingSession(remote.id,proof,remote,
+            travelerName=remote.pilgrimProfile?.displayName,telegram=remote.pilgrimProfile?.telegram,whatsapp=remote.pilgrimProfile?.whatsapp,
+            hotelSelection=remote.hotelSelection,madinahHotelSelection=remote.madinahHotelSelection)
+        val merged=response.trip?.let { initial.mergeOperationalTrip(it) } ?: initial
+        val next=if(channel=="email") merged.copy(verifiedBookingEmail=contact ?: merged.verifiedBookingEmail) else merged.copy(verifiedBookingPhone=contact ?: merged.verifiedBookingPhone)
+        upsert(next)
+        return next
     }
 
     fun adoptVerifiedBooking(id: String, expectedProof: String, link: com.iumrah.beta.models.account.IumrahAccountLinkBookingResponse) {
@@ -510,7 +540,11 @@ class BookingStore(
 
     suspend fun deleteBooking(bookingID: String) {
         val session = booking(bookingID) ?: return purge(bookingID)
-        service.deleteBooking(bookingID, headersFor(session))
+        check(session.canDeleteUnpaid) { "Use cancellation and refund for this booking" }
+        val headers = headersFor(session)
+        check(headers.isNotEmpty())
+        val result = service.deleteBooking(bookingID, headers)
+        check(result.deleted == true || (result.deleted == null && result.ok == true)) { "Deletion not confirmed" }
         purge(bookingID)
     }
 

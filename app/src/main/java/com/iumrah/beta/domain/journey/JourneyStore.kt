@@ -71,7 +71,13 @@ data class JourneyState(
     val flightError: String? = null,
     val packageError: String? = null,
     val nuitee: NuiteeJourneyDraft? = null,
+    val savedPackageID: String? = null,
+    val packageApprovalOwner: String? = null,
+    val mixedFlightIdentity: String? = null,
+    val childAges: List<Int> = emptyList(),
+    val acceptedReviewTotal: BigDecimal? = null,
 ) {
+    val priceChangeAccepted: Boolean get() = quote?.let { acceptedReviewTotal == null || acceptedReviewTotal.compareTo(it.totalPackagePrice) == 0 } ?: false
     val selectedJourney: LiveFlightJourneyCandidate? get() = flightResults.firstOrNull { it.id == selectedJourneyId }
     val selectedOutboundJourney: LiveFlightJourneyCandidate? get() = flightResults.firstOrNull { it.id == selectedOutboundJourneyId }
     val haramainTicketCount: Int get() = maxOf(0, haramainAdultTickets) + maxOf(0, haramainChildTickets)
@@ -115,7 +121,7 @@ class JourneyStore {
     private var quoteRequestGeneration = 0L
 
     private fun quoteInputs(state: JourneyState): List<Any?> = listOf(
-        state.trip, state.packageFlightPath, state.selectedJourney, state.selectedOutboundJourney,
+        state.trip, state.packageFlightPath, state.selectedJourney, state.selectedOutboundJourney, state.savedPackageID, state.packageApprovalOwner, state.mixedFlightIdentity, state.childAges,
         state.makkahHotel?.id, state.makkahRoom?.id, state.makkahRoomCategory?.id,
         state.madinahHotel?.id, state.madinahRoom?.id, state.madinahRoomCategory?.id,
         state.selectedPublishedCompleteID, state.selectedPublishedOutboundID, state.selectedPublishedReturnID,
@@ -127,6 +133,31 @@ class JourneyStore {
     private val _state = MutableStateFlow(JourneyState())
     val state: StateFlow<JourneyState> = _state
 
+    fun acceptReviewPrice(expected: PackageQuote) {
+        _state.update { if (it.quote == expected && expected.hasVerifiedBreakdown) it.copy(acceptedReviewTotal = expected.totalPackagePrice) else it }
+    }
+
+    fun restoreSavedDraft(value: JourneyState, packageID: String, previousTotal: BigDecimal? = null) {
+        quoteRequestGeneration++
+        _state.value = value.copy(quote = null, isSearchingFlights = false, flightError = null, packageError = null,
+            savedPackageID = packageID, packageApprovalOwner = null, acceptedReviewTotal = previousTotal)
+    }
+
+    fun attachSavedPackage(expected: JourneyState, packageID: String): Boolean {
+        if (_state.value != expected) return false
+        _state.value = expected.copy(savedPackageID = packageID)
+        return true
+    }
+
+    fun applyApprovedRooms(packageID: String, owner: String, adults: Int, rooms: Int) {
+        val current = _state.value
+        require(current.savedPackageID == packageID && current.nuitee != null && current.trip.adults == adults && rooms in 1 until current.trip.rooms)
+        quoteRequestGeneration++
+        _state.value = current.copy(trip = current.trip.copy(rooms = rooms),
+            nuitee = current.nuitee.copy(rooms = emptyMap(), pending = emptyMap()),
+            quote = null, packageError = null, transferSelectionConfirmed = false, packageApprovalOwner = owner, childAges = resolvedGuestAges(current))
+    }
+
     /** Smart is assembled privately. Publish only a complete verified journey on explicit review. */
     fun adoptSmartResult(result: JourneyStore) {
         val value = result.state.value
@@ -136,11 +167,140 @@ class JourneyStore {
         _state.value = value
     }
 
+    /** Review edits own a separate store; cancel simply drops it. Never overwrite a changed parent. */
+    fun beginReviewEdit(): JourneyStore = JourneyStore().also {
+        it._state.value = state.value.copy(quote = null, packageError = null, isSearchingFlights = false)
+    }
+
+    fun commitReviewEdit(expected: JourneyState, editor: JourneyStore): Boolean {
+        if (editor === this || _state.value != expected) return false
+        val next = editor.state.value
+        require(next.savedPackageID == expected.savedPackageID && (next.packageApprovalOwner == null || next.packageApprovalOwner == expected.packageApprovalOwner))
+        quoteRequestGeneration++
+        _state.value = next.copy(quote = null, packageError = null, isSearchingFlights = false,
+            acceptedReviewTotal = expected.quote?.totalPackagePrice ?: expected.acceptedReviewTotal)
+        return true
+    }
+
+    /** A legacy catalog picker may reset flight selection internally. Apply only the selected hotels. */
+    fun commitReviewCatalogEdit(expected: JourneyState, editor: JourneyStore): Boolean {
+        if (editor === this || _state.value != expected) return false
+        val next = editor.state.value
+        require(next.savedPackageID == expected.savedPackageID && next.packageApprovalOwner == expected.packageApprovalOwner)
+        quoteRequestGeneration++
+        _state.value = expected.copy(makkahHotel = next.makkahHotel, makkahRoom = next.makkahRoom, makkahRoomCategory = next.makkahRoomCategory,
+            madinahHotel = next.madinahHotel, madinahRoom = next.madinahRoom, madinahRoomCategory = next.madinahRoomCategory,
+            quote = null, packageError = null, acceptedReviewTotal = expected.quote?.totalPackagePrice ?: expected.acceptedReviewTotal)
+        return true
+    }
+
+    fun commitReviewFlightEdit(expected: JourneyState, editor: JourneyStore): Boolean {
+        if (editor === this || _state.value != expected) return false
+        val next = editor.state.value
+        require(next.nuitee?.flights?.size == 2 && next.trip.travelerCount == expected.trip.travelerCount && next.trip.rooms == expected.trip.rooms)
+        val old = expected.trip; val new = next.trip
+        val sameStay = old.departureDate == new.departureDate && old.returnDate == new.returnDate &&
+            old.hotelStayStartDate == new.hotelStayStartDate && old.arrivalAirport == new.arrivalAirport && old.scope == new.scope && old.returnOriginCode == new.returnOriginCode
+        val restored = next.copy(
+            nuitee = requireNotNull(next.nuitee).copy(rooms = if (sameStay) expected.nuitee?.rooms.orEmpty() else emptyMap(), pending = if (sameStay) expected.nuitee?.pending.orEmpty() else emptyMap()),
+            selectedTransferVehicle = expected.selectedTransferVehicle, haramainTrainSelected = expected.haramainTrainSelected && new.scope == JourneyScope.MAKKAH_AND_MADINAH,
+            haramainFareClass = expected.haramainFareClass, haramainAdultTickets = expected.haramainAdultTickets, haramainChildTickets = expected.haramainChildTickets,
+            transferSelectionConfirmed = sameStay && old.isRoundTripFlight && expected.transferSelectionConfirmed,
+            savedPackageID = expected.savedPackageID, packageApprovalOwner = null, childAges = resolvedGuestAges(expected))
+        quoteRequestGeneration++
+        _state.value = restored.copy(quote = null, packageError = null, isSearchingFlights = false,
+            acceptedReviewTotal = expected.quote?.totalPackagePrice ?: expected.acceptedReviewTotal)
+        return true
+    }
+
     /** A private editable copy must not carry a bookable quote. */
     fun smartEditCopy(): JourneyStore {
         val value = state.value
         require(value.hasFinalGeneratorQuote && value.quote?.bookingAllowed == true)
         return JourneyStore().also { it._state.value = value.copy(quote = null, packageError = null) }
+    }
+
+    /** Resolve already selected flight identities before entering the shared hotel picker. */
+    suspend fun prepareUnifiedHotelSelection(curated: CuratedFlightRecommendationService) {
+        val snapshot = _state.value
+        if (snapshot.nuitee?.flights?.size == 2) return
+        val resolved = when (snapshot.packageFlightPath) {
+            PackageFlightPath.PUBLISHED_DIRECT -> curated.resolvePublishedSelection(snapshot.trip,
+                CuratedPublishedFlightSelection(snapshot.selectedPublishedCompleteID,snapshot.selectedPublishedOutboundID,snapshot.selectedPublishedReturnID))
+            PackageFlightPath.AVIASALES_SELECTED -> aviasalesPair(snapshot)
+            else -> error("FLIGHT_SELECTION_REQUIRED")
+        }
+        currentCoroutineContext().ensureActive()
+        check(_state.value == snapshot) { "PACKAGE_SELECTION_CHANGED" }
+        val out=resolved.outbound; val back=requireNotNull(resolved.inbound)
+        require(back.departureAt>out.arrivalAt && out.origin==back.destination && out.destination in setOf("JED","MED") && back.origin in setOf("JED","MED")) { "INVALID_FLIGHT_PAIR" }
+        require(if(snapshot.packageFlightPath==PackageFlightPath.PUBLISHED_DIRECT) resolved.isDisplayable() else out.durationMinutes>0 && back.durationMinutes>0)
+        fun day(at:Instant, code:String) = at.atZone(com.iumrah.beta.data.flight.FlightReferenceCatalog.timeZone(code) ?: java.time.ZoneOffset.UTC).toLocalDate()
+        val arrival=day(out.arrivalAt,out.destination);val end=day(back.departureAt,back.origin)
+        require(java.time.temporal.ChronoUnit.DAYS.between(arrival,end)>=(if(snapshot.trip.scope==JourneyScope.MAKKAH_AND_MADINAH) 2 else 1)) { "INVALID_STAY" }
+        fun local(f:com.iumrah.beta.models.flight.LiveFlightCandidate)=NuiteeFlightSnapshot(f.id,f.origin,f.destination,f.airline,f.flightNumber,f.airlineCode.orEmpty(),f.durationMinutes,f.stops,f.departureAt.toString(),f.arrivalAt.toString(),f.observedFare.toDouble().takeIf{it>0})
+        _state.value=snapshot.copy(trip=snapshot.trip.copy(departureDate=day(out.departureAt,out.origin),saudiArrivalDate=arrival,returnDate=end,
+            arrivalAirport=if(out.destination=="MED") SaudiArrivalAirport.MADINAH else SaudiArrivalAirport.JEDDAH,
+            selectedReturnAirport=if(back.origin=="MED") SaudiArrivalAirport.MADINAH else SaudiArrivalAirport.JEDDAH,flightTripType=FlightTripType.ROUND_TRIP),
+            flightResults=listOf(resolved),selectedJourneyId=resolved.id,selectedOutboundJourneyId=resolved.id,
+            nuitee=NuiteeJourneyDraft(flights=listOf(local(out),local(back))),quote=null,
+            makkahHotel=null,makkahRoom=null,makkahRoomCategory=null,madinahHotel=null,madinahRoom=null,madinahRoomCategory=null,
+            packageError=null)
+    }
+
+    fun setMixedFlightIdentity(identity:String) {
+        require(identity.startsWith("mixed:") && identity.removePrefix("mixed:").split('~').let { it.size==2 && it.count{p->p.startsWith("curated:") && p.length>8}==1 && it.count{p->p.startsWith("aviasales:ow:") && p.length>13}==1 })
+        quoteRequestGeneration++
+        _state.update { it.copy(mixedFlightIdentity=identity,quote=null) }
+    }
+
+    private fun mixedJourney(state:JourneyState): LiveFlightJourneyCandidate {
+        val identity=requireNotNull(state.mixedFlightIdentity)
+        val ids=identity.removePrefix("mixed:").split('~');val flights=requireNotNull(state.nuitee).flights
+        require(ids.size==2 && flights.size==2)
+        val now=Instant.now()
+        val legs=flights.mapIndexed { index,f ->
+            val departure=requireNotNull(parseAviasalesInstant(f.departureAt)); val arrival=parseAviasalesInstant(f.arrivalAt.orEmpty()) ?: departure.plusSeconds(f.durationMinutes.toLong()*60)
+            val source=if(ids[index].startsWith("curated:")) "iumrah Published" else "Aviasales Data"
+            require(f.durationMinutes>0 && f.stops>=0 && arrival>departure && f.flightNumber.isNotBlank() && f.airline.isNotBlank())
+            com.iumrah.beta.models.flight.LiveFlightCandidate(id=f.id,sourceID=ids[index],sourceName=source,direction=if(index==0) FlightDirection.outbound else FlightDirection.inbound,
+                airline=f.airline,flightNumber=f.flightNumber,origin=f.origin,destination=f.destination,departureAt=departure,arrivalAt=arrival,
+                stops=f.stops,durationMinutes=f.durationMinutes,observedFare=BigDecimal.valueOf(f.adultFareUSD ?: 0.0),observedCurrency="USD",
+                fareScope=FlightFareScope.PER_PASSENGER,observedAt=now,airlineCode=f.airlineCode,providerItineraryID=identity,cabinClass="economy")
+        }
+        val out=legs[0];val back=legs[1]
+        require(out.origin==back.destination && out.destination in setOf("JED","MED") && back.origin in setOf("JED","MED") && back.departureAt>out.arrivalAt)
+        // Only the backend may turn these independent identity hints into a bookable fare.
+        return LiveFlightJourneyCandidate(id=identity,sourceID="mixed",sourceName="mixed",totalFare=legs.fold(BigDecimal.ZERO){v,f->v+f.observedFare},currency="USD",
+            fareScope=FlightFareScope.PER_PASSENGER,observedAt=now,providerItineraryID=identity,outbound=out,inbound=back)
+    }
+
+    fun resolvedGuestAges(current: JourneyState = state.value): List<Int> {
+        val count = current.trip.children + current.trip.infants
+        if (current.childAges.size == count) return current.childAges
+        val rooms = current.nuitee?.rooms?.values?.filter { it.city == "makkah" }?.sortedBy { it.roomIndex }.orEmpty()
+        return List(count) { index -> rooms.firstOrNull { it.roomIndex == index % current.trip.rooms.coerceAtLeast(1) }?.childrenAges?.getOrNull(index / current.trip.rooms.coerceAtLeast(1)) ?: -1 }
+    }
+
+    fun applyReviewGuests(adults: Int, rooms: Int, ages: List<Int>) {
+        require(adults in 1..9 && adults + ages.size <= 9 && ages.all { it in 0..17 })
+        require(rooms in ((adults + 4) / 5)..adults)
+        val current = _state.value
+        val next = current.trip.copy(adults=adults, rooms=rooms, children=ages.count { it>=2 }, infants=ages.count { it<2 })
+        if (next == current.trip && ages == resolvedGuestAges(current)) return
+        quoteRequestGeneration++
+        _state.value = current.copy(trip=next, childAges=ages, nuitee=current.nuitee?.copy(rooms=emptyMap(),pending=emptyMap()),
+            quote=null, packageError=null, packageApprovalOwner=null, transferSelectionConfirmed=false,
+            haramainAdultTickets=if(current.haramainTrainSelected) adults else 0,
+            haramainChildTickets=if(current.haramainTrainSelected) next.children else 0)
+    }
+
+    fun updateGuestAges(ages:List<Int>) {
+        val current=_state.value
+        require(ages.size==current.trip.children+current.trip.infants && ages.all{it in -1..17})
+        if(ages==current.childAges)return
+        quoteRequestGeneration++
+        _state.value=current.copy(childAges=ages,nuitee=current.nuitee?.copy(rooms=emptyMap(),pending=emptyMap()),quote=null,transferSelectionConfirmed=false,packageApprovalOwner=null)
     }
 
     /** Flight-first Nuitee selections are resolved by PackageEngine before booking. */
@@ -154,13 +314,24 @@ class JourneyStore {
                     .atZoneSameInstant(ZoneId.of("Asia/Riyadh")).toLocalDate() }.getOrNull()
             }?.takeIf { !it.isBefore(current.trip.departureDate) && it.isBefore(current.trip.returnDate) }
             current.copy(
-                trip = current.trip.copy(saudiArrivalDate = saudiArrivalDay),
+                trip = current.trip.copy(saudiArrivalDate = saudiArrivalDay ?: current.trip.saudiArrivalDate),
                 nuitee = NuiteeJourneyDraft(flights = flights), quote = null,
                 makkahHotel = null, makkahRoom = null, makkahRoomCategory = null,
                 madinahHotel = null, madinahRoom = null, madinahRoomCategory = null,
                 packageError = null, transferSelectionConfirmed = false,
             )
         }
+    }
+
+    /** Change occupancy without discarding the already verified flight route. */
+    fun setSmartRoomCount(count: Int) {
+        val current = _state.value
+        require(count in 1..current.trip.adults && current.nuitee != null)
+        if (count == current.trip.rooms) return
+        quoteRequestGeneration++
+        _state.value = current.copy(trip = current.trip.copy(rooms = count),
+            nuitee = current.nuitee.copy(rooms = emptyMap(), pending = emptyMap()),
+            quote = null, packageError = null, transferSelectionConfirmed = false)
     }
 
     fun chooseNuiteeRoom(selection: NuiteeRoomSelection) {
@@ -221,7 +392,11 @@ class JourneyStore {
             makkahHotel = hotel(makkah), makkahRoom = room(makkah), makkahRoomCategory = null,
             madinahHotel = madinah?.let(::hotel), madinahRoom = madinah?.let(::room), madinahRoomCategory = null,
             selectedTransferVehicle = snapshot.resolvedTransferVehicle, transferSelectionConfirmed = true, quote = null)
-        val result = when (snapshot.packageFlightPath) {
+        val result = if(snapshot.mixedFlightIdentity!=null) runCatching {
+            val mixed=mixedJourney(_state.value)
+            _state.update { it.copy(flightResults=listOf(mixed),selectedJourneyId=mixed.id,selectedOutboundJourneyId=mixed.id) }
+            refreshTransferQuote(engine::packageQuote)
+        } else when (snapshot.packageFlightPath) {
             PackageFlightPath.PUBLISHED_DIRECT -> preparePublishedDirectPackage(curated, engine)
             PackageFlightPath.AVIASALES_SELECTED -> prepareAviasalesSelectedPackage(engine)
             else -> Result.failure(IllegalStateException("FLIGHT_SELECTION_REQUIRED"))
@@ -259,8 +434,9 @@ class JourneyStore {
 
     fun changeNuiteeRoomCount(count: Int) {
         _state.update { current ->
-            if (current.nuitee == null || count !in 1..current.trip.adults) current else current.copy(
+            if (current.nuitee == null || count !in ((current.trip.adults + 4) / 5)..current.trip.adults) current else current.copy(
                 trip = current.trip.copy(rooms = count),
+                childAges = resolvedGuestAges(current), packageApprovalOwner = null,
                 nuitee = current.nuitee.copy(rooms = emptyMap(), pending = emptyMap()),
                 quote = null, transferSelectionConfirmed = false,
             )
@@ -340,7 +516,7 @@ class JourneyStore {
                 flightResults = emptyList(),
                 selectedJourneyId = null,
                 selectedOutboundJourneyId = null,
-                nuitee = null, quote = null,
+                nuitee = null, quote = null, mixedFlightIdentity = null, savedPackageID = null, packageApprovalOwner = null, childAges = emptyList(), acceptedReviewTotal = null,
                 packageError = null,
                 transferSelectionConfirmed = false,
             )
@@ -434,7 +610,7 @@ class JourneyStore {
             check(generation == quoteRequestGeneration && quoteInputs(_state.value) == resolvedInputs) {
                 "Package selection changed while fetching the quote."
             }
-            _state.update { it.copy(quote = quote, packageError = null) }
+            _state.update { it.copy(quote = quote, packageError = null, acceptedReviewTotal = it.acceptedReviewTotal ?: quote.totalPackagePrice) }
             quote
         }.onFailure { error ->
             if (generation == quoteRequestGeneration && quoteInputs(_state.value) == activeInputs) {
@@ -518,15 +694,7 @@ class JourneyStore {
         identityToken(if (out.isRoundTrip) out.returnFlightNumber.orEmpty() else back?.flightNumber.orEmpty()),
     ).joinToString(":")
 
-    suspend fun prepareAviasalesSelectedPackage(packageEngine: RemotePackageEngineClient): Result<PackageQuote> {
-        val snapshot = _state.value
-        if (snapshot.packageFlightPath != PackageFlightPath.AVIASALES_SELECTED || !snapshot.hasCompleteStagedFlightSelection) {
-            return Result.failure(IllegalStateException("Complete both flight directions before proceeding."))
-        }
-        val generation = ++quoteRequestGeneration
-        val initialInputs = quoteInputs(snapshot)
-        var activeInputs = initialInputs
-        return runCatching {
+    private fun aviasalesPair(snapshot: JourneyState): LiveFlightJourneyCandidate {
             val outbound = snapshot.stagedAviasalesRoundTrip ?: snapshot.stagedAviasalesOutbound
                 ?: error("Outbound flight not selected")
             val inbound = snapshot.stagedAviasalesReturn
@@ -563,12 +731,25 @@ class JourneyStore {
                 }
                 else -> error("Return flight missing")
             }
-            val journey = LiveFlightJourneyCandidate(
+            return LiveFlightJourneyCandidate(
                 id = providerID, sourceID = "aviasales-data", sourceName = "Aviasales Data",
                 totalFare = BigDecimal.valueOf(outbound.price + (if (outbound.isRoundTrip) 0.0 else inbound?.price ?: 0.0)),
                 currency = "USD", fareScope = FlightFareScope.PER_PASSENGER, observedAt = at,
                 providerItineraryID = providerID, outbound = outCandidate, inbound = reverse,
             )
+    }
+
+    suspend fun prepareAviasalesSelectedPackage(packageEngine: RemotePackageEngineClient): Result<PackageQuote> {
+        val snapshot = _state.value
+        if (snapshot.packageFlightPath != PackageFlightPath.AVIASALES_SELECTED || !snapshot.hasCompleteStagedFlightSelection) {
+            return Result.failure(IllegalStateException("Complete both flight directions before proceeding."))
+        }
+        val generation = ++quoteRequestGeneration
+        val initialInputs = quoteInputs(snapshot)
+        var activeInputs = initialInputs
+        return runCatching {
+            val journey = aviasalesPair(snapshot)
+            val providerID = journey.providerItineraryID
             check(generation == quoteRequestGeneration && quoteInputs(_state.value) == initialInputs) {
                 "Flight selection changed while preparing the package."
             }
@@ -584,7 +765,7 @@ class JourneyStore {
             check(generation == quoteRequestGeneration && quoteInputs(_state.value) == preparedInputs) {
                 "Package selection changed while fetching the quote."
             }
-            _state.update { it.copy(quote = quote, packageError = null) }
+            _state.update { it.copy(quote = quote, packageError = null, acceptedReviewTotal = it.acceptedReviewTotal ?: quote.totalPackagePrice) }
             quote
         }.onFailure { error ->
             if (generation == quoteRequestGeneration && quoteInputs(_state.value) == activeInputs) {
@@ -895,7 +1076,7 @@ class JourneyStore {
             }
             check(snapshot.copy(quote = quote).hasFinalGeneratorQuote && quote.bookingAllowed != false &&
                 (snapshot.nuitee == null || quote.bookingAllowed == true)) { "PACKAGE_QUOTE_UNAVAILABLE" }
-            _state.update { it.copy(quote = quote, packageError = null) }
+            _state.update { it.copy(quote = quote, packageError = null, acceptedReviewTotal = it.acceptedReviewTotal ?: quote.totalPackagePrice) }
             return quote
         } catch (cancel: CancellationException) {
             throw cancel
@@ -907,7 +1088,7 @@ class JourneyStore {
         }
     }
 
-    fun setQuote(quote: PackageQuote) { _state.update { it.copy(quote = quote, packageError = null) } }
+    fun setQuote(quote: PackageQuote) { _state.update { it.copy(quote = quote, packageError = null, acceptedReviewTotal = it.acceptedReviewTotal ?: quote.totalPackagePrice) } }
 
     /** Applies a server-owned storefront package without recalculating its public price locally. */
     fun applyStorefrontPackage(
@@ -924,7 +1105,7 @@ class JourneyStore {
             flightResults = listOf(flight),
             selectedJourneyId = flight.id,
             selectedOutboundJourneyId = flight.id,
-            quote = quote,
+            quote = quote, acceptedReviewTotal = quote.totalPackagePrice,
             isSearchingFlights = false,
             flightError = null,
             packageError = null,

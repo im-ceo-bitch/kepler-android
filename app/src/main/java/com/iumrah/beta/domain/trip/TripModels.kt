@@ -47,6 +47,7 @@ enum class JourneyScope(val wireValue: String) { MAKKAH_ONLY("makkahOnly"), MAKK
 enum class SaudiArrivalAirport(val iata: String) { JEDDAH("JED"), MADINAH("MED") }
 enum class FlightTripType(val wireValue: String) { ROUND_TRIP("roundTrip"), ONE_WAY("oneWay") }
 
+@Serializable
 data class PackageMealSelection(
     val makkahLunch: Boolean = false,
     val makkahDinner: Boolean = false,
@@ -61,13 +62,14 @@ enum class FlightFareScope(val wireValue: String) {
     }
 }
 
+@Serializable
 data class TripDraft(
     val origin: String = "TAS",
     val originAirport: Airport? = null,
     val arrivalAirport: SaudiArrivalAirport = SaudiArrivalAirport.JEDDAH,
-    val departureDate: LocalDate = LocalDate.now().plusDays(21),
-    val saudiArrivalDate: LocalDate? = null,
-    val returnDate: LocalDate = LocalDate.now().plusDays(28),
+    @Serializable(with = com.iumrah.beta.core.serialization.LocalDateIsoSerializer::class) val departureDate: LocalDate = LocalDate.now().plusDays(21),
+    @Serializable(with = com.iumrah.beta.core.serialization.LocalDateIsoSerializer::class) val saudiArrivalDate: LocalDate? = null,
+    @Serializable(with = com.iumrah.beta.core.serialization.LocalDateIsoSerializer::class) val returnDate: LocalDate = LocalDate.now().plusDays(28),
     val flexibility: DateFlexibility = DateFlexibility.EXACT,
     val adults: Int = 2,
     val children: Int = 0,
@@ -82,6 +84,7 @@ data class TripDraft(
     val hotelFirstStayPolicy: Boolean? = null,
     val flightFilters: FlightSearchFilters? = null,
     val flightTripType: FlightTripType? = null,
+    val selectedReturnAirport: SaudiArrivalAirport? = null,
 ) {
     val travelerCount: Int get() = adults + children + infants
     val hotelStayStartDate: LocalDate get() = saudiArrivalDate ?: departureDate
@@ -95,6 +98,7 @@ data class TripDraft(
     val outboundDestinationCode: String get() = if (isWeekendUmrah || scope != JourneyScope.MAKKAH_AND_MADINAH) "JED" else arrivalAirport.iata
     val returnOriginCode: String get() = when {
         isWeekendUmrah || scope != JourneyScope.MAKKAH_AND_MADINAH -> "JED"
+        selectedReturnAirport != null -> selectedReturnAirport.iata
         arrivalAirport == SaudiArrivalAirport.MADINAH -> "JED"
         else -> "MED"
     }

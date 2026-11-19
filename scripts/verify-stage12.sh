@@ -41,6 +41,6 @@ test -f "$LOCALIZE"
 grep -q 'localizeServerItinerary' "$LOCALIZE"
 grep -q 'Паспортный контроль и багаж' "$LOCALIZE"
 grep -q 'Arrival in Saudi Arabia' "$LOCALIZE"
-grep -q 'localizeServerItinerary(it, language)' app/src/main/java/com/iumrah/beta/ui/booking/BookingsHomeScreen.kt
-grep -q 'localizeServerItinerary(it, language)' app/src/main/java/com/iumrah/beta/ui/booking/BookingDetailScreen.kt
+grep -q 'localizeServerItinerary(schedule?.items.orEmpty(),language)' app/src/main/java/com/iumrah/beta/ui/booking/BookingsHomeScreen.kt
+grep -q 'localizeServerItinerary(schedule.items, language)' app/src/main/java/com/iumrah/beta/ui/booking/BookingDetailScreen.kt
 echo 'Stage 012 Friends / schedule / video parity checks passed.'

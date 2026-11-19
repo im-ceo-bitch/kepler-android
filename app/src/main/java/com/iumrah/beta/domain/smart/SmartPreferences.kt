@@ -19,7 +19,8 @@ data class SmartPreferences(
     val infants get() = childAges.count { it in 0..1 }
     val arrival get() = if (!both || firstCity == "JED") "JED" else "MED"
     val returning get() = if (both && firstCity == "JED") "MED" else "JED"
-    val roomCount get() = minOf(adults, maxOf(1, (adults + childAges.size + 1) / 2))
+    val roomCount get() = maxOf(1, (adults + 4) / 5)
+    val fallbackRoomCount get() = minOf(adults, maxOf(roomCount, (adults + childAges.size + 1) / 2))
     fun valid(today: LocalDate = LocalDate.now()): Boolean = origin.matches(Regex("[A-Z]{3}")) &&
         origin !in setOf("JED", "MED") && (airport == null || airport.iata == origin) &&
         runCatching { YearMonth.parse(month) in YearMonth.from(today)..YearMonth.from(today).plusMonths(11) }.getOrDefault(false) &&
@@ -31,10 +32,10 @@ data class SmartPreferences(
         departureDate = out, returnDate = back, adults = adults, children = children, infants = infants,
         rooms = roomCount, scope = if (both) JourneyScope.MAKKAH_AND_MADINAH else JourneyScope.MAKKAH_ONLY,
         hotelStars = category.primaryHotelStars, packageTier = category)
-    fun occupancy(index: Int): Pair<Int, List<Int>> {
-        require(index in 0 until roomCount)
-        return (adults / roomCount + if (index < adults % roomCount) 1 else 0) to
-            childAges.filterIndexed { i, _ -> i % roomCount == index }
+    fun occupancy(index: Int, count: Int = roomCount): Pair<Int, List<Int>> {
+        require(count in 1..adults && index in 0 until count)
+        return (adults / count + if (index < adults % count) 1 else 0) to
+            childAges.filterIndexed { i, _ -> i % count == index }
     }
     fun matchesDays(departure: LocalDate, arrivalDay: LocalDate, returnDay: LocalDate): Boolean =
         YearMonth.from(departure).toString() == month &&

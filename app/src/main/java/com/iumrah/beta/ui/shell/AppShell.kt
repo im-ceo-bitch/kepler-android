@@ -192,14 +192,7 @@ fun AppShell(
                     chrome = chrome,
                 )
 
-                AppRoute.HotelSelection -> HotelSelectionScreen(
-                    language = language,
-                    journey = journey,
-                    catalog = hotelCatalog,
-                    packageEngine = packageEngine,
-                    curatedFlights = curatedFlights,
-                    chrome = chrome,
-                )
+                AppRoute.HotelSelection -> com.iumrah.beta.ui.trip.UnifiedHotelEntry(language,journey,curatedFlights,chrome)
 
                 is AppRoute.HotelDetail -> HotelDetailScreen(
                     hotelId = route.hotelId,
@@ -287,7 +280,13 @@ fun AppShell(
                 is AppRoute.FlightDetails -> FlightDetailsScreen(route.journeyId, route.direction, language, journey, chrome)
                 AppRoute.TransferSelection -> TransferSelectionScreen(language, journey, packageGenerator, chrome)
 
-                AppRoute.FinalPackage -> FinalPackageScreen(language, journey, hotelCatalog, packageEngine, chrome, unreadCount = shellNotificationState.unreadCount)
+                AppRoute.ManualPackage -> com.iumrah.beta.ui.packageflow.ManualPackageScreen(language,journey,chrome,curatedFlights,flightDiscovery,packageEngine)
+                AppRoute.FinalPackage -> {
+                    val reviewState by journey.state.collectAsState()
+                    if (reviewState.nuitee != null) NuiteeJourneyReviewScreen(language, journey, accountStore, chrome, curatedFlights, packageEngine, unreadCount = shellNotificationState.unreadCount)
+                    else FinalPackageScreen(language, journey, hotelCatalog, packageEngine, chrome, unreadCount = shellNotificationState.unreadCount)
+                }
+                AppRoute.SavedJourneys -> com.iumrah.beta.ui.packageflow.SavedJourneysScreen(language, journey, bookingStore, chrome)
                 is AppRoute.BusinessOffer -> BusinessOfferScreen(route.token, language, bookingStore, chrome)
                 AppRoute.BookingCheckout -> BookingCheckoutScreen(language, journey, bookingStore, accountStore, chrome, curatedFlights, packageEngine)
                 is AppRoute.BookingCelebration -> IumrahBookingCelebrationScreen(route.bookingID, language, bookingStore, chrome)
@@ -312,6 +311,7 @@ fun AppShell(
                 AppRoute.Ziyarats -> ZiyaratJourneyScreen(language, chrome)
                 AppRoute.ESIM -> ESIMScreen(language, bookingStore, chrome)
                 AppRoute.LiveFlights -> IumrahFlightsScreen(language, bookingStore, chrome)
+                is AppRoute.TripLiveFlights -> IumrahFlightsScreen(language, bookingStore, chrome, route.bookingID)
                 AppRoute.UmrahPlan -> UmrahPlanScreen(language, chrome)
                 AppRoute.UmrahAdvisor -> UmrahAdvisorScreen(language, chrome)
                 AppRoute.UmrahFlow -> UmrahFlowScreen(language, chrome)

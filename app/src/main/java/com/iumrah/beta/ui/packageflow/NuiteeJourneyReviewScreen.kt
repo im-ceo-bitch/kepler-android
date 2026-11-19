@@ -58,13 +58,18 @@ fun NuiteeJourneyReviewScreen(language: AppLanguage, journey: JourneyStore, acco
     var help by remember { mutableStateOf(false) }
     var transferSheet by remember { mutableStateOf(!state.transferSelectionConfirmed && draft != null) }
     var editing by remember { mutableStateOf<NuiteeRoomSelection?>(null) }
+    var editKind by remember { mutableStateOf<String?>(null) }
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val container = (context.applicationContext as com.iumrah.beta.IumrahApplication).container
+    val editorService = remember(curated,hotelService,packageEngine) { com.iumrah.beta.data.smart.SmartConfiguratorService(curated,hotelService,packageEngine) }
     val roomsComplete = draft?.let { NuiteeBookingRules.complete(state.trip, it) && it.flights.size == 2 } == true
     val valid = roomsComplete && state.resolvedTransferVehicle.passengerCapacity >= state.trip.travelerCount
     val quote = state.quote?.takeIf { state.hasFinalGeneratorQuote && it.bookingAllowed == true }
 
     fun submit(confirm: Boolean = false) {
+        if (confirm && !state.priceChangeAccepted) return
         if (!valid || sending || !journey.state.value.transferSelectionConfirmed || journey.state.value != state) return
-        val accepted = if (confirm) quote else null
+        val accepted = if (confirm) quote?.takeIf { it.hasVerifiedBreakdown && it.allowsOccupancy(state.trip.adults,state.trip.rooms) } else null
         sending = true; error = null
         scope.launch {
             try {
@@ -72,7 +77,7 @@ fun NuiteeJourneyReviewScreen(language: AppLanguage, journey: JourneyStore, acco
                 result.exceptionOrNull()?.let { if (it is CancellationException) throw it else error = it.localizedMessage ?: "PACKAGE_QUOTE_FAILED" }
                 val fresh = result.getOrNull()
                 if (accepted != null && fresh != null) {
-                    if (accepted.totalPackagePrice.compareTo(fresh.totalPackagePrice) == 0 && accepted.pricePerPerson.compareTo(fresh.pricePerPerson) == 0 && accepted.currency == fresh.currency && journey.state.value.quote == fresh && journey.state.value.nuitee == draft) chrome.openBookingCheckout()
+                    if (fresh.hasVerifiedBreakdown && fresh.allowsOccupancy(state.trip.adults,state.trip.rooms) && accepted.totalPackagePrice.compareTo(fresh.totalPackagePrice) == 0 && accepted.pricePerPerson.compareTo(fresh.pricePerPerson) == 0 && accepted.currency == fresh.currency && journey.state.value.quote == fresh && journey.state.value.nuitee == draft) chrome.openBookingCheckout()
                     else error = reviewText(language,"Стоимость изменилась. Проверьте новую цену.", "Price changed. Review the new total.", "Narx o‘zgardi. Yangi narxni tekshiring.", "Нарх ўзгарди. Янги нархни текширинг.")
                 }
             } finally { sending = false }
@@ -80,13 +85,14 @@ fun NuiteeJourneyReviewScreen(language: AppLanguage, journey: JourneyStore, acco
     }
     // Match the iOS automatic quote refresh when the selected components change.
     LaunchedEffect(draft,state.resolvedTransferVehicle,state.haramainTrainSelected,state.haramainTicketCount,state.transferSelectionConfirmed) {
-        if (quote == null && valid && state.transferSelectionConfirmed && !sending) submit()
+        if (quote?.hasVerifiedBreakdown != true && valid && state.transferSelectionConfirmed && !sending) submit()
     }
     val reason = when {
         sending -> reviewText(language,"Обновляем стоимость…","Updating price…","Narx yangilanmoqda…","Нарх янгиланмоқда…")
         !roomsComplete -> reviewText(language,"Выберите номер","Choose room","Xona tanlash","Хона танлаш")
         !state.transferSelectionConfirmed || !valid -> reviewText(language,"Подтвердите выбранный трансфер.","Confirm your transfer.","Transferni tasdiqlang.","Трансферни тасдиқланг.")
-        quote == null -> reviewText(language,"Для продолжения обновите расчёт поездки.","Refresh the trip price to continue.","Davom etish uchun safar narxini yangilang.","Давом этиш учун сафар нархини янгиланг.")
+        quote != null && !quote.allowsOccupancy(state.trip.adults,state.trip.rooms) -> reviewText(language,"Требуется согласование размещения.","Room occupancy approval required.","Joylashuvni kelishish kerak.","Жойлашувни келишиш керак.")
+        quote?.hasVerifiedBreakdown != true -> reviewText(language,"Для продолжения обновите расчёт поездки.","Refresh the trip price to continue.","Davom etish uchun safar narxini yangilang.","Давом этиш учун сафар нархини янгиланг.")
         else -> null
     }
     Column(Modifier.fillMaxSize().background(generatorPageColor())) {
@@ -97,6 +103,7 @@ fun NuiteeJourneyReviewScreen(language: AppLanguage, journey: JourneyStore, acco
                 item { Box(Modifier.padding(horizontal=18.dp)) { ReviewHelp(language,quote!=null,help) { help=!help } } }
                 if(quote==null) item { Box(Modifier.padding(horizontal=18.dp)) { ReviewPricingStatus(language,sending) } }
                 item { Box(Modifier.padding(horizontal=18.dp)) { ReviewSection(reviewText(language,"Авиабилеты","Flights","Aviachiptalar","Авиачипталар")) } }
+                item { TextButton(enabled=!sending,onClick={editKind="flights"},modifier=Modifier.padding(horizontal=18.dp)) { Text(reviewText(language,"Изменить рейсы","Change flights","Reyslarni o‘zgartirish","Рейсларни ўзгартириш")) } }
                 items(draft?.flights.orEmpty(),key={it.id}) { flight ->
                     Box(Modifier.padding(horizontal=18.dp)) {
                         val outbound=draft?.flights?.firstOrNull()?.id==flight.id
@@ -105,6 +112,11 @@ fun NuiteeJourneyReviewScreen(language: AppLanguage, journey: JourneyStore, acco
                     }
                 }
                 item { Box(Modifier.padding(horizontal=18.dp)) { ReviewSection(reviewText(language,"Отели и номера","Hotels and rooms","Mehmonxonalar va xonalar","Меҳмонхоналар ва хоналар")) } }
+                item { Row(Modifier.padding(horizontal=18.dp)) {
+                    TextButton(enabled=!sending,onClick={editKind="allHotels"}) { Text(reviewText(language,"Все отели","All hotels","Barcha mehmonxonalar","Барча меҳмонхоналар")) }
+                    if(draft?.rooms?.containsKey("makkah:0")==true) TextButton(enabled=!sending,onClick={editKind="makkah"}) { Text(reviewText(language,"Отель Мекки","Makkah hotel","Makka mehmonxonasi","Макка меҳмонхонаси")) }
+                    if(draft?.rooms?.containsKey("madinah:0")==true) TextButton(enabled=!sending,onClick={editKind="madinah"}) { Text(reviewText(language,"Отель Медины","Madinah hotel","Madina mehmonxonasi","Мадина меҳмонхонаси")) }
+                } }
                 items(draft?.rooms?.values?.sortedWith(compareBy<NuiteeRoomSelection>{it.checkin}.thenBy{it.key}).orEmpty(),key={it.key}) { room ->
                     Box(Modifier.padding(horizontal=18.dp)) { LocalReviewHotel(language,room,!sending,{ editing=room },{ meals -> journey.updateNuiteeRoomMeals(room,meals) }) }
                 }
@@ -115,28 +127,63 @@ fun NuiteeJourneyReviewScreen(language: AppLanguage, journey: JourneyStore, acco
                     }
                 }
                 item { Box(Modifier.padding(horizontal=18.dp)) { ReviewServices(language,state) { transferSheet=true } } }
+                quote?.let { item { Box(Modifier.padding(horizontal=18.dp)) { ReviewVerifiedPrice(language,it) } } }
+                item { Box(Modifier.padding(horizontal=18.dp)) { ReviewPriceAndGuests(language,journey,chrome,!sending) } }
+                item { Box(Modifier.padding(horizontal=18.dp)) { SavedPackageActions(language,journey,chrome,enabled=!sending && valid && state.transferSelectionConfirmed) } }
+                quote?.itineraryPreview?.takeIf { it.isNotEmpty() }?.let { events -> item { Box(Modifier.padding(horizontal=18.dp)) { ReviewItinerary(language,events) } } }
                 error?.let { message -> item { Text(message,Modifier.padding(horizontal=18.dp),color=MaterialTheme.colorScheme.error,fontSize=13.sp) } }
             }
         }
         ReviewBookingBar(language,quote,true,sending,reason,
             when { !roomsComplete -> reviewText(language,"Выбрать номер","Choose room","Xona tanlash","Хона танлаш")
                 !state.transferSelectionConfirmed || !valid -> reviewText(language,"Подтвердить трансфер","Confirm transfer","Transferni tasdiqlash","Трансферни тасдиқлаш")
-                quote!=null -> reviewText(language,"Забронировать пакет","Book package","Paketni bron qilish","Пакетни брон қилиш")
-                else -> reviewText(language,"Повторить расчёт","Retry pricing","Qayta hisoblash","Қайта ҳисоблаш") },!sending) {
-            when { !roomsComplete -> chrome.openNuiteeJourneyHotels()
+                quote?.hasVerifiedBreakdown == true && quote.allowsOccupancy(state.trip.adults,state.trip.rooms) -> reviewText(language,"Забронировать пакет","Book package","Paketni bron qilish","Пакетни брон қилиш")
+                else -> reviewText(language,"Повторить расчёт","Retry pricing","Qayta hisoblash","Қайта ҳисоблаш") },!sending && (quote == null || (state.priceChangeAccepted && quote.allowsOccupancy(state.trip.adults,state.trip.rooms)))) {
+            when { !roomsComplete -> editKind="allHotels"
                 !state.transferSelectionConfirmed || !valid -> transferSheet=true
                 else -> submit(confirm=quote!=null) }
         }
     }
+    editKind?.let { kind ->
+        val original = remember(kind,journey) { journey.state.value }
+        val editor = remember(kind,journey) { journey.beginReviewEdit() }
+        if(kind=="allHotels") {
+            androidx.compose.ui.window.Dialog(onDismissRequest={editKind=null},properties=androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth=false)) {
+                com.iumrah.beta.ui.trip.NuiteeJourneyHotelsScreen(language,editor,chrome,hotelService,reviewEditing=true,onBack={editKind=null},onComplete={
+                    if(original.transferSelectionConfirmed) editor.confirmTransferSelection()
+                    if(!journey.commitReviewEdit(original,editor)) error="PACKAGE_SELECTION_CHANGED"
+                    editKind=null
+                })
+            }
+        } else com.iumrah.beta.ui.smart.SmartPackageEditDialog(language,editorService,container.airportSearchService,journey,kind,
+            onDismiss={editKind=null},onApply={candidate ->
+                val committed = if(kind=="flights") journey.commitReviewFlightEdit(original,candidate) else {
+                    if(original.transferSelectionConfirmed) candidate.confirmTransferSelection()
+                    journey.commitReviewEdit(original,candidate)
+                }
+                if(!committed) error=reviewText(language,"Пакет изменился. Откройте редактор снова.","Package changed. Reopen the editor.","Paket o‘zgardi. Tahrirni qayta oching.","Пакет ўзгарди. Таҳрирни қайта очинг.")
+                editKind=if(committed && kind=="flights" && journey.state.value.nuitee?.let { NuiteeBookingRules.complete(journey.state.value.trip,it) } != true) "allHotels" else null
+            },reviewEditor=editor)
+    }
     editing?.let { room ->
+        val original = remember(room) { journey.state.value }
+        val editor = remember(room) { journey.beginReviewEdit() }
         NuiteeHotelDetailSheet(language,hotelService,room.hotel,room.checkin,room.checkout,room.adults,room.childrenAges,
             onDismiss={editing=null},onRate={rate,meals ->
-                journey.replaceNuiteeRoom(room,room.copy(rate=rate,meals=meals))
+                editor.replaceNuiteeRoom(room,room.copy(rate=rate,meals=meals))
+                if (!journey.commitReviewEdit(original,editor)) error = reviewText(language,"Пакет изменился. Откройте редактор снова.","Package changed. Reopen the editor.","Paket o‘zgardi. Tahrirni qayta oching.","Пакет ўзгарди. Таҳрирни қайта очинг.")
                 editing=null
             },allowMealSelection=true,initialMeals=room.meals)
     }
-    if(transferSheet) ReviewTransferSheet(language,state,journey,!sending,{ transferSheet=false }) {
-        journey.confirmTransferSelection(); transferSheet=false
+    if (transferSheet) {
+        val original = remember(journey) { journey.state.value }
+        val editor = remember(journey) { journey.beginReviewEdit() }
+        val edited by editor.state.collectAsState()
+        ReviewTransferSheet(language,edited,editor,!sending,{ transferSheet=false }) {
+            editor.confirmTransferSelection()
+            if (!journey.commitReviewEdit(original,editor)) error = reviewText(language,"Пакет изменился. Откройте редактор снова.","Package changed. Reopen the editor.","Paket o‘zgardi. Tahrirni qayta oching.","Пакет ўзгарди. Таҳрирни қайта очинг.")
+            transferSheet=false
+        }
     }
 }
 

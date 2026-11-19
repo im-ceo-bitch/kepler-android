@@ -75,7 +75,7 @@ internal fun headerCopy(language: AppLanguage, ru: String, en: String, uz: Strin
     AppLanguage.ARABIC, AppLanguage.TURKISH, AppLanguage.INDONESIAN, AppLanguage.MALAY -> com.iumrah.beta.core.localization.L10n.phrase(en, language)
 }
 
-/** Only existing destinations are used; manual package builder remains a separate parity gap. */
+/** The My package destination owns an independent manual component basket. */
 @Composable
 internal fun IumrahDiscoveryPills(language: AppLanguage, selection: Int, onSelect: (Int) -> Unit) {
     IumrahHeaderPills(listOf(

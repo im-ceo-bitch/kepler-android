@@ -429,9 +429,14 @@ fun FlightFirstPackageDetailScreen(
                         scopeOverride = routeScope,
                         firstSaudiCityOverride = firstSaudiCity,
                     )
-                    val flight = buildJourneyCandidate(loaded, out, inbound, outboundId ?: packageId, inboundId ?: packageId)
-                    journey.applyStorefrontPackage(trip, mHotel, madinahHotel, flight, valueQuote)
-                    chrome.openBookingCheckout()
+                    // Storefront estimates are not signed Trip Summary offers. Carry the published
+                    // identities into the same supplier room picker and server quote as all builders.
+                    val o = outboundId ?: packageId; val i = inboundId ?: packageId
+                    journey.clearStagedAviasalesFlights()
+                    journey.commitTripBuilder(trip.copy(selectedReturnAirport=if(inbound.origin.equals("MED",true)) SaudiArrivalAirport.MADINAH else SaudiArrivalAirport.JEDDAH),
+                        com.iumrah.beta.domain.trip.PackageFlightPath.PUBLISHED_DIRECT,
+                        completeID=o.takeIf { o==i }, outboundID=o.takeIf { o!=i }, returnID=i.takeIf { o!=i })
+                    chrome.openHotelSelection()
                 },
             )
         }

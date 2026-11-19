@@ -18,8 +18,10 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        handleDeepLink(intent?.data)
-        appContainer.pushManager.receiveOpenedIntent(intent)
+        if (savedInstanceState == null) {
+            handleDeepLink(intent?.data)
+            appContainer.pushManager.receiveOpenedIntent(intent)
+        }
         setContent { IumrahApp() }
     }
 
@@ -43,7 +45,7 @@ class MainActivity : ComponentActivity() {
             when {
                 widgetParts.size == 2 && widgetParts[0] == "booking" &&
                     widgetParts[1].length in 1..100 && !widgetParts[1].contains('/') ->
-                    chrome.openBookingDetail(widgetParts[1])
+                    appContainer.pushManager.receiveRemotePayload(mapOf("type" to "widget_booking", "bookingID" to widgetParts[1]), opened = true)
                 widgetParts.size == 1 && widgetParts[0] == "bookings" ->
                     chrome.navigate(com.iumrah.beta.core.navigation.AppTab.BOOKING)
                 widgetParts.size == 1 && widgetParts[0] == "planned" -> chrome.openUmrahPlan()

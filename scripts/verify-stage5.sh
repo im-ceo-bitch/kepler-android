@@ -23,7 +23,8 @@ grep -q '/api/package/flights/search' app/src/main/java/com/iumrah/beta/data/fli
 grep -q 'fareScope = FlightFareScope.TOTAL_PARTY' app/src/main/java/com/iumrah/beta/data/flight/IgnavFlightInventoryProvider.kt
 grep -q 'itinerary.fareScope != "total_party"' app/src/main/java/com/iumrah/beta/data/flight/IgnavFlightInventoryProvider.kt
 grep -q 'AppRoute.TripBuilder -> TripBuilderScreen' app/src/main/java/com/iumrah/beta/ui/shell/AppShell.kt
-grep -q 'AppRoute.HotelSelection -> HotelSelectionScreen' app/src/main/java/com/iumrah/beta/ui/shell/AppShell.kt
+grep -Eq 'AppRoute.HotelSelection -> (com\.iumrah\.beta\.ui\.trip\.)?UnifiedHotelEntry\(' app/src/main/java/com/iumrah/beta/ui/shell/AppShell.kt || { echo 'STOP: HotelSelection must use the unified hotel entry'; exit 1; }
+grep -q 'fun UnifiedHotelEntry' app/src/main/java/com/iumrah/beta/ui/trip/UnifiedHotelEntry.kt
 grep -q 'AppRoute.Flights -> FlightSearchScreen' app/src/main/java/com/iumrah/beta/ui/shell/AppShell.kt
 if grep -q 'AppRoute.TripBuilder -> StagePlaceholderScreen' app/src/main/java/com/iumrah/beta/ui/shell/AppShell.kt; then
   echo 'STOP: TripBuilder is still a placeholder.'; exit 1

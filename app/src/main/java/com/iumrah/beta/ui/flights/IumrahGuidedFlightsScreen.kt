@@ -195,16 +195,24 @@ fun IumrahGuidedFlightsScreen(
     fun commit(returnChoice: GuidedFlightChoice? = inbound) {
         if (!GuidedFlightRules.compatible(outbound, returnChoice)) {
             selectionError = guidedTr(language,
-                "Выберите совместимые рейсы одного источника.", "Choose compatible flights from one source.",
-                "Bitta manbadan mos reyslarni tanlang.", "Битта манбадан мос рейсларни танланг.")
+                "Выберите совместимые рейсы.", "Choose compatible flights.",
+                "Mos reyslarni tanlang.", "Мос рейсларни танланг.")
             return
         }
         val first = requireNotNull(outbound)
         val back = requireNotNull(returnChoice)
         val outDay = requireNotNull(GuidedFlightRules.departureDay(first.departureAt))
         val backDay = requireNotNull(GuidedFlightRules.departureDay(back.departureAt))
+        val arrivalInstant = runCatching { java.time.Instant.parse(first.arrivalAt.orEmpty()) }.getOrNull()
+            ?: runCatching { java.time.OffsetDateTime.parse(first.arrivalAt.orEmpty()).toInstant() }.getOrNull()
+            ?: runCatching { java.time.OffsetDateTime.parse(first.departureAt).toInstant().plusSeconds(first.durationMinutes.toLong()*60) }.getOrNull()
+        val arrivalDay=arrivalInstant?.atZone(java.time.ZoneId.of("Asia/Riyadh"))?.toLocalDate()
+        if(arrivalDay==null || java.time.temporal.ChronoUnit.DAYS.between(arrivalDay,backDay)<(if(trip.scope==com.iumrah.beta.domain.trip.JourneyScope.MAKKAH_AND_MADINAH) 2 else 1)) {
+            selectionError="INVALID_STAY";return
+        }
         val nextTrip = trip.copy(
-            departureDate = outDay, returnDate = backDay,
+            departureDate = outDay, saudiArrivalDate=arrivalDay, returnDate = backDay,
+            selectedReturnAirport=if(back.origin=="MED") SaudiArrivalAirport.MADINAH else SaudiArrivalAirport.JEDDAH,
             arrivalAirport = if (first.destination == "MED") SaudiArrivalAirport.MADINAH else SaudiArrivalAirport.JEDDAH,
             flightTripType = FlightTripType.ROUND_TRIP,
         )
@@ -220,6 +228,7 @@ fun IumrahGuidedFlightsScreen(
                 }
             }
             first is GuidedFlightChoice.Data && back is GuidedFlightChoice.Data -> {
+                journey.commitTripBuilder(nextTrip,PackageFlightPath.AVIASALES_SELECTED)
                 journey.clearStagedAviasalesFlights()
                 journey.stageAviasalesFlight(first.offer)
                 journey.stageAviasalesFlight(back.offer, returnLeg = true)
@@ -230,7 +239,15 @@ fun IumrahGuidedFlightsScreen(
                     return
                 }
             }
-            else -> return
+            else -> {
+                fun identity(choice:GuidedFlightChoice)=when(choice){
+                    is GuidedFlightChoice.Published -> "curated:${choice.recommendation.id}"
+                    is GuidedFlightChoice.Data -> listOf("aviasales","ow",choice.origin,choice.destination,choice.departureAt.take(10),"-",choice.airlineCode.uppercase(),choice.flightNumber.uppercase().filter{it.isLetterOrDigit()},"-","-").joinToString(":")
+                }
+                journey.clearStagedAviasalesFlights()
+                journey.commitTripBuilder(nextTrip,PackageFlightPath.AVIASALES_SELECTED)
+                journey.setMixedFlightIdentity("mixed:${identity(first)}~${identity(back)}")
+            }
         }
         journey.startNuiteeJourney(listOf(first, back).map { chosen -> NuiteeFlightSnapshot(
             id = chosen.id, origin = chosen.origin, destination = chosen.destination,
@@ -246,7 +263,7 @@ fun IumrahGuidedFlightsScreen(
     fun confirmChoice(choice: GuidedFlightChoice) {
         if (stepReturn) {
             if (!GuidedFlightRules.compatible(outbound, choice)) {
-                selectionError = guidedTr(language, "Выберите совместимые рейсы одного источника.", "Choose compatible flights from one source.", "Bitta manbadan mos reyslarni tanlang.", "Битта манбадан мос рейсларни танланг.")
+                selectionError = guidedTr(language, "Выберите совместимые рейсы.", "Choose compatible flights.", "Mos reyslarni tanlang.", "Мос рейсларни танланг.")
                 return
             }
             inbound = choice

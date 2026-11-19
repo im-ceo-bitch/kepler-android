@@ -170,7 +170,7 @@ data class BookingCustomization(
 
 @Serializable data class BookingHotelNames(val makkah: String, val madinah: String)
 
-@Serializable data class BookingCreateResponse(val booking: RemoteBooking, val accessToken: String? = null)
+@Serializable data class BookingCreateResponse(val booking: RemoteBooking, val accessToken: String? = null, val trip: ClientTripSnapshot? = null)
 
 @Serializable
 data class BookingInputRecord(
@@ -369,7 +369,11 @@ data class StoredBookingSession(
     val accountOwnerID: String? = null,
     val verifiedBookingEmail: String? = null,
     val verifiedBookingPhone: String? = null,
+    val operationPaymentStatus: String? = null,
+    val operationCompletedAt: String? = null,
 ) {
+    val canDeleteUnpaid: Boolean get() = effectiveStatus == "AVAILABILITY_CHECK" && paymentReceivedAt.isNullOrBlank() && operationPaymentStatus.orEmpty().lowercase() in setOf("", "unpaid", "pending", "payment_pending")
+
     /** UI-only iOS parity: never alter the raw server pilgrimID. */
     val displayPilgrimID: String? get() {
         return com.iumrah.beta.domain.booking.BookingSessionPolicy.pilgrimDisplay(pilgrimID)
@@ -399,6 +403,8 @@ data class StoredBookingSession(
         assignment: ClientBookingAssignment? = null,
     ): StoredBookingSession = copy(
         operationStatus = trip.status,
+        operationPaymentStatus = trip.paymentStatus ?: operationPaymentStatus,
+        operationCompletedAt = trip.completedAt ?: operationCompletedAt,
         pilgrimID = trip.pilgrimID ?: pilgrimID,
         bookingNumber = trip.bookingNumber ?: bookingNumber,
         bookingDisplayNumber = trip.bookingDisplayNumber ?: bookingDisplayNumber,
@@ -498,5 +504,8 @@ data class BookingItineraryItem(
     val timeLocal: String? = null,
     val endTimeLocal: String? = null,
     val kind: String? = null,
+    val executionState: String? = null,
 )
-@Serializable data class BookingItineraryResponse(val ok: Boolean, val bookingID: String, val items: List<BookingItineraryItem>)
+@Serializable data class BookingItineraryResponse(val ok: Boolean, val bookingID: String, val items: List<BookingItineraryItem>, val timezone: String? = null, val managed: Boolean? = null, val stayPlan: com.iumrah.beta.domain.pricing.PackageStayPlan? = null)
+@Serializable data class BookingRefundItem(val code: String, val label: String, val amountCents: Int, val refundCents: Int? = null, val reason: String)
+@Serializable data class BookingRefundPreview(val available: Boolean, val items: List<BookingRefundItem>, val estimateCents: Int? = null, val supportCents: Int? = null, val paidCents: Int? = null, val refundedCents: Int? = null)

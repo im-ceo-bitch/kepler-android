@@ -11,6 +11,7 @@ TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 kotlinc \
   scripts/qa/Stage10SerializationStubs.kt \
+  scripts/qa/sync02/Serializers.kt \
   scripts/qa/Stage10FlightOfferStub.kt \
   scripts/qa/Stage10JvmRegression.kt \
   "$SRC/models/flight/AirportModels.kt" \

@@ -11,8 +11,11 @@ import com.iumrah.beta.models.nuitee.NuiteeRoomRate
 import java.math.BigDecimal
 import java.math.RoundingMode
 import java.time.LocalDate
+import kotlinx.serialization.Serializable
+import com.iumrah.beta.core.serialization.LocalDateIsoSerializer
 
 /** Explicitly tentative client-side estimate, never a signed server booking quote. */
+@Serializable
 data class NuiteeFlightSnapshot(
     val id: String, val origin: String, val destination: String,
     val airline: String, val flightNumber: String, val airlineCode: String,
@@ -20,20 +23,23 @@ data class NuiteeFlightSnapshot(
     val arrivalAt: String?, val adultFareUSD: Double?,
 )
 
+@Serializable
 data class NuiteeRoomSelection(
     val key: String, val city: String, val roomIndex: Int,
     val hotel: NuiteeHotel, val rate: NuiteeRoomRate,
-    val checkin: LocalDate, val checkout: LocalDate,
+    @Serializable(with = LocalDateIsoSerializer::class) val checkin: LocalDate, @Serializable(with = LocalDateIsoSerializer::class) val checkout: LocalDate,
     val adults: Int, val childrenAges: List<Int>,
     val meals: com.iumrah.beta.models.nuitee.NuiteeMealChoices = com.iumrah.beta.models.nuitee.NuiteeMealChoices(),
 )
 
+@Serializable
 data class NuiteePendingHotel(
     val key: String, val city: String, val roomIndex: Int,
-    val hotel: NuiteeHotel, val checkin: LocalDate, val checkout: LocalDate,
+    val hotel: NuiteeHotel, @Serializable(with = LocalDateIsoSerializer::class) val checkin: LocalDate, @Serializable(with = LocalDateIsoSerializer::class) val checkout: LocalDate,
     val adults: Int, val childrenAges: List<Int>,
 )
 
+@Serializable
 data class NuiteeJourneyDraft(
     val flights: List<NuiteeFlightSnapshot> = emptyList(),
     val rooms: Map<String, NuiteeRoomSelection> = emptyMap(),
@@ -107,8 +113,8 @@ object NuiteeJourneyPricing {
 /** Current SwiftUI LocalJourneySelection contract: only exact, complete room selections. */
 object NuiteeBookingRules {
     fun tier(rooms: Collection<NuiteeRoomSelection>): PackageTier? {
-        val stars = rooms.map { it.hotel.roundedStars }
-        if (stars.isEmpty() || stars.any { it !in 1..5 }) return null
+        val stars = rooms.map { it.hotel.roundedStars.takeIf { n -> n in 1..5 } ?: 3 }
+        if (stars.isEmpty()) return null
         return when (stars.maxOrNull()) { 1, 2 -> PackageTier.ECONOMY; 3, 4 -> PackageTier.STANDARD; 5 -> PackageTier.LUXURY; else -> null }
     }
     fun supplierMeals(rate: NuiteeRoomRate): com.iumrah.beta.models.nuitee.NuiteeMealChoices {
@@ -143,7 +149,8 @@ object NuiteeBookingRules {
             val window = (if (city == "madinah") windows.madinah else windows.makkah) ?: return@all false
             val selected = (0 until trip.rooms).map { draft.rooms.getValue("$city:$it") }
             selected.map { it.hotel.id }.distinct().size == 1 &&
-                selected.sumOf { it.adults } == trip.adults && selected.sumOf { it.childrenAges.size } == trip.children + trip.infants &&
+                selected.sumOf { it.adults } == trip.adults && selected.sumOf { it.childrenAges.count { age -> age >= 2 } } == trip.children &&
+                selected.sumOf { it.childrenAges.count { age -> age in 0..1 } } == trip.infants &&
                 selected.all { room -> room.city == city && room.key == "$city:${room.roomIndex}" && room.roomIndex in 0 until trip.rooms &&
                     room.adults == trip.adults / trip.rooms + (if (room.roomIndex < trip.adults % trip.rooms) 1 else 0) &&
                     room.checkin == window.checkIn && room.checkout == window.checkOut &&

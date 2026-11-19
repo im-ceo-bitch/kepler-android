@@ -9,6 +9,8 @@ import kotlinx.serialization.Serializable
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import com.iumrah.beta.domain.nuitee.NuiteePaging
 
 /** Same Nuitee routes as SwiftUI; no separate Android pricing or invented inventory. */
@@ -28,11 +30,28 @@ class NuiteeHotelService(context: Context, private val api: APIClient = APIClien
             "/api/package/nuitee/hotels",
             query = mapOf("city" to city, "checkin" to checkin.toString(), "checkout" to checkout.toString(),
                 "adults" to adults.toString(), "catalogOnly" to if (catalogOnly) "1" else "0"),
-            timeoutSeconds = if (smartTimeout) 45 else 100,
+            timeoutSeconds = 120,
         )
         if (!response.ok) throw APIException.InvalidResponse
-        if (NuiteeDailyCachePolicy.cacheable(response.ok, catalogOnly, response.rateError)) cache.write(key, response)
-        return response
+        val normalized = if (catalogOnly) response.copy(hotels = response.hotels.map { it.copy(minimumRate = null, rateStatus = null) }) else response
+        if (!response.sandbox && !response.hotelCatalogStale && NuiteeDailyCachePolicy.cacheable(response.ok, catalogOnly, response.rateError)) cache.write(key, normalized)
+        return normalized
+    }
+
+    @Serializable data class PriceRow(val id: String, val minimumRate: NuiteeMinimumRate? = null, val rateStatus: String? = null)
+    @Serializable data class PricePage(val ok: Boolean, val sandbox: Boolean = false, val pricesStale: Boolean = false,
+        val rateError: String? = null, val hotels: List<PriceRow> = emptyList())
+
+    suspend fun pricePage(city: String, checkin: LocalDate, checkout: LocalDate, adults: Int,
+                          hotelIDs: List<String>, childrenAges: List<Int> = emptyList()): PricePage {
+        require(city in setOf("makkah", "madinah") && checkout > checkin && adults in 1..9 &&
+            hotelIDs.isNotEmpty() && childrenAges.all { it in 0..17 })
+        val result = api.get<PricePage>("/api/package/nuitee/hotels", query = mapOf(
+            "city" to city, "checkin" to checkin.toString(), "checkout" to checkout.toString(),
+            "adults" to adults.toString(), "hotelIds" to hotelIDs.sorted().joinToString(","),
+            "children" to childrenAges.joinToString(","), "pageSize" to hotelIDs.size.toString(), "ratesOnly" to "1"), timeoutSeconds = 120)
+        if (!result.ok || result.sandbox) throw APIException.InvalidResponse
+        return result
     }
 
     // Cache only legacy full-catalogue results, scoped by exact filters and stay.
@@ -76,12 +95,36 @@ class NuiteeHotelService(context: Context, private val api: APIClient = APIClien
         return result.hotel
     }
 
+    private data class ReviewPage(val storedAt: Long, val value: NuiteeReviewsEnvelope)
+    private companion object {
+        const val REVIEW_TTL = 30 * 60 * 1000L
+        val reviewPages = linkedMapOf<Triple<String, String, Int>, ReviewPage>()
+        // Fixed stripes prevent unbounded lock growth while coalescing identical requests.
+        val reviewLocks = Array(32) { Mutex() }
+    }
+
     suspend fun reviews(hotelId: String, language: String, offset: Int = 0): NuiteeReviewsEnvelope {
         require(offset >= 0)
-        val result = api.get<NuiteeReviewsEnvelope>("/api/package/nuitee/reviews",
-            mapOf("hotelId" to hotelId, "language" to language, "offset" to offset.toString()), timeoutSeconds = 35)
-        if (!result.ok) throw APIException.InvalidResponse
-        return result
+        val key = Triple(hotelId, language, offset)
+        val lock = reviewLocks[(key.hashCode() and Int.MAX_VALUE) % reviewLocks.size]
+        return lock.withLock {
+            val cached = synchronized(reviewPages) { reviewPages[key] }
+            val now = android.os.SystemClock.elapsedRealtime()
+            if (cached != null && now - cached.storedAt < REVIEW_TTL) return@withLock cached.value
+            try {
+                val result = api.get<NuiteeReviewsEnvelope>("/api/package/nuitee/reviews",
+                    mapOf("hotelId" to hotelId, "language" to language, "offset" to offset.toString()), timeoutSeconds = 35)
+                if (!result.ok) throw APIException.InvalidResponse
+                val unique = result.copy(reviews = result.reviews.distinctBy { it.id })
+                if (!unique.stale) synchronized(reviewPages) {
+                    reviewPages.remove(key)
+                    reviewPages[key] = ReviewPage(android.os.SystemClock.elapsedRealtime(), unique)
+                    while (reviewPages.size > 128) reviewPages.remove(reviewPages.keys.first())
+                }
+                unique
+            } catch (cancel: CancellationException) { throw cancel }
+            catch (error: Exception) { cached?.value?.copy(stale = true) ?: throw error }
+        }
     }
 
     suspend fun rates(hotelId: String, checkin: LocalDate, checkout: LocalDate, adults: Int,

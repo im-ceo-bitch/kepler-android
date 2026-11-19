@@ -55,10 +55,13 @@ import java.time.format.DateTimeFormatter
 import kotlin.math.*
 
 @Composable
-fun IumrahFlightsScreen(language: AppLanguage, bookingStore: BookingStore, chrome: AppChromeStore) {
+fun IumrahFlightsScreen(language: AppLanguage, bookingStore: BookingStore, chrome: AppChromeStore, preferredBookingID: String? = null) {
     val bookingState by bookingStore.state.collectAsState()
-    val sessions = bookingState.sessions
-    val accessSession = sessions.firstOrNull { it.effectiveStatus in setOf("BOOKING_CONFIRMED", "READY_TO_TRAVEL", "IN_TRIP") }
+    val sessions = bookingState.sessions.filter { bookingStore.canOpenBookingFromPush(it.id) && it.effectiveStatus in setOf("BOOKING_CONFIRMED", "READY_TO_TRAVEL", "IN_TRIP") }
+    val accessSession = if (preferredBookingID != null) sessions.firstOrNull { it.id == preferredBookingID } else sessions.firstOrNull()
+    LaunchedEffect(accessSession?.id) { accessSession?.id?.let { id ->
+        try { bookingStore.refresh(id) } catch (e: kotlinx.coroutines.CancellationException) { throw e } catch (_: Exception) { }
+    } }
     val flights = remember(accessSession) { listOfNotNull(accessSession?.booking?.generatorTrace?.outbound, accessSession?.booking?.generatorTrace?.inbound) }
     val primary = flights.firstOrNull()
     var query by remember { mutableStateOf("") }
@@ -159,7 +162,7 @@ private fun FlightIntelligenceCard(language: AppLanguage, flight: BookingGenerat
         Column(Modifier.padding(20.dp)) {
             SectionTitle(tr(language,"Рейс под контролем","Flight intelligence","Parvoz nazoratda","Парвоз назоратда"), tr(language,"iumrah следит за ключевыми данными Вашего маршрута и показывает их в контексте поездки.","iumrah keeps key flight data connected to your trip.","iumrah asosiy parvoz ma’lumotlarini safaringiz bilan bog‘laydi.","iumrah асосий парвоз маълумотларини сафарингиз билан боғлайди."))
             Spacer(Modifier.height(16.dp))
-            if (flight != null) FlightStatusPreview(flight) else EmptyFlightPreview(language)
+            if (flight != null) FlightStatusPreview(language, flight) else EmptyFlightPreview(language)
             Spacer(Modifier.height(14.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 FeaturePill(CupertinoSymbol.BellSignal, tr(language,"Изменения","Changes","O‘zgarishlar","Ўзгаришлар"), Modifier.weight(1f))
@@ -173,12 +176,12 @@ private fun FlightIntelligenceCard(language: AppLanguage, flight: BookingGenerat
 @Composable private fun SectionTitle(title:String, body:String){ Text(title,fontSize=30.sp,fontWeight=FontWeight.Bold,letterSpacing=(-.65).sp); Spacer(Modifier.height(7.dp)); Text(body,fontSize=16.sp,color=MaterialTheme.colorScheme.onSurface.copy(alpha=.58f),lineHeight=21.sp) }
 
 @Composable
-private fun FlightStatusPreview(f: BookingGeneratorFlightSnapshot) {
+private fun FlightStatusPreview(language: AppLanguage, f: BookingGeneratorFlightSnapshot) {
     Column(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha=.55f), RoundedCornerShape(26.dp)).border(.7.dp, MaterialTheme.colorScheme.onSurface.copy(alpha=.06f), RoundedCornerShape(26.dp)).padding(18.dp)) {
         Row(verticalAlignment=Alignment.CenterVertically){
             Box(Modifier.size(42.dp).background(Color.White,RoundedCornerShape(13.dp)),contentAlignment=Alignment.Center){ CupertinoIcon(CupertinoSymbol.Airplane,null,Modifier.size(22.dp),tint=Color.Black) }
             Spacer(Modifier.width(11.dp)); Column(Modifier.weight(1f)){ Text(f.airline,fontWeight=FontWeight.SemiBold,fontSize=16.sp,maxLines=1,overflow=TextOverflow.Ellipsis); Text(f.flightNumbers,fontSize=13.sp,color=MaterialTheme.colorScheme.onSurface.copy(alpha=.52f)) }
-            Text("LIVE",fontSize=11.sp,fontWeight=FontWeight.Bold,color=Color(0xFF30A14E),modifier=Modifier.background(Color(0xFF30A14E).copy(alpha=.1f),CircleShape).padding(horizontal=9.dp,vertical=6.dp))
+            Text(tr(language,"ПЛАН","SCHEDULED","REJA","РЕЖА"),fontSize=11.sp,fontWeight=FontWeight.Bold,color=Color(0xFF30A14E),modifier=Modifier.background(Color(0xFF30A14E).copy(alpha=.1f),CircleShape).padding(horizontal=9.dp,vertical=6.dp))
         }
         Spacer(Modifier.height(18.dp))
         Row(verticalAlignment=Alignment.CenterVertically){
@@ -194,7 +197,7 @@ private fun FlightStatusPreview(f: BookingGeneratorFlightSnapshot) {
 
 @Composable
 private fun NotificationCard(language:AppLanguage, scheduled:Boolean, denied:Boolean, onNotify:()->Unit){
-    IosCard(radius=32){ Column(Modifier.padding(20.dp)){ SectionTitle(tr(language,"Получайте важные изменения","Get important updates","Muhim o‘zgarishlarni oling","Муҳим ўзгаришларни олинг"),tr(language,"Покажем, как выглядит уведомление при изменении рейса.","See how a flight-change notification looks.","Parvoz o‘zgarishi bildirishnomasi qanday ko‘rinishini ko‘ring.","Парвоз ўзгариши билдиришномаси қандай кўринишини кўринг.")); Spacer(Modifier.height(15.dp)); Row(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha=.55f),RoundedCornerShape(24.dp)).padding(14.dp)){ Box(Modifier.size(42.dp).background(Color.Black,RoundedCornerShape(11.dp)),contentAlignment=Alignment.Center){ CupertinoIcon(CupertinoSymbol.Airplane,null,Modifier.size(21.dp),tint=Color.White)}; Spacer(Modifier.width(11.dp)); Column{ Row{ Text("iumrah Flights",fontSize=13.sp,fontWeight=FontWeight.Bold); Spacer(Modifier.weight(1f)); Text(tr(language,"сейчас","now","hozir","ҳозир"),fontSize=11.sp,color=MaterialTheme.colorScheme.onSurface.copy(alpha=.46f))}; Text(tr(language,"Изменилось время вылета","Departure time changed","Uchish vaqti o‘zgardi","Учиш вақти ўзгарди"),fontSize=14.sp,fontWeight=FontWeight.SemiBold); Text(tr(language,"Откройте iumrah, чтобы увидеть обновлённый маршрут.","Open iumrah to see the updated itinerary.","Yangilangan marshrutni ko‘rish uchun iumrah’ni oching.","Янгиланган маршрутни кўриш учун iumrah’ни очинг."),fontSize=12.sp,color=MaterialTheme.colorScheme.onSurface.copy(alpha=.55f)) } }; Spacer(Modifier.height(15.dp)); BlackButton(if(scheduled)tr(language,"Уведомление отправлено","Notification sent","Bildirishnoma yuborildi","Билдиришнома юборилди") else tr(language,"Показать тестовое уведомление","Show test notification","Sinov bildirishnomasini ko‘rsatish","Синов билдиришномасини кўрсатиш"), onNotify); if(denied){ Spacer(Modifier.height(8.dp)); Text(tr(language,"Разрешите уведомления в настройках Android.","Allow notifications in Android settings.","Android sozlamalarida bildirishnomalarga ruxsat bering.","Android созламаларида билдиришномаларга рухсат беринг."),fontSize=12.sp,color=Color(0xFFFF3B30)) } } }
+    IosCard(radius=32){ Column(Modifier.padding(20.dp)){ SectionTitle(tr(language,"Получайте важные изменения","Get important updates","Muhim o‘zgarishlarni oling","Муҳим ўзгаришларни олинг"),tr(language,"Покажем, как выглядит уведомление при изменении рейса.","See how a flight-change notification looks.","Parvoz o‘zgarishi bildirishnomasi qanday ko‘rinishini ko‘ring.","Парвоз ўзгариши билдиришномаси қандай кўринишини кўринг.")); Spacer(Modifier.height(15.dp)); Row(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha=.55f),RoundedCornerShape(24.dp)).padding(14.dp)){ Box(Modifier.size(42.dp).background(Color.Black,RoundedCornerShape(11.dp)),contentAlignment=Alignment.Center){ CupertinoIcon(CupertinoSymbol.Airplane,null,Modifier.size(21.dp),tint=Color.White)}; Spacer(Modifier.width(11.dp)); Column{ Row{ Text("iumrah Flights",fontSize=13.sp,fontWeight=FontWeight.Bold); Spacer(Modifier.weight(1f)); Text(tr(language,"сейчас","now","hozir","ҳозир"),fontSize=11.sp,color=MaterialTheme.colorScheme.onSurface.copy(alpha=.46f))}; Text(tr(language,"Тестовое уведомление iumrah Flights","iumrah Flights test notification","iumrah Flights sinov xabari","iumrah Flights синов хабари"),fontSize=14.sp,fontWeight=FontWeight.SemiBold); Text(tr(language,"Это проверка уведомлений, не изменение рейса.","This is a notification test, not a flight change.","Bu sinov xabari, reys o‘zgarmadi.","Бу синов хабари, рейс ўзгармади."),fontSize=12.sp,color=MaterialTheme.colorScheme.onSurface.copy(alpha=.55f)) } }; Spacer(Modifier.height(15.dp)); BlackButton(if(scheduled)tr(language,"Уведомление отправлено","Notification sent","Bildirishnoma yuborildi","Билдиришнома юборилди") else tr(language,"Показать тестовое уведомление","Show test notification","Sinov bildirishnomasini ko‘rsatish","Синов билдиришномасини кўрсатиш"), onNotify); if(denied){ Spacer(Modifier.height(8.dp)); Text(tr(language,"Разрешите уведомления в настройках Android.","Allow notifications in Android settings.","Android sozlamalarida bildirishnomalarga ruxsat bering.","Android созламаларида билдиришномаларга рухсат беринг."),fontSize=12.sp,color=Color(0xFFFF3B30)) } } }
 }
 
 @Composable
@@ -281,4 +284,4 @@ private fun TripSearchCard(
 
 @Composable private fun BlackButton(title:String,onClick:()->Unit){IumrahPressable(onClick,Modifier.fillMaxWidth().height(56.dp),cornerRadius=20.dp,background=Color.Black){Box(Modifier.fillMaxSize(),contentAlignment=Alignment.Center){Text(title,color=Color.White,fontWeight=FontWeight.SemiBold,fontSize=16.sp)}}}
 private fun formatTime(raw:String):String=runCatching{OffsetDateTime.parse(raw).format(DateTimeFormatter.ofPattern("HH:mm"))}.getOrElse{raw.takeLast(5)}
-private fun sendFlightsDemoNotification(context: Context, language: AppLanguage){ val manager=context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager; if(Build.VERSION.SDK_INT>=26)manager.createNotificationChannel(NotificationChannel("iumrah_flights","iumrah Flights",NotificationManager.IMPORTANCE_DEFAULT)); val n=NotificationCompat.Builder(context,"iumrah_flights").setSmallIcon(R.mipmap.ic_launcher).setContentTitle(tr(language,"Изменилось время вылета","Departure time changed","Uchish vaqti o‘zgardi","Учиш вақти ўзгарди")).setContentText(tr(language,"Откройте iumrah, чтобы увидеть обновлённый маршрут.","Open iumrah to see the updated itinerary.","Yangilangan marshrutni ko‘rish uchun iumrah’ni oching.","Янгиланган маршрутни кўриш учун iumrah’ни очинг.")).setAutoCancel(true).build(); manager.notify(781,n) }
+private fun sendFlightsDemoNotification(context: Context, language: AppLanguage){ val manager=context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager; if(Build.VERSION.SDK_INT>=26)manager.createNotificationChannel(NotificationChannel("iumrah_flights","iumrah Flights",NotificationManager.IMPORTANCE_DEFAULT)); val n=NotificationCompat.Builder(context,"iumrah_flights").setSmallIcon(R.mipmap.ic_launcher).setContentTitle(tr(language,"Тестовое уведомление iumrah Flights","iumrah Flights test notification","iumrah Flights sinov xabari","iumrah Flights синов хабари")).setContentText(tr(language,"Это проверка уведомлений, не изменение рейса.","This is a notification test, not a flight change.","Bu sinov xabari, reys o‘zgarmadi.","Бу синов хабари, рейс ўзгармади.")).setAutoCancel(true).build(); manager.notify(781,n) }

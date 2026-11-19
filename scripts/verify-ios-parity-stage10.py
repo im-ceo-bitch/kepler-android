@@ -118,7 +118,7 @@ except (OSError, KeyError, ValueError) as exc:
 
 # Guard critical data paths from accidental rewiring / unintended booking completion.
 flight = read('ui/flights/GuidedFlightSelectionEngine.kt')
-assert_condition('outbound.source != inbound.source' in flight, 'Cross-source airline pairing no longer guarded')
+assert_condition(all(t in flight for t in ('!inDay.isAfter(outDay)', 'outbound.origin != inbound.destination', '!outbound.publishedPair && !inbound.publishedPair', 'outbound.destination in setOf("JED","MED")', 'inbound.origin in setOf("JED","MED")')) and 'journey.setMixedFlightIdentity' in read('ui/flights/IumrahGuidedFlightsScreen.kt') and 'snapshot.mixedFlightIdentity!=null' in read('domain/journey/JourneyStore.kt'), 'Independent mixed legs must satisfy route/date/pair guards and use mixed quote identity')
 pricing = read('domain/nuitee/NuiteeJourneyPricing.kt')
 assert_condition('trip.children > 0 || trip.infants > 0' in pricing, 'Unknown child/infant fare guard removed')
 assert_condition('!NuiteeRules.validRoomRate(selection.rate)' in pricing, 'Invalid Nuitee rates no longer guarded')

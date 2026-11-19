@@ -19,9 +19,7 @@ class SecureJsonStore(context: Context) {
     @Synchronized
     fun <T> read(key: String, serializer: KSerializer<T>): T? {
         return try {
-            val encoded = prefs.getString(key, null) ?: return null
-            val raw = decrypt(encoded)
-            json.decodeFromString(serializer, raw)
+            readStrict(key, serializer)
         } catch (_: Exception) {
             // A transient Keystore or decoding error is not an instruction to erase
             // the only persisted booking/access proof. Keep the ciphertext intact.
@@ -30,9 +28,15 @@ class SecureJsonStore(context: Context) {
     }
 
     @Synchronized
+    fun <T> readStrict(key: String, serializer: KSerializer<T>): T? {
+        val encoded = prefs.getString(key, null) ?: return null
+        return json.decodeFromString(serializer, decrypt(encoded))
+    }
+
+    @Synchronized
     fun <T> write(key: String, value: T, serializer: KSerializer<T>) {
         val raw = json.encodeToString(serializer, value)
-        prefs.edit().putString(key, encrypt(raw)).commit()
+        check(prefs.edit().putString(key, encrypt(raw)).commit()) { "Secure storage write failed" }
     }
 
     @Synchronized

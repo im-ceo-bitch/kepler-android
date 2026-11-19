@@ -77,11 +77,24 @@ class SmartConfiguratorService(private val curated: CuratedFlightRecommendationS
         preview(journey.state.value)
         val windows = TripStayPlanner.windows(journey.state.value.trip)
         val stays = listOfNotNull("makkah" to windows.makkah, windows.madinah?.let { "madinah" to it }).sortedBy { it.second.checkIn }
-        for ((city, window) in stays) {
-            progress(Progress.HOTELS, city)
-            selectRooms(p, city, window).forEach(journey::chooseNuiteeRoom)
-            preview(journey.state.value)
+        var selectedRooms: List<NuiteeRoomSelection>? = null
+        for (count in p.roomCount..p.fallbackRoomCount) {
+            val candidate = mutableListOf<NuiteeRoomSelection>()
+            try {
+                for ((city, window) in stays) {
+                    progress(Progress.HOTELS, city)
+                    candidate += selectRooms(p, city, window, count = count)
+                }
+                selectedRooms = candidate
+                journey.setSmartRoomCount(count)
+                break
+            } catch (e: RoomUnavailable) {
+                currentCoroutineContext().ensureActive()
+                if (count == p.fallbackRoomCount) throw e
+            }
         }
+        requireNotNull(selectedRooms).forEach(journey::chooseNuiteeRoom)
+        preview(journey.state.value)
         currentCoroutineContext().ensureActive()
         progress(Progress.TRANSFER, null)
         journey.chooseTransferVehicle(TransferVehicleKind.CARNIVAL); journey.confirmTransferSelection()
@@ -89,7 +102,7 @@ class SmartConfiguratorService(private val curated: CuratedFlightRecommendationS
         progress(Progress.PRICE, null)
         journey.prepareNuiteePackage(curated, engine).getOrThrow()
         currentCoroutineContext().ensureActive()
-        check(journey.state.value.hasFinalGeneratorQuote && journey.state.value.quote?.bookingAllowed == true) { "SMART_QUOTE_UNAVAILABLE" }
+        check(journey.state.value.hasFinalGeneratorQuote && journey.state.value.quote?.bookingAllowed == true && journey.state.value.quote?.hasVerifiedBreakdown == true) { "SMART_QUOTE_UNAVAILABLE" }
         progress(Progress.READY, null)
         return journey
     }
@@ -104,7 +117,7 @@ class SmartConfiguratorService(private val curated: CuratedFlightRecommendationS
         require(old.hasFinalGeneratorQuote && old.quote?.bookingAllowed == true)
         require(next.trip.adults == old.trip.adults && next.trip.children == old.trip.children &&
             next.trip.infants == old.trip.infants && next.trip.rooms == old.trip.rooms && next.trip.scope == old.trip.scope)
-        require(p.valid() && p.roomCount == next.trip.rooms)
+        require(p.valid() && next.trip.rooms in p.roomCount..p.adults)
         var changed = false
         if (flightsChanged) {
             require(next.nuitee?.flights?.size == 2)
@@ -125,7 +138,7 @@ class SmartConfiguratorService(private val curated: CuratedFlightRecommendationS
                     val category = when (prior.firstOrNull()?.hotel?.roundedStars) {
                         1, 2 -> PackageTier.ECONOMY; 3 -> PackageTier.STANDARD; 4 -> PackageTier.COMFORT; 5 -> PackageTier.LUXURY; else -> p.category
                     }
-                    val replacement = selectRooms(p.copy(tier = category.wireValue), city, window)
+                    val replacement = selectRooms(p.copy(tier = category.wireValue), city, window, count = next.trip.rooms)
                     changed = changed || replacement.firstOrNull()?.hotel?.id != prior.firstOrNull()?.hotel?.id
                     replacement
                 }
@@ -136,7 +149,7 @@ class SmartConfiguratorService(private val curated: CuratedFlightRecommendationS
         candidate.confirmTransferSelection()
         candidate.prepareNuiteePackage(curated, engine).getOrThrow()
         currentCoroutineContext().ensureActive()
-        check(candidate.state.value.hasFinalGeneratorQuote && candidate.state.value.quote?.bookingAllowed == true) { "SMART_QUOTE_UNAVAILABLE" }
+        check(candidate.state.value.hasFinalGeneratorQuote && candidate.state.value.quote?.bookingAllowed == true && candidate.state.value.quote?.hasVerifiedBreakdown == true) { "SMART_QUOTE_UNAVAILABLE" }
         return EditResult(candidate, changed)
     }
 
@@ -157,8 +170,8 @@ class SmartConfiguratorService(private val curated: CuratedFlightRecommendationS
     suspend fun replaceHotel(p: SmartPreferences, previous: JourneyStore, city: String, excluding: Set<String>): JourneyStore {
         val old = previous.state.value
         val current = requireNotNull(old.nuitee?.rooms?.get("$city:0"))
-        require(old.hasFinalGeneratorQuote && old.quote?.bookingAllowed == true && old.trip.rooms == p.roomCount)
-        val rooms = selectRooms(p, city, TripStayWindow(current.checkin, current.checkout), excluding + current.hotel.id)
+        require(old.hasFinalGeneratorQuote && old.quote?.bookingAllowed == true && old.trip.rooms in p.roomCount..p.adults)
+        val rooms = selectRooms(p, city, TripStayWindow(current.checkin, current.checkout), excluding + current.hotel.id, count = old.trip.rooms)
         currentCoroutineContext().ensureActive()
         val next = JourneyStore()
         next.adoptSmartResult(previous)
@@ -166,36 +179,65 @@ class SmartConfiguratorService(private val curated: CuratedFlightRecommendationS
         next.confirmTransferSelection()
         next.prepareNuiteePackage(curated, engine).getOrThrow()
         currentCoroutineContext().ensureActive()
-        check(next.state.value.hasFinalGeneratorQuote && next.state.value.quote?.bookingAllowed == true &&
+        check(next.state.value.hasFinalGeneratorQuote && next.state.value.quote?.bookingAllowed == true && next.state.value.quote?.hasVerifiedBreakdown == true &&
             next.state.value.nuitee?.rooms?.get("$city:0")?.hotel?.id != current.hotel.id) { "SMART_QUOTE_UNAVAILABLE" }
         return next
     }
 
-    private suspend fun selectRooms(p: SmartPreferences, city: String, window: TripStayWindow, excluding: Set<String> = emptySet()): List<NuiteeRoomSelection> {
-        check(window.checkOut > window.checkIn) { "SMART_ROOM_UNAVAILABLE" }
-        val catalog = hotels.hotels(city, window.checkIn, window.checkOut, (0 until p.roomCount).maxOf { p.occupancy(it).first }, smartTimeout = true)
-        check(catalog.ok && !catalog.sandbox) { "SMART_HOTEL_UNAVAILABLE" }
+    private class RoomUnavailable : IllegalStateException("SMART_ROOM_UNAVAILABLE")
+    private fun rateLimited(e: Exception): Boolean = when (e) {
+        is APIException.Status -> e.code == 429
+        is APIException.Server -> e.code == 429
+        else -> false
+    }
+
+    private suspend fun selectRooms(p: SmartPreferences, city: String, window: TripStayWindow,
+                                    excluding: Set<String> = emptySet(), count: Int = p.roomCount): List<NuiteeRoomSelection> {
+        if (window.checkOut <= window.checkIn || count !in 1..p.adults) throw RoomUnavailable()
+        val occupancy = (0 until count).map { p.occupancy(it, count) }
+        val largest = occupancy.maxBy { it.first + it.second.size }
+        val catalog = hotels.hotels(city, window.checkIn, window.checkOut, largest.first, catalogOnly = true)
+        check(catalog.ok && !catalog.sandbox) { "SMART_HOTEL_NETWORK_UNAVAILABLE" }
         fun hint(h: NuiteeHotel): Double = h.minimumRate?.takeIf { it.currency.equals("USD", true) && it.price.isFinite() && it.price > 0 }?.price ?: Double.POSITIVE_INFINITY
-        val candidates = catalog.hotels.filter { it.id !in excluding && SmartRules.starEligible(it.stars, p.category) }.sortedWith(compareBy<NuiteeHotel> { hint(it) }.thenByDescending { it.rating ?: 0.0 }).take(12)
+        val eligible = catalog.hotels.distinctBy { it.id }.filter { it.id !in excluding &&
+            (if (it.roundedStars == 0) 3 else it.roundedStars) in p.category.selectableHotelStars }
         var consecutiveErrors = 0; var hadError = false
-        for (hotel in candidates) {
+        for (batch in eligible.chunked(40)) {
             currentCoroutineContext().ensureActive()
+            var candidates = batch.map { it.copy(minimumRate = null, rateStatus = null) }
             try {
-                val rooms = mutableListOf<NuiteeRoomSelection>()
-                for (i in 0 until p.roomCount) {
-                    currentCoroutineContext().ensureActive()
-                    val (adults, ages) = p.occupancy(i)
-                    val response = hotels.rates(hotel.id, window.checkIn, window.checkOut, adults, ages, smartTimeout = true)
-                    if (!response.ok || response.sandbox) break
-                    val rate = response.rates.filter(NuiteeRules::validRoomRate).minByOrNull { it.price } ?: break
-                    rooms.add(NuiteeRoomSelection("$city:$i", city, i, hotel, rate, window.checkIn, window.checkOut, adults, ages))
-                }
-                consecutiveErrors = 0
-                if (rooms.size == p.roomCount) return rooms
+                val page = hotels.pricePage(city, window.checkIn, window.checkOut, largest.first, batch.map { it.id }, largest.second)
+                if (page.rateError == "NUITEE_RATE_LIMIT") error("SMART_HOTEL_RATE_LIMIT")
+                if (page.rateError != null) hadError = true
+                val rows = page.hotels.associateBy { it.id }
+                candidates = candidates.map { hotel -> hotel.copy(minimumRate = rows[hotel.id]?.minimumRate, rateStatus = rows[hotel.id]?.rateStatus) }
             } catch (e: CancellationException) { throw e }
-            catch (_: Exception) { hadError = true; if (++consecutiveErrors >= 3) break }
+            catch (e: Exception) {
+                if (rateLimited(e) || e.message == "SMART_HOTEL_RATE_LIMIT") error("SMART_HOTEL_NETWORK_UNAVAILABLE")
+                hadError = true
+            }
+            for (hotel in candidates.sortedWith(compareBy<NuiteeHotel> { hint(it) }.thenByDescending { it.rating ?: 0.0 })) {
+                currentCoroutineContext().ensureActive()
+                if (hotel.rateStatus == "no_availability") continue
+                try {
+                    val rooms = mutableListOf<NuiteeRoomSelection>()
+                    val rateCache = mutableMapOf<Pair<Int, List<Int>>, com.iumrah.beta.models.nuitee.NuiteeRatesEnvelope>()
+                    for (i in 0 until count) {
+                        currentCoroutineContext().ensureActive()
+                        val (adults, ages) = occupancy[i]
+                        val response = rateCache[occupancy[i]] ?: hotels.rates(hotel.id, window.checkIn, window.checkOut, adults, ages, smartTimeout = true).also { rateCache[occupancy[i]] = it }
+                        if (!response.ok || response.sandbox || response.checkin != window.checkIn.toString() || response.checkout != window.checkOut.toString() || response.adults != adults) break
+                        val rate = response.rates.filter(NuiteeRules::validRoomRate).minByOrNull { it.price } ?: break
+                        rooms += NuiteeRoomSelection("$city:$i", city, i, hotel, rate, window.checkIn, window.checkOut, adults, ages)
+                    }
+                    consecutiveErrors = 0
+                    if (rooms.size == count) return rooms
+                } catch (e: CancellationException) { throw e }
+                catch (e: Exception) { hadError = true; if (rateLimited(e) || ++consecutiveErrors >= 3) error("SMART_HOTEL_NETWORK_UNAVAILABLE") }
+            }
         }
-        error(if (hadError || catalog.rateError != null) "SMART_HOTEL_NETWORK_UNAVAILABLE" else "SMART_ROOM_UNAVAILABLE")
+        if (hadError || catalog.rateError != null) error("SMART_HOTEL_NETWORK_UNAVAILABLE")
+        throw RoomUnavailable()
     }
     private fun valid(p: SmartPreferences, out: NuiteeFlightSnapshot, back: NuiteeFlightSnapshot): Boolean {
         val departure = instant(out.departureAt) ?: return false

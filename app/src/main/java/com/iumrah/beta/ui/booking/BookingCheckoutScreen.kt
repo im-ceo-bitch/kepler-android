@@ -81,7 +81,7 @@ fun BookingCheckoutScreen(
     val state by journey.state.collectAsState()
     val account by accountStore.state.collectAsState()
     val quote = state.quote
-    val canBook = quote != null && quote.bookingAllowed != false &&
+    val canBook = state.priceChangeAccepted && state.hasFinalGeneratorQuote && state.transferSelectionConfirmed && quote != null && quote.hasVerifiedBreakdown && quote.allowsOccupancy(state.trip.adults,state.trip.rooms) && quote.bookingAllowed != false &&
         (state.nuitee == null || state.hasFinalGeneratorQuote && quote.bookingAllowed == true)
     val scope = rememberCoroutineScope()
     var firstName by remember(account.account?.iumrahID) { mutableStateOf(account.account?.firstName.orEmpty()) }
@@ -176,19 +176,32 @@ fun BookingCheckoutScreen(
                                 val finalQuote = if (state.nuitee != null) {
                                     check(journey.state.value == state) { "PACKAGE_SELECTION_CHANGED" }
                                     val fresh = journey.prepareNuiteePackage(curated, packageEngine).getOrThrow()
-                                    check(fresh.totalPackagePrice.compareTo(currentQuote.totalPackagePrice) == 0 && fresh.pricePerPerson.compareTo(currentQuote.pricePerPerson) == 0 && fresh.currency == currentQuote.currency) {
+                                    check(fresh.hasVerifiedBreakdown && fresh.allowsOccupancy(state.trip.adults,state.trip.rooms) && fresh.totalPackagePrice.compareTo(currentQuote.totalPackagePrice) == 0 && fresh.pricePerPerson.compareTo(currentQuote.pricePerPerson) == 0 && fresh.currency == currentQuote.currency) {
                                         checkoutTr(language,"Цена изменилась. Проверьте новый итог перед бронированием.","Price changed. Review the new total before booking.","Narx o‘zgardi. Yangi summani tekshiring.","Нарх ўзгарди. Янги суммани текширинг.")
                                     }
                                     check(journey.state.value.quote == fresh && journey.state.value.nuitee == state.nuitee) { "PACKAGE_SELECTION_CHANGED" }
                                     fresh
-                                } else currentQuote
+                                } else { check(journey.state.value == state) { "PACKAGE_SELECTION_CHANGED" }; currentQuote }
+                                val pricedState = journey.state.value
+                                check(pricedState.priceChangeAccepted && pricedState.quote == finalQuote && pricedState.savedPackageID == state.savedPackageID) { "PACKAGE_SELECTION_CHANGED" }
+                                val savedEntry = pricedState.savedPackageID?.let {
+                                    container.savedPackages.save(pricedState,language)
+                                }
+                                check(journey.state.value == pricedState) { "PACKAGE_SELECTION_CHANGED" }
                                 val push = container.pushManager
                                 val intent = BookingCreationNotificationIntent(requestID = requestID, contactChannel = channel, contact = normalizedContact,
                                     verificationToken = verified, locale = language.code, pushDeviceToken = push.state.value.deviceToken.takeIf { push.hasNotificationPermission() },
                                     appBundleID = com.iumrah.beta.BuildConfig.APPLICATION_ID, installationID = container.notificationStore.installationID)
                                 submitted = true // never replay a create POST after an ambiguous response
                                 bookingStore.create(if (state.nuitee != null) journey.state.value else state, finalQuote, language,
-                                    BookingPilgrimProfile(firstName.trim(), lastName.trim(), "", ""), intent).also { committed = it }
+                                    BookingPilgrimProfile(firstName.trim(), lastName.trim(), "", ""), intent).also { created ->
+                                        committed = created
+                                        savedEntry?.receipt?.packageID?.let { id ->
+                                            try { container.savedPackages.link(id,created) }
+                                            catch (cancel: CancellationException) { throw cancel }
+                                            catch (_: Exception) { /* pending link is retried from Saved journeys */ }
+                                        }
+                                    }
                             }
                             bookingStore.service.attachGuestContact(session.id, session.accessToken, channel, verified, language.code)
                             bookingStore.recordVerifiedContact(session.id, session.accessToken, channel, normalizedContact)

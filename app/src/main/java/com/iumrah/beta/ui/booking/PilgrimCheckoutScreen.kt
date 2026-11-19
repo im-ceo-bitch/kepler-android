@@ -5,6 +5,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
@@ -42,6 +43,7 @@ import com.iumrah.beta.ui.cupertino.CupertinoSymbol
 import com.iumrah.beta.ui.media.LoopingRawVideo
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.CancellationException
+import androidx.lifecycle.repeatOnLifecycle
 import com.iumrah.beta.domain.booking.BookingRewardsPolicy
 import com.iumrah.beta.domain.booking.BookingSessionPolicy
 import com.iumrah.beta.core.network.APIException
@@ -102,14 +104,17 @@ internal fun PilgrimCheckoutEmbedded(
     var error by remember { mutableStateOf<String?>(null) }
     var busy by remember { mutableStateOf(false) }
     var travelerEditor by remember(bookingID, ownerToken) { mutableStateOf<IumrahTravelerForm?>(null) }
+    var previewDocument by remember(bookingID, ownerToken) { mutableStateOf<PrivateDocumentPreview?>(null) }
+    previewDocument?.let { file -> PrivateTravelDocumentDialog(language, file) { previewDocument = null } }
 
     suspend fun load(showLoader: Boolean = true) {
-        loading = true
+        if (showLoader || checkout == null) loading = true
         error = null
         val token = accountStore.bearerToken
         try {
             val matchingToken = token.takeIf { BookingSessionPolicy.sameIdentity(session.pilgrimID ?: session.accountOwnerID, accountStore.state.value.iumrahID) }
             val response = accountService.checkoutWithFallback(bookingID, session.accessToken, matchingToken)
+            check(response.ok) { "CHECKOUT_FAILED" }
             kotlinx.coroutines.currentCoroutineContext().ensureActive()
             if (token != accountStore.bearerToken) return
             // Do not keep a previous payment quote when the reward lookup fails.
@@ -129,6 +134,19 @@ internal fun PilgrimCheckoutEmbedded(
         } catch (cancel: CancellationException) { throw cancel }
         catch (ex: Exception) { if (token == accountStore.bearerToken) error = ex.message }
         finally { if (token == accountStore.bearerToken) loading = false }
+    }
+
+    fun openPrivateMedia(title: String, path: String, mime: String, tripOwner: String) {
+        val token=accountStore.bearerToken ?: return
+        if (busy || !BookingSessionPolicy.sameIdentity(accountStore.state.value.iumrahID,tripOwner)) return
+        busy=true
+        scope.launch {
+            try {
+                val bytes=accountService.media(path,token)
+                check(token==accountStore.bearerToken && bookingStore.booking(bookingID)!=null){"Account changed"}
+                previewDocument=PrivateDocumentPreview(title,mime,bytes)
+            } catch(e:CancellationException){throw e}catch(e:Exception){error=e.message ?: "DOCUMENT_OPEN_FAILED"}finally{busy=false}
+        }
     }
 
     val receiptLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
@@ -151,7 +169,13 @@ internal fun PilgrimCheckoutEmbedded(
         }
     }
 
-    LaunchedEffect(bookingID, ownerToken, session.effectiveStatus) { load() }
+    val lifecycle = androidx.lifecycle.compose.LocalLifecycleOwner.current.lifecycle
+    LaunchedEffect(bookingID, ownerToken, session.effectiveStatus, session.accessToken, lifecycle) {
+        lifecycle.repeatOnLifecycle(androidx.lifecycle.Lifecycle.State.RESUMED) {
+            load(showLoader = checkout == null)
+            while (true) { kotlinx.coroutines.delay(60_000); if (!busy) load(showLoader = false) }
+        }
+    }
     creditConfirmation?.let { amount ->
         AlertDialog(onDismissRequest = { creditConfirmation = null },
             title = { Text(bookingText(language,"Списать бонусы в счёт этой поездки?","Apply rewards to this booking?","Bonuslarni ushbu bronga qo‘llaysizmi?","Бонусларни ушбу бронга қўллайсизми?")) },
@@ -203,6 +227,7 @@ internal fun PilgrimCheckoutEmbedded(
         }
 
         if (!loading && checkout == null) {
+            if (error != null) TextButton(onClick = { scope.launch { load() } }) { Text(bookingText(language,"Повторить загрузку","Retry loading","Qayta yuklash","Қайта юклаш")) }
             BookingPasswordlessAccessCard(language, session, accountStore, accountService, bookingStore) { scope.launch { load(showLoader = false) } }
         }
         checkout?.let { value ->
@@ -241,11 +266,20 @@ internal fun PilgrimCheckoutEmbedded(
                         chrome = chrome,
                         session = session,
                     )
+                    PaymentReviewDetails(language,value) { receipt ->
+                        receipt.url?.takeIf { it.isNotBlank() }?.let { path -> openPrivateMedia(receipt.filename ?: "Receipt",path,receipt.contentType ?: "image/jpeg",value.iumrahID) }
+                    }
                     TravelDocumentsLockedCard(language)
                     GuideTransferCheckoutCard(language, enabled = false, onClick = {})
                 } else if (postPayment) {
                     if (value.receipts.isNotEmpty()) PaidReceiptCard(language, value)
-                    DocumentsCard(language, value)
+                    PaymentReviewDetails(language,value) { receipt ->
+                        receipt.url?.takeIf { it.isNotBlank() }?.let { path -> openPrivateMedia(receipt.filename ?: "Receipt",path,receipt.contentType ?: "image/jpeg",value.iumrahID) }
+                    }
+                    DocumentsCard(language, value, onOpen={ document ->
+                        openPrivateMedia(document.title,document.url,document.contentType,value.iumrahID)
+                    })
+                    if(value.status.equals("completed",true)) TravelCompletionCard(language,value,bookingID,bookingStore) { scope.launch{load(false)} }
                     val guideReady = session.guide != null || value.status.lowercase() in setOf("booking_confirmed", "documents_ready", "ready_to_travel", "in_trip", "completed")
                     GuideTransferCheckoutCard(language, enabled = guideReady, onClick = { chrome.openBookingGuideTransfer(bookingID) })
                 } else {
@@ -292,6 +326,7 @@ internal fun PilgrimCheckoutEmbedded(
                 token = token,
                 onDismiss = { travelerEditor = null },
                 onSaved = {
+                    travelerEditor = null
                     scope.launch { load(showLoader = false) }
                 },
             )
@@ -1100,7 +1135,7 @@ private fun PaymentCard(
 
 @Composable
 private fun PaidReceiptCard(language: AppLanguage, value: IumrahCheckoutResponse) {
-    val receipt = value.receipts.firstOrNull()
+    val receipt = value.receipts.firstOrNull { it.reviewStatus.equals("approved",true) } ?: value.receipts.firstOrNull()
     BookingCard {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(13.dp)) {
             BookingIconBadge(CupertinoSymbol.CheckCircleFill, Color(0xFF34C759), 48.dp, 18.dp, 16.dp)
@@ -1113,7 +1148,7 @@ private fun PaidReceiptCard(language: AppLanguage, value: IumrahCheckoutResponse
 }
 
 @Composable
-private fun DocumentsCard(language: AppLanguage, value: IumrahCheckoutResponse) {
+private fun DocumentsCard(language: AppLanguage, value: IumrahCheckoutResponse,onOpen:(IumrahTravelDocument)->Unit) {
     BookingCard {
         StageHeader("03", CupertinoSymbol.Document, bookingText(language, "Документы поездки", "Travel documents", "Safar hujjatlari", "Сафар ҳужжатлари"))
         Spacer(Modifier.height(12.dp))
@@ -1124,6 +1159,13 @@ private fun DocumentsCard(language: AppLanguage, value: IumrahCheckoutResponse) 
             color = MaterialTheme.colorScheme.onBackground.copy(alpha = .55f),
         )
         Spacer(Modifier.height(14.dp))
+        val visas=value.documentRequirements.orEmpty().filter{it.kind=="visa"}
+        if(visas.isNotEmpty()) {
+            Text(if(visas.all{it.ready}) bookingText(language,"Визы готовы · далее покупка билетов","Visas ready · tickets are next","Vizalar tayyor · keyin chiptalar","Визалар тайёр · кейин чипталар") else bookingText(language,"Сначала визы · билеты после получения виз","Visas first · tickets after visas are issued","Avval vizalar · keyin aviachiptalar","Аввал визалар · кейин авиачипталар"),fontWeight=FontWeight.SemiBold)
+            visas.forEach{visa -> Row{Text(visa.label+" · "+(visa.travelerPosition?:1),Modifier.weight(1f),fontSize=12.sp);Text(if(visa.ready) bookingText(language,"Оформлена","Issued","Tayyor","Тайёр") else when(visa.state){"refused"->bookingText(language,"Требуется решение поддержки","Support review required","Yordam kerak","Ёрдам керак");"submitted"->bookingText(language,"Подана","Submitted","Topshirildi","Топширилди");else->bookingText(language,"Ожидается","Pending","Kutilmoqda","Кутилмоқда")},fontSize=12.sp)} }
+            Spacer(Modifier.height(10.dp))
+        }
+        val documents=value.documents.filter{it.publicationStatus==null || it.publicationStatus.equals("published",true)}
         val rows = listOf(
             Triple("ticket", bookingText(language, "Авиабилет", "Airline ticket", "Aviachipta", "Авиачипта"), CupertinoSymbol.Airplane),
             Triple("voucher", bookingText(language, "Подтверждение отеля", "Hotel confirmation", "Mehmonxona tasdig‘i", "Меҳмонхона тасдиғи"), CupertinoSymbol.Hotel),
@@ -1131,16 +1173,18 @@ private fun DocumentsCard(language: AppLanguage, value: IumrahCheckoutResponse) 
             Triple("insurance", bookingText(language, "Страховка", "Insurance", "Sug‘urta", "Суғурта"), CupertinoSymbol.ShieldCheck),
         )
         rows.forEachIndexed { index, (kind, title, symbol) ->
-            DocumentStatusRow(language, title, symbol, value.documents.firstOrNull { it.documentKind.lowercase() == kind })
+            val matching=documents.filter{it.documentKind.equals(kind,true)}
+            if(matching.isEmpty()) DocumentStatusRow(language,title,symbol,null,onOpen) else matching.forEach{doc->DocumentStatusRow(language,doc.title.ifBlank{title},symbol,doc,onOpen)}
             if (index != rows.lastIndex) Spacer(Modifier.height(10.dp))
         }
+        documents.filter{doc->rows.none{it.first.equals(doc.documentKind,true)}}.forEach{doc->DocumentStatusRow(language,doc.title,CupertinoSymbol.Document,doc,onOpen)}
     }
 }
 
 @Composable
-private fun DocumentStatusRow(language: AppLanguage, title: String, symbol: CupertinoSymbol, document: IumrahTravelDocument?) {
+private fun DocumentStatusRow(language: AppLanguage, title: String, symbol: CupertinoSymbol, document: IumrahTravelDocument?,onOpen:(IumrahTravelDocument)->Unit) {
     Row(
-        Modifier.fillMaxWidth().background(bookingIosRaised(), RoundedCornerShape(20.dp)).padding(14.dp),
+        Modifier.fillMaxWidth().then(if(document!=null) Modifier.clickable{onOpen(document)} else Modifier).background(bookingIosRaised(), RoundedCornerShape(20.dp)).padding(14.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(13.dp),
     ) {
@@ -1154,6 +1198,8 @@ private fun DocumentStatusRow(language: AppLanguage, title: String, symbol: Cupe
                 lineHeight = 15.sp,
                 color = MaterialTheme.colorScheme.onBackground.copy(alpha = .52f),
             )
+            document?.bookingReference?.takeIf{it.isNotBlank()}?.let{Text(it,fontSize=12.sp,fontWeight=FontWeight.SemiBold)}
+            document?.slots?.takeIf{it.isNotEmpty()}?.let{Text(it.joinToString(" · "),fontSize=11.sp)}
         }
         if (document != null) CupertinoIcon(CupertinoSymbol.ArrowUpRight, null, Modifier.size(16.dp), MaterialTheme.colorScheme.onBackground.copy(alpha = .32f))
         else CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 1.5.dp)

@@ -287,6 +287,9 @@ fun ConfiguratorHotelSelectionScreen(
     journey: JourneyStore,
     catalog: HotelCatalogService,
     chrome: AppChromeStore,
+    onBack: () -> Unit = { chrome.back() },
+    onHotel: (String) -> Unit = { chrome.openConfiguratorHotelDetail(it, role) },
+    onRefund: () -> Unit = { chrome.openBookingPolicy("refund") },
 ) {
     val state by journey.state.collectAsState()
     val madinah = role.equals("madinah", true)
@@ -322,7 +325,7 @@ fun ConfiguratorHotelSelectionScreen(
         verticalArrangement = Arrangement.spacedBy(18.dp),
     ) {
         item {
-            IumrahPressable(onClick = { chrome.back() }, modifier = Modifier.size(42.dp), cornerRadius = 21.dp, background = generatorCardColor()) {
+            IumrahPressable(onClick = onBack, modifier = Modifier.size(42.dp), cornerRadius = 21.dp, background = generatorCardColor()) {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Icon(CupertinoSymbol.ChevronLeft, null, Modifier.size(20.dp)) }
             }
         }
@@ -336,7 +339,7 @@ fun ConfiguratorHotelSelectionScreen(
                 Text(hotelTr(language, "Выберите отель и номер для вашего личного пакета.", "Choose the hotel and room for your personal package.", "Shaxsiy paketingiz uchun mehmonxona va xonani tanlang.", "Шахсий пакетингиз учун меҳмонхона ва хонани танланг."), fontSize = 16.sp, lineHeight = 22.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = .56f))
             }
         }
-        item { HotelRefundPolicyCard(language) { chrome.openBookingPolicy("refund") } }
+        item { HotelRefundPolicyCard(language, onRefund) }
 
         when {
             loading && filtered.isEmpty() -> item { LoadingHotelCard(language) }
@@ -349,14 +352,14 @@ fun ConfiguratorHotelSelectionScreen(
             state.trip.packageTier == PackageTier.ECONOMY -> {
                 if (primary.isNotEmpty()) {
                     item { HotelSectionHeader(hotelTr(language, "Эконом · 2★", "Economy · 2★", "Ekonom · 2★", "Эконом · 2★"), hotelTr(language, "Основной выбор категории — практичные 2★ отели.", "The main Economy selection: practical 2★ hotels.", "Ekonom toifasining asosiy tanlovi — amaliy 2★ mehmonxonalar.", "Эконом тоифасининг асосий танлови — амалий 2★ меҳмонхоналар.")) }
-                    primary.forEach { hotel -> item(key = "primary-${hotel.id}") { SelectorHotelCard(hotel, selectedId == hotel.id, language) { chrome.openConfiguratorHotelDetail(hotel.id, role) } } }
+                    primary.forEach { hotel -> item(key = "primary-${hotel.id}") { SelectorHotelCard(hotel, selectedId == hotel.id, language) { onHotel(hotel.id) } } }
                 }
                 if (superEconomy.isNotEmpty()) {
                     item { HotelSectionHeader("Super Economy · 1★", hotelTr(language, "Если важнее минимальная стоимость пакета — доступны и 1★ варианты.", "If the lowest package price matters most, 1★ options are also available.", "Paket narxini yanada kamaytirish muhim bo‘lsa, 1★ variantlar ham mavjud.", "Пакет нархини янада камайтириш муҳим бўлса, 1★ вариантлар ҳам мавжуд.")) }
-                    superEconomy.forEach { hotel -> item(key = "super-${hotel.id}") { SelectorHotelCard(hotel, selectedId == hotel.id, language, badge = "Super Economy · 1★") { chrome.openConfiguratorHotelDetail(hotel.id, role) } } }
+                    superEconomy.forEach { hotel -> item(key = "super-${hotel.id}") { SelectorHotelCard(hotel, selectedId == hotel.id, language, badge = "Super Economy · 1★") { onHotel(hotel.id) } } }
                 }
             }
-            else -> primary.forEach { hotel -> item(key = hotel.id) { SelectorHotelCard(hotel, selectedId == hotel.id, language) { chrome.openConfiguratorHotelDetail(hotel.id, role) } } }
+            else -> primary.forEach { hotel -> item(key = hotel.id) { SelectorHotelCard(hotel, selectedId == hotel.id, language) { onHotel(hotel.id) } } }
         }
         item { Spacer(Modifier.height(42.dp)) }
     }

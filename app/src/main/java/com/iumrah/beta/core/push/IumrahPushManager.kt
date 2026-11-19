@@ -112,6 +112,10 @@ class IumrahPushManager(context: Context) {
         }
     }
 
+    fun acknowledgeOpened(revision: Long) {
+        _state.update { if (it.openRevision == revision) it.copy(lastOpenedEvent = null) else it }
+    }
+
     /** Accepts both our own PendingIntent extras and FCM background data extras. */
     fun receiveOpenedIntent(intent: Intent?) {
         val extras = intent?.extras ?: return

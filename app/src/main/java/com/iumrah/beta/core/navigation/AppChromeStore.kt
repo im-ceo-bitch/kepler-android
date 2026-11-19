@@ -40,6 +40,8 @@ sealed interface AppRoute {
     data class FlightDetails(val journeyId: String, val direction: String) : AppRoute
     data object TransferSelection : AppRoute
     data object FinalPackage : AppRoute
+    data object SavedJourneys : AppRoute
+    data object ManualPackage : AppRoute
     data object BookingCheckout : AppRoute
     data class BusinessOffer(val token: String) : AppRoute
     data class BookingDetail(val bookingID: String) : AppRoute
@@ -52,6 +54,7 @@ sealed interface AppRoute {
     data object Ziyarats : AppRoute
     data object ESIM : AppRoute
     data object LiveFlights : AppRoute
+    data class TripLiveFlights(val bookingID: String) : AppRoute
     data object UmrahPlan : AppRoute
     data object UmrahAdvisor : AppRoute
     data object UmrahFlow : AppRoute
@@ -91,6 +94,7 @@ data class AppChromeState(
     val discoveryFlights: Boolean = false,
     val discoveryBuild: Boolean = false,
     val homeHotelCity: String? = null,
+    val requestedBookingID: String? = null,
 )
 
 class AppChromeStore {
@@ -98,14 +102,14 @@ class AppChromeStore {
     val state: StateFlow<AppChromeState> = _state
 
     fun navigate(tab: AppTab) {
-        _state.update { it.copy(currentTab = tab, route = AppRoute.Root, backStack = emptyList(), isImmersive = false, isSidebarOpen = false, discoveryFlights = false, discoveryBuild = false, homeHotelCity = null) }
+        _state.update { it.copy(currentTab = tab, route = AppRoute.Root, backStack = emptyList(), isImmersive = false, isSidebarOpen = false, discoveryFlights = false, discoveryBuild = false, homeHotelCity = null, requestedBookingID = null) }
     }
     fun openHomeHotelSearch(city: String) {
         require(city in setOf("makkah", "madinah"))
         _state.update { it.copy(currentTab = AppTab.HOTELS, route = AppRoute.Root, backStack = emptyList(), isImmersive = false, isSidebarOpen = false, discoveryFlights = false, discoveryBuild = false, homeHotelCity = city) }
     }
     fun openDiscoveryFlights() {
-        _state.update { it.copy(currentTab = AppTab.HOTELS, route = AppRoute.Root, backStack = emptyList(), isImmersive = false, isSidebarOpen = false, discoveryFlights = true, discoveryBuild = false, homeHotelCity = null) }
+        _state.update { it.copy(currentTab = AppTab.HOTELS, route = AppRoute.Root, backStack = emptyList(), isImmersive = false, isSidebarOpen = false, discoveryFlights = true, discoveryBuild = false, homeHotelCity = null, requestedBookingID = null) }
     }
     fun openDiscoveryBuild() {
         _state.update { it.copy(currentTab = AppTab.HOME, route = AppRoute.Root, backStack = emptyList(), isImmersive = false, isSidebarOpen = false, discoveryFlights = false, discoveryBuild = true, homeHotelCity = null) }
@@ -113,7 +117,7 @@ class AppChromeStore {
     fun setDiscoveryFlights(value: Boolean) { _state.update { it.copy(discoveryFlights = value) } }
     fun consumeDiscoveryBuild() { _state.update { it.copy(discoveryBuild = false) } }
     fun openDiscoveryTransfer() = push(AppRoute.TransferService)
-    fun openDiscoveryPackage() = push(AppRoute.FinalPackage)
+    fun openDiscoveryPackage() = push(AppRoute.ManualPackage)
     fun startNewTrip() = push(AppRoute.TripBuilder, tab = AppTab.BOOKING)
     fun openHotelSelection() = push(AppRoute.HotelSelection, tab = AppTab.BOOKING)
     fun openHotel(id: String, openConfigurator: Boolean = false, sharedConfiguration: HotelConfiguratorDeepLink? = null) = push(AppRoute.HotelDetail(id, openConfigurator, sharedConfiguration), tab = AppTab.HOTELS)
@@ -130,8 +134,13 @@ class AppChromeStore {
     fun openFlightDetails(id: String, direction: String) = push(AppRoute.FlightDetails(id, direction), tab = AppTab.BOOKING)
     fun openTransferSelection() = push(AppRoute.TransferSelection, tab = AppTab.BOOKING)
     fun openFinalPackage() = push(AppRoute.FinalPackage, tab = AppTab.BOOKING)
+    fun openSavedJourneys() = push(AppRoute.SavedJourneys, tab = AppTab.BOOKING)
     fun openBusinessOffer(token: String) = push(AppRoute.BusinessOffer(token), tab = AppTab.BOOKING)
     fun openBookingCheckout() = push(AppRoute.BookingCheckout, tab = AppTab.BOOKING)
+    fun openBookingPackageFromLink(id: String) {
+        _state.update { it.copy(currentTab = AppTab.BOOKING, route = AppRoute.Root, backStack = emptyList(), isImmersive = false, isSidebarOpen = false, requestedBookingID = id) }
+    }
+    fun consumeBookingPackageRequest(id: String) { _state.update { if (it.requestedBookingID == id) it.copy(requestedBookingID = null) else it } }
     fun openBookingDetail(id: String) = push(AppRoute.BookingDetail(id), tab = AppTab.BOOKING)
     fun openBookingCelebration(id: String) = push(AppRoute.BookingCelebration(id), tab = AppTab.BOOKING)
     fun openBookingHotelChange(id: String, role: String) = push(AppRoute.BookingHotelChange(id, role), tab = AppTab.BOOKING)
@@ -142,6 +151,7 @@ class AppChromeStore {
     fun openZiyarats() = push(AppRoute.Ziyarats, tab = AppTab.HOME)
     fun openESIM() = push(AppRoute.ESIM, tab = AppTab.HOME)
     fun openLiveFlights() = push(AppRoute.LiveFlights, tab = AppTab.HOME)
+    fun openTripLiveFlights(id: String) = push(AppRoute.TripLiveFlights(id), tab = AppTab.BOOKING)
     fun openUmrahPlan() = push(AppRoute.UmrahPlan, tab = AppTab.HOME)
     fun openUmrahAdvisor() = push(AppRoute.UmrahAdvisor, tab = AppTab.HOME)
     fun openUmrahFlow() = push(AppRoute.UmrahFlow, tab = AppTab.HOME)

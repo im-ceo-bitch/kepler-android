@@ -10,7 +10,7 @@ import kotlin.math.abs
 /**
  * Matches iOS IumrahGuidedFlightSelectionView: one coherent departure/return
  * selection built from published inventory and Data API observations.
- * Source compatibility is a hard rule: mixing providers cannot produce a quote.
+ * Independent published and Data API legs may mix; paired published itineraries remain indivisible.
  */
 internal sealed interface GuidedFlightChoice {
     val id: String
@@ -129,11 +129,8 @@ internal object GuidedFlightRules {
             }.forEach { raw.add(GuidedFlightChoice.Data(it)) }
         }
         val outgoing = raw.asSequence().filter { value ->
-            if (returnStep && value.source != selectedOutbound?.source) return@filter false
+            if (returnStep && !compatible(selectedOutbound,value)) return@filter false
             if (returnStep && selectedOutbound is GuidedFlightChoice.Published) {
-                if (selectedOutbound.publishedPair &&
-                    (value !is GuidedFlightChoice.Published ||
-                        value.recommendation.id != selectedOutbound.recommendation.id)) return@filter false
                 if (!selectedOutbound.publishedPair && value.publishedPair) return@filter false
             }
             val day = departureDay(value.departureAt) ?: return@filter false
@@ -153,19 +150,18 @@ internal object GuidedFlightRules {
         }.thenBy { it.departureAt }.thenBy { it.id })
     }
 
-    /** No cross-provider combinations, and no mixing paired published itineraries with one-way tickets. */
+    /** Mixed independent legs are verified by the server; a complete published pair cannot be split. */
     fun compatible(outbound: GuidedFlightChoice?, inbound: GuidedFlightChoice?): Boolean {
-        if (outbound == null || inbound == null || outbound.source != inbound.source) return false
+        if (outbound == null || inbound == null) return false
         val outDay = departureDay(outbound.departureAt) ?: return false
         val inDay = departureDay(inbound.departureAt) ?: return false
         if (!inDay.isAfter(outDay) || outbound.origin != inbound.destination) return false
         if (outbound is GuidedFlightChoice.Published && inbound is GuidedFlightChoice.Published) {
             return if (outbound.publishedPair) inbound.publishedPair &&
-                outbound.recommendation.id == inbound.recommendation.id &&
                 outbound.recommendation.outbound.flightNumber == inbound.recommendation.outbound.flightNumber &&
                 outbound.recommendation.outbound.departureAt == inbound.recommendation.outbound.departureAt
             else !inbound.publishedPair && outbound.recommendation.id != inbound.recommendation.id
         }
-        return outbound is GuidedFlightChoice.Data && inbound is GuidedFlightChoice.Data
+        return !outbound.publishedPair && !inbound.publishedPair && outbound.destination in setOf("JED","MED") && inbound.origin in setOf("JED","MED")
     }
 }

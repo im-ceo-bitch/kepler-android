@@ -77,7 +77,10 @@ object Stage10JvmRegression {
             outbound=CuratedFlightRecommendation.Leg("UzAir","HY100","HY","TAS","JED",
                 "${day}T09:00:00Z","${day}T13:00:00Z",240,0,"economy"))
         val published=GuidedFlightChoice.Published(rec,false)
-        checkThat("published + API never mixed", !GuidedFlightRules.compatible(published,backChoice))
+        checkThat("independent published + API may mix", GuidedFlightRules.compatible(published,backChoice))
+        val paired=rec.copy(inbound=rec.outbound.copy(origin="JED",destination="TAS",departureAt="${ret}T08:00:00Z",arrivalAt="${ret}T12:00:00Z"))
+        checkThat("paired published cannot mix", !GuidedFlightRules.compatible(GuidedFlightChoice.Published(paired,false),backChoice))
+        checkThat("paired same departure may use another complete row", GuidedFlightRules.compatible(GuidedFlightChoice.Published(paired,false),GuidedFlightChoice.Published(paired.copy(id="p2"),true)))
         checkThat("published price is not fabricated", published.priceUsd == null)
         checkThat("bad airfare excluded", GuidedFlightRules.options(trip, emptyList(),
             listOf(out.copy(price=0.0),out), emptyList(),false,null,today=day.minusDays(1)).size == 1)
@@ -122,7 +125,7 @@ object Stage10JvmRegression {
         checkThat("V6 changed dates invalidate", !rules.complete(trip.copy(returnDate=ret.plusDays(1)), selected))
         checkThat("V6 changed guests invalidate", !rules.complete(trip.copy(adults=3), selected))
         checkThat("V6 wrong adult count invalid", !rules.complete(trip, selected.copy(rooms=mapOf(exact.key to exact.copy(adults=1)))))
-        checkThat("V6 unknown stars invalid", rules.tier(listOf(exact.copy(hotel=hotel.copy(stars=null)))) == null)
+        checkThat("iOS unknown stars use standard tier", rules.tier(listOf(exact.copy(hotel=hotel.copy(stars=null)))) == PackageTier.STANDARD)
         checkThat("V6 3 star standard", rules.tier(listOf(exact.copy(hotel=hotel.copy(stars=3.0)))) == PackageTier.STANDARD)
         checkThat("V6 4 star standard", rules.tier(listOf(exact.copy(hotel=hotel.copy(stars=4.0)))) == PackageTier.STANDARD)
         checkThat("V6 5 star luxury", rules.tier(listOf(exact)) == PackageTier.LUXURY)

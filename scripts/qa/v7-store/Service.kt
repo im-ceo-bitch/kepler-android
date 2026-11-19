@@ -19,6 +19,10 @@ class BookingService {
  suspend fun updateContacts(id:String,headers:Map<String,String>,telegram:String,whatsapp:String) {}
  suspend fun updateZiyarat(id:String,headers:Map<String,String>,makkah:Boolean,madinah:Boolean) {}
  suspend fun updateESIM(id:String,headers:Map<String,String>,enabled:Boolean) {}
- suspend fun deleteBooking(id:String,headers:Map<String,String>) {}
+ var deleteCalls=0; var deletion=BookingMutationResponse(ok=true,deleted=true);var recovered:BookingCreateResponse?=null
+ suspend fun deleteBooking(id:String,headers:Map<String,String>):BookingMutationResponse {deleteCalls++;return deletion}
+ suspend fun confirmGuestContact(channel:String,challengeID:String,code:String):GuestProof { check(code=="123456");return GuestProof("verified","guest@example.com",null) }
+ suspend fun recoverBooking(number:String,channel:String,proof:String):BookingCreateResponse {check(proof=="verified");return requireNotNull(recovered)}
+ data class GuestProof(val verificationToken:String,val email:String?,val phone:String?)
  data class PushResponse(val ready:Boolean?, val ok:Boolean = true, val bookingID:String? = null)
 }

@@ -258,10 +258,12 @@ fun AccountRootScreen(
     }
     val profile = accountState.account
     var signOutConfirm by remember { mutableStateOf(false) }
+    var recoverBooking by remember { mutableStateOf(false) }
+    if(recoverBooking) com.iumrah.beta.ui.booking.GuestBookingRecoveryDialog(language,bookingStore,{recoverBooking=false}) { id -> recoverBooking=false; chrome.openBookingDetail(id) }
     var isRefreshing by remember { mutableStateOf(false) }
     val accountListState = rememberLazyListState()
     var rewardsRevision by remember { mutableIntStateOf(0) }
-    val visibleTrips = if (accountState.isRestoring) emptyList() else bookings.sessions.filter { bookingStore.booking(it.id) != null }
+    val visibleTrips = if (accountState.isRestoring) emptyList() else bookings.sessions.filter { bookingStore.booking(it.id) != null && it.effectiveStatus != "DELETED" }
     val accountTrips = visibleTrips.filter { BookingSessionPolicy.sameIdentity(it.pilgrimID ?: it.accountOwnerID, profile?.iumrahID) }
     val activeTrip = accountTrips.filterNot { it.isPastAccountTrip() }.minByOrNull { accountTripPriority(it) }
 
@@ -327,6 +329,7 @@ fun AccountRootScreen(
             }
         } else {
             item { SeamlessGuestProfile(language, visibleTrips.firstOrNull(), chrome) }
+            item { CardBlock { SettingsRow(CupertinoSymbol.Ticket,tr(language,"Recover booking","Восстановить бронирование","Bronni tiklash","Бронни тиклаш"),tr(language,"By verified email or phone","По подтверждённой почте или телефону","Tasdiqlangan email yoki telefon orqali","Тасдиқланган email ёки телефон орқали")) { recoverBooking=true } } }
             item { AutomaticHelpCard(language, settings.automaticPageHelp, settingsStore::setAutomaticPageHelp) }
             item { com.iumrah.beta.ui.booking.BookingPasswordlessAccessCard(language, null, accountStore, app.container.accountService, bookingStore) {} }
             item { GuestSettingsSection(language, settings.appearance, signalState.unreadCount, notificationDeliveryStatus, chrome, context) }

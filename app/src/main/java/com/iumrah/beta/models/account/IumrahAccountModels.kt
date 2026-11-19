@@ -187,6 +187,11 @@ data class IumrahPaymentReceipt(
     val note: String? = null,
     val reviewStatus: String,
     val createdAt: String,
+    val url: String? = null,
+    val contentType: String? = null,
+    val filename: String? = null,
+    val amountUsd: Double? = null,
+    val reviewReason: String? = null,
 )
 
 @Serializable
@@ -197,7 +202,17 @@ data class IumrahTravelDocument(
     val contentType: String,
     val createdAt: String,
     val url: String,
+    val bookingReference: String? = null,
+    val slots: List<String>? = null,
+    val publicationStatus: String? = null,
 )
+
+@Serializable data class IumrahPaymentReview(val dueCents: Int? = null, val paidCents: Int, val satisfied: Boolean, val historicalConfirmed: Boolean? = null)
+@Serializable data class IumrahDocumentRequirement(val key: String, val kind: String, val label: String, val travelerPosition: Int? = null, val ready: Boolean, val state: String? = null)
+@Serializable data class IumrahUmrahCertificate(val position: Int, val id: String, val name: String, val issuedAt: String)
+@Serializable data class IumrahTravelFeedback(val rating: Int, val comment: String, val createdAt: String)
+@Serializable data class IumrahTravelFeedbackRequest(val rating: Int, val comment: String)
+@Serializable data class IumrahTravelFeedbackResponse(val ok: Boolean, val feedback: IumrahTravelFeedback)
 
 @Serializable
 data class IumrahCheckoutResponse(
@@ -210,6 +225,11 @@ data class IumrahCheckoutResponse(
     val receipts: List<IumrahPaymentReceipt>,
     val documents: List<IumrahTravelDocument>,
     val rewards: IumrahBookingRewardsAmounts? = null,
+    val certificates: List<IumrahUmrahCertificate>? = null,
+    val feedback: IumrahTravelFeedback? = null,
+    val paymentReview: IumrahPaymentReview? = null,
+    val cancellationRequestedAt: String? = null,
+    val documentRequirements: List<IumrahDocumentRequirement>? = null,
 )
 
 @Serializable data class IumrahSimpleResponse(val ok: Boolean)

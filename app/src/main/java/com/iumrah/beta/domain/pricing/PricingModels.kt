@@ -134,7 +134,13 @@ data class PackageQuote(
     val bookingAllowed: Boolean? = null,
     val stayPlan: PackageStayPlan? = null,
     val resolvedTier: String? = null,
-)
+    val tripSummary: TripSummaryPublicPrice? = null,
+    val roomPolicy: TripSummaryRoomPolicy? = null,
+    val itineraryPreview: List<PackageItineraryPreviewItem>? = null,
+) {
+    val hasVerifiedBreakdown: Boolean get() = currency == "USD" && tripSummary?.reconciles(totalPackagePrice) == true
+    fun allowsOccupancy(adults: Int, rooms: Int): Boolean = adults <= rooms * 5 || roomPolicy?.requiresAdultException == false
+}
 
 internal fun newLocalQuoteId(): String = "local-${UUID.randomUUID().toString().lowercase()}"
 
@@ -142,4 +148,8 @@ internal fun newLocalQuoteId(): String = "local-${UUID.randomUUID().toString().l
     val totalNights: Int, val totalDays: Int, val makkahNights: Int, val madinahNights: Int,
     val makkahCheckIn: String, val makkahCheckOut: String,
     val madinahCheckIn: String? = null, val madinahCheckOut: String? = null,
+    val timezone: String? = null, val source: String? = null,
+    val firstCity: String? = null, val lastCity: String? = null,
+    val hotelReadyAt: String? = null, val leaveHotelAt: String? = null,
+    val earlyArrivalNight: Boolean = false,
 )

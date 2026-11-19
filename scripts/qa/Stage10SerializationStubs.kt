@@ -3,6 +3,6 @@
 package kotlinx.serialization
 
 @Target(AnnotationTarget.CLASS, AnnotationTarget.PROPERTY)
-annotation class Serializable
+annotation class Serializable(val with: kotlin.reflect.KClass<*> = Any::class)
 @Target(AnnotationTarget.PROPERTY)
 annotation class SerialName(val value: String)

@@ -50,13 +50,19 @@ fun FinalPackageScreen(language: AppLanguage, journey: JourneyStore, hotelCatalo
     var busy by remember { mutableStateOf(false) }
     var help by remember { mutableStateOf(false) }
     var showTransfer by remember { mutableStateOf(false) }
+    var editHotel by remember { mutableStateOf<String?>(null) }
+    var editFlights by remember { mutableStateOf(false) }
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val container = (context.applicationContext as com.iumrah.beta.IumrahApplication).container
+    val hotelsService = com.iumrah.beta.ui.hotels.rememberNuiteeHotelService()
+    val editService = remember(container,hotelsService,packageEngine) { com.iumrah.beta.data.smart.SmartConfiguratorService(container.curatedFlightRecommendationService,hotelsService,packageEngine) }
     var error by remember { mutableStateOf<String?>(null) }
     val quote = state.quote?.takeIf { state.hasFinalGeneratorQuote && it.bookingAllowed != false }
     val needsMadinah = state.trip.scope == JourneyScope.MAKKAH_AND_MADINAH
     val roomsComplete = state.hasMakkahRoomSelection && (!needsMadinah || state.hasMadinahRoomSelection)
     val flightsComplete = state.selectedJourney?.let { !state.trip.isRoundTripFlight || it.inbound!=null } == true
     val hotelsComplete = state.hasRequiredHotels
-    val canBook = quote!=null && roomsComplete && flightsComplete && hotelsComplete && state.transferSelectionConfirmed && state.resolvedTransferVehicle.passengerCapacity>=state.trip.travelerCount
+    val canBook = state.priceChangeAccepted && quote?.hasVerifiedBreakdown == true && quote.allowsOccupancy(state.trip.adults,state.trip.rooms) && roomsComplete && flightsComplete && hotelsComplete && state.transferSelectionConfirmed && state.resolvedTransferVehicle.passengerCapacity>=state.trip.travelerCount
     fun reprice() {
         if(busy || !roomsComplete || !flightsComplete || !hotelsComplete || !state.transferSelectionConfirmed || journey.state.value!=state) return
         busy=true; error=null
@@ -68,14 +74,15 @@ fun FinalPackageScreen(language: AppLanguage, journey: JourneyStore, hotelCatalo
         }
     }
     LaunchedEffect(state.trip,state.makkahHotel,state.makkahRoom,state.makkahRoomCategory,state.madinahHotel,state.madinahRoom,state.madinahRoomCategory,state.selectedJourney,state.selectedTransferVehicle,state.haramainTrainSelected,state.haramainTicketCount,state.transferSelectionConfirmed) {
-        if(quote==null) reprice()
+        if(quote?.hasVerifiedBreakdown != true) reprice()
     }
     val reason=when {
         busy -> reviewText(language,"Обновляем стоимость…","Updating price…","Narx yangilanmoqda…","Нарх янгиланмоқда…")
         !roomsComplete -> reviewText(language,"Выберите номер","Choose room","Xona tanlash","Хона танлаш")
         !flightsComplete || !hotelsComplete -> reviewText(language,"Проверьте выбранные рейсы и отели перед бронированием.","Review your flights and hotels before booking.","Bron qilishdan oldin reyslar va mehmonxonalarni tekshiring.","Брон қилишдан олдин рейслар ва меҳмонхоналарни текширинг.")
         !state.transferSelectionConfirmed -> reviewText(language,"Подтвердите выбранный трансфер.","Confirm your transfer.","Transferni tasdiqlang.","Трансферни тасдиқланг.")
-        quote==null -> reviewText(language,"Для продолжения обновите расчёт поездки.","Refresh the trip price to continue.","Davom etish uchun safar narxini yangilang.","Давом этиш учун сафар нархини янгиланг.")
+        quote != null && !quote.allowsOccupancy(state.trip.adults,state.trip.rooms) -> reviewText(language,"Требуется согласование размещения.","Room occupancy approval required.","Joylashuvni kelishish kerak.","Жойлашувни келишиш керак.")
+        quote?.hasVerifiedBreakdown != true -> reviewText(language,"Для продолжения обновите расчёт поездки.","Refresh the trip price to continue.","Davom etish uchun safar narxini yangilang.","Давом этиш учун сафар нархини янгиланг.")
         else -> null
     }
     Column(Modifier.fillMaxSize().background(generatorPageColor())) {
@@ -86,15 +93,20 @@ fun FinalPackageScreen(language: AppLanguage, journey: JourneyStore, hotelCatalo
                 item { Box(Modifier.padding(horizontal=18.dp)) { ReviewHelp(language,quote!=null,help) {help=!help} } }
                 if(quote==null) item { Box(Modifier.padding(horizontal=18.dp)) { ReviewPricingStatus(language,busy) } }
                 item { Box(Modifier.padding(horizontal=18.dp)) { ReviewSection(reviewText(language,"Авиабилеты","Flights","Aviachiptalar","Авиачипталар")) } }
+                item { TextButton(enabled=!busy,onClick={editFlights=true},modifier=Modifier.padding(horizontal=18.dp)) { Text(reviewText(language,"Изменить рейсы","Change flights","Reyslarni o‘zgartirish","Рейсларни ўзгартириш")) } }
                 state.selectedJourney?.let { flight ->
                     item { Box(Modifier.padding(horizontal=18.dp)) { ReviewFlight(language,state,flight.outbound,true) } }
                     if(state.trip.isRoundTripFlight) flight.inbound?.let { leg -> item { Box(Modifier.padding(horizontal=18.dp)) { ReviewFlight(language,state,leg,false) } } }
                 }
                 item { Box(Modifier.padding(horizontal=18.dp)) { ReviewSection(reviewText(language,"Отели и номера","Hotels and rooms","Mehmonxonalar va xonalar","Меҳмонхоналар ва хоналар")) } }
                 val windows=TripStayPlanner.windows(state.trip)
-                state.makkahHotel?.let { hotel -> item { Box(Modifier.padding(horizontal=18.dp)) { ReviewCatalogHotel(language,hotel,state.makkahRoom?.name ?: state.makkahRoomCategory?.displayName,windows.makkah) {chrome.openConfiguratorHotelDetail(hotel.id,"makkah")} } } }
-                if(needsMadinah) state.madinahHotel?.let { hotel -> item { Box(Modifier.padding(horizontal=18.dp)) { ReviewCatalogHotel(language,hotel,state.madinahRoom?.name ?: state.madinahRoomCategory?.displayName,windows.madinah ?: windows.makkah) {chrome.openConfiguratorHotelDetail(hotel.id,"madinah")} } } }
+                state.makkahHotel?.let { hotel -> item { Box(Modifier.padding(horizontal=18.dp)) { ReviewCatalogHotel(language,hotel,state.makkahRoom?.name ?: state.makkahRoomCategory?.displayName,windows.makkah) {if(!busy) editHotel="makkah"} } } }
+                if(needsMadinah) state.madinahHotel?.let { hotel -> item { Box(Modifier.padding(horizontal=18.dp)) { ReviewCatalogHotel(language,hotel,state.madinahRoom?.name ?: state.madinahRoomCategory?.displayName,windows.madinah ?: windows.makkah) {if(!busy) editHotel="madinah"} } } }
                 item { Box(Modifier.padding(horizontal=18.dp)) { ReviewServices(language,state) {showTransfer=true} } }
+                quote?.let { item { Box(Modifier.padding(horizontal=18.dp)) { ReviewVerifiedPrice(language,it) } } }
+                item { Box(Modifier.padding(horizontal=18.dp)) { ReviewPriceAndGuests(language,journey,chrome,!busy) } }
+                item { Box(Modifier.padding(horizontal=18.dp)) { SavedPackageActions(language,journey,chrome,enabled=!busy && roomsComplete && flightsComplete && hotelsComplete && state.transferSelectionConfirmed) } }
+                quote?.itineraryPreview?.takeIf { it.isNotEmpty() }?.let { events -> item { Box(Modifier.padding(horizontal=18.dp)) { ReviewItinerary(language,events) } } }
                 error?.let { message -> item { Text(message,Modifier.padding(horizontal=18.dp),color=MaterialTheme.colorScheme.error,fontSize=13.sp) } }
             }
         }
@@ -102,19 +114,49 @@ fun FinalPackageScreen(language: AppLanguage, journey: JourneyStore, hotelCatalo
             when { !hotelsComplete || !roomsComplete -> reviewText(language,"Выбрать номер","Choose room","Xona tanlash","Хона танлаш")
                 !flightsComplete -> reviewText(language,"Выбрать рейс","Choose flight","Reys tanlash","Рейс танлаш")
                 !state.transferSelectionConfirmed -> reviewText(language,"Подтвердить трансфер","Confirm transfer","Transferni tasdiqlash","Трансферни тасдиқлаш")
-                quote!=null -> reviewText(language,"Забронировать пакет","Book package","Paketni bron qilish","Пакетни брон қилиш")
-                else -> reviewText(language,"Повторить расчёт","Retry pricing","Qayta hisoblash","Қайта ҳисоблаш") },!busy && (quote==null || canBook || !roomsComplete || !hotelsComplete || !flightsComplete || !state.transferSelectionConfirmed)) {
+                canBook -> reviewText(language,"Забронировать пакет","Book package","Paketni bron qilish","Пакетни брон қилиш")
+                else -> reviewText(language,"Повторить расчёт","Retry pricing","Qayta hisoblash","Қайта ҳисоблаш") },!busy && (quote?.hasVerifiedBreakdown != true || canBook || !roomsComplete || !hotelsComplete || !flightsComplete || !state.transferSelectionConfirmed)) {
             if(journey.state.value==state) when {
-                !state.hasMakkahRoomSelection || state.makkahHotel==null -> state.makkahHotel?.let {chrome.openConfiguratorHotelDetail(it.id,"makkah")} ?: chrome.openConfiguratorHotelSelection("makkah")
-                needsMadinah && (!state.hasMadinahRoomSelection || state.madinahHotel==null) -> state.madinahHotel?.let {chrome.openConfiguratorHotelDetail(it.id,"madinah")} ?: chrome.openConfiguratorHotelSelection("madinah")
-                !flightsComplete -> chrome.openFlights()
-                !state.transferSelectionConfirmed -> chrome.openTransferSelection()
+                !state.hasMakkahRoomSelection || state.makkahHotel==null -> editHotel="makkah"
+                needsMadinah && (!state.hasMadinahRoomSelection || state.madinahHotel==null) -> editHotel="madinah"
+                !flightsComplete -> editFlights=true
+                !state.transferSelectionConfirmed -> showTransfer=true
                 canBook -> chrome.openBookingCheckout()
                 else -> reprice()
             }
         }
     }
-    if(showTransfer) ReviewTransferSheet(language,state,journey,!busy,{showTransfer=false},editable=false) { showTransfer=false; chrome.openTransferSelection() }
+    if(showTransfer) {
+        val original=remember(journey){journey.state.value}
+        val editor=remember(journey){journey.beginReviewEdit()}
+        val edited by editor.state.collectAsState()
+        ReviewTransferSheet(language,edited,editor,!busy,{showTransfer=false}) {
+            editor.confirmTransferSelection()
+            if(!journey.commitReviewEdit(original,editor)) error="PACKAGE_SELECTION_CHANGED"
+            showTransfer=false
+        }
+    }
+    editHotel?.let { role ->
+        val original=remember(role){journey.state.value}
+        val editor=remember(role){journey.beginReviewEdit()}
+        var id by remember(role){mutableStateOf<String?>(null)}
+        androidx.compose.ui.window.Dialog(onDismissRequest={editHotel=null},properties=androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth=false)) {
+            val selected=id
+            if(selected==null) com.iumrah.beta.ui.trip.ConfiguratorHotelSelectionScreen(role,language,editor,hotelCatalog,chrome,onBack={editHotel=null},onHotel={id=it})
+            else com.iumrah.beta.ui.hotels.HotelDetailScreen(selected,language,hotelCatalog,packageEngine,editor,onBack={id=null},selectionRole=role,onSelectionDone={
+                if(!journey.commitReviewCatalogEdit(original,editor)) error="PACKAGE_SELECTION_CHANGED"
+                editHotel=null
+            },onOpenRefundPolicy={chrome.openBookingPolicy("refund")})
+        }
+    }
+    if(editFlights) {
+        val original=remember(journey){journey.state.value}
+        val editor=remember(journey){journey.beginReviewEdit()}
+        com.iumrah.beta.ui.smart.SmartPackageEditDialog(language,editService,container.airportSearchService,journey,"flights",onDismiss={editFlights=false},onApply={candidate->
+            if(!journey.commitReviewFlightEdit(original,candidate)) error="PACKAGE_SELECTION_CHANGED"
+            editFlights=false
+        },reviewEditor=editor)
+    }
 }
 
 @Composable internal fun ReviewFlight(l:AppLanguage,state:JourneyState,flight:LiveFlightCandidate,outbound:Boolean) {

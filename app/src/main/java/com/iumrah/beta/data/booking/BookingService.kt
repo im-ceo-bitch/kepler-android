@@ -14,6 +14,11 @@ import com.iumrah.beta.models.hotel.IumrahRoomCategoryOption
 import kotlinx.serialization.Serializable
 
 class BookingService(private val api: APIClient) {
+    @Serializable private data class RecoveryRequest(val bookingNumber:String,val channel:String,val verificationToken:String)
+    suspend fun recoverBooking(number:String,channel:String,proof:String):BookingCreateResponse {
+        require(number.isNotBlank() && channel in setOf("email","sms") && proof.isNotBlank())
+        return api.post("/api/package/booking-contact/recover",RecoveryRequest(number,channel,proof))
+    }
     suspend fun createBooking(request: BookingCreateEnvelope): BookingCreateResponse =
         api.post(AppConfig.PACKAGE_BOOKING_PATH, request)
 
@@ -69,9 +74,12 @@ class BookingService(private val api: APIClient) {
     suspend fun fetchOperationalTrip(id: String, headers: Map<String, String>): ClientTripResponse =
         api.get("/api/catalog/hotels/client/trips/$id", headers = headers)
 
-    suspend fun fetchItinerary(id: String, headers: Map<String, String>): List<BookingItineraryItem> =
-        api.get<BookingItineraryResponse>("/api/catalog/hotels/client/trips/$id/itinerary", headers = headers)
-            .items.sortedWith(compareBy<BookingItineraryItem> { it.dateLocal }.thenBy { it.sortOrder })
+    suspend fun fetchItineraryResponse(id: String, headers: Map<String, String>): BookingItineraryResponse {
+        val response = api.get<BookingItineraryResponse>("/api/catalog/hotels/client/trips/$id/itinerary", headers = headers)
+        check(response.ok && response.bookingID == id && response.items.all { it.bookingID == id })
+        return response.copy(items = response.items.sortedWith(compareBy<BookingItineraryItem> { it.dateLocal }.thenBy { it.sortOrder }))
+    }
+    suspend fun fetchItinerary(id: String, headers: Map<String, String>): List<BookingItineraryItem> = fetchItineraryResponse(id,headers).items
 
     suspend fun updateHotelSelection(
         id: String,
@@ -138,6 +146,17 @@ class BookingService(private val api: APIClient) {
         ),
         headers,
     )
+
+    suspend fun refundPreview(id: String, headers: Map<String, String>): BookingRefundPreview =
+        api.get("/api/catalog/hotels/client/bookings/$id/refund-preview", headers = headers)
+
+    suspend fun requestCancellation(id: String, headers: Map<String, String>): BookingMutationResponse =
+        api.post("/api/catalog/hotels/client/bookings/$id/cancel-request", emptyMap<String,String>(), headers)
+
+    suspend fun submitTravelFeedback(id: String, rating: Int, comment: String, headers: Map<String, String>): com.iumrah.beta.models.account.IumrahTravelFeedbackResponse {
+        require(rating in 1..5)
+        return api.post("/api/catalog/hotels/client/trips/$id/feedback", com.iumrah.beta.models.account.IumrahTravelFeedbackRequest(rating,comment),headers)
+    }
 
     suspend fun deleteBooking(id: String, headers: Map<String, String>): BookingMutationResponse =
         api.delete("/api/catalog/hotels/client/bookings/$id", headers)

@@ -24,7 +24,7 @@ checks = {
  'fallback limited to authorization or missing booking': 'BookingAuthFallbackPolicy.mayRetryWithAccount(error)' in svc and 'error.code in setOf(401, 403, 404)' in src('domain/booking/BookingAuthFallbackPolicy.kt'),
  'booking home refresh reloads latest session and checkout': 'bookingStore.refreshAll()' in booking and 'bookingStore.state.value.sessions.firstOrNull' in booking and 'checkoutWithFallback(' in booking,
  'account-only booking refresh uses the authenticated trip detail': 'else if (!accountToken.isNullOrBlank())' in booking_store and 'accountStore.tripDetail(id, accountToken)' in booking_store and 'accountDetail.trip' in booking_store,
- 'checkout uses explicit token fallback': 'checkoutWithFallback(bookingID, session.accessToken, accountStore.bearerToken)' in pilgrim,
+ 'checkout uses explicit token fallback': 'checkoutWithFallback(bookingID, session.accessToken, matchingToken)' in pilgrim and 'BookingSessionPolicy.sameIdentity(session.pilgrimID ?: session.accountOwnerID, accountStore.state.value.iumrahID)' in pilgrim,
  'delete requires explicit confirmation, not implicit tap': 'pendingDeleteID?.let { id ->' in booking and 'AlertDialog(' in booking and 'bookingStore.deleteBooking(id)' in booking and 'onDelete(session.id)' in booking,
  'email sign-in uses OTP, existing iumrah ID uses password': 'startEmailLogin(' in account and 'confirmEmailLogin(' in account and 'method=="id" -> accountStore.login' in account,
  'register email / SMS has passwordless verification payload': 'data class IumrahPhoneRegistrationConfirmRequest' in models and 'data class IumrahRegistrationEmailConfirmRequest' in models and 'IumrahPhoneRegistrationConfirmRequest(challengeID, code, deviceIdentity.current(locale))' in svc,

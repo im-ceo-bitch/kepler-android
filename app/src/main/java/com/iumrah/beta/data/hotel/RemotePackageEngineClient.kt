@@ -6,6 +6,9 @@ import com.iumrah.beta.core.network.APIException
 import com.iumrah.beta.core.serialization.BigDecimalJsonSerializer
 import com.iumrah.beta.domain.journey.JourneyState
 import com.iumrah.beta.domain.pricing.PackageQuote
+import com.iumrah.beta.domain.pricing.TripSummaryPublicPrice
+import com.iumrah.beta.domain.pricing.TripSummaryRoomPolicy
+import com.iumrah.beta.domain.pricing.PackageItineraryPreviewItem
 import com.iumrah.beta.domain.trip.FlightTripType
 import com.iumrah.beta.domain.trip.PackageTier
 import com.iumrah.beta.domain.trip.TripStayPlanner
@@ -21,6 +24,8 @@ import java.math.BigDecimal
 import java.time.ZoneId
 import java.time.ZoneOffset
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.decodeFromJsonElement
 
 /** Same server-authoritative PackageEngine boundary as iOS. */
 class RemotePackageEngineClient(private val api: APIClient) {
@@ -130,8 +135,16 @@ class RemotePackageEngineClient(private val api: APIClient) {
                 },
             ),
         )
-        val envelope: ServerPackageQuoteEnvelope = api.post("/api/package/quote", request, timeoutSeconds = if (nuiteeRooms == null) 15 else 120)
+        val approval = if (state.savedPackageID != null && state.packageApprovalOwner != null)
+            mapOf("x-package-id" to state.savedPackageID, "x-package-owner" to state.packageApprovalOwner) else emptyMap()
+        val envelope: ServerPackageQuoteEnvelope = api.post("/api/package/quote", request, headers = approval, timeoutSeconds = 180)
         if (!envelope.ok) throw APIException.InvalidResponse
+        val raw = envelope.quote
+        if (raw.totalPackagePrice.signum() <= 0 || raw.pricePerPerson.signum() <= 0 ||
+            !raw.quoteId.startsWith("server-") || raw.quoteProof.isBlank() || raw.currency != "USD")
+            throw APIException.Server(502, "PACKAGE_QUOTE_INVALID")
+        if (raw.tripSummary?.reconciles(raw.totalPackagePrice) == false)
+            throw APIException.Server(502, "PACKAGE_PRICE_BREAKDOWN_INVALID")
         return PackageQuote(
             totalPackagePrice = envelope.quote.totalPackagePrice,
             pricePerPerson = envelope.quote.pricePerPerson,
@@ -143,6 +156,9 @@ class RemotePackageEngineClient(private val api: APIClient) {
             bookingAllowed = envelope.quote.bookingAllowed,
             stayPlan = envelope.quote.stayPlan,
             resolvedTier = envelope.quote.resolvedTier,
+            tripSummary = raw.tripSummary,
+            roomPolicy = raw.roomPolicy,
+            itineraryPreview = raw.itineraryPreview?.let { runCatching { api.json.decodeFromJsonElement<List<PackageItineraryPreviewItem>>(it) }.getOrNull() },
         )
     }
 
@@ -178,6 +194,9 @@ private data class ServerPackageQuote(
     val bookingAllowed: Boolean? = null,
     val stayPlan: com.iumrah.beta.domain.pricing.PackageStayPlan? = null,
     val resolvedTier: String? = null,
+    val tripSummary: TripSummaryPublicPrice? = null,
+    val roomPolicy: TripSummaryRoomPolicy? = null,
+    val itineraryPreview: JsonElement? = null,
 )
 
 @Serializable

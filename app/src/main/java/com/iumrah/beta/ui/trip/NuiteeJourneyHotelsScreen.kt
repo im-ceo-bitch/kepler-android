@@ -44,7 +44,10 @@ import kotlinx.coroutines.CancellationException
 /** Source parity: room-index × city, real supplier rates and explicitly unpriced pending requests. */
 @Composable
 fun NuiteeJourneyHotelsScreen(language: AppLanguage, journey: JourneyStore, chrome: AppChromeStore,
-                               service: NuiteeHotelService = rememberNuiteeHotelService()) {
+                               service: NuiteeHotelService = rememberNuiteeHotelService(),
+                               reviewEditing: Boolean = false,
+                               onBack: () -> Unit = { chrome.back() },
+                               onComplete: () -> Unit = { chrome.openNuiteeJourneyReview() }) {
     val context = LocalContext.current
     val favoritePrefs = remember { context.getSharedPreferences("iumrah_nuitee_favorites", 0) }
     var favorites by remember { mutableStateOf(favoritePrefs.getStringSet("hotels", emptySet()).orEmpty().toSet()) }
@@ -55,7 +58,10 @@ fun NuiteeJourneyHotelsScreen(language: AppLanguage, journey: JourneyStore, chro
     var roomIndex by remember { mutableIntStateOf(0) }
     var stars by remember { mutableIntStateOf(0) }
     var refresh by remember { mutableIntStateOf(0) }
-    var childrenAges by remember { mutableStateOf(List(trip.children + trip.infants) { -1 }) }
+    val childrenAges = state.childAges.takeIf { it.size==trip.children+trip.infants }
+        ?: draft?.rooms?.values?.filter { it.city=="makkah" }?.sortedBy { it.roomIndex }?.let { rooms ->
+            List(trip.children+trip.infants){i->rooms.firstOrNull{it.roomIndex==i%trip.rooms}?.childrenAges?.getOrNull(i/trip.rooms) ?: -1}
+        } ?: List(trip.children+trip.infants){-1}
     val windows = TripStayPlanner.windows(trip)
     val stay = if (city == "madinah") windows.madinah ?: windows.makkah else windows.makkah
     val roomAdults = trip.adults / trip.rooms + if (roomIndex < trip.adults % trip.rooms) 1 else 0
@@ -67,7 +73,7 @@ fun NuiteeJourneyHotelsScreen(language: AppLanguage, journey: JourneyStore, chro
     val listState = rememberLazyListState()
     LaunchedEffect(roomKey) { listState.scrollToItem(0) }
     val allComplete = draft?.let { com.iumrah.beta.domain.nuitee.NuiteeBookingRules.complete(trip, it) } == true
-    val page = rememberNuiteePagedCatalog(service, city, stay.checkIn, stay.checkOut, roomAdults.coerceAtLeast(1), stars, refresh = refresh)
+    val page = rememberNuiteePagedCatalog(service, city, stay.checkIn, stay.checkOut, roomAdults.coerceAtLeast(1), stars, refresh = refresh, childrenAges = roomChildren)
     val hotels = page.hotels
     val rateError = page.error ?: page.rateError
     val loading = page.loading
@@ -77,15 +83,15 @@ fun NuiteeJourneyHotelsScreen(language: AppLanguage, journey: JourneyStore, chro
     Scaffold(containerColor = MaterialTheme.colorScheme.background, bottomBar = {
         if (allComplete) Box(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.background)
             .navigationBarsPadding().padding(horizontal = 18.dp, vertical = 12.dp)) {
-            IumrahPrimaryButton(title = nuiteeText(language,"Выбрать трансфер", "Choose transfer",
-                "Transferni tanlash", "Трансферни танлаш"), onClick = { chrome.openNuiteeJourneyReview() })
+            IumrahPrimaryButton(title = if (reviewEditing) nuiteeText(language,"Применить", "Apply", "Qo‘llash", "Қўллаш") else nuiteeText(language,"Выбрать трансфер", "Choose transfer",
+                "Transferni tanlash", "Трансферни танлаш"), onClick = onComplete)
         }
     }) { scaffoldPadding ->
         LazyColumn(Modifier.fillMaxSize().padding(scaffoldPadding), state = listState, contentPadding = PaddingValues(18.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp)) {
             item {
                 Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(Color(0xFF111111)).padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                    TextButton(onClick = { chrome.back() }) { CupertinoIcon(CupertinoSymbol.ChevronLeft, null, Modifier.size(22.dp), Color.White) }
+                    TextButton(onClick = onBack) { CupertinoIcon(CupertinoSymbol.ChevronLeft, null, Modifier.size(22.dp), Color.White) }
                     Column(Modifier.weight(1f)) {
                         Text(nuiteeText(language,"Отели и номера", "Hotels & rooms", "Mehmonxona va xonalar", "Меҳмонхона ва хоналар"),
                             fontWeight = FontWeight.Bold, fontSize = 24.sp, color = Color.White)
@@ -106,9 +112,9 @@ fun NuiteeJourneyHotelsScreen(language: AppLanguage, journey: JourneyStore, chro
                     if (partyExpanded) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(nuiteeText(language,"Номеров", "Rooms", "Xonalar", "Хоналар"), Modifier.weight(1f))
-                        TextButton(enabled = trip.rooms > 1, onClick = { journey.changeNuiteeRoomCount(trip.rooms - 1); roomIndex = 0 }) { CupertinoIcon(CupertinoSymbol.Minus, null, Modifier.size(18.dp)) }
+                        TextButton(enabled = !reviewEditing && trip.rooms > (trip.adults+4)/5, onClick = { journey.changeNuiteeRoomCount(trip.rooms - 1); roomIndex = 0 }) { CupertinoIcon(CupertinoSymbol.Minus, null, Modifier.size(18.dp)) }
                         Text("${trip.rooms}")
-                        TextButton(enabled = trip.rooms < trip.adults, onClick = { journey.changeNuiteeRoomCount(trip.rooms + 1); roomIndex = 0 }) { CupertinoIcon(CupertinoSymbol.Plus, null, Modifier.size(18.dp)) }
+                        TextButton(enabled = !reviewEditing && trip.rooms < trip.adults, onClick = { journey.changeNuiteeRoomCount(trip.rooms + 1); roomIndex = 0 }) { CupertinoIcon(CupertinoSymbol.Plus, null, Modifier.size(18.dp)) }
                     }
                     childrenAges.forEachIndexed { idx, age ->
                         var open by remember(idx) { mutableStateOf(false) }
@@ -118,7 +124,7 @@ fun NuiteeJourneyHotelsScreen(language: AppLanguage, journey: JourneyStore, chro
                                 OutlinedButton(onClick = { open = true }) { Text(if (age < 0) "—" else "$age") }
                                 DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
                                     (0..17).forEach { value -> DropdownMenuItem(text = { Text("$value") }, onClick = {
-                                        if (age != value) { childrenAges = childrenAges.toMutableList().also { it[idx] = value }; journey.clearNuiteeRooms() }; open = false
+                                        if (age != value) { journey.updateGuestAges(childrenAges.toMutableList().also { it[idx] = value }) }; open = false
                                     }) }
                                 }
                             }
@@ -205,7 +211,7 @@ fun NuiteeJourneyHotelsScreen(language: AppLanguage, journey: JourneyStore, chro
                     if (updated.nuitee?.rooms?.get(roomKey)?.rate == rate) {
                         val next = updated.nuitee?.let { draft -> (listOf(city) + draft.requiredCities(trip).filter { it != city }).flatMap { c -> (0 until trip.rooms).map { c to it } }.firstOrNull { (c, i) -> "$c:$i" !in draft.rooms } }
                         if (next != null) { city = next.first; roomIndex = next.second; stars = 0 }
-                        else if (updated.nuitee?.let { com.iumrah.beta.domain.nuitee.NuiteeBookingRules.complete(trip, it) } == true) chrome.openNuiteeJourneyReview()
+                        else if (!reviewEditing && updated.nuitee?.let { com.iumrah.beta.domain.nuitee.NuiteeBookingRules.complete(trip, it) } == true) onComplete()
                     }
                 }
                 selectedHotel = null

@@ -21,7 +21,7 @@ start=booking.index('    AnimatedContent(\n        targetState = activeSession?.
 end=booking.index('\n}\n\n@Composable',start)
 animated=booking[start:end]
 assert ') { bookingID ->' in animated, 'Animation target not used'
-assert 'val displayedSession = activeSessions.firstOrNull { it.id == bookingID }' in animated, 'Animation not tied to target ID'
+assert 'val displayedSession = bookingID?.let(bookingStore::booking)' in animated, 'Animation not tied to target ID'
 assert 'if (displayedSession == null)' in animated and 'session = displayedSession' in animated
 assert 'otherSessions = activeSessions.filterNot { it.id == displayedSession.id }' in animated
 assert 'if (activeSession == null)' not in animated

@@ -8,7 +8,7 @@ import java.util.Locale
 /** Same local-day and 24-hour boundary as Swift NuiteeDailyHotelCache. */
 internal object NuiteeDailyCachePolicy {
     fun key(city: String, checkin: LocalDate, checkout: LocalDate, adults: Int, catalogOnly: Boolean): String =
-        "${city.lowercase(Locale.ROOT)}-$checkin-$checkout-$adults-${if (catalogOnly) "catalog" else "rates"}"
+        if (catalogOnly) "catalog-v3-${city.lowercase(Locale.ROOT)}" else "${city.lowercase(Locale.ROOT)}-$checkin-$checkout-$adults-rates"
 
     fun fresh(savedAt: Long, now: Long, zone: ZoneId = ZoneId.systemDefault()): Boolean =
         savedAt >= 0 && now >= savedAt && now - savedAt < 86_400_000L &&

@@ -13,7 +13,9 @@ assert 'MAX_JSON_BYTES' in a and 'MAX_MEDIA_BYTES' in a and 'readBounded(' in a
 assert 'invokeOnCancellation { cancel() }' in read('core/network/HttpCallAwait.kt')
 assert 'probeJob?.cancel()' in m and 'generation == current' in m and '20_000L' in m
 assert 'connectivityMonitor.refresh()' in read('IumrahApp.kt')
-assert 'service.hotelDetail(hotel.id)' not in h and 'HotelCover(hotel.coverImageURL)' in h and 'remember(hotelPackages)' in h
+photos = read('data/nuitee/DistinctHotelPhotos.kt')
+assert 'DistinctHotelPhotos.selectWithFallback' in h and 'HotelCover(photos.firstOrNull())' in h and 'remember(hotelPackages)' in h
+assert 'if (initial.size == 3) return@withLock initial' in photos and 'fallbackCache' in photos and 'Semaphore(4)' in photos and '1_800_000' in photos
 f = read('ui/flights/FlightDiscoveryPanel.kt')
 assert 'currentCoroutineContext().ensureActive()' in f and 'searchGeneration.get() == generation' in f and 'retrySeed += 1' in f
 assert 'check(createMutex.tryLock())' in b and 'createMutex.unlock()' in b

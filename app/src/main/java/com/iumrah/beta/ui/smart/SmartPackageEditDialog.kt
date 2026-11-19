@@ -33,8 +33,9 @@ import com.iumrah.beta.ui.components.IumrahPrimaryButton
 
 /** An independent draft, discarded on cancel. Only a successfully re-quoted edit is adopted. */
 @Composable internal fun SmartPackageEditDialog(language: AppLanguage, service: SmartConfiguratorService,
-    airports: AirportSearchService, previous: JourneyStore, kind: String, onDismiss: () -> Unit, onApply: (JourneyStore) -> Unit) {
-    val candidate = remember(previous, kind) { previous.smartEditCopy() }
+    airports: AirportSearchService, previous: JourneyStore, kind: String, onDismiss: () -> Unit, onApply: (JourneyStore) -> Unit,
+    reviewEditor: JourneyStore? = null) {
+    val candidate = remember(previous, kind, reviewEditor) { reviewEditor ?: previous.smartEditCopy() }
     val state by candidate.state.collectAsState()
     val original by previous.state.collectAsState()
     val context = LocalContext.current
@@ -74,7 +75,7 @@ import com.iumrah.beta.ui.components.IumrahPrimaryButton
                 var hotel by remember(roomIndex) { mutableStateOf<NuiteeHotel?>(null) }
                 var chosenKeys by remember { mutableStateOf<Set<String>>(emptySet()) }
                 val selectedHotelId = state.nuitee?.rooms?.get("$kind:0")?.hotel?.id
-                val page = rememberNuiteePagedCatalog(service.editHotels, kind, room.checkin, room.checkout, room.adults, stars)
+                val page = rememberNuiteePagedCatalog(service.editHotels, kind, room.checkin, room.checkout, room.adults, stars, childrenAges = room.childrenAges)
                 val allSelected = prior.all { it.key in chosenKeys && state.nuitee?.rooms?.get(it.key) != null }
                 Scaffold(bottomBar = { if (allSelected) Box(Modifier.fillMaxWidth().navigationBarsPadding().padding(18.dp)) {
                     IumrahPrimaryButton(title = t("Пересчитать пакет", "Reprice package", "Paketni qayta hisoblash", "Пакетни қайта ҳисоблаш"), onClick = { onApply(candidate) })

@@ -6,6 +6,12 @@ object BookingSessionPolicy {
     fun sameIdentity(left: String?, right: String?): Boolean =
         pilgrimDisplay(left)?.let { it == pilgrimDisplay(right) } == true
 
+    fun acceptsPushOwner(eventOwner: String?, accountOwner: String?, bookingOwner: String?, bookingToken: String?): Boolean {
+        if (eventOwner == null) return true
+        if (sameIdentity(eventOwner, accountOwner)) return true
+        return !bookingToken.isNullOrBlank() && sameIdentity(eventOwner, bookingOwner)
+    }
+
     fun careIsActive(status: String): Boolean = status.trim().uppercase().let {
         it.isNotEmpty() && it !in setOf("COMPLETED", "CANCELLED", "CANCELED", "DELETED")
     }

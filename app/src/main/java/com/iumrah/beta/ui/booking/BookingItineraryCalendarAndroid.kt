@@ -34,7 +34,7 @@ import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
 import java.util.Locale
 
-private enum class ScheduleTemporalState { NEUTRAL, COMPLETED, ACTIVE, UPCOMING }
+private enum class ScheduleTemporalState { NEUTRAL, COMPLETED, ACTIVE, UPCOMING, DELAYED, RESCHEDULED }
 
 @Composable
 internal fun BookingItineraryCalendarAndroid(
@@ -44,16 +44,17 @@ internal fun BookingItineraryCalendarAndroid(
     modifier: Modifier = Modifier,
     fullScreen: Boolean = true,
     onOpenFullSchedule: (() -> Unit)? = null,
+    managed: Boolean = false,
 ) {
-    val items = remember(session.booking.updatedAt, remoteItems, language) {
-        itinerarySource(session, remoteItems, language)
+    val items = remember(session.booking.updatedAt, remoteItems, language, managed) {
+        if (managed) remoteItems else itinerarySource(session, remoteItems, language)
     }
     val days = remember(session.booking.input.startDate, session.booking.input.endDate, items) {
-        dayRange(session.booking.input.startDate, session.booking.input.endDate).ifEmpty {
-            items.map { it.dateLocal }.distinct().sorted()
-        }
+        (dayRange(session.booking.input.startDate, session.booking.input.endDate) + items.map { it.dateLocal }).distinct().sorted()
     }
-    val today = remember { LocalDate.now(ZoneId.of("Asia/Riyadh")).toString() }
+    val today by produceState(LocalDate.now(ZoneId.of("Asia/Riyadh")).toString()) {
+        while (true) { kotlinx.coroutines.delay(60_000); value = LocalDate.now(ZoneId.of("Asia/Riyadh")).toString() }
+    }
     var selectedDay by remember(days, today) {
         mutableStateOf(days.firstOrNull { it == today } ?: days.firstOrNull { it >= today } ?: days.lastOrNull())
     }
@@ -218,6 +219,14 @@ private fun CompactScheduleRow(language: AppLanguage, item: BookingItineraryItem
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
             Text(item.title, fontSize = 14.sp, lineHeight = 18.sp, fontWeight = FontWeight.Bold)
             if (item.subtitle.isNotBlank()) Text(item.subtitle, fontSize = 12.sp, lineHeight = 16.sp, color = MaterialTheme.colorScheme.onBackground.copy(alpha = .52f))
+            val executionLabel = when (temporalState(item, false)) {
+                ScheduleTemporalState.ACTIVE -> scheduleText(language,"В процессе","In progress","Jarayonda","Жараёнда")
+                ScheduleTemporalState.COMPLETED -> scheduleText(language,"Завершено","Done","Tugadi","Тугади")
+                ScheduleTemporalState.DELAYED -> scheduleText(language,"Задерживается","Delayed","Kechikmoqda","Кечикмоқда")
+                ScheduleTemporalState.RESCHEDULED -> scheduleText(language,"Перенесено","Rescheduled","Ko‘chirildi","Кўчирилди")
+                else -> null
+            }
+            executionLabel?.let { Text(it, fontSize=11.sp, fontWeight=FontWeight.SemiBold) }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 if (item.location.isNotBlank()) Text("• ${item.location}", fontSize = 10.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onBackground.copy(alpha = .52f))
                 durationLabel(item, language)?.let { Text(it, fontSize = 10.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onBackground.copy(alpha = .52f)) }
@@ -231,7 +240,8 @@ private fun TimedScheduleRow(language: AppLanguage, item: BookingItineraryItem, 
     val state = temporalState(item, today)
     val tint = when (state) {
         ScheduleTemporalState.ACTIVE -> Color(0xFF007AFF)
-        ScheduleTemporalState.UPCOMING -> Color(0xFFFF9500)
+        ScheduleTemporalState.UPCOMING, ScheduleTemporalState.DELAYED -> Color(0xFFFF9500)
+        ScheduleTemporalState.RESCHEDULED -> Color(0xFFAF52DE)
         ScheduleTemporalState.COMPLETED -> Color(0xFF8E8E93)
         ScheduleTemporalState.NEUTRAL -> Color(0xFF007AFF)
     }
@@ -266,6 +276,8 @@ private fun TimedScheduleRow(language: AppLanguage, item: BookingItineraryItem, 
                     ScheduleTemporalState.ACTIVE -> scheduleText(language, "Сейчас", "Now", "Hozir", "Ҳозир")
                     ScheduleTemporalState.UPCOMING -> scheduleText(language, "Далее", "Next", "Keyin", "Кейин")
                     ScheduleTemporalState.COMPLETED -> scheduleText(language, "Завершено", "Done", "Tugadi", "Тугади")
+                    ScheduleTemporalState.DELAYED -> scheduleText(language,"Задерживается","Delayed","Kechikmoqda","Кечикмоқда")
+                    ScheduleTemporalState.RESCHEDULED -> scheduleText(language,"Перенесено","Rescheduled","Ko‘chirildi","Кўчирилди")
                     ScheduleTemporalState.NEUTRAL -> ""
                 }
                 Text(label, fontSize = 9.sp, fontWeight = FontWeight.Bold, color = if (state == ScheduleTemporalState.COMPLETED) MaterialTheme.colorScheme.onBackground.copy(alpha = .52f) else MaterialTheme.colorScheme.onBackground, modifier = Modifier.clip(CircleShape).background(tint.copy(alpha = .13f)).padding(horizontal = 9.dp, vertical = 7.dp))
@@ -292,16 +304,16 @@ private fun ScheduleIcon(raw: String, tint: Color, size: Int) {
 }
 
 private fun temporalState(item: BookingItineraryItem, today: Boolean): ScheduleTemporalState {
+    when(item.executionState?.lowercase()) {
+        "completed" -> return ScheduleTemporalState.COMPLETED
+        "in_progress" -> return ScheduleTemporalState.ACTIVE
+        "delayed" -> return ScheduleTemporalState.DELAYED
+        "rescheduled" -> return ScheduleTemporalState.RESCHEDULED
+    }
     if (!today || item.timeLocal.isNullOrBlank()) return ScheduleTemporalState.NEUTRAL
     val day = runCatching { LocalDate.parse(item.dateLocal) }.getOrNull() ?: return ScheduleTemporalState.NEUTRAL
     val start = runCatching { LocalDateTime.of(day, LocalTime.parse(item.timeLocal)) }.getOrNull() ?: return ScheduleTemporalState.NEUTRAL
-    val end = item.endTimeLocal?.let { runCatching { LocalDateTime.of(day, LocalTime.parse(it)) }.getOrNull() } ?: start.plusMinutes(50)
-    val now = LocalDateTime.now(ZoneId.of("Asia/Riyadh"))
-    return when {
-        now.isBefore(start) -> ScheduleTemporalState.UPCOMING
-        !now.isAfter(end) -> ScheduleTemporalState.ACTIVE
-        else -> ScheduleTemporalState.COMPLETED
-    }
+    return if (LocalDateTime.now(ZoneId.of("Asia/Riyadh")).isBefore(start)) ScheduleTemporalState.UPCOMING else ScheduleTemporalState.NEUTRAL
 }
 
 private fun durationLabel(item: BookingItineraryItem, language: AppLanguage): String? {
@@ -319,7 +331,7 @@ private fun durationLabel(item: BookingItineraryItem, language: AppLanguage): St
 }
 
 private fun itinerarySource(session: StoredBookingSession, remote: List<BookingItineraryItem>, language: AppLanguage): List<BookingItineraryItem> {
-    if (remote.any { !it.timeLocal.isNullOrBlank() }) return remote.sortedWith(compareBy<BookingItineraryItem> { it.dateLocal }.thenBy { it.sortOrder })
+    if (remote.any { !it.timeLocal.isNullOrBlank() || it.executionState != null }) return remote.sortedWith(compareBy<BookingItineraryItem> { it.dateLocal }.thenBy { it.sortOrder })
     val days = dayRange(session.booking.input.startDate, session.booking.input.endDate)
     val distinct = remote.map { it.dateLocal }.toSet().size
     val minimumUseful = minOf(3, maxOf(2, days.size - 1))

@@ -110,8 +110,8 @@ object BookingDraftBuilder {
             generatorTrace = BookingGeneratorTrace(
                 nuiteeRooms = nuiteeRooms,
                 quoteId = quote.quoteId,
-                outbound = generatorFlight(outbound, journey.sourceName),
-                inbound = inbound?.let { generatorFlight(it, journey.sourceName) },
+                outbound = generatorFlight(outbound, if (state.mixedFlightIdentity != null) outbound.sourceName else journey.sourceName),
+                inbound = inbound?.let { generatorFlight(it, if (state.mixedFlightIdentity != null) it.sourceName else journey.sourceName) },
                 makkahHotel = generatorHotel(makkahHotel, state.makkahRoom, state.makkahRoomCategory),
                 madinahHotel = madinahHotel?.let { generatorHotel(it, state.madinahRoom, state.madinahRoomCategory) },
             ),

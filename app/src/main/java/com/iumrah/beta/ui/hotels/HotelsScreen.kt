@@ -396,6 +396,7 @@ fun HotelsScreen(
                             hotel = hotel,
                             quote = quote,
                             language = language,
+                            catalogService = service,
                             favorite = hotel.id in favorites,
                             onFavorite = {
                                 favorites = if (hotel.id in favorites) favorites - hotel.id else favorites + hotel.id
@@ -416,6 +417,7 @@ fun HotelsScreen(
                             hotel = hotel,
                             quote = quote,
                             language = language,
+                            catalogService = service,
                             favorite = hotel.id in favorites,
                             onFavorite = {
                                 favorites = if (hotel.id in favorites) favorites - hotel.id else favorites + hotel.id
@@ -807,21 +809,35 @@ private fun HotelStorefrontCard(
     hotel: HotelSummary,
     quote: StorefrontPackageSnapshot?,
     language: AppLanguage,
+    catalogService: HotelCatalogService,
     favorite: Boolean,
     onFavorite: () -> Unit,
     onShare: () -> Unit,
     onOpen: () -> Unit,
 ) {
     val shape = RoundedCornerShape(28.dp)
-    BoxWithConstraints(Modifier.fillMaxWidth().height(204.dp)) {
-        val mediaWidth = (maxWidth * .31f).coerceIn(108.dp, 122.dp)
+    val candidates = remember(hotel.coverImageURL) { listOfNotNull(hotel.coverImageURL).filter { it.isNotBlank() } }
+    val photos by androidx.compose.runtime.produceState(candidates.take(1),hotel.id,candidates) {
+        value=candidates.take(1)
+        value=com.iumrah.beta.data.nuitee.DistinctHotelPhotos.selectWithFallback("legacy:${hotel.id}",candidates) {
+            catalogService.hotelDetail(hotel.id).images.sortedBy { it.position }.map { it.url }.distinctBy(::hotelPhotoIdentity)
+        }.ifEmpty { candidates.take(1) }
+    }
+    BoxWithConstraints(Modifier.fillMaxWidth().height(232.dp)) {
+        val mediaWidth = maxWidth * .43f
         Row(
             Modifier.fillMaxSize().clip(shape).background(MaterialTheme.colorScheme.surface)
                 .border(.6.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = .055f), shape)
                 .clickable { onOpen() },
         ) {
             Box(Modifier.width(mediaWidth).fillMaxHeight()) {
-                HotelCover(hotel.coverImageURL)
+                if(photos.size<2) HotelCover(photos.firstOrNull()) else Column(Modifier.fillMaxSize(),verticalArrangement=Arrangement.spacedBy(3.dp)) {
+                    StorefrontImage(photos[0],Modifier.fillMaxWidth().weight(.62f))
+                    Row(Modifier.fillMaxWidth().weight(.38f),horizontalArrangement=Arrangement.spacedBy(3.dp)) {
+                        StorefrontImage(photos[1],Modifier.weight(1f).fillMaxHeight())
+                        if(photos.size>2) StorefrontImage(photos[2],Modifier.weight(1f).fillMaxHeight())
+                    }
+                }
                 Row(Modifier.padding(9.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     MediaCircle(onFavorite) {
                         CupertinoIcon(if (favorite) CupertinoSymbol.HeartFill else CupertinoSymbol.Heart, null, Modifier.size(14.dp), if (favorite) Color(0xFFFF5C77) else Color.White)

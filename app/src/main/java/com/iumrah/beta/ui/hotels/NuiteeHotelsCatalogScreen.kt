@@ -288,8 +288,16 @@ internal fun NuiteeListingCard(
     nights: Int = 0, adults: Int = 0, sandbox: Boolean = false,
 ) {
     val context = LocalContext.current
-    val photos = remember(hotel.previewImages, hotel.coverImageURL) {
-        (hotel.previewImages.orEmpty() + listOfNotNull(hotel.coverImageURL)).filter { it.isNotBlank() }.distinct().take(3)
+    val candidates = remember(hotel.previewImages, hotel.coverImageURL) {
+        (hotel.previewImages.orEmpty() + listOfNotNull(hotel.coverImageURL)).filter { it.isNotBlank() }.distinctBy(::hotelPhotoIdentity).take(15)
+    }
+    val photoService = rememberNuiteeHotelService()
+    val photos by produceState(candidates.take(1), hotel.id, candidates) {
+        value = candidates.take(1)
+        value = com.iumrah.beta.data.nuitee.DistinctHotelPhotos.selectWithFallback(hotel.id, candidates) {
+            val detail = photoService.detail(hotel.id, "en")
+            (detail.images + listOfNotNull(detail.coverImageURL) + detail.rooms.flatMap { it.images }).filter { it.isNotBlank() }.distinctBy(::hotelPhotoIdentity)
+        }.ifEmpty { candidates.take(1) }
     }
     Row(Modifier.fillMaxWidth().height(232.dp).clip(RoundedCornerShape(30.dp))
         .background(MaterialTheme.colorScheme.surface).clickable(onClick = onOpen)) {
@@ -358,7 +366,7 @@ internal fun NuiteeListingCard(
 
 @Composable
 private fun NuiteeListingPhoto(url: String?, name: String, modifier: Modifier) {
-    AsyncImage(model = url, contentDescription = name, contentScale = ContentScale.Crop,
+    AsyncImage(model = com.iumrah.beta.core.config.AppConfig.absoluteUrl(url), contentDescription = name, contentScale = ContentScale.Crop,
         modifier = modifier.background(MaterialTheme.colorScheme.surfaceVariant).clip(RoundedCornerShape(0.dp)))
 }
 
@@ -386,16 +394,18 @@ internal fun NuiteeHotelDetailSheet(
     var showReviews by remember(hotel.id, contentLanguage) { mutableStateOf(false) }
     var nextOffset by remember(hotel.id, contentLanguage) { mutableStateOf<Int?>(0) }
     var reviewRequest by remember(hotel.id, contentLanguage) { mutableIntStateOf(0) }
+    var completedReviewRequest by remember(hotel.id, contentLanguage) { mutableIntStateOf(-1) }
     var reviewBusy by remember(hotel.id, contentLanguage) { mutableStateOf(false) }
     var reviewError by remember(hotel.id, contentLanguage) { mutableStateOf(false) }
     LaunchedEffect(hotel.id, contentLanguage, reviewRequest, showReviews) {
-        if (!showReviews) return@LaunchedEffect
+        if (!showReviews || completedReviewRequest == reviewRequest) return@LaunchedEffect
         val offset = nextOffset ?: return@LaunchedEffect
         reviewBusy = true; reviewError = false
         try {
             val page = service.reviews(hotel.id, contentLanguage, offset)
             reviews = (reviews + page.reviews).distinctBy { it.id }
             nextOffset = page.nextOffset?.takeIf { it > offset }
+            completedReviewRequest = reviewRequest
         } catch (cancel: CancellationException) { throw cancel }
         catch (_: Exception) { reviewError = true }
         finally { reviewBusy = false }
@@ -515,3 +525,11 @@ internal fun NuiteeHotelDetailSheet(
         }
     }
 }
+
+/** Collapse provider resize variants without stripping identity-bearing query parameters. */
+internal fun hotelPhotoIdentity(raw: String): String = runCatching {
+    val uri = java.net.URI(raw)
+    val resize = setOf("w", "h", "width", "height", "size", "quality", "q", "fit", "crop", "dpr", "format", "resize", "auto", "imwidth", "impolicy")
+    val query = uri.rawQuery.orEmpty().split('&').filter { it.isNotBlank() && it.substringBefore('=').lowercase() !in resize }.sorted().joinToString("&")
+    "${uri.scheme?.lowercase()}://${uri.rawAuthority?.lowercase()}${uri.rawPath.orEmpty()}" + if (query.isBlank()) "" else "?$query"
+}.getOrDefault(raw)

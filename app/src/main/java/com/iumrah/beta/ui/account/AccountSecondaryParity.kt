@@ -189,9 +189,10 @@ fun AccountTripsHistoryScreen(
     initialPast: Boolean = false,
 ) {
     val bookingState by bookingStore.state.collectAsState()
-    var past by remember { mutableStateOf(initialPast) }
+    var past by remember(initialPast) { mutableStateOf(initialPast) }
+    LaunchedEffect(bookingStore) { bookingStore.refreshAll() }
     val sessions = remember(bookingState.sessions, past) {
-        bookingState.sessions.filter { isPastTrip(it) == past }.sortedByDescending { it.booking.input.startDate }
+        bookingState.sessions.filter { bookingStore.booking(it.id) != null && it.effectiveStatus != "DELETED" && isPastTrip(it) == past }.sortedByDescending { it.booking.input.startDate }
     }
     ApNavPage(apTr(language, "My trips", "Мои поездки", "Safarlarim", "Сафарларим"), chrome, largeTitle = true) {
         ApSegmented(
@@ -231,6 +232,7 @@ fun AccountTripsHistoryScreen(
                             Text(statusLabel(session.effectiveStatus, language), Modifier.clip(CircleShape).background(tint.copy(alpha = .10f)).padding(horizontal = 10.dp, vertical = 7.dp), fontSize = 12.sp, fontWeight = FontWeight.Bold, color = tint)
                             Text(session.displayBookingNumber, Modifier.clip(CircleShape).background(MaterialTheme.colorScheme.onSurface.copy(alpha = .055f)).padding(horizontal = 10.dp, vertical = 7.dp), fontSize = 12.sp, fontWeight = FontWeight.SemiBold, fontFamily = com.iumrah.beta.core.design.IumrahFontFamily, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
+                        if (session.effectiveStatus == "COMPLETED") TextButton(onClick = { chrome.openPilgrimCheckout(session.id) }) { Text(apTr(language,"Documents and feedback","Документы и отзыв","Hujjatlar va fikr","Ҳужжатлар ва фикр")) }
                     }
                 }
             }

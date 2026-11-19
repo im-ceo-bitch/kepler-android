@@ -45,6 +45,7 @@ import com.iumrah.beta.core.push.IumrahPushEvent
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.ensureActive
 import com.iumrah.beta.ui.onboarding.OnboardingFlow
 import com.iumrah.beta.ui.shell.AppShell
 import com.iumrah.beta.ui.components.IumrahSignatureLaunchHost
@@ -60,6 +61,7 @@ fun IumrahApp() {
     val pushState by container.pushManager.state.collectAsState()
     val scope = rememberCoroutineScope()
     var permissionRevision by remember { mutableIntStateOf(0) }
+    var accountRestored by remember { androidx.compose.runtime.mutableStateOf(false) }
     val telemetryScreen = if (!settings.hasCompletedOnboarding) "onboarding" else when (chrome.route) {
         AppRoute.Root -> when (chrome.currentTab) {
             AppTab.HOME -> "home"
@@ -91,6 +93,7 @@ fun IumrahApp() {
     LaunchedEffect(settings.hasCompletedOnboarding) {
         if (settings.hasCompletedOnboarding) {
             container.accountStore.restore()
+            accountRestored = true
         }
     }
 
@@ -150,9 +153,18 @@ fun IumrahApp() {
         container.notificationStore.refresh(container.accountStore.bearerToken)
     }
 
-    LaunchedEffect(pushState.openRevision) {
-        if (!settings.hasCompletedOnboarding || pushState.openRevision == 0L) return@LaunchedEffect
-        routeOpenedPush(pushState.lastOpenedEvent, container)
+    LaunchedEffect(pushState.openRevision, accountRestored, settings.hasCompletedOnboarding, accountState.isRestoring) {
+        if (!settings.hasCompletedOnboarding || !accountRestored || accountState.isRestoring) return@LaunchedEffect
+        val event = pushState.lastOpenedEvent ?: return@LaunchedEffect
+        val revision = pushState.openRevision
+        val id = event.bookingID ?: event.destinationBookingID
+        if (id != null && container.bookingStore.booking(id) == null && container.accountStore.bearerToken != null) {
+            container.bookingStore.restoreAccountTrips()
+        }
+        kotlinx.coroutines.currentCoroutineContext().ensureActive()
+        if (container.pushManager.state.value.openRevision != revision) return@LaunchedEffect
+        routeOpenedPush(event, container)
+        container.pushManager.acknowledgeOpened(revision)
     }
 
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
@@ -161,6 +173,7 @@ fun IumrahApp() {
         if (!settings.hasCompletedOnboarding) return@LifecycleEventEffect
         container.pushManager.refreshToken()
         scope.launch {
+            container.bookingStore.refreshAll()
             if (container.accountStore.state.value.isAuthenticated) container.bookingStore.linkLocalBookingsToAccount()
             val token = container.pushManager.state.value.deviceToken
             if (!token.isNullOrBlank()) container.bookingStore.syncPushSubscriptions(token, settings.language.code)
@@ -232,35 +245,38 @@ fun IumrahApp() {
 
 private suspend fun routeOpenedPush(event: IumrahPushEvent?, container: com.iumrah.beta.core.di.IumrahAppContainer) {
     event ?: return
+    val store = container.bookingStore
+    val chrome = container.chromeStore
+    val id = event.bookingID ?: event.destinationBookingID
+    if (event.type.startsWith("chat_")) {
+        val key = id?.let { store.careChatKeyForPush(it, event.pilgrimID) } ?: return
+        chrome.openBookingChat(key)
+        return
+    }
+    if (!store.acceptsPushOwner(event.pilgrimID, id)) return
+    fun openBooking(bookingID: String?) {
+        if (bookingID != null && store.canOpenBookingFromPush(bookingID)) chrome.openBookingPackageFromLink(bookingID)
+        else chrome.navigate(AppTab.BOOKING)
+    }
     if (event.type == "system_notification") {
         when (event.destination) {
-            "hotels" -> container.chromeStore.navigate(AppTab.HOTELS)
-            "bookings" -> container.chromeStore.navigate(AppTab.BOOKING)
-            "care" -> container.chromeStore.navigate(AppTab.CARE)
-            "account" -> container.chromeStore.navigate(AppTab.ACCOUNT)
-            "booking" -> {
-                val id = event.destinationBookingID
-                if (!id.isNullOrBlank() && container.bookingStore.booking(id) != null) container.chromeStore.openBookingDetail(id)
-                else container.chromeStore.navigate(AppTab.BOOKING)
-            }
-            else -> container.chromeStore.navigate(AppTab.HOME)
+            "hotels" -> chrome.navigate(AppTab.HOTELS)
+            "bookings" -> chrome.navigate(AppTab.BOOKING)
+            "care" -> chrome.navigate(AppTab.CARE)
+            "account" -> chrome.navigate(AppTab.ACCOUNT)
+            "booking" -> openBooking(event.destinationBookingID ?: event.bookingID)
+            else -> chrome.navigate(AppTab.HOME)
         }
-        event.notificationID?.let { id ->
-            container.notificationStore.notification(id)?.let { notification ->
-                container.notificationStore.markOpened(notification, container.accountStore.bearerToken)
+        event.notificationID?.let { notificationID ->
+            val token = container.accountStore.bearerToken
+            if (container.notificationStore.notification(notificationID) == null) container.notificationStore.refresh(token)
+            if (token == container.accountStore.bearerToken) container.notificationStore.notification(notificationID)?.let {
+                container.notificationStore.markOpened(it, token)
             }
         }
         return
     }
-    event.bookingID?.let { id ->
-        if (event.type.startsWith("chat_")) {
-            val key = container.bookingStore.careChatKeyForPush(id, event.pilgrimID)
-            if (key != null) container.chromeStore.openBookingChat(key)
-            else container.chromeStore.navigate(AppTab.CARE)
-        }
-        else if (container.bookingStore.booking(id) != null) container.chromeStore.openBookingDetail(id)
-        else container.chromeStore.navigate(AppTab.BOOKING)
-    }
+    if (id != null) openBooking(id)
 }
 
 @Composable

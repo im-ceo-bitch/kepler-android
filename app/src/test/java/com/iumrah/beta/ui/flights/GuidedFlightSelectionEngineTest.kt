@@ -56,8 +56,16 @@ class GuidedFlightSelectionEngineTest {
         assertEquals(null, returns.single().priceUsd) // no fabricated published fare
     }
 
-    @Test fun `published and data api sources never mix`() {
+    @Test fun `independent published and data api sources can mix`() {
         val out = GuidedFlightChoice.Published(published("o", leg("TAS", "MED", start)), false)
+        val back = GuidedFlightChoice.Data(api("r", "JED", "TAS", end))
+        assertTrue(GuidedFlightRules.compatible(out, back))
+        assertFalse(GuidedFlightRules.compatible(out, GuidedFlightChoice.Data(api("wrong", "JED", "FEG", end))))
+        assertFalse(GuidedFlightRules.compatible(out, GuidedFlightChoice.Data(api("early", "JED", "TAS", start))))
+    }
+
+    @Test fun `paired publication cannot mix with data api`() {
+        val out = GuidedFlightChoice.Published(published("pair", leg("TAS", "MED", start), leg("JED", "TAS", end)), false)
         val back = GuidedFlightChoice.Data(api("r", "JED", "TAS", end))
         assertFalse(GuidedFlightRules.compatible(out, back))
     }

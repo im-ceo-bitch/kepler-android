@@ -31,7 +31,7 @@ checks = {
     'no new Nuitee API host': 'APIClient()' in service and 'AppConfig.apiUrl(path)' in source('core/network/APIClient.kt'),
     'supplier prices are room-only': 'prices refer to ROOM STAYS' in models,
     'request typed supplier children ages': 'val children: List<Int>' in service and 'childrenAges' in rooms,
-    'stale hotel rates displayed as unconfirmed': 'pricesStale = true' in hotels and 'response.cached' in hotels,
+    'stale hotel rates displayed as unconfirmed': 'val pricesStale = page.stale' in hotels and 'response.cached' in hotels and 'row.minimumRate.takeUnless { page.pricesStale }' in source('ui/hotels/NuiteePagedCatalog.kt'),
     'only freshly fetched valid room offers selectable': 'enabled = freshRates' in hotels and 'validRoomRate' in rooms,
     'pending hotel excludes fabricated prices': 'NuiteeBookingRules.complete' in rooms and 'draft.pending.isNotEmpty()' in pricing and 'onPending =' not in rooms,
     'hotel rooms keyed per city and index': '"$city:$roomIndex"' in rooms and '"$city:$index"' in pricing,

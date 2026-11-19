@@ -32,16 +32,16 @@ need('height(124.dp)' in FRIENDS and 'RoundedCornerShape(20.dp)' in FRIENDS and
      '"$" + java.math.BigDecimal(raw)' in FRIENDS and
      "IumrahColors.SystemGreen" in FRIENDS and "$value★" in FRIENDS,
      'Friends card layout and currency prefix follow iOS source')
-need('Modifier.fillMaxWidth().height(204.dp)' in HOTELS and
-     '.coerceIn(108.dp, 122.dp)' in HOTELS and
+need('Modifier.fillMaxWidth().height(232.dp)' in HOTELS and
+     'val mediaWidth = maxWidth * .43f' in HOTELS and
      'RoundedCornerShape(28.dp)' in HOTELS and
      '"★".repeat(stars.coerceIn(1, 5))' in HOTELS and
      'IumrahIconRole.RATING.color' in HOTELS,
      'Hotel card footprint / media width and star color match iOS')
-need('HotelCover(hotel.coverImageURL)' in HOTELS and
-     'service.hotelDetail(hotel.id)' not in HOTELS and
+need('DistinctHotelPhotos.selectWithFallback' in HOTELS and
+     'catalogService.hotelDetail(hotel.id)' in HOTELS and 'HotelCover(photos.firstOrNull())' in HOTELS and
      'MediaCircle(onFavorite)' in HOTELS and 'MediaCircle(onShare)' in HOTELS,
-     'Catalogue cover without per-card API requests; overlaid actions retained')
+     'Deduplicated collage with detail fallback; overlaid actions retained')
 need('IumrahIconRole.UMRAH.color' in HOTELS and
      'CupertinoSymbol.PackageBox' in HOTELS and
      'inboundCode.equals(option.outbound.airlineCode' in HOTELS and
@@ -66,12 +66,12 @@ ap.add_argument('--ios', type=Path, help='Original iOS source folder (read-only)
 ap.add_argument('--ios-headers', type=Path, help='iOS signature patch source folder (read-only)')
 args=ap.parse_args()
 if args.ios:
-    iosh=(args.ios/'Sources/Views/Tabs/HotelsHomeView.swift').read_text()
+    iosh=(args.ios/'Sources/Views/Tabs/HotelsHomeView.swift').read_text() + (args.ios/'Sources/Views/Tabs/HotelStorefrontCompatibility.swift').read_text()
     iosd=(args.ios/'Sources/Views/Hotels/HotelDetailView.swift').read_text()
     iosf=(args.ios/'Sources/Views/Flights/IumrahFlightDiscoveryView.swift').read_text()
     need('IumrahFriendsCalculatorCard()' in iosh and
-         'private let cardHeight: CGFloat = 204' in iosh and
-         'let mediaWidth = min(max(proxy.size.width * 0.31, 108), 122)' in iosh and
+         'private let cardHeight: CGFloat = 232' in iosh and
+         'let mediaWidth = proxy.size.width * 0.43' in iosh and
          'let heroHeight = ((proxy.size.height - gap) * 0.63)' in iosh,
          'Verified card / calculator source geometry against original iOS')
     need('private var heroCarousel' in iosd and '.frame(height: 340)' in iosd and

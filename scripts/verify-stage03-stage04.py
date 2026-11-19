@@ -20,14 +20,14 @@ checks = {
     'Onboarding is responsive to narrow phones': 'BoxWithConstraints' in onboarding and 'availableHeight < 650.dp' in onboarding and 'copyLength' in onboarding and 'verticalScroll(rememberScrollState())' in onboarding,
     'Flight first uses existing sources': 'curated.load(trip)' in flights and 'discovery.offers(' in flights,
     'Flight first has real detail and two legs': 'Dialog(onDismissRequest = { detail = null }' in flights and 'FlightDetailLegV46(' in flights and 'stepReturn' in flights and 'GuidedFlightDetail' in flights,
-    'Flight first rejects mixed sources': 'outbound.source != inbound.source' in engine and 'GuidedFlightRules.compatible(outbound, returnChoice)' in flights and 'GuidedFlightRules.compatible(outbound, choice)' in flights,
+    'Flight first validates independent mixed sources': '!outbound.publishedPair && !inbound.publishedPair' in engine and 'outbound.origin != inbound.destination' in engine and 'journey.setMixedFlightIdentity' in flights and 'GuidedFlightRules.compatible(outbound, returnChoice)' in flights and 'GuidedFlightRules.compatible(outbound, choice)' in flights,
     'Published flight has no fabricated fare': 'override val priceUsd: Double? = null' in engine,
     'Economy only Data API': 'FlightCabinClass.ECONOMY' in engine and 'row.price > 0' in engine,
     'Data API is re-quoted server side': 'journey.stageAviasalesFlight(first.offer)' in flights and 'journey.stageAviasalesFlight(back.offer, returnLeg = true)' in flights,
     'Published flights use server validated selections': 'journey.commitTripBuilder(nextTrip, PackageFlightPath.PUBLISHED_DIRECT' in flights,
     'Home opens guided flow, old flow is preserved': 'chrome.openGuidedFlights()' in home and 'fun openFlights()' in nav,
     'Route supports background and UI': 'AppRoute.GuidedFlights -> IumrahGuidedFlightsScreen(' in shell and 'AppRoute.GuidedFlights -> "flight_builder"' in app,
-    'Unit tests cover provider mismatch': 'published and data api sources never mix' in unit,
+    'Unit tests cover mixed pairing and paired publication rejection': 'independent published and data api sources can mix' in unit and 'paired publication cannot mix with data api' in unit,
     'No new remote API endpoints': '/api/' not in flights,
 }
 failed = [key for key, ok in checks.items() if not ok]

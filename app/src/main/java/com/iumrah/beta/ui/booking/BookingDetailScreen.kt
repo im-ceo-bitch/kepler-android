@@ -60,6 +60,9 @@ import java.time.temporal.ChronoUnit
 import java.util.Currency
 import java.util.Locale
 import kotlinx.coroutines.delay
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.repeatOnLifecycle
 import kotlinx.coroutines.launch
 
 @Composable
@@ -86,18 +89,34 @@ fun BookingDetailScreen(
     var careProfile by remember(bookingID) { mutableStateOf<IumrahPublicProfile?>(null) }
     var selectedPage by remember(bookingID, initialPage) { mutableStateOf(initialPage) }
     var itinerary by remember(bookingID, owner) { mutableStateOf<List<BookingItineraryItem>>(emptyList()) }
+    var managedItinerary by remember(bookingID,owner) { mutableStateOf(false) }
     var telegram by remember(session?.telegram) { mutableStateOf(session?.telegram.orEmpty()) }
     var whatsapp by remember(session?.whatsapp) { mutableStateOf(session?.whatsapp.orEmpty()) }
     var editContacts by remember { mutableStateOf(false) }
-    var deletePrompt by remember { mutableStateOf(false) }
+    var refundPrompt by remember(bookingID) { mutableStateOf(false) }
+    var deletePrompt by remember(bookingID) { mutableStateOf(false) }
+    var deleting by remember(bookingID) { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
 
-    LaunchedEffect(bookingID, language, owner, accountState.account?.iumrahID) {
-        careProfile = runCatching { careService.loadCareProfile() }.getOrNull()
-        val refreshed = bookingStore.refresh(bookingID) ?: return@LaunchedEffect
-        itinerary = runCatching {
-            bookingStore.service.fetchItinerary(bookingID, bookingStore.headersFor(refreshed))
-        }.getOrDefault(emptyList()).let { localizeServerItinerary(it, language) }
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+    LaunchedEffect(bookingID, language, owner, accountState.account?.iumrahID, lifecycle) {
+        lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
+            careProfile = try { careService.loadCareProfile() } catch (e: kotlinx.coroutines.CancellationException) { throw e } catch (_: Exception) { null }
+            while (true) {
+                val refreshed = try { bookingStore.refresh(bookingID) } catch (e: kotlinx.coroutines.CancellationException) { throw e } catch (_: Exception) { bookingStore.booking(bookingID) }
+                if (refreshed != null) {
+                    val headers = bookingStore.headersFor(refreshed)
+                    if (headers.isNotEmpty()) {
+                        val schedule = try { bookingStore.service.fetchItineraryResponse(bookingID, headers) } catch (e: kotlinx.coroutines.CancellationException) { throw e } catch (_: Exception) { null }
+                        if (schedule != null && bookingStore.booking(bookingID)?.let(bookingStore::headersFor) == headers) {
+                            managedItinerary = schedule.managed == true
+                            itinerary = localizeServerItinerary(schedule.items, language)
+                        }
+                    }
+                }
+                delay(60_000)
+            }
+        }
     }
 
     if (session == null) {
@@ -113,26 +132,18 @@ fun BookingDetailScreen(
         return
     }
 
-    if (deletePrompt) {
-        AlertDialog(
-            onDismissRequest = { deletePrompt = false },
-            title = { Text(bookingText(language, "Удалить бронирование?", "Delete booking?", "Bronni o‘chirasizmi?", "Бронни ўчирасизми?")) },
-            text = { Text(bookingText(language, "Это действие нельзя отменить.", "This action cannot be undone.", "Bu amalni bekor qilib bo‘lmaydi.", "Бу амални бекор қилиб бўлмайди.")) },
-            confirmButton = {
-                TextButton(onClick = {
-                    deletePrompt = false
-                    scope.launch {
-                        runCatching { bookingStore.deleteBooking(bookingID) }
-                            .onSuccess { if (embedded) onEmbeddedDelete() else chrome.back() }
-                            .onFailure { error = it.message }
-                    }
-                }) { Text(bookingText(language, "Удалить", "Delete", "O‘chirish", "Ўчириш"), color = MaterialTheme.colorScheme.error) }
-            },
-            dismissButton = { TextButton(onClick = { deletePrompt = false }) { Text(bookingText(language, "Отмена", "Cancel", "Bekor qilish", "Бекор қилиш")) } },
-            shape = RoundedCornerShape(28.dp),
-            containerColor = bookingIosCard(),
-        )
-    }
+    if (deletePrompt) AlertDialog(
+        onDismissRequest={if(!deleting)deletePrompt=false},
+        title={Text(bookingText(language,"Удалить неоплаченную заявку?","Delete unpaid booking?","To‘lanmagan bronni o‘chirish?","Тўланмаган бронни ўчириш?"))},
+        confirmButton={TextButton(enabled=!deleting,onClick={scope.launch {
+            deleting=true
+            try { bookingStore.deleteBooking(bookingID); deletePrompt=false; if(embedded)onEmbeddedDelete() else chrome.navigate(com.iumrah.beta.core.navigation.AppTab.BOOKING) }
+            catch(e:kotlinx.coroutines.CancellationException){throw e}catch(e:Exception){error=e.message ?: "DELETE_FAILED"}finally{deleting=false}
+        }}){Text(bookingText(language,"Удалить","Delete","O‘chirish","Ўчириш"))}},
+        dismissButton={TextButton(enabled=!deleting,onClick={deletePrompt=false}){Text(bookingText(language,"Назад","Back","Orqaga","Орқага"))}},
+        text={error?.let{Text(it,color=MaterialTheme.colorScheme.error)}}
+    )
+    if (refundPrompt) BookingRefundDialog(language,bookingID,bookingStore) { refundPrompt=false }
 
     Column(
         Modifier
@@ -175,6 +186,7 @@ fun BookingDetailScreen(
                     language = language,
                     session = session,
                     remoteItems = itinerary,
+                    managed = managedItinerary,
                     fullScreen = false,
                     onOpenFullSchedule = { if (embedded) onEmbeddedSchedule() else selectedPage = BookingPrimaryPageAndroid.SCHEDULE },
                 )
@@ -203,8 +215,8 @@ fun BookingDetailScreen(
                     BookingPendingConfirmationCard(language)
                 }
 
-                IumrahPressable(
-                    onClick = { deletePrompt = true },
+                if (session.effectiveStatus !in setOf("COMPLETED", "CANCELLED", "DELETED")) IumrahPressable(
+                    onClick = { error=null; if(session.canDeleteUnpaid) deletePrompt=true else refundPrompt=true },
                     modifier = Modifier.fillMaxWidth().height(56.dp),
                     cornerRadius = 20.dp,
                     background = MaterialTheme.colorScheme.error.copy(alpha = .07f),
@@ -214,7 +226,7 @@ fun BookingDetailScreen(
                         CupertinoIcon(CupertinoSymbol.TrashSlash, null, Modifier.size(18.dp), MaterialTheme.colorScheme.error)
                         Spacer(Modifier.width(10.dp))
                         Text(
-                            L10n.text("booking_cancel_and_delete", language),
+                            if(session.canDeleteUnpaid) bookingText(language,"Удалить заявку","Delete booking","Bronni o‘chirish","Бронни ўчириш") else bookingText(language,"Отмена и возврат","Cancellation and refund","Bekor qilish va qaytarish","Бекор қилиш ва қайтариш"),
                             modifier = Modifier.weight(1f),
                             color = MaterialTheme.colorScheme.error,
                             fontSize = 15.sp,
@@ -250,11 +262,13 @@ fun BookingDetailScreen(
                     accountService = accountService,
                     chrome = chrome,
                 )
+                if (session.effectiveStatus in setOf("READY_TO_TRAVEL", "IN_TRIP")) BookingStatusFlights(language, session, chrome)
             } else {
                 BookingItineraryCalendarAndroid(
                     language = language,
                     session = session,
                     remoteItems = itinerary,
+                    managed = managedItinerary,
                     fullScreen = true,
                 )
             }

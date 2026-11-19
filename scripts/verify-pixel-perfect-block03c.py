@@ -13,7 +13,8 @@ for screen in (legacy,local):
     assert 'PullToRefreshBox' in screen and 'Modifier.weight(1f)' in screen
     assert 'hasFinalGeneratorQuote' in screen and 'transferSelectionConfirmed' in screen
 assert 'TierComparisonOption' not in legacy and 'buildTierComparisons' not in legacy
-assert 'journey.replaceNuiteeRoom(room,room.copy(rate=rate,meals=meals))' in local and 'journey.updateNuiteeRoomMeals(room,meals)' in local
+assert 'editor.replaceNuiteeRoom(room,room.copy(rate=rate,meals=meals))' in local and 'journey.updateNuiteeRoomMeals(room,meals)' in local
+assert 'journey.beginReviewEdit()' in local and 'journey.commitReviewEdit(original,editor)' in local
 assert 'journey.prepareNuiteePackage' in local and 'bookingAllowed == true' in local
 assert 'accepted.totalPackagePrice.compareTo(fresh.totalPackagePrice)' in local
 assert 'draft.rooms[expected.key] != expected' in state and 'room != expected' in state
