@@ -31,6 +31,7 @@ import kotlinx.coroutines.delay
     val state by manual.state.collectAsState();val plan=state.trip?:state.plan
     var flight by remember { mutableStateOf<Boolean?>(null) };var city by remember { mutableStateOf<String?>(null) }
     var estimate by remember(state){mutableStateOf<NuiteeManualEstimate?>(null)};var priced by remember(state){mutableStateOf<JourneyStore?>(null)}
+    val verifiedQuote = priced?.let { store -> store.state.collectAsState().value.quote }
     var error by remember(state){mutableStateOf<String?>(null)};var busy by remember(state){mutableStateOf(false)};var retry by remember{mutableIntStateOf(0)}
     fun t(r:String,e:String,u:String,c:String)=reviewText(language,r,e,u,c)
     fun change(f:(ManualJourneyState)->ManualJourneyState)=manual.update(state,f)
@@ -72,7 +73,7 @@ import kotlinx.coroutines.delay
         }}}
         item {Card(Modifier.fillMaxWidth()){Column(Modifier.padding(14.dp),verticalArrangement=Arrangement.spacedBy(8.dp)){
             Text(t("Стоимость пакета","Package total","Paket narxi","Пакет нархи"),style=MaterialTheme.typography.titleMedium)
-            val q=priced?.state?.value?.quote;val e=estimate
+            val q=verifiedQuote;val e=estimate
             Text(when{q!=null->"${q.totalPackagePrice} USD";e!=null->"${e.totalPackagePrice} USD";!state.hasPriceComponent->"$0.00";else->"—"},style=MaterialTheme.typography.headlineMedium)
             if(e!=null){Text(t("Предварительный серверный расчёт выбранных компонентов. Не является подтверждением брони.","Server estimate of selected components; not a booking confirmation.","Tanlangan qismlarning taxminiy narxi.","Танланган қисмларнинг тахминий нархи."));if(e.pairedFareIncluded)Text(t("Включён связанный тариф туда и обратно","Paired round-trip fare included","Juft tarif kiritilgan","Жуфт тариф киритилган"));if(e.provisionalTier)Text("Standard")}
             if(busy)LinearProgressIndicator(Modifier.fillMaxWidth());error?.let{Text(it,color=MaterialTheme.colorScheme.error)};if(!busy&&state.hasPriceComponent&&q==null)TextButton(onClick={retry++}){Text(t("Повторить расчёт","Retry quote","Qayta hisoblash","Қайта ҳисоблаш"))}
