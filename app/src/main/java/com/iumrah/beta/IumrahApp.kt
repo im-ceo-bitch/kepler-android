@@ -144,6 +144,11 @@ fun IumrahApp() {
         }
     }
 
+    // Keep iOS-local booking receipts synchronized with the same scoped sessions shown in Booking.
+    LaunchedEffect(settings.isLoaded, settings.language, bookingState.sessions) {
+        if (settings.isLoaded) container.notificationStore.syncBookingReceipts(bookingState.sessions, settings.language)
+    }
+
     LaunchedEffect(accountState.account?.iumrahID) { container.chatService.clearCache() }
 
     LaunchedEffect(pushState.eventRevision) {

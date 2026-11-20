@@ -69,6 +69,13 @@ class IumrahAccountService(
         return value.account
     }
 
+    /** The backend rejects deletion when there are existing trips, financial or security obligations.
+     * Never attempt a local-only deletion or hide the server's rejection. */
+    suspend fun deleteAccount(token: String) {
+        val response: IumrahSimpleResponse = api.delete(IumrahAccountRoutes.PROFILE, bearer(token))
+        check(response.ok) { "ACCOUNT_DELETE_NOT_CONFIRMED" }
+    }
+
     suspend fun logout(token: String) {
         runCatching { api.post<IumrahSimpleResponse, EmptyBody>(IumrahAccountRoutes.LOGOUT, EmptyBody(), bearer(token)) }
     }

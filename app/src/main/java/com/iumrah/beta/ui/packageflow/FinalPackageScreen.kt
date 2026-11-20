@@ -89,25 +89,27 @@ fun FinalPackageScreen(language: AppLanguage, journey: JourneyStore, hotelCatalo
         PullToRefreshBox(isRefreshing=busy,onRefresh={reprice()},modifier=Modifier.weight(1f)) {
             LazyColumn(Modifier.fillMaxSize(),verticalArrangement=Arrangement.spacedBy(18.dp),contentPadding=PaddingValues(bottom=20.dp)) {
                 item { ReviewHeader(language,state,quote,busy,chrome,unreadCount) {help=!help} }
-                item { Box(Modifier.padding(horizontal=18.dp)) { IumrahClientPackageMoment(language,selectedOrbitServices(state)) } }
-                item { Box(Modifier.padding(horizontal=18.dp)) { ReviewHelp(language,quote!=null,help) {help=!help} } }
-                if(quote==null) item { Box(Modifier.padding(horizontal=18.dp)) { ReviewPricingStatus(language,busy) } }
-                item { Box(Modifier.padding(horizontal=18.dp)) { ReviewSection(reviewText(language,"Авиабилеты","Flights","Aviachiptalar","Авиачипталар")) } }
-                item { TextButton(enabled=!busy,onClick={editFlights=true},modifier=Modifier.padding(horizontal=18.dp)) { Text(reviewText(language,"Изменить рейсы","Change flights","Reyslarni o‘zgartirish","Рейсларни ўзгартириш")) } }
+                item { Box(Modifier.padding(horizontal=16.dp)) { IumrahClientPackageMoment(language,selectedOrbitServices(state)) } }
+                item { Box(Modifier.padding(horizontal=16.dp)) { ReviewHelp(language,quote!=null,help) {help=!help} } }
+                if(quote==null) item { Box(Modifier.padding(horizontal=16.dp)) { ReviewPricingStatus(language,busy) } }
+                item { Box(Modifier.padding(horizontal=16.dp)) { ReviewSection(reviewText(language,"Авиабилеты","Flights","Aviachiptalar","Авиачипталар")) } }
+                item { TextButton(enabled=!busy,onClick={editFlights=true},modifier=Modifier.padding(horizontal=16.dp)) { Text(reviewText(language,"Изменить рейсы","Change flights","Reyslarni o‘zgartirish","Рейсларни ўзгартириш")) } }
                 state.selectedJourney?.let { flight ->
-                    item { Box(Modifier.padding(horizontal=18.dp)) { ReviewFlight(language,state,flight.outbound,true) } }
-                    if(state.trip.isRoundTripFlight) flight.inbound?.let { leg -> item { Box(Modifier.padding(horizontal=18.dp)) { ReviewFlight(language,state,leg,false) } } }
+                    item { Box(Modifier.padding(horizontal=16.dp)) { ReviewFlight(language,state,flight.outbound,true) } }
+                    if(state.trip.isRoundTripFlight) flight.inbound?.let { leg -> item { Box(Modifier.padding(horizontal=16.dp)) { ReviewFlight(language,state,leg,false) } } }
                 }
-                item { Box(Modifier.padding(horizontal=18.dp)) { ReviewSection(reviewText(language,"Отели и номера","Hotels and rooms","Mehmonxonalar va xonalar","Меҳмонхоналар ва хоналар")) } }
+                item { Box(Modifier.padding(horizontal=16.dp)) { ReviewSection(reviewText(language,"Отели и номера","Hotels and rooms","Mehmonxonalar va xonalar","Меҳмонхоналар ва хоналар")) } }
                 val windows=TripStayPlanner.windows(state.trip)
-                state.makkahHotel?.let { hotel -> item { Box(Modifier.padding(horizontal=18.dp)) { ReviewCatalogHotel(language,hotel,state.makkahRoom?.name ?: state.makkahRoomCategory?.displayName,windows.makkah) {if(!busy) editHotel="makkah"} } } }
-                if(needsMadinah) state.madinahHotel?.let { hotel -> item { Box(Modifier.padding(horizontal=18.dp)) { ReviewCatalogHotel(language,hotel,state.madinahRoom?.name ?: state.madinahRoomCategory?.displayName,windows.madinah ?: windows.makkah) {if(!busy) editHotel="madinah"} } } }
-                item { Box(Modifier.padding(horizontal=18.dp)) { ReviewServices(language,state) {showTransfer=true} } }
-                quote?.let { item { Box(Modifier.padding(horizontal=18.dp)) { ReviewVerifiedPrice(language,it) } } }
-                item { Box(Modifier.padding(horizontal=18.dp)) { ReviewPriceAndGuests(language,journey,chrome,!busy) } }
-                item { Box(Modifier.padding(horizontal=18.dp)) { SavedPackageActions(language,journey,chrome,enabled=!busy && roomsComplete && flightsComplete && hotelsComplete && state.transferSelectionConfirmed) } }
-                quote?.itineraryPreview?.takeIf { it.isNotEmpty() }?.let { events -> item { Box(Modifier.padding(horizontal=18.dp)) { ReviewItinerary(language,events) } } }
-                error?.let { message -> item { Text(message,Modifier.padding(horizontal=18.dp),color=MaterialTheme.colorScheme.error,fontSize=13.sp) } }
+                state.makkahHotel?.let { hotel -> item { Box(Modifier.padding(horizontal=16.dp)) { ReviewCatalogHotel(language,hotel,state.makkahRoom?.name ?: state.makkahRoomCategory?.displayName,windows.makkah) {if(!busy) editHotel="makkah"} } } }
+                if(needsMadinah) state.madinahHotel?.let { hotel -> item { Box(Modifier.padding(horizontal=16.dp)) { ReviewCatalogHotel(language,hotel,state.madinahRoom?.name ?: state.madinahRoomCategory?.displayName,windows.madinah ?: windows.makkah) {if(!busy) editHotel="madinah"} } } }
+                item { Box(Modifier.padding(horizontal=16.dp)) { ReviewServices(language,state) {showTransfer=true} } }
+                quote?.let { item { Box(Modifier.padding(horizontal=16.dp)) { ReviewVerifiedPrice(language,it) } } }
+                quote?.let { item { Box(Modifier.padding(horizontal=16.dp)) { ReviewPriceDistribution(language,it) } } }
+                item { Box(Modifier.padding(horizontal=16.dp)) { ReviewPriceAndGuests(language,journey,chrome,!busy) } }
+                item { Box(Modifier.padding(horizontal=16.dp)) { com.iumrah.beta.ui.home.BrandComparisonEntry(language,chrome) } }
+                item { Box(Modifier.padding(horizontal=16.dp)) { SavedPackageActions(language,journey,chrome,enabled=!busy && roomsComplete && flightsComplete && hotelsComplete && state.transferSelectionConfirmed) } }
+                quote?.itineraryPreview?.takeIf { it.isNotEmpty() }?.let { events -> item { Box(Modifier.padding(horizontal=16.dp)) { ReviewItinerary(language,events) } } }
+                error?.let { message -> item { Text(message,Modifier.padding(horizontal=16.dp),color=MaterialTheme.colorScheme.error,fontSize=13.sp) } }
             }
         }
         ReviewBookingBar(language,quote,false,busy,reason,

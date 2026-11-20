@@ -45,7 +45,7 @@ enum class CupertinoSymbol {
     Star, StarFill, Sliders, Speaker, SpeakerSlash, ChevronDown, ChevronUp, Plus, Minus,
     ArrowUpRight, ArrowUp, ArrowDown, ArrowLeftRight, Paperclip, Bed, BedFill, Play, ForkKnife, Share, LeafFill, Checklist, CrownFill, Grid,
     Calendar, Clock, ClockFill, Map, MapFill, QrCode, Gift, WarningTriangle, Photo, Pencil, Person, Microphone, PackageBox, Trash,
-    Download, LockOpen, SimCard, Safari, Book, Timer, Seatbelt, Bag, Ellipsis,
+    Download, LockOpen, SimCard, Safari, Book, Bookmark, Timer, Seatbelt, Bag, Ellipsis,
     Search, QuestionCircle, ChartBar, Cart, Ticket, SosCircle, ArrowUpDown,
     Wifi, WifiSlash, WifiWarning, Sunrise, CloudSun, Scan, Link,
     HomeFill, BellFill, BellSlashFill, InfoCircleFill, Tray, WarningTriangleFill, PhotoFill,

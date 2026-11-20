@@ -76,8 +76,8 @@ fun NotificationsScreen(
         if (Build.VERSION.SDK_INT >= 33 && !permissionRequested) {
             item { IumrahPrimaryButton("Enable Android notifications") { launcher.launch(Manifest.permission.POST_NOTIFICATIONS) } }
         }
-        if (state.isSyncing && state.notifications.isEmpty()) item { CircularProgressIndicator() }
-        if (state.notifications.isEmpty() && !state.isSyncing) item { Text("No notifications yet", color = MaterialTheme.colorScheme.onBackground.copy(alpha=.52f)) }
+        if (state.isSyncing && state.inbox.isEmpty()) item { CircularProgressIndicator() }
+        if (state.inbox.isEmpty() && !state.isSyncing) item { Text("No notifications yet", color = MaterialTheme.colorScheme.onBackground.copy(alpha=.52f)) }
         items(state.inbox, key = { it.id }) { notification ->
             NotificationCard(notification) {
                 scope.launch { notifications.markOpened(notification, accountStore.bearerToken) }
@@ -111,7 +111,7 @@ private fun routeNotification(value: ClientSystemNotification, bookings: Booking
         "bookings" -> chrome.navigate(AppTab.BOOKING)
         "care" -> chrome.navigate(AppTab.CARE)
         "account" -> chrome.navigate(AppTab.ACCOUNT)
-        "booking" -> value.destinationBookingID?.takeIf { bookings.booking(it) != null }?.let(chrome::openBookingDetail) ?: chrome.navigate(AppTab.BOOKING)
+        "booking" -> value.destinationBookingID?.takeIf { bookings.canOpenBookingFromPush(it) }?.let(chrome::openBookingDetail) ?: chrome.navigate(AppTab.BOOKING)
         else -> chrome.navigate(AppTab.HOME)
     }
 }

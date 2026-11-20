@@ -481,6 +481,7 @@ fun HotelsScreen(
                 } else if (loading) {
                     item { LoadingStorefront(language, readyPackagesLoadingText(language)) }
                 }
+                item { com.iumrah.beta.ui.home.BrandComparisonEntry(language, chrome) }
             }
 
             HotelsBoard.SUNDAY -> {

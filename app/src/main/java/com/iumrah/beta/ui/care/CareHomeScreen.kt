@@ -61,6 +61,7 @@ import com.iumrah.beta.data.account.IumrahAccountStore
 import com.iumrah.beta.data.chat.ChatService
 import com.iumrah.beta.data.notification.ClientNotificationStore
 import com.iumrah.beta.models.booking.StoredBookingSession
+import com.iumrah.beta.ui.home.HomeBrandSlogan
 import com.iumrah.beta.ui.components.IumrahRootPageHeader
 import com.iumrah.beta.ui.components.HeaderPill
 import com.iumrah.beta.ui.components.IumrahHeaderPills
@@ -182,6 +183,8 @@ fun CareHomeScreen(
                     }
                 }
             }
+            Spacer(Modifier.height(22.dp))
+            HomeBrandSlogan(language)
             Spacer(Modifier.height(14.dp))
         }
     }

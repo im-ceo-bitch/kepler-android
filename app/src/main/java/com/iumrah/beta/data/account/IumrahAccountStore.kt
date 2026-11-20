@@ -161,6 +161,13 @@ class IumrahAccountStore(
         clearLocalSession()
     }
 
+    /** Account access is only deleted following a confirmed server response. */
+    suspend fun deleteAccount() {
+        val current = requireToken()
+        service.deleteAccount(current)
+        if (token == current) clearLocalSession()
+    }
+
     suspend fun securityOverview(locale: String): IumrahSecurityOverview {
         val current = requireToken()
         return try {

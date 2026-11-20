@@ -79,3 +79,6 @@ python3 scripts/verify-seamless-booking-20261117.py
 
 # V2/V3 current Smart, paginated hotels, guest profile and offers.
 python3 scripts/verify-seamless-booking-v2-v3.py
+
+# iOS 6 Trip Summary 13 / Brand 15 / Booking Notifications 14 client delta.
+python3 scripts/verify-ios6-parity-final.py

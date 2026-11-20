@@ -100,6 +100,11 @@
     "book_fill",
     "circle"
   ],
+  "Bookmark": [
+    "bookmark",
+    "bookmark_fill",
+    "book"
+  ],
   "Building": [
     "building_2",
     "building_2_fill",

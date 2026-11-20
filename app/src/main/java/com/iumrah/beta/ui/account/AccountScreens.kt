@@ -258,6 +258,9 @@ fun AccountRootScreen(
     }
     val profile = accountState.account
     var signOutConfirm by remember { mutableStateOf(false) }
+    var deleteAccountConfirm by remember { mutableStateOf(false) }
+    var deletingAccount by remember { mutableStateOf(false) }
+    var accountDeleteError by remember { mutableStateOf<String?>(null) }
     var recoverBooking by remember { mutableStateOf(false) }
     if(recoverBooking) com.iumrah.beta.ui.booking.GuestBookingRecoveryDialog(language,bookingStore,{recoverBooking=false}) { id -> recoverBooking=false; chrome.openBookingDetail(id) }
     var isRefreshing by remember { mutableStateOf(false) }
@@ -288,6 +291,7 @@ fun AccountRootScreen(
         verticalArrangement = Arrangement.spacedBy(20.dp),
     ) {
         item { AccountHeader(language, profile != null, signalState.unreadCount, chrome) }
+        item { com.iumrah.beta.ui.home.HomeBrandSlogan(language) }
         if (profile != null) {
             item { RewardsBalanceEntry(language, accountStore, chrome, rewardsRevision) }
             item { CardBlock { SettingsRow(CupertinoSymbol.Gift, "iumrah Friends", tr(language, "Invite a friend", "Пригласить друга", "Do‘stni taklif qilish", "Дўстни таклиф қилиш")) { chrome.openRewards("friends") } } }
@@ -321,6 +325,21 @@ fun AccountRootScreen(
             item { ServicesSection(language, chrome) }
             item { SettingsSection(language, settings.appearance, signalState.unreadCount, notificationDeliveryStatus, chrome, context) }
             item {
+                Column(Modifier.fillMaxWidth(),verticalArrangement=Arrangement.spacedBy(8.dp)) {
+                    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(28.dp))
+                        .border(1.dp,Danger.copy(alpha=.5f),RoundedCornerShape(28.dp))
+                        .clickable(enabled=!deletingAccount) { accountDeleteError=null;deleteAccountConfirm=true }
+                        .padding(horizontal=18.dp).height(52.dp),verticalAlignment=Alignment.CenterVertically,
+                        horizontalArrangement=Arrangement.spacedBy(10.dp)) {
+                        CupertinoIcon(CupertinoSymbol.Trash,null,Modifier.size(19.dp),Danger)
+                        Text(tr(language,"Delete account","Удалить аккаунт","Akkauntni o‘chirish","Аккаунтни ўчириш"),
+                            color=Danger,fontWeight=FontWeight.SemiBold)
+                    }
+                    if(deletingAccount) LinearProgressIndicator(Modifier.fillMaxWidth())
+                    accountDeleteError?.let { Text(it,color=Danger,fontSize=13.sp) }
+                }
+            }
+            item {
                 Row(
                     Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(Danger.copy(alpha = .075f)).clickable { signOutConfirm = true }.padding(horizontal = 18.dp).height(56.dp),
                     verticalAlignment = Alignment.CenterVertically,
@@ -340,6 +359,34 @@ fun AccountRootScreen(
     }
     }
 
+    if (deleteAccountConfirm) {
+        AlertDialog(onDismissRequest={if(!deletingAccount)deleteAccountConfirm=false},
+            title={Text(tr(language,"Delete account permanently?","Удалить аккаунт навсегда?","Akkaunt butunlay o‘chirilsinmi?","Аккаунт бутунлай ўчирилсинми?"))},
+            text={Text(tr(language,"Your account access will be deleted. Existing trips must be resolved first.",
+                "Доступ к аккаунту будет удалён. Сначала необходимо урегулировать существующие поездки.",
+                "Akkaunt o‘chiriladi. Avval mavjud safarlarni yakunlang.",
+                "Аккаунт ўчирилади. Аввал мавжуд сафарларни якунланг."))},
+            confirmButton={ TextButton(enabled=!deletingAccount,onClick={
+                deletingAccount=true
+                scope.launch {
+                    try { accountStore.deleteAccount(); bookingStore.reconcileAccountScope();accountDeleteError=null;deleteAccountConfirm=false }
+                    catch(c:kotlinx.coroutines.CancellationException){throw c}
+                    catch(e:Exception) {
+                        val code=(e.message ?: "").uppercase()
+                        accountDeleteError=if(listOf("ACCOUNT_HAS_TRIPS","ACCOUNT_HAS_FINANCIAL_HISTORY","ACCOUNT_SECURITY_REVIEW_REQUIRED").any { code.contains(it) })
+                            tr(language,"Contact support before deleting an account with trips or financial obligations.",
+                                "Для удаления аккаунта с поездками или финансовыми обязательствами обратитесь в поддержку.",
+                                "Safarlar yoki moliyaviy majburiyatlar mavjud bo‘lsa, yordamga murojaat qiling.",
+                                "Сафарлар ёки молиявий мажбуриятлар мавжуд бўлса, ёрдамга мурожаат қилинг.")
+                            else e.message ?: "ACCOUNT_DELETE_FAILED"
+                        deleteAccountConfirm=false
+                    } finally { deletingAccount=false }
+                }
+            }) {Text(tr(language,"Delete account","Удалить аккаунт","Akkauntni o‘chirish","Аккаунтни ўчириш"),color=Danger)} },
+            dismissButton={TextButton(enabled=!deletingAccount,onClick={deleteAccountConfirm=false}) {
+                Text(tr(language,"Cancel","Отмена","Bekor qilish","Бекор қилиш"))
+            }})
+    }
     if (signOutConfirm) {
         AccountSignOutConfirmationSheetAndroid(
             language = language,

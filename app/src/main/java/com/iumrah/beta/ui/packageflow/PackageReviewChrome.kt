@@ -4,6 +4,7 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -27,6 +28,8 @@ import com.iumrah.beta.core.settings.AppLanguage
 import com.iumrah.beta.domain.journey.JourneyState
 import com.iumrah.beta.domain.pricing.PackageQuote
 import com.iumrah.beta.domain.trip.JourneyScope
+import com.iumrah.beta.domain.trip.TripStayPlanner
+import com.iumrah.beta.domain.pricing.TripReviewPriceGrouping
 import com.iumrah.beta.domain.trip.PackageTier
 import com.iumrah.beta.domain.nuitee.NuiteeBookingRules
 import com.iumrah.beta.ui.components.IumrahPressable
@@ -51,55 +54,88 @@ internal fun reviewTier(l: AppLanguage, tier: PackageTier) = when(tier) {
     PackageTier.LUXURY -> reviewText(l,"Люкс","Luxury","Lyuks","Люкс")
 }
 
-@Composable internal fun ReviewHeader(l: AppLanguage, state: JourneyState, quote: PackageQuote?, busy: Boolean, chrome: AppChromeStore, unreadCount: Int = 0, onHelp: () -> Unit) {
-    var expanded by remember { mutableStateOf(false) }
-    val trip = state.trip
-    val caption = if (state.nuitee != null) reviewText(l,"Предварительно за всех","Estimated total","Taxminiy jami","Тахминий жами") else reviewText(l,"Итого за всех","Total for everyone","Hamma uchun jami","Ҳамма учун жами")
-    val total = if (busy) reviewText(l,"Расчёт…","Calculating…","Hisoblanmoqda…","Ҳисобланмоқда…") else quote?.let { smartMoney(it.totalPackagePrice,it.currency,l) } ?: "—"
-    Column(Modifier.fillMaxWidth(), verticalArrangement=Arrangement.spacedBy((-46).dp)) {
-        Box(Modifier.fillMaxWidth()) {
-            IumrahSignatureWorldBackground(Modifier.matchParentSize(),mapOpacity=.30f,isAnimating=false)
-            Row(Modifier.fillMaxWidth().statusBarsPadding().padding(top=IumrahDesign.SignatureHeaderTop,bottom=IumrahDesign.SignatureHeaderBottom).padding(horizontal=20.dp), verticalAlignment=Alignment.CenterVertically) {
+/** Trip Summary Design 13: white compact chrome + 168pt Kaaba hero, metrics and signed quote.
+ * The quote comes from the shared JourneyStore; this view does not calculate prices. */
+@Composable internal fun ReviewHeader(l: AppLanguage, state: JourneyState, quote: PackageQuote?, busy: Boolean,
+    chrome: AppChromeStore, unreadCount: Int = 0, onHelp: () -> Unit) {
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Box(Modifier.fillMaxWidth().background(Color.Black)) {
+            IumrahSignatureWorldBackground(Modifier.matchParentSize(),mapOpacity=.20f,isAnimating=false)
+            Row(Modifier.fillMaxWidth().statusBarsPadding().padding(top=IumrahDesign.SignatureHeaderTop,bottom=IumrahDesign.SignatureHeaderBottom)
+                .padding(horizontal=16.dp),verticalAlignment=Alignment.CenterVertically) {
                 Box(Modifier.width(88.dp),contentAlignment=Alignment.CenterStart) {
                     ReviewHeaderAction(CupertinoSymbol.ChevronLeft,reviewText(l,"Назад","Back","Orqaga","Орқага"),chrome::back)
                 }
                 Box(Modifier.weight(1f),contentAlignment=Alignment.Center) {
-                    Image(painterResource(R.drawable.iumrah_header_wordmark_dark),"iumrah",Modifier.width(IumrahDesign.SignatureLogoWidth).height(IumrahDesign.SignatureLogoHeight),contentScale=ContentScale.Fit)
+                    Image(painterResource(R.drawable.iumrah_header_wordmark_dark),"iumrah",Modifier.width(IumrahDesign.SignatureLogoWidth)
+                        .height(IumrahDesign.SignatureLogoHeight),contentScale=ContentScale.Fit)
                 }
-                Row(Modifier.width(88.dp).height(44.dp).clip(CircleShape).background(Color.White.copy(alpha=.12f)),verticalAlignment=Alignment.CenterVertically) {
-                    ReviewHeaderAction(if(unreadCount>0) CupertinoSymbol.BellBadge else CupertinoSymbol.Bell,reviewText(l,"Уведомления","Notifications","Bildirishnomalar","Билдиришномалар"),chrome::openNotifications, grouped=true)
-                    ReviewHeaderAction(CupertinoSymbol.QuestionMark,reviewText(l,"Что делать здесь?","What can I do here?","Bu yerda nima qilish kerak?","Бу ерда нима қилиш керак?"),onHelp, grouped=true)
-                }
-            }
-        }
-        Column(Modifier.padding(horizontal=18.dp).fillMaxWidth().clip(RoundedCornerShape(22.dp)).background(generatorCardColor()).animateContentSize(tween(240)).padding(12.dp)) {
-            Column(Modifier.fillMaxWidth().clickable { expanded=!expanded },verticalArrangement=Arrangement.spacedBy(8.dp)) {
-                Row(verticalAlignment=Alignment.CenterVertically) { Text(reviewText(l,"Ваша умра","Your Umrah","Sizning Umrangiz","Сизнинг Умрангиз"),Modifier.weight(1f),fontSize=17.sp,fontWeight=FontWeight.SemiBold); CupertinoIcon(if(expanded) CupertinoSymbol.ChevronUp else CupertinoSymbol.ChevronDown,null,Modifier.size(13.dp)) }
-                Row(verticalAlignment=Alignment.CenterVertically) { Text(total,Modifier.weight(1f),fontSize=22.sp,fontWeight=FontWeight.Bold); Text(caption,fontSize=12.sp,color=MaterialTheme.colorScheme.onSurface.copy(alpha=.55f)) }
-                Text(reviewText(l,"${trip.adults} взр. · ${trip.children} дет. · ${trip.infants} млад. · ${trip.rooms} ном.","${trip.adults} adults · ${trip.children} children · ${trip.infants} infants · ${trip.rooms} rooms","${trip.adults} katta · ${trip.children} bola · ${trip.infants} chaqaloq · ${trip.rooms} xona","${trip.adults} катта · ${trip.children} бола · ${trip.infants} чақалоқ · ${trip.rooms} хона"),fontSize=12.sp,color=MaterialTheme.colorScheme.onSurface.copy(alpha=.55f))
-            }
-            AnimatedVisibility(expanded) {
-                Column(verticalArrangement=Arrangement.spacedBy(12.dp)) {
-                    HorizontalDivider(Modifier.padding(top=7.dp))
-                    Text(reviewTier(l,trip.packageTier),fontSize=17.sp,fontWeight=FontWeight.SemiBold)
-                    ReviewLabel(CupertinoSymbol.Map,if(trip.scope==JourneyScope.MAKKAH_AND_MADINAH) reviewText(l,"Мекка и Медина","Makkah and Madinah","Makka va Madina","Макка ва Мадина") else reviewText(l,"Только Мекка","Makkah only","Faqat Makka","Фақат Макка"))
-                    ReviewLabel(CupertinoSymbol.Calendar,"${trip.departureDate} – ${trip.returnDate}")
-                    val draft=state.nuitee
-                    if(draft!=null) {
-                        draft.flights.forEachIndexed { index,f -> ReviewLabel(if(index==0) CupertinoSymbol.AirplaneTakeoff else CupertinoSymbol.AirplaneLand,"${f.origin} → ${f.destination} · ${f.flightNumber}") }
-                        draft.rooms.values.sortedWith(compareBy<com.iumrah.beta.domain.nuitee.NuiteeRoomSelection>{it.checkin}.thenBy{it.key}).forEach { ReviewLabel(CupertinoSymbol.Bed,"${it.hotel.name} · ${it.rate.roomName}") }
-                    } else {
-                        state.selectedJourney?.outbound?.let { ReviewLabel(CupertinoSymbol.AirplaneTakeoff,"${it.origin} → ${it.destination} · ${it.flightNumber}") }
-                        if(trip.isRoundTripFlight) state.selectedJourney?.inbound?.let { ReviewLabel(CupertinoSymbol.AirplaneLand,"${it.origin} → ${it.destination} · ${it.flightNumber}") }
-                        state.makkahHotel?.let { ReviewLabel(CupertinoSymbol.Bed,"${it.name} · ${state.makkahRoom?.name ?: state.makkahRoomCategory?.displayName.orEmpty()}") }
-                        state.madinahHotel?.takeIf { trip.scope==JourneyScope.MAKKAH_AND_MADINAH }?.let { ReviewLabel(CupertinoSymbol.Bed,"${it.name} · ${state.madinahRoom?.name ?: state.madinahRoomCategory?.displayName.orEmpty()}") }
-                    }
-                    state.selectedTransferVehicle?.let { ReviewLabel(CupertinoSymbol.Car,it.modelName) }
-                    if(state.haramainTrainSelected) ReviewLabel(CupertinoSymbol.Route,"Haramain · ${state.haramainTicketCount}")
-                    if(quote!=null && !busy) Text(smartMoney(quote.pricePerPerson,quote.currency,l)+" · "+reviewText(l,"на одного паломника","per pilgrim","bir ziyoratchi uchun","бир зиёратчи учун"),fontSize=15.sp,fontWeight=FontWeight.SemiBold)
+                Row(Modifier.width(88.dp).clip(CircleShape).background(Color.White.copy(alpha=.12f)),verticalAlignment=Alignment.CenterVertically) {
+                    ReviewHeaderAction(if(unreadCount>0) CupertinoSymbol.BellBadge else CupertinoSymbol.Bell,
+                        reviewText(l,"Уведомления","Notifications","Bildirishnomalar","Билдиришномалар"),chrome::openNotifications,grouped=true)
+                    ReviewHeaderAction(CupertinoSymbol.QuestionMark,reviewText(l,"Что делать здесь?","Help","Yordam","Ёрдам"),onHelp,grouped=true)
                 }
             }
         }
+        ReviewSummaryHero(l,state,quote,busy)
+    }
+}
+
+@Composable private fun ReviewSummaryHero(l: AppLanguage,state: JourneyState,quote:PackageQuote?,busy:Boolean) {
+    val trip=state.trip
+    val stay=TripStayPlanner.breakdown(trip)
+    val total=if(busy) reviewText(l,"Расчёт…","Calculating…","Hisoblanmoqda…","Ҳисобланмоқда…")
+        else quote?.let {smartMoney(it.totalPackagePrice,it.currency,l)} ?: "—"
+    val perPerson=if(busy) "—" else quote?.let {smartMoney(it.pricePerPerson,it.currency,l)} ?: "—"
+    val low=Color.White.copy(alpha=.72f)
+    Column(Modifier.fillMaxWidth().padding(horizontal=16.dp).clip(RoundedCornerShape(24.dp))
+        .background(Brush.verticalGradient(listOf(Color.Black,Color(0xFF1F1F1F),Color(0xFF0B0B0B))))) {
+        Box(Modifier.fillMaxWidth().height(168.dp)) {
+            Image(painterResource(R.drawable.about_iumrah_kaaba_corner),null,Modifier.fillMaxSize(),contentScale=ContentScale.Crop)
+            Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color.Transparent,Color.Black.copy(alpha=.30f),Color.Black))))
+        }
+        Column(Modifier.fillMaxWidth().padding(16.dp),verticalArrangement=Arrangement.spacedBy(12.dp)) {
+            Text(reviewText(l,"ИНДИВИДУАЛЬНАЯ УМРА","INDIVIDUAL UMRAH","INDIVIDUAL UMRA","ИНДИВИДУАЛ УМРА")
+                + " · " + reviewTier(l,trip.packageTier).uppercase(),fontSize=11.sp,fontWeight=FontWeight.SemiBold,color=low)
+            Text(reviewText(l,"Ваше путешествие","Your journey","Safaringiz","Сафарингиз"),
+                fontSize=23.sp,fontWeight=FontWeight.Bold,color=Color.White)
+            Text("${trip.departureDate} – ${trip.returnDate}",fontSize=14.sp,color=Color.White.copy(alpha=.8f))
+            val out=state.selectedJourney?.outbound
+            if(out!=null) {
+                val inn=state.selectedJourney?.inbound
+                Text("${out.origin} → ${out.destination}"+(inn?.let { " · ${it.origin} → ${it.destination}" } ?: ""),
+                    fontSize=12.sp,color=low)
+            } else {
+                state.nuitee?.flights?.takeIf { it.isNotEmpty() }?.let { flights ->
+                    Text(flights.joinToString(" · ") { "${it.origin} → ${it.destination}" },fontSize=12.sp,color=low)
+                }
+            }
+            Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+                ReviewHeroMetric(stay.totalDays,reviewText(l,"дней","days","kun","кун"),Modifier.weight(1f))
+                ReviewHeroMetric(stay.makkahNights,reviewText(l,"ночей в Мекке","nights in Makkah","Makkada tun","Маккада тун"),Modifier.weight(1f))
+                if(trip.scope==JourneyScope.MAKKAH_AND_MADINAH)
+                    ReviewHeroMetric(stay.madinahNights,reviewText(l,"ночей в Медине","nights in Madinah","Madinada tun","Мадинада тун"),Modifier.weight(1f))
+            }
+            HorizontalDivider(color=Color.White.copy(alpha=.18f))
+            Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.Bottom,horizontalArrangement=Arrangement.spacedBy(10.dp)) {
+                Column(Modifier.weight(1f),verticalArrangement=Arrangement.spacedBy(4.dp)) {
+                    Text(reviewText(l,"За всех паломников","For all pilgrims","Barcha ziyoratchilar","Барча зиёратчилар"),fontSize=12.sp,color=low)
+                    Text(total,fontSize=25.sp,fontWeight=FontWeight.Bold,color=Color.White,maxLines=1)
+                }
+                Column(horizontalAlignment=Alignment.End,verticalArrangement=Arrangement.spacedBy(4.dp)) {
+                    Text(reviewText(l,"На человека","Per person","Kishi uchun","Киши учун"),fontSize=12.sp,color=low)
+                    Text(perPerson,fontSize=19.sp,fontWeight=FontWeight.Bold,color=Color.White,maxLines=1)
+                }
+            }
+        }
+    }
+}
+
+@Composable private fun ReviewHeroMetric(value:Int,title:String,modifier:Modifier=Modifier) {
+    Column(modifier.heightIn(min=68.dp).clip(RoundedCornerShape(14.dp)).background(Color.White.copy(alpha=.09f)).padding(10.dp),
+        verticalArrangement=Arrangement.spacedBy(4.dp)) {
+        Text(value.toString(),fontSize=21.sp,fontWeight=FontWeight.Bold,color=Color.White)
+        Text(title,fontSize=11.sp,lineHeight=13.sp,color=Color.White.copy(alpha=.75f))
     }
 }
 
@@ -233,23 +269,89 @@ internal fun reviewTier(l: AppLanguage, tier: PackageTier) = when(tier) {
 /** The same verified retail lines for both legacy and local-room review flows. */
 @Composable internal fun ReviewVerifiedPrice(l: AppLanguage, quote: PackageQuote) {
     val price = quote.tripSummary?.takeIf { quote.hasVerifiedBreakdown }
-    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(22.dp)).background(generatorCardColor()).padding(16.dp),
+    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(generatorCardColor()).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        ReviewSection(reviewText(l,"Детализация стоимости","Price breakdown","Narx tafsilotlari","Нарх тафсилотлари"))
+        Text(reviewText(l,"Стоимость путешествия","Trip cost","Safar narxi","Сафар нархи"),fontSize=19.sp,fontWeight=FontWeight.Bold)
+        Text(reviewText(l,"За всех паломников · USD","For all pilgrims · USD","Barcha ziyoratchilar · USD","Барча зиёратчилар · USD"),
+            fontSize=12.sp,color=MaterialTheme.colorScheme.onSurface.copy(alpha=.6f))
         if (price == null) {
             Text(reviewText(l,"Обновите расчёт: детализация пока недоступна.","Refresh pricing: breakdown unavailable.","Hisobni yangilang: tafsilotlar mavjud emas.","Ҳисобни янгиланг: тафсилотлар мавжуд эмас."))
         } else {
-            price.components.forEach { row -> ReviewPriceRow(l,row.label,row.amountUsd) }
+            TripReviewPriceGrouping.groups(price.components).forEach { row ->
+                val label=when(row.key) {
+                    "flights" -> reviewText(l,"Авиабилеты","Flights","Aviachiptalar","Авиачипталар")
+                    "meals" -> reviewText(l,"Питание","Meals","Ovqatlanish","Овқатланиш")
+                    "ziyarats" -> reviewText(l,"Зияраты","Ziyarats","Ziyoratlar","Зиёратлар")
+                    "transfer" -> reviewText(l,"Трансфер","Transfer","Transfer","Трансфер")
+                    "makkah_hotel" -> reviewText(l,"Отель в Мекке","Makkah hotel","Makka mehmonxonasi","Макка меҳмонхонаси")
+                    "madinah_hotel" -> reviewText(l,"Отель в Медине","Madinah hotel","Madina mehmonxonasi","Мадина меҳмонхонаси")
+                    "visa" -> reviewText(l,"Визы","Visas","Vizalar","Визалар")
+                    "accompaniment" -> reviewText(l,"Персональный гид","Personal guide","Shaxsiy gid","Шахсий гид")
+                    "esim" -> "eSIM"
+                    "haramain_train_addon" -> "Haramain"
+                    else -> row.representative.label
+                }
+                ReviewPriceRow(l,label,row.amountUsd)
+            }
             HorizontalDivider()
-            ReviewPriceRow(l,reviewText(l,"Услуги","Services","Xizmatlar","Хизматлар"),price.servicesSubtotalUsd)
-            ReviewPriceRow(l,reviewText(l,"Комиссия платформы · 9%","Platform fee · 9%","Platforma komissiyasi · 9%","Платформа комиссияси · 9%"),price.supportAmountUsd)
+            ReviewPriceRow(l,reviewText(l,"Стоимость услуг","Services subtotal","Xizmatlar jami","Хизматлар жами"),price.servicesSubtotalUsd)
+            ReviewPriceRow(l,reviewText(l,"Поддержка и комиссия · 9%","Support and fee · 9%","Yordam va komissiya · 9%","Ёрдам ва комиссия · 9%"),price.supportAmountUsd)
             ReviewPriceRow(l,reviewText(l,"Платёжная комиссия · 2%","Payment fee · 2%","To‘lov komissiyasi · 2%","Тўлов комиссияси · 2%"),price.paymentAmountUsd)
-            if (price.roundingUsd.signum()!=0) ReviewPriceRow(l,reviewText(l,"Округление","Rounding","Yaxlitlash","Яхлитлаш"),price.roundingUsd)
+            ReviewPriceRow(l,reviewText(l,"Округление","Rounding","Yaxlitlash","Яхлитлаш"),price.roundingUsd)
             HorizontalDivider()
             ReviewPriceRow(l,reviewText(l,"Итого","Total","Jami","Жами"),price.totalUsd)
         }
     }
 }
+
+/** Optional iOS 13 price chart, displayed only from the verified server breakdown. */
+@Composable internal fun ReviewPriceDistribution(l:AppLanguage,quote:PackageQuote) {
+    val price=quote.tripSummary?.takeIf { quote.hasVerifiedBreakdown } ?: return
+    var expanded by remember { mutableStateOf(false) }
+    val groups=TripReviewPriceGrouping.groups(price.components)
+    val values=groups.map { row ->
+        val label=when(row.key) {
+            "flights" -> reviewText(l,"Авиабилеты","Flights","Aviachiptalar","Авиачипталар")
+            "meals" -> reviewText(l,"Питание","Meals","Ovqatlanish","Овқатланиш")
+            "ziyarats" -> reviewText(l,"Зияраты","Ziyarats","Ziyoratlar","Зиёратлар")
+            "transfer" -> reviewText(l,"Трансфер","Transfer","Transfer","Трансфер")
+            else -> row.representative.label
+        }
+        label to row.amountUsd
+    } + listOf(
+        reviewText(l,"Поддержка","Support","Yordam","Ёрдам") to price.supportAmountUsd,
+        reviewText(l,"Оплата","Payment","To‘lov","Тўлов") to price.paymentAmountUsd,
+        reviewText(l,"Округление","Rounding","Yaxlitlash","Яхлитлаш") to price.roundingUsd)
+    val positive=values.fold(java.math.BigDecimal.ZERO){sum,pair -> sum + pair.second.max(java.math.BigDecimal.ZERO)}
+    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(generatorCardColor()).padding(16.dp),
+        verticalArrangement=Arrangement.spacedBy(12.dp)) {
+        Row(verticalAlignment=Alignment.CenterVertically) {
+            Text(reviewText(l,"Диаграмма стоимости","Price distribution","Narx diagrammasi","Нарх диаграммаси"),
+                Modifier.weight(1f),fontSize=19.sp,fontWeight=FontWeight.Bold)
+            OutlinedButton(onClick={expanded=!expanded},shape=CircleShape) {
+                Text(if(expanded) reviewText(l,"Скрыть","Hide","Yashirish","Яшириш")
+                    else reviewText(l,"Смотреть","View","Ko‘rish","Кўриш"),fontSize=13.sp)
+            }
+        }
+        if(expanded) {
+            if(positive.signum()>0) Row(Modifier.fillMaxWidth().height(14.dp).clip(CircleShape)) {
+                values.forEachIndexed { index,pair ->
+                    if(pair.second.signum()>0) {
+                        val fraction=pair.second.divide(positive,java.math.MathContext.DECIMAL64).toFloat().coerceAtLeast(.000001f)
+                        Box(Modifier.weight(fraction).fillMaxHeight().background(Color.Black.copy(alpha=(.95f-index*.07f).coerceAtLeast(.18f))))
+                    }
+                }
+            }
+            values.forEachIndexed { index,pair ->
+                if(pair.second.signum()!=0) Row(verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+                    Box(Modifier.size(9.dp).clip(CircleShape).background(Color.Black.copy(alpha=(.95f-index*.07f).coerceAtLeast(.18f))))
+                    Box(Modifier.weight(1f)) { ReviewPriceRow(l,pair.first,pair.second) }
+                }
+            }
+        }
+    }
+}
+
 @Composable private fun ReviewPriceRow(l: AppLanguage, title: String, amount: java.math.BigDecimal) {
     Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(12.dp),verticalAlignment=Alignment.CenterVertically) {
         Text(title,Modifier.weight(1f),fontSize=13.sp)

@@ -19,7 +19,12 @@ assert 'journey.prepareNuiteePackage' in local and 'bookingAllowed == true' in l
 assert 'accepted.totalPackagePrice.compareTo(fresh.totalPackagePrice)' in local
 assert 'draft.rooms[expected.key] != expected' in state and 'room != expected' in state
 assert 'quote = null, packageError = null' in state
-assert 'navigationBarsPadding()' in chrome and 'Arrangement.spacedBy((-46).dp)' in chrome
+# Trip Summary Design 13 supersedes the overlapping -46 dp legacy panel.
+# Preserve the fixed safe-area footer, but validate the actual iOS-6 photo hero.
+assert 'navigationBarsPadding()' in chrome
+assert 'ReviewSummaryHero(' in chrome and 'R.drawable.about_iumrah_kaaba_corner' in chrome
+assert '.height(168.dp)' in chrome and 'RoundedCornerShape(24.dp)' in chrome
+assert 'TripStayPlanner.breakdown(trip)' in chrome and 'quote?.let {smartMoney(it.pricePerPerson' in chrome
 assert 'ReviewUnitPrice' in legacy and 'ReviewUnitPrice' in local
 assert 'ReviewFareDisplay.flight' in legacy
 print('Block 03C source contracts passed: shared review hierarchy, sticky footer, room/meal edits, quote safety and unit prices.')

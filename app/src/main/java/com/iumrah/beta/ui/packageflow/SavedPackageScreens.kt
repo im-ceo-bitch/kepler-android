@@ -117,6 +117,7 @@ private fun saveText(l:AppLanguage,r:String,e:String,u:String,c:String)=reviewTe
     val visible=entries.filter { it.receipt!=null && it.receipt.status!="converted" }.sortedByDescending { it.receipt?.expiresAt }
     LazyColumn(Modifier.fillMaxSize().statusBarsPadding(),contentPadding=PaddingValues(18.dp),verticalArrangement=Arrangement.spacedBy(12.dp)) {
         item { Row {TextButton(onClick=chrome::back){Text("‹")}; Text(saveText(language,"Сохранённые путешествия","Saved journeys","Saqlangan safarlar","Сақланган сафарлар"),style=MaterialTheme.typography.titleLarge)} }
+        item { com.iumrah.beta.ui.home.BrandComparisonEntry(language,chrome) }
         item {TextButton(onClick={scope.launch{refresh()}},enabled=!busy){Text(saveText(language,"Обновить","Refresh","Yangilash","Янгилаш"))};if(busy)LinearProgressIndicator(Modifier.fillMaxWidth())}
         if(visible.isEmpty())item{Text(saveText(language,"Нет сохранённых путешествий","No saved journeys","Saqlangan safarlar yo‘q","Сақланган сафарлар йўқ"))}
         items(visible,key={requireNotNull(it.receipt).packageID}){e->

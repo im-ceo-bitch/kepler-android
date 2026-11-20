@@ -113,7 +113,7 @@ internal fun HomeBrandSlogan(language: AppLanguage) {
 }
 
 @Composable
-private fun HomeBrandComparison(language: AppLanguage, chrome: AppChromeStore, onDismiss:()->Unit) {
+internal fun HomeBrandComparison(language: AppLanguage, chrome: AppChromeStore, onDismiss:()->Unit) {
     val pairs = listOf(
         BT("Общее расписание","Shared schedule","Umumiy jadval","Умумий жадвал") to BT("Ваше расписание","Your schedule","Jadvalingiz","Жадвалингиз"),
         BT("Гид на группу","Group guide","Guruh gidi","Гуруҳ гиди") to BT("Персональный гид","Private guide","Shaxsiy gid","Шахсий гид"),
@@ -164,4 +164,23 @@ private fun HomeBrandComparison(language: AppLanguage, chrome: AppChromeStore, o
             }
         }
     }
+}
+
+
+/** Brand Experience 15: contextual CTA reused by Trip Summary, proposals and saved packages. */
+@Composable
+internal fun BrandComparisonEntry(language: AppLanguage, chrome: AppChromeStore) {
+    var comparisonOpen by remember { mutableStateOf(false) }
+    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(Color(0xFF121214))
+        .clickable { comparisonOpen=true }.padding(18.dp),verticalAlignment=Alignment.CenterVertically,
+        horizontalArrangement=Arrangement.spacedBy(12.dp)) {
+        Column(Modifier.weight(1f),verticalArrangement=Arrangement.spacedBy(6.dp)) {
+            Text(BT("Почувствуйте разницу","Experience the difference","Farqni his qiling","Фарқни ҳис қилинг").text(language),
+                fontWeight=FontWeight.SemiBold,color=Color.White,fontSize=17.sp)
+            Text(BT("Сравнить индивидуальную умру с групповым форматом","Compare personal and group Umrah","Individual va guruhli umrani solishtirish","Индивидуал ва гуруҳли умрани солиштириш").text(language),
+                color=Color.White.copy(alpha=.72f),fontSize=13.sp)
+        }
+        CupertinoIcon(CupertinoSymbol.ArrowRight,null,Modifier.size(20.dp),Color.White)
+    }
+    if (comparisonOpen) HomeBrandComparison(language,chrome){comparisonOpen=false}
 }
