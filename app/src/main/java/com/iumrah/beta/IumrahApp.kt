@@ -46,7 +46,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.ensureActive
-import com.iumrah.beta.ui.onboarding.OnboardingFlow
+import com.iumrah.beta.ui.onboarding.BrandWelcomeOnboarding
 import com.iumrah.beta.ui.shell.AppShell
 import com.iumrah.beta.ui.components.IumrahSignatureLaunchHost
 
@@ -231,7 +231,7 @@ fun IumrahApp() {
                     settingsStore = container.settingsStore,
                 )
             } else {
-                OnboardingFlow(
+                BrandWelcomeOnboarding(
                     language = settings.language,
                     onLanguageChange = container.settingsStore::setLanguage,
                     onFinished = { IumrahIntelligence.record("onboarding_completed", "onboarding"); container.settingsStore.completeOnboarding() },

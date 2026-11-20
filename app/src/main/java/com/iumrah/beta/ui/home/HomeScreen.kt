@@ -223,6 +223,9 @@ fun HomeScreen(
                 IumrahHomeSearchHero(language, journeyState.trip, journey, airports, curatedFlights, chrome, searchExpanded, onSearch = { history.saveFlight(owner, it) }) { searchExpanded = it }
             })
         }
+        item { HomePublishedFlightCarousel(language,journeyState.trip,journey,curatedFlights,chrome) }
+        item { HomeBrandExperience(language,chrome) }
+        item { HomeBrandMission(language) }
         if (activity.smart != null || activity.flight != null || activity.hotels.isNotEmpty() || activeBooking != null) item {
             HomeRecentActivitySection(language, activity, activeBooking, chrome, owner,
                 resume = { resumeSmart = it; smartOpen = true }, repeat = { trip ->
@@ -235,7 +238,6 @@ fun HomeScreen(
         }
         item { SmartConfiguratorHomeCard(language, startSmart, active = !smartOpen && storyStartIndex == null) }
         item { EmotionalPrompt(language = language, onOpen = { storyStartIndex = 0 }) }
-        item { HomeWhyAndPreferencesSection(language, history, owner, revision, showsPreferences = false) }
         item { HomeVideoCarousel(language = language, isStoryPresented = storyStartIndex != null, onOpenStory = { storyStartIndex = it }) }
         item { HomeDestinationsSection(language, chrome::openHomeHotelSearch) }
         item { IumrahServicesCarousel(language, chrome) }
@@ -253,6 +255,7 @@ fun HomeScreen(
         item { PersonalUmrahFAQ(language) }
         item { AboutFooter(language, chrome) }
         item { HomeWhyAndPreferencesSection(language, history, owner, revision, showsWhy = false) }
+        item { HomeBrandSlogan(language) }
     }
 
     } // no overscroll on current iOS Home

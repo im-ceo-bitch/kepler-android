@@ -48,7 +48,11 @@ class CuratedFlightRecommendationService(private val api: APIClient) {
         }.onFailure { firstError = it }
 
         runCatching { storefrontFallback(trip.originCode.uppercase(), start, end) }
-            .onSuccess { values -> values.filter { it.nonstop }.forEach { if (!merged.containsKey(it.id)) merged[it.id] = it } }
+            .onSuccess { values -> values.filter { it.nonstop }.forEach { value ->
+                val existing = merged[value.id]
+                merged[value.id] = if (existing == null) value else if (existing.fareUsdPerTraveler == null)
+                    existing.copy(fareUsdPerTraveler = value.fareUsdPerTraveler) else existing
+            } }
             .onFailure { if (firstError == null) firstError = it }
 
         if (merged.isNotEmpty()) {
@@ -121,6 +125,7 @@ class CuratedFlightRecommendationService(private val api: APIClient) {
                 recommendationLabel = "iumrah recommends",
                 offerType = if (oneWay) "one_way" else "paired_one_way",
                 journeyRole = role,
+                fareUsdPerTraveler = option.perTravelerFare.takeIf { option.currency.equals("USD", true) && it.isFinite() && it > 0.0 },
             )
         }
     }

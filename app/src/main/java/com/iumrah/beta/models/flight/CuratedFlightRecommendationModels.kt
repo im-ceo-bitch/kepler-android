@@ -20,6 +20,8 @@ data class CuratedFlightRecommendation(
     val recommendationLabel: String,
     val offerType: String? = null,
     val journeyRole: String? = null,
+    /** Optional server-authoritative per-traveler price. Never invent missing fares. */
+    val fareUsdPerTraveler: Double? = null,
 ) {
     @Serializable
     data class Leg(

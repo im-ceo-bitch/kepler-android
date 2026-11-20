@@ -152,6 +152,7 @@ fun HotelsScreen(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val journeyState by journey.state.collectAsState()
+    val curatedPublished = remember(context) { (context.applicationContext as com.iumrah.beta.IumrahApplication).container.curatedFlightRecommendationService }
     val origin = journeyState.trip.originCode.ifBlank { "TAS" }.uppercase()
 
     var board by rememberSaveable(initialBoard) { mutableStateOf(initialBoard) }
@@ -439,6 +440,9 @@ fun HotelsScreen(
             }
 
             HotelsBoard.FLIGHTS -> {
+                // Same D1-published direct-flight selection and five-minute cache as Home.
+                // Live discovery stays a separate section and is not queried by this carousel.
+                item { com.iumrah.beta.ui.home.HomePublishedFlightCarousel(language, journeyState.trip, journey, curatedPublished, chrome) }
                 // iOS Flights v15: single discovery surface (no duplicate showcase
                 // hero or competing published-flight filter below it).
                 item {

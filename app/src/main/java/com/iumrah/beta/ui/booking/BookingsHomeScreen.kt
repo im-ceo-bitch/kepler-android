@@ -75,6 +75,7 @@ import com.iumrah.beta.data.account.IumrahAccountService
 import com.iumrah.beta.data.account.IumrahAccountStore
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.currentCoroutineContext
+import com.iumrah.beta.data.booking.AccountTripsRestoreState
 import com.iumrah.beta.data.booking.BookingStore
 import com.iumrah.beta.data.chat.ChatService
 import com.iumrah.beta.data.chat.IumrahPublicProfile
@@ -131,6 +132,7 @@ fun BookingsHomeScreen(
     var deleteError by remember { mutableStateOf<String?>(null) }
     var pendingDeleteID by remember { mutableStateOf<String?>(null) }
     var isDeleting by remember { mutableStateOf(false) }
+    var showGuestBookingRecovery by remember { mutableStateOf(false) }
 
     var isRefreshing by remember { mutableStateOf(false) }
     val refreshScope = rememberCoroutineScope()
@@ -202,8 +204,10 @@ fun BookingsHomeScreen(
     }
 
     Column(Modifier.fillMaxSize()) {
-    TextButton(onClick = chrome::openSavedJourneys, modifier = Modifier.fillMaxWidth().statusBarsPadding()) {
-        Text(t(language,"Сохранённые путешествия","Saved journeys","Saqlangan safarlar","Сақланган сафарлар"))
+    if (activeSession != null) {
+        TextButton(onClick = chrome::openSavedJourneys, modifier = Modifier.fillMaxWidth().statusBarsPadding()) {
+            Text(t(language,"Сохранённые путешествия","Saved journeys","Saqlangan safarlar","Сақланган сафарлар"))
+        }
     }
     Box(Modifier.weight(1f)) {
     if ((panel == BookingPanel.PACKAGE || panel == BookingPanel.STATUS) && activeSession != null) {
@@ -237,11 +241,24 @@ fun BookingsHomeScreen(
         // outer mutable selection that may change mid-transition.
         val displayedSession = bookingID?.let(bookingStore::booking)
         if (displayedSession == null) {
-            EmptyBookingHome(
-                language = language,
-                unreadCount = notificationState.unreadCount,
-                chrome = chrome,
-            )
+            when {
+                accountState.isRestoring || (accountState.isAuthenticated &&
+                    bookingState.accountTripsRestoreState != AccountTripsRestoreState.LOADED) -> {
+                    BookingRestoreNotice(
+                        language = language,
+                        chrome = chrome,
+                        unreadCount = notificationState.unreadCount,
+                        failed = !accountState.isRestoring && bookingState.accountTripsRestoreState == AccountTripsRestoreState.FAILED,
+                        onRetry = { refreshScope.launch { bookingStore.restoreAccountTrips() } },
+                    )
+                }
+                else -> EmptyBookingHome(
+                    language = language,
+                    unreadCount = notificationState.unreadCount,
+                    chrome = chrome,
+                    onFindBooking = { showGuestBookingRecovery = true },
+                )
+            }
         } else {
             ActiveBookingHome(
                 language = language,
@@ -267,6 +284,16 @@ fun BookingsHomeScreen(
     } // active booking detail / root
     } // content
     } // root column
+    if (showGuestBookingRecovery) {
+        GuestBookingRecoveryDialog(language, bookingStore,
+            onDismiss = { showGuestBookingRecovery = false },
+            onRecovered = { id ->
+                showGuestBookingRecovery = false
+                selectedBookingID = id
+                panel = BookingPanel.PACKAGE
+            },
+        )
+    }
     pendingDeleteID?.let { id ->
         AlertDialog(
             onDismissRequest = { if (!isDeleting) pendingDeleteID = null },
@@ -1999,60 +2026,106 @@ private fun CompactBookingCard(
 }
 
 @Composable
+private fun BookingRestoreNotice(
+    language: AppLanguage,
+    chrome: AppChromeStore,
+    unreadCount: Int,
+    failed: Boolean,
+    onRetry: () -> Unit,
+) {
+    LazyColumn(
+        modifier = Modifier.fillMaxSize().background(bookingPageColor()),
+        contentPadding = PaddingValues(horizontal = IOS_PAGE_PADDING.dp, vertical = 0.dp),
+        verticalArrangement = Arrangement.spacedBy(20.dp),
+    ) {
+        item { IumrahRootPageHeader(title = L10n.text("tab_booking", language), chrome = chrome, unreadCount = unreadCount, language = language) }
+        item {
+            Column(
+                modifier = Modifier.fillMaxWidth().padding(top = 28.dp).clip(RoundedCornerShape(24.dp))
+                    .background(bookingCardColor()).padding(20.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp),
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+                    CupertinoIcon(if (failed) CupertinoSymbol.WifiWarning else CupertinoSymbol.Clock,
+                        null, Modifier.size(19.dp), MaterialTheme.colorScheme.onSurface)
+                    Text(if (failed)
+                        t(language,"Не удалось загрузить бронирования","Could not load bookings","Bronlarni yuklab bo‘lmadi","Бронларни юклаб бўлмади")
+                        else t(language,"Проверяем ваши поездки","Checking your trips","Safarlaringizni tekshiryapmiz","Сафарларингизни текширяпмиз"),
+                        fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
+                }
+                Text(if (failed)
+                    t(language,"Проверьте интернет и попробуйте снова.","Check your connection and try again.","Internetni tekshirib qayta urinib ko‘ring.","Интернетни текшириб қайта уриниб кўринг.")
+                    else t(language,"Данные бронирований появятся здесь после синхронизации.","Your bookings will appear here when synchronization finishes.","Bronlar sinxronlashdan so‘ng shu yerda ko‘rinadi.","Бронлар синхронлашдан сўнг шу ерда кўринади."),
+                    fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha=.62f))
+                if (failed) IumrahPressable(onClick = onRetry, modifier = Modifier.fillMaxWidth().height(50.dp),
+                    cornerRadius = 24.dp, background = Color.Black) {
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Text(t(language,"Повторить","Try again","Qayta urinish","Қайта уриниш"), color = Color.White, fontWeight = FontWeight.SemiBold)
+                    }
+                } else CircularProgressIndicator(Modifier.size(20.dp), strokeWidth=2.dp)
+            }
+        }
+    }
+}
+
+@Composable
 private fun EmptyBookingHome(
     language: AppLanguage,
     unreadCount: Int,
     chrome: AppChromeStore,
+    onFindBooking: () -> Unit,
 ) {
     LazyColumn(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(bookingPageColor()),
-        contentPadding = PaddingValues(
-            start = IOS_PAGE_PADDING.dp,
-            end = IOS_PAGE_PADDING.dp,
-            top = 0.dp,
-            bottom = 112.dp,
-        ),
-        verticalArrangement = Arrangement.spacedBy(18.dp),
+        modifier = Modifier.fillMaxSize().background(bookingPageColor()),
+        contentPadding = PaddingValues(start=IOS_PAGE_PADDING.dp, end=IOS_PAGE_PADDING.dp, top=0.dp, bottom=112.dp),
+        verticalArrangement = Arrangement.spacedBy(0.dp),
     ) {
+        item { IumrahRootPageHeader(title = L10n.text("tab_booking", language), chrome = chrome, unreadCount = unreadCount, language = language) }
         item {
-            IumrahRootPageHeader(
-                title = L10n.text("tab_booking", language),
-                chrome = chrome,
-                unreadCount = unreadCount,
-                language = language,
-            )
+            Column(
+                modifier = Modifier.fillMaxWidth().padding(top=68.dp, bottom=48.dp, start=0.dp, end=0.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+            ) {
+                Box(Modifier.size(76.dp).clip(CircleShape).background(MaterialTheme.colorScheme.onBackground.copy(alpha=.055f)), contentAlignment=Alignment.Center) {
+                    CupertinoIcon(CupertinoSymbol.Suitcase, null, Modifier.size(31.dp), MaterialTheme.colorScheme.onBackground.copy(alpha=.78f))
+                }
+                Text(t(language,"Пока бронирований нет","No bookings yet","Hozircha bron yo‘q","Ҳозирча брон йўқ"),
+                    fontSize=23.sp, lineHeight=28.sp, fontWeight=FontWeight.Bold, textAlign=TextAlign.Center)
+                Text(t(language,"Здесь будут ваши поездки после бронирования.","Your trips will appear here after booking.","Bron qilganingizdan keyin safarlaringiz shu yerda chiqadi.","Брон қилганингиздан кейин сафарларингиз шу ерда чиқади."),
+                    fontSize=15.sp, color=MaterialTheme.colorScheme.onSurface.copy(alpha=.60f), textAlign=TextAlign.Center)
+                Spacer(Modifier.height(10.dp))
+                IumrahPressable(onClick = chrome::startNewTrip, modifier=Modifier.fillMaxWidth().height(56.dp),
+                    cornerRadius=28.dp, background=Color.Black, shadowElevation=0.dp) {
+                    Row(Modifier.fillMaxSize().padding(horizontal=18.dp), horizontalArrangement=Arrangement.Center, verticalAlignment=Alignment.CenterVertically) {
+                        Text(t(language,"Создать путешествие","Create a trip","Safar yaratish","Сафар яратиш"), fontSize=16.sp, fontWeight=FontWeight.SemiBold, color=Color.White)
+                        Spacer(Modifier.width(10.dp))
+                        CupertinoIcon(CupertinoSymbol.ArrowRight,null,Modifier.size(16.dp),Color.White)
+                    }
+                }
+            }
         }
-        item { EmptyStatusCard(language) }
-        item { ExplorePackagesButton(language, chrome) }
         item {
-            EmptyShowcaseCard(
-                imageRes = R.drawable.iumrah_configurator_hero,
-                imageBackground = Color.Black,
-                eyebrow = "Iumrah Configurator",
-                badge = t(language, "5 минут", "5 minutes", "5 daqiqa", "5 дақиқа"),
-                title = L10n.text("booking_hero_title", language),
-                body = L10n.text("booking_hero_body", language),
-                cta = L10n.text("booking_hero_cta", language),
-                dark = true,
-                icon = CupertinoSymbol.Sliders,
-                onClick = chrome::startNewTrip,
-            )
+            Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(bookingCardColor())) {
+                EmptyBookingLink(language, CupertinoSymbol.Search,
+                    t(language,"Найти бронирование","Find booking","Bronni topish","Бронни топиш"),onFindBooking)
+                Box(Modifier.fillMaxWidth().padding(start=50.dp).height(1.dp).background(MaterialTheme.colorScheme.onSurface.copy(alpha=.08f)))
+                EmptyBookingLink(language, CupertinoSymbol.Bookmark,
+                    t(language,"Сохранённые путешествия","Saved journeys","Saqlangan safarlar","Сақланган сафарлар"),chrome::openSavedJourneys)
+            }
         }
-        item {
-            EmptyShowcaseCard(
-                imageRes = R.drawable.iumrah_care_showcase,
-                imageBackground = Color.White,
-                eyebrow = "Iumrah Care",
-                badge = t(language, "За вас", "For you", "Siz uchun", "Сиз учун"),
-                title = t(language, "Соберите Umrah за меня", "Build my Umrah for me", "Umramni men uchun yig‘ing", "Умрамни мен учун йиғинг"),
-                body = t(language, "Расскажите даты, бюджет и пожелания. Iumrah Care соберёт для вас персональный вариант поездки.", "Tell us your dates, budget and preferences. Iumrah Care will prepare a personal Umrah option for you.", "Sanalar, budjet va istaklaringizni ayting. Iumrah Care siz uchun shaxsiy Umra variantini tayyorlaydi.", "Саналар, бюджет ва истакларингизни айтинг. Iumrah Care сиз учун шахсий Умра вариантини тайёрлайди."),
-                cta = t(language, "Собрать мою Umrah", "Build my Umrah", "Mening Umramni yig‘ish", "Менинг Умрамни йиғиш"),
-                dark = false,
-                icon = CupertinoSymbol.HeartFill,
-                onClick = { chrome.navigate(AppTab.CARE) },
-            )
+    }
+}
+
+@Composable
+private fun EmptyBookingLink(language: AppLanguage, icon: CupertinoSymbol, title: String, onClick: () -> Unit) {
+    IumrahPressable(onClick=onClick, modifier=Modifier.fillMaxWidth().height(54.dp), cornerRadius=0.dp,
+        background=Color.Transparent, shadowElevation=0.dp) {
+        Row(Modifier.fillMaxSize().padding(horizontal=16.dp), verticalAlignment=Alignment.CenterVertically,
+            horizontalArrangement=Arrangement.spacedBy(13.dp)) {
+            CupertinoIcon(icon,null,Modifier.size(19.dp),MaterialTheme.colorScheme.onSurface)
+            Text(title,modifier=Modifier.weight(1f),fontSize=15.sp,fontWeight=FontWeight.Medium)
+            CupertinoIcon(CupertinoSymbol.ChevronRight,null,Modifier.size(12.dp),MaterialTheme.colorScheme.onSurface.copy(alpha=.5f))
         }
     }
 }

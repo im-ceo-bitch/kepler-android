@@ -25,10 +25,14 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.serialization.builtins.ListSerializer
 
+/** Remote account reconciliation must not show a false empty booking list on an API failure. */
+enum class AccountTripsRestoreState { NOT_REQUESTED, LOADING, LOADED, FAILED }
+
 data class BookingStoreState(
     val sessions: List<StoredBookingSession> = emptyList(),
     val esimProfilesByBooking: Map<String, List<ClientESIMProfile>> = emptyMap(),
     val isMutating: Boolean = false,
+    val accountTripsRestoreState: AccountTripsRestoreState = AccountTripsRestoreState.NOT_REQUESTED,
     val lastError: String? = null,
     val pushRegistrationReady: Boolean? = null,
     val pushRegistrationError: String? = null,
@@ -43,6 +47,7 @@ class BookingStore(
     private val createMutex = Mutex()
     private val refreshMutex = Mutex()
     private val restoreMutex = Mutex()
+    private var accountRestoreScope: String? = null
     private val linkMutex = Mutex()
     private val pushMutex = Mutex()
     private var linkedAccountToken: String? = null
@@ -59,6 +64,13 @@ class BookingStore(
 
     /** Keep guest proofs, but remove previous-account-only cache entries from this device. */
     fun reconcileAccountScope() {
+        // Track the account credential privately. An earlier account's restore
+        // lifecycle must never be reused for another identity or for a guest.
+        val scopedToken = accountStore.bearerToken
+        if (accountRestoreScope != scopedToken) {
+            accountRestoreScope = scopedToken
+            _state.update { it.copy(accountTripsRestoreState = AccountTripsRestoreState.NOT_REQUESTED) }
+        }
         val current = _state.value
         val visible = current.sessions.filter(::isVisible)
         if (visible != current.sessions) {
@@ -362,18 +374,40 @@ class BookingStore(
         reconcileAccountScope()
         val token = accountStore.bearerToken ?: return@withLock
         val owner = accountStore.state.value.iumrahID ?: return@withLock
-        val trips = attempt { accountStore.accountTrips(token) } ?: return@withLock
+        _state.update { it.copy(accountTripsRestoreState = AccountTripsRestoreState.LOADING) }
+        // A failure to load the remote list is NOT proof that the account has no
+        // bookings. Do not silently coerce it into an empty list.
+        val trips = try {
+            accountStore.accountTrips(token)
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (_: Exception) {
+            if (accountStore.bearerToken == token) _state.update {
+                it.copy(accountTripsRestoreState = AccountTripsRestoreState.FAILED)
+            }
+            return@withLock
+        }
+        if (accountStore.bearerToken != token) return@withLock
+        var failedDetails = false
         for (trip in trips) {
             if (accountStore.bearerToken != token) return@withLock
-            val detail = attempt { accountStore.tripDetail(trip.bookingID, token) } ?: continue
+            val detail = attempt { accountStore.tripDetail(trip.bookingID, token) }
+            if (detail == null) { failedDetails = true; continue }
             if (accountStore.bearerToken != token) return@withLock
-            if (detail.booking.id != trip.bookingID || detail.trip.bookingID != trip.bookingID) continue
+            if (detail.booking.id != trip.bookingID || detail.trip.bookingID != trip.bookingID) {
+                failedDetails = true
+                continue
+            }
             val existing = booking(trip.bookingID)
             val initial = existing ?: StoredBookingSession(id = trip.bookingID, accessToken = "", booking = detail.booking, accountOwnerID = owner)
             val merged = mergeRemote(initial, detail.booking).mergeOperationalTrip(detail.trip, detail.statusHistory, detail.assignment)
             upsert(merged)
             updateESIMCache(trip.bookingID, detail.esims)
         }
+        if (accountStore.bearerToken != token) return@withLock
+        _state.update { current -> current.copy(accountTripsRestoreState =
+            if (failedDetails && current.sessions.none(::isVisible)) AccountTripsRestoreState.FAILED else AccountTripsRestoreState.LOADED
+        ) }
     }
 
     suspend fun refreshAll() {

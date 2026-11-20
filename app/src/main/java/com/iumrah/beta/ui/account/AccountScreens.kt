@@ -313,6 +313,9 @@ fun AccountRootScreen(
                 }
             } }
             item { TripsSection(visibleTrips, language, chrome) }
+            item { CardBlock { SettingsRow(CupertinoSymbol.Ticket,
+                tr(language, "Find booking", "Найти бронирование", "Bronni topish", "Бронни топиш"),
+                tr(language, "By verified email or phone", "По подтверждённой почте или телефону", "Tasdiqlangan email yoki telefon orqali", "Тасдиқланган email ёки телефон орқали")) { recoverBooking = true } } }
             item { TelegramIntegrationCard(language) { chrome.openAccountTelegramIntegration() } }
             item { PaymentSecuritySection(language, activeTrip ?: accountTrips.firstOrNull(), true, chrome) }
             item { ServicesSection(language, chrome) }
