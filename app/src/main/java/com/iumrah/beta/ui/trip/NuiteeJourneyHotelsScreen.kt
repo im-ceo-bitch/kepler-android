@@ -139,7 +139,7 @@ fun NuiteeJourneyHotelsScreen(language: AppLanguage, journey: JourneyStore, chro
                 }
             }
             if (trip.scope == JourneyScope.MAKKAH_AND_MADINAH) item {
-                NuiteeCityChoice(language, city) { city = it; roomIndex = 0; stars = 0 }
+                NuiteeCityChoice(language, city, onCity = { city = it; roomIndex = 0; stars = 0 })
             }
             if (trip.rooms > 1) item {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
