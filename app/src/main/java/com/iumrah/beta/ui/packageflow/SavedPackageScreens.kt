@@ -8,6 +8,14 @@ import android.graphics.Paint
 import android.graphics.Typeface
 import androidx.core.content.FileProvider
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.sp
+import com.iumrah.beta.ui.components.IumrahPrimaryButton
+import com.iumrah.beta.ui.cupertino.CupertinoIcon
+import com.iumrah.beta.ui.cupertino.CupertinoSymbol
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
@@ -115,24 +123,25 @@ private fun saveText(l:AppLanguage,r:String,e:String,u:String,c:String)=reviewTe
     }
     LaunchedEffect(Unit){refresh()}
     val visible=entries.filter { it.receipt!=null && it.receipt.status!="converted" }.sortedByDescending { it.receipt?.expiresAt }
-    LazyColumn(Modifier.fillMaxSize().statusBarsPadding(),contentPadding=PaddingValues(18.dp),verticalArrangement=Arrangement.spacedBy(12.dp)) {
+    LazyColumn(Modifier.fillMaxSize().statusBarsPadding(),contentPadding=PaddingValues(20.dp),verticalArrangement=Arrangement.spacedBy(16.dp)) {
         item { Row {TextButton(onClick=chrome::back){Text("‹")}; Text(saveText(language,"Сохранённые путешествия","Saved journeys","Saqlangan safarlar","Сақланган сафарлар"),style=MaterialTheme.typography.titleLarge)} }
-        item { com.iumrah.beta.ui.home.BrandComparisonEntry(language,chrome) }
         item {TextButton(onClick={scope.launch{refresh()}},enabled=!busy){Text(saveText(language,"Обновить","Refresh","Yangilash","Янгилаш"))};if(busy)LinearProgressIndicator(Modifier.fillMaxWidth())}
-        if(visible.isEmpty())item{Text(saveText(language,"Нет сохранённых путешествий","No saved journeys","Saqlangan safarlar yo‘q","Сақланган сафарлар йўқ"))}
+        if(visible.isEmpty())item{Column(Modifier.fillMaxWidth().padding(vertical=36.dp),horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.spacedBy(14.dp)){CupertinoIcon(CupertinoSymbol.Bookmark,null,Modifier.size(38.dp),MaterialTheme.colorScheme.onSurfaceVariant);Text(saveText(language,"Нет сохранённых путешествий","No saved journeys","Saqlangan safarlar yo‘q","Сақланган сафарлар йўқ"),fontSize=17.sp,fontWeight=FontWeight.SemiBold)}}
         items(visible,key={requireNotNull(it.receipt).packageID}){e->
             val receipt=requireNotNull(e.receipt)
-            Card(Modifier.fillMaxWidth()) {Column(Modifier.padding(14.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {
-                Text("Package ID · ${receipt.packageID} · v${receipt.revision}")
-                receipt.snapshot?.let {p->Text(p.hotelNames.makkah,style=MaterialTheme.typography.titleMedium);Text("${p.input.startDate} — ${p.input.endDate}");Text("${p.totalUsd} USD",style=MaterialTheme.typography.headlineSmall)}
-                if(receipt.status=="expired")Text(saveText(language,"Требуется новый расчёт","New quote required","Yangi hisob kerak","Янги ҳисоб керак"))
+            Card(Modifier.fillMaxWidth(),shape=RoundedCornerShape(20.dp),colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.onSurface.copy(alpha=.08f))) {Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(10.dp)) {
+                Text(receipt.packageID,fontFamily=FontFamily.Monospace,fontSize=12.sp)
+                receipt.snapshot?.let {p->Text(p.hotelNames.makkah,style=MaterialTheme.typography.titleMedium);Text("${p.input.startDate} — ${p.input.endDate}");Text(java.text.NumberFormat.getCurrencyInstance(language.locale).apply {currency=java.util.Currency.getInstance("USD")}.format(p.totalUsd),style=MaterialTheme.typography.headlineSmall,fontWeight=FontWeight.Bold)}
+                Text(if(receipt.status=="expired")saveText(language,"Требуется новый расчёт","New quote required","Yangi hisob kerak","Янги ҳисоб керак") else saveText(language,"Сохранённое путешествие","Saved journey","Saqlangan safar","Сақланган сафар"),fontSize=12.sp,color=MaterialTheme.colorScheme.onSurfaceVariant)
                 if(e.pendingBookingID!=null) Text(saveText(language,"Бронирование создано. Синхронизация пакета…","Booking created. Synchronizing package…","Bron yaratildi. Sinxronlanmoqda…","Брон яратилди. Синхронланмоқда…"))
-                if(e.draft!=null && e.pendingBookingID==null) Button(onClick={try{store.restore(receipt.packageID,journey);chrome.openFinalPackage()}catch(ex:Exception){error=ex.message}},enabled=!busy){Text(saveText(language,"Открыть и проверить цену","Open and reprice","Ochish va narxni tekshirish","Очиш ва нархни текшириш"))}
+                if(e.draft!=null && e.pendingBookingID==null) IumrahPrimaryButton(saveText(language,"Открыть и проверить цену","Open and reprice","Ochish va narxni tekshirish","Очиш ва нархни текшириш"),enabled=!busy){try{store.restore(receipt.packageID,journey);chrome.openFinalPackage()}catch(ex:Exception){error=ex.message}}
+                receipt.shareURL?.let { raw -> TextButton(onClick={try { val uri=android.net.Uri.parse(raw);require(uri.scheme=="https" && !raw.contains(e.owner,ignoreCase=true));context.startActivity(Intent(Intent.ACTION_VIEW,uri)) }catch(ex:Exception){error=ex.message}}){Text(saveText(language,"Посмотреть предложение","View proposal","Taklifni ko‘rish","Таклифни кўриш"));Spacer(Modifier.width(6.dp));CupertinoIcon(CupertinoSymbol.ArrowUpRight,null,Modifier.size(14.dp))} }
                 if(receipt.shareURL!=null) OutlinedButton(onClick={try{shareSaved(context,e,language)}catch(ex:Exception){error=ex.message}}){Text(saveText(language,"Поделиться","Share","Ulashish","Улашиш"))}
                 OutlinedButton(onClick={threadID=receipt.packageID}){Text(saveText(language,"Задать вопрос","Ask a question","Savol berish","Савол бериш"))}
             }}
         }
         error?.let{item{Text(it,color=MaterialTheme.colorScheme.error)}}
+        item { com.iumrah.beta.ui.home.BrandComparisonEntry(language,chrome) }
     }
     threadID?.let {PackageThreadDialog(language,store,it,null,{threadID=null})}
 }

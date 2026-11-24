@@ -105,13 +105,17 @@ fun NotificationsScreen(
     }
 }
 
-private fun routeNotification(value: ClientSystemNotification, bookings: BookingStore, chrome: AppChromeStore) {
+internal fun routeNotification(value: ClientSystemNotification, bookings: BookingStore, chrome: AppChromeStore) {
     when (value.destination) {
         "hotels" -> chrome.navigate(AppTab.HOTELS)
         "bookings" -> chrome.navigate(AppTab.BOOKING)
-        "care" -> chrome.navigate(AppTab.CARE)
+        "care", "chat" -> {
+            val id = value.destinationBookingID
+            if (id == null) chrome.navigate(AppTab.CARE)
+            else bookings.careChatKey(id)?.let(chrome::openBookingChat)
+        }
         "account" -> chrome.navigate(AppTab.ACCOUNT)
-        "booking" -> value.destinationBookingID?.takeIf { bookings.canOpenBookingFromPush(it) }?.let(chrome::openBookingDetail) ?: chrome.navigate(AppTab.BOOKING)
+        "booking" -> value.destinationBookingID?.takeIf { bookings.canOpenBookingFromPush(it) }?.let(chrome::openBookingDetail)
         else -> chrome.navigate(AppTab.HOME)
     }
 }

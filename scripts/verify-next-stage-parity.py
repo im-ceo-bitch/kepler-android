@@ -28,9 +28,8 @@ def main():
     check('"PAYMENT_PENDING" -> IumrahColors.SystemOrange' in theme and
           '"PAYMENT_PENDING", "AVAILABILITY_CONFIRMED"' not in theme,
           'booking status palette follows iOS source (no false payment-pending label)')
-    check('val IumrahFontFamily = FontFamily(' in theme and
-          'R.font.lato_regular' in theme and 'R.font.lato_bold' in theme,
-          'Lato Regular/Bold remain globally wired')
+    check('val IumrahFontFamily = FontFamily.Default' in theme and 'includeFontPadding = false' in theme,
+          'system typography fallback follows the supplied iOS archive')
     check('Box(modifier.width(88.dp).height(34.dp)' in header and
           'targetValue = if (expanded) 88.dp else 34.dp' in header,
           'Home connectivity indicator reserves iOS 88pt slot')

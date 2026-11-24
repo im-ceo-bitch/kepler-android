@@ -34,7 +34,6 @@ def main():
         'item { AudienceSection(',
         'item { HomeIntegrationsSection(',
         'item { ConfidenceStrip(',
-        'item { PhilosophyCard(',
         'item { ProductsSection(',
         'item { ConnectedTripCard(',
         'item { PersonalUmrahFAQ(',

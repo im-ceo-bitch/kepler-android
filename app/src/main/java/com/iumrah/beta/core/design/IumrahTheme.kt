@@ -11,13 +11,12 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.Font
+import androidx.compose.ui.text.PlatformTextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.iumrah.beta.core.settings.AppAppearance
-import com.iumrah.beta.R
 
 /**
  * Android mirror of Sources/Core/DesignSystem.swift from the current iOS repository.
@@ -156,17 +155,10 @@ private val DarkColors = darkColorScheme(
     outlineVariant = Color.White.copy(alpha = .055f),
 )
 
-// Cross-platform iumrah type family: bundled OFL Lato. Never fall back to
-// OEM rounded fonts when an Android device is configured differently.
-// Same two visual faces as iOS: Regular for normal/medium text,
-// Bold for semibold headings, buttons, prices and emphasis.
-// Keep weight aliases so existing Compose fontWeight requests resolve predictably.
-val IumrahFontFamily = FontFamily(
-    Font(R.font.lato_regular, FontWeight.Normal),
-    Font(R.font.lato_regular, FontWeight.Medium),
-    Font(R.font.lato_bold, FontWeight.SemiBold),
-    Font(R.font.lato_bold, FontWeight.Bold),
-)
+// Current iOS archive does not bundle Lato. IumrahType falls back to system
+// fonts; direct SwiftUI .system calls also use native system typography.
+// Android native system type is a metric approximation, not San Francisco.
+val IumrahFontFamily = FontFamily.Default
 
 // Nominal IumrahType roles from Sources/Core/DesignSystem.swift:
 // display 34, screenTitle 28, sectionTitle 22, cardTitle 18,
@@ -288,8 +280,8 @@ fun IumrahTheme(
         shapes = IumrahShapes,
     ) {
         // Many parity screens set explicit size/weight but intentionally omit fontFamily.
-        // This provider makes Lato global without forcing one global text size.
-        ProvideTextStyle(value = TextStyle(fontFamily = IumrahFontFamily)) {
+        // Apply native family without forcing one global text size.
+        ProvideTextStyle(value = TextStyle(fontFamily = IumrahFontFamily, platformStyle = PlatformTextStyle(includeFontPadding = false))) {
             content()
         }
     }

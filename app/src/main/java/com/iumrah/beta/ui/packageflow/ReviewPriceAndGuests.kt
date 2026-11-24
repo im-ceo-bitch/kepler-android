@@ -1,6 +1,9 @@
 package com.iumrah.beta.ui.packageflow
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
@@ -25,7 +28,12 @@ import com.iumrah.beta.domain.journey.JourneyStore
                 Button(onClick={journey.acceptReviewPrice(quote)},enabled=enabled,modifier=Modifier.fillMaxWidth()){Text(t("Подтвердить новую цену","Accept new price","Yangi narxni tasdiqlash","Янги нархни тасдиқлаш"))}
             }
         }
-        OutlinedButton(onClick={edit=true},enabled=enabled,modifier=Modifier.fillMaxWidth()){Text(t("Изменить состав поездки","Edit travel party","Sayohatchilarni o‘zgartirish","Саёҳатчиларни ўзгартириш"))}
+        Card(Modifier.fillMaxWidth(),shape=RoundedCornerShape(24.dp),colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.surface)) {
+            Row(Modifier.padding(16.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(12.dp)) {
+                Column(Modifier.weight(1f),verticalArrangement=Arrangement.spacedBy(4.dp)) {Text(t("Паломники и размещение","Guests and rooms","Ziyoratchilar va xonalar","Зиёратчилар ва хоналар"),style=MaterialTheme.typography.titleMedium,fontWeight=FontWeight.SemiBold);Text("${state.trip.travelerCount} "+t("чел.","guests","kishi","киши")+" · ${state.trip.rooms} "+t("ном.","rooms","xona","хона"),style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)}
+                OutlinedButton(onClick={edit=true},enabled=enabled){Text(t("Изменить","Change","O‘zgartirish","Ўзгартириш"))}
+            }
+        }
     }
     if(edit) {
         var adults by remember { mutableIntStateOf(state.trip.adults) };var rooms by remember { mutableIntStateOf(state.trip.rooms.coerceAtLeast((state.trip.adults+4)/5)) }

@@ -24,7 +24,12 @@ assert 'quote = null, packageError = null' in state
 assert 'navigationBarsPadding()' in chrome
 assert 'ReviewSummaryHero(' in chrome and 'R.drawable.about_iumrah_kaaba_corner' in chrome
 assert '.height(168.dp)' in chrome and 'RoundedCornerShape(24.dp)' in chrome
-assert 'TripStayPlanner.breakdown(trip)' in chrome and 'quote?.let {smartMoney(it.pricePerPerson' in chrome
+hero = chrome.split('private fun ReviewSummaryHero(', 1)[1].split('private fun ReviewHeroMetric(', 1)[0]
+assert 'TripStayPlanner.breakdown(trip)' in hero and 'quote?.stayPlan?.takeIf { state.hasFinalGeneratorQuote }' in hero
+assert 'quote?.takeIf { state.hasFinalGeneratorQuote && it.hasVerifiedBreakdown }?.tripSummary' in hero
+assert 'verified?.let {smartMoney(it.totalUsd,"USD",l)}' in hero
+assert 'verified?.let {smartMoney(it.perPilgrimUsd,"USD",l)}' in hero
+assert 'quote.pricePerPerson' not in hero and 'it.pricePerPerson' not in hero
 assert 'ReviewUnitPrice' in legacy and 'ReviewUnitPrice' in local
 assert 'ReviewFareDisplay.flight' in legacy
 print('Block 03C source contracts passed: shared review hierarchy, sticky footer, room/meal edits, quote safety and unit prices.')

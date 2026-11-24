@@ -113,7 +113,7 @@ fun BookingCheckoutScreen(
         Modifier.fillMaxSize().background(generatorPageColor()).statusBarsPadding().verticalScroll(rememberScrollState()).padding(horizontal = GeneratorGeometry.pagePadding, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(22.dp),
     ) {
-        GeneratorHeader(GeneratorStage.READY, language, chrome, currentPriceText = quote?.let { "${it.totalPackagePrice.setScale(0, RoundingMode.HALF_UP)} ${it.currency}" })
+        GeneratorHeader(GeneratorStage.READY, language, chrome, currentPriceText = quote?.takeIf { state.hasFinalGeneratorQuote && it.hasVerifiedBreakdown }?.tripSummary?.let { com.iumrah.beta.ui.smart.smartMoney(it.totalUsd, "USD", language) })
         CheckoutHero(language, state, quote)
         ManualPaymentNotice(language)
         CheckoutRefundCard(language)
@@ -241,11 +241,22 @@ fun BookingCheckoutScreen(
         Column(verticalArrangement=Arrangement.spacedBy(14.dp)) {
             Text(checkoutTr(language,"Оформление бронирования","Booking checkout","Bronni rasmiylashtirish","Бронни расмийлаштириш"),fontSize=30.sp,lineHeight=34.sp,fontWeight=FontWeight.Bold)
             Text(checkoutTr(language,"Проверьте итог и отправьте бронирование в iumrah. Оплата выполняется после подтверждения доступности.","Review the final package and send the booking to iumrah. Payment happens after availability is confirmed.","Yakuniy paketni tekshiring va bronni iumrah ga yuboring. To‘lov mavjudlik tasdiqlangandan keyin qilinadi.","Якуний пакетни текширинг ва бронни iumrah га юборинг. Тўлов мавжудлик тасдиқлангандан кейин қилинади."),fontSize=14.sp,lineHeight=20.sp,color=MaterialTheme.colorScheme.onSurface.copy(alpha=.56f))
-            Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(22.dp)).background(generatorRaisedColor()).padding(16.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {
-                Text(state.makkahHotel?.name.orEmpty(),fontSize=16.sp,fontWeight=FontWeight.Bold)
-                state.makkahRoomCategory?.displayName?.takeIf{it.isNotBlank()}?.let{CheckoutLine(CupertinoSymbol.Bed,it)}
+            Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(22.dp)).background(generatorRaisedColor()).padding(16.dp),verticalArrangement=Arrangement.spacedBy(10.dp)) {
+                val localRooms = state.nuitee?.rooms?.values.orEmpty().sortedWith(compareBy({ it.city != "makkah" }, { it.roomIndex }))
+                if (localRooms.isNotEmpty()) {
+                    localRooms.groupBy { it.hotel.id }.values.forEach { rooms ->
+                        Text(rooms.first().hotel.name, fontSize=16.sp,fontWeight=FontWeight.Bold)
+                        rooms.forEach { room -> CheckoutLine(CupertinoSymbol.Bed, room.rate.roomName) }
+                    }
+                } else {
+                    state.makkahHotel?.let { Text(it.name,fontSize=16.sp,fontWeight=FontWeight.Bold) }
+                    (state.makkahRoomCategory?.displayName ?: state.makkahRoom?.name)?.takeIf { it.isNotBlank() }?.let { CheckoutLine(CupertinoSymbol.Bed,it) }
+                    state.madinahHotel?.let { Text(it.name,fontSize=16.sp,fontWeight=FontWeight.Bold) }
+                    (state.madinahRoomCategory?.displayName ?: state.madinahRoom?.name)?.takeIf { it.isNotBlank() }?.let { CheckoutLine(CupertinoSymbol.Bed,it) }
+                }
                 CheckoutLine(CupertinoSymbol.Airplane,"${state.trip.originCode} → ${state.trip.outboundDestinationCode}")
-                quote?.let { Text("${it.totalPackagePrice.setScale(0,RoundingMode.HALF_UP)} ${it.currency}",fontSize=28.sp,fontWeight=FontWeight.Bold,modifier=Modifier.padding(top=4.dp)) }
+                val verified = quote?.takeIf { state.hasFinalGeneratorQuote && it.hasVerifiedBreakdown }?.tripSummary
+                Text(verified?.let { com.iumrah.beta.ui.smart.smartMoney(it.totalUsd,"USD",language) } ?: "—",fontSize=28.sp,fontWeight=FontWeight.Bold,modifier=Modifier.padding(top=4.dp))
             }
         }
     }

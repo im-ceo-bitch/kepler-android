@@ -41,6 +41,12 @@ fun IumrahHomeHelpCard(language: AppLanguage, onDismiss: () -> Unit) {
         AppLanguage.UZBEK_CYRILLIC -> Triple("Бу ерда нима қилиш керак?", "Сафар ёъналишидан бошланг", "Қидирувни очиб, жўнаш аеропорти, ёъналиш, саналар ва ёъловчиларни белгиланг. Парвозларни танлаш учун «Рейсларни топиш» тугмасини босинг.")
         else -> Triple("What can I do here?", "Start with your route", "Expand search and choose your departure airport, route, dates and travelers. Tap “Find flights” to choose your flights.")
     }
+    IumrahPageHelpOverlay(copy, onDismiss)
+}
+
+/** Shared header-triggered contextual guidance. */
+@Composable
+internal fun IumrahPageHelpOverlay(copy: Triple<String,String,String>, onDismiss: () -> Unit) {
     val context = LocalContext.current
     val motion = remember(context) { runCatching { Settings.Global.getFloat(context.contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f) > 0f }.getOrDefault(true) }
     val screenReader = remember(context) { (context.getSystemService(Context.ACCESSIBILITY_SERVICE) as? AccessibilityManager)?.isTouchExplorationEnabled == true }

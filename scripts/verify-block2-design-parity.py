@@ -43,9 +43,7 @@ def main():
     }
     for key,value in metrics.items():
         check(re.search(rf'val {key} = {value}\.dp\b',theme) is not None, f'metric {key} = {value}dp')
-    for key in ('lato_regular','lato_bold'):
-        check(f'R.font.{key}' in theme, 'bundled Android font: '+key)
-    check('FontFamily(' in theme and 'ProvideTextStyle' in theme, 'Lato provided app-wide')
+    check('val IumrahFontFamily = FontFamily.Default' in theme and 'ProvideTextStyle' in theme and 'includeFontPadding = false' in theme, 'system fallback and native text metrics provided app-wide')
     check('val DarkRaised = Color(0xFF3A3A3C)' in theme, 'dark tertiary grouped raised surface')
     check('LightPage = Color(0xFFF2F2F7)' in theme, 'light grouped page surface')
     check('primary = Color.Black' in theme and 'onPrimary = Color.White' in theme, 'light primary black/white')

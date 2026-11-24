@@ -99,6 +99,7 @@ fun NuiteeJourneyReviewScreen(language: AppLanguage, journey: JourneyStore, acco
         PullToRefreshBox(isRefreshing=sending,onRefresh={ submit() },modifier=Modifier.weight(1f)) {
             LazyColumn(Modifier.fillMaxSize(),verticalArrangement=Arrangement.spacedBy(18.dp),contentPadding=PaddingValues(bottom=20.dp)) {
                 item { ReviewHeader(language,state,quote,sending,chrome,unreadCount) { help=!help } }
+                item { Box(Modifier.padding(horizontal=16.dp)) { ReviewPriceAndGuests(language,journey,chrome,!sending) } }
                 item { Box(Modifier.padding(horizontal=16.dp)) { IumrahClientPackageMoment(language,selectedOrbitServices(state)) } }
                 item { Box(Modifier.padding(horizontal=16.dp)) { ReviewHelp(language,quote!=null,help) { help=!help } } }
                 if(quote==null) item { Box(Modifier.padding(horizontal=16.dp)) { ReviewPricingStatus(language,sending) } }
@@ -129,7 +130,6 @@ fun NuiteeJourneyReviewScreen(language: AppLanguage, journey: JourneyStore, acco
                 item { Box(Modifier.padding(horizontal=16.dp)) { ReviewServices(language,state) { transferSheet=true } } }
                 quote?.let { item { Box(Modifier.padding(horizontal=16.dp)) { ReviewVerifiedPrice(language,it) } } }
                 quote?.let { item { Box(Modifier.padding(horizontal=16.dp)) { ReviewPriceDistribution(language,it) } } }
-                item { Box(Modifier.padding(horizontal=16.dp)) { ReviewPriceAndGuests(language,journey,chrome,!sending) } }
                 item { Box(Modifier.padding(horizontal=16.dp)) { com.iumrah.beta.ui.home.BrandComparisonEntry(language,chrome) } }
                 item { Box(Modifier.padding(horizontal=16.dp)) { SavedPackageActions(language,journey,chrome,enabled=!sending && valid && state.transferSelectionConfirmed) } }
                 quote?.itineraryPreview?.takeIf { it.isNotEmpty() }?.let { events -> item { Box(Modifier.padding(horizontal=16.dp)) { ReviewItinerary(language,events) } } }

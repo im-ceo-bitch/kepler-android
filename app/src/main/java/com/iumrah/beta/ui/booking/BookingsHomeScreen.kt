@@ -2035,7 +2035,8 @@ private fun BookingRestoreNotice(
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize().background(bookingPageColor()),
-        contentPadding = PaddingValues(horizontal = IOS_PAGE_PADDING.dp, vertical = 0.dp),
+        contentPadding = PaddingValues(start = IOS_PAGE_PADDING.dp, end = IOS_PAGE_PADDING.dp,
+            top = 0.dp, bottom = 112.dp),
         verticalArrangement = Arrangement.spacedBy(20.dp),
     ) {
         item { IumrahRootPageHeader(title = L10n.text("tab_booking", language), chrome = chrome, unreadCount = unreadCount, language = language) }

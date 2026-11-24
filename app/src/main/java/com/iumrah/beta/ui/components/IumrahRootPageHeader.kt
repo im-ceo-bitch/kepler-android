@@ -28,6 +28,12 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.boundsInWindow
+import com.iumrah.beta.core.navigation.AppRoute
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.requiredWidth
 import androidx.compose.foundation.shape.CircleShape
@@ -92,11 +98,24 @@ fun IumrahRootPageHeader(
     subtitle: String? = null,
     discovery: Boolean = false,
     onHelp: (() -> Unit)? = null,
+    flexibleFooter: Boolean = false,
+    animateMap: Boolean = true,
     footer: (@Composable () -> Unit)? = null,
 ) {
+    val density = LocalDensity.current
+    val statusTopPx = WindowInsets.statusBars.getTop(density)
     BoxWithConstraints(
         modifier = modifier
             .fillMaxWidth()
+            // Report header visibility as the user scrolls. Only root-page
+            // headers participate; nested/detail headers are not the status surface.
+            .onGloballyPositioned { coordinates ->
+                val state = chrome.state.value
+                if (state.route == AppRoute.Root && !lightStyle && drawsSignatureBackground) {
+                    chrome.reportMastheadVisibility(state.currentTab,
+                        coordinates.boundsInWindow().bottom > statusTopPx)
+                }
+            }
             .then(if (lightStyle) Modifier.statusBarsPadding() else Modifier),
     ) {
         if (!lightStyle) {
@@ -120,13 +139,14 @@ fun IumrahRootPageHeader(
             Box(container.clip(RoundedCornerShape(bottomStart = bottomRadius,
                     bottomEnd = bottomRadius))) {
                 if (drawsSignatureBackground) {
-                    IumrahSignatureWorldBackground(Modifier.matchParentSize(), mapOpacity = .33f, isAnimating = !discovery)
+                    IumrahSignatureWorldBackground(Modifier.matchParentSize(), mapOpacity = .33f, isAnimating = animateMap && !discovery)
                 } else {
                     Box(Modifier.matchParentSize().background(IumrahColors.SignatureBlack))
                 }
                 androidx.compose.foundation.layout.Column(
-                    Modifier.fillMaxWidth().statusBarsPadding().height(headerHeight)
-                        .padding(top = IumrahDesign.SignatureHeaderTop),
+                    Modifier.fillMaxWidth().statusBarsPadding()
+                        .then(if (flexibleFooter) Modifier else Modifier.height(headerHeight))
+                        .padding(top = IumrahDesign.SignatureHeaderTop, bottom = if (flexibleFooter) 18.dp else 0.dp),
                 ) {
                     Row(
                         Modifier.fillMaxWidth().padding(horizontal = IumrahDesign.PagePadding).height(IumrahDesign.SignatureLogoHeight),

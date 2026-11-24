@@ -128,17 +128,52 @@ class NuiteeHotelService(context: Context, private val api: APIClient = APIClien
     }
 
     suspend fun rates(hotelId: String, checkin: LocalDate, checkout: LocalDate, adults: Int,
-                      childrenAges: List<Int> = emptyList(), language: String = "en", smartTimeout: Boolean = false): NuiteeRatesEnvelope {
+                      childrenAges: List<Int> = emptyList(), language: String = "en", smartTimeout: Boolean = false,
+                      forceRefresh: Boolean = false): NuiteeRatesEnvelope {
         require(checkout.isAfter(checkin) && adults in 1..9 && childrenAges.all { it in 0..17 })
         val result = api.post<NuiteeRatesEnvelope, NuiteeRatesRequest>(
             "/api/package/nuitee/rates", NuiteeRatesRequest(hotelId, checkin.toString(), checkout.toString(),
-                adults, childrenAges, language), timeoutSeconds = if (smartTimeout) 35 else 100,
+                adults, childrenAges, language, forceRefresh), timeoutSeconds = if (smartTimeout) 35 else 100,
         )
         if (!result.ok) throw APIException.InvalidResponse
         return result
+    }
+
+    data class CatalogRateResult(val row: PriceRow, val rateLimited: Boolean = false)
+
+    /** Single-hotel fallback after bulk omission. Same provider request as room detail. */
+    suspend fun catalogRate(hotelId: String, checkin: LocalDate, checkout: LocalDate, adults: Int,
+                            childrenAges: List<Int> = emptyList()): CatalogRateResult {
+        fun result(status: String, limited: Boolean = false, rate: NuiteeMinimumRate? = null) =
+            CatalogRateResult(PriceRow(hotelId, rate, status), limited)
+        return try {
+            var response = rates(hotelId, checkin, checkout, adults, childrenAges)
+            currentCoroutineContext().ensureActive()
+            if (response.rates.isEmpty() && response.availabilityConfirmed != true) {
+                response = rates(hotelId, checkin, checkout, adults, childrenAges, forceRefresh = true)
+                currentCoroutineContext().ensureActive()
+            }
+            // Match iOS catalogRate: the cache flag alone does not invalidate an
+            // otherwise verified offer. Checkout still requires a fresh quote.
+            if (!response.ok || response.checkin != checkin.toString() ||
+                response.checkout != checkout.toString() || response.adults != adults) {
+                result("provider_error")
+            } else {
+                val best = response.rates.filter {
+                    it.currency.equals("USD", true) && it.price.isFinite() && it.price > 0 && it.offerId.isNotBlank()
+                }.minByOrNull { it.price }
+                if (best != null) result("available", rate = NuiteeMinimumRate(hotelId, best.price, "USD", best.offerId))
+                else result(if (response.rates.isEmpty() && response.availabilityConfirmed == true) "no_availability" else "not_returned")
+            }
+        } catch (cancel: CancellationException) { throw cancel }
+        catch (error: Exception) {
+            result("provider_error", (error is APIException.Status && error.code == 429) ||
+                (error is APIException.Server && error.code == 429))
+        }
     }
 }
 
 @Serializable
 private data class NuiteeRatesRequest(val hotelId: String, val checkin: String, val checkout: String,
-                                      val adults: Int, val children: List<Int>, val language: String)
+                                      val adults: Int, val children: List<Int>, val language: String,
+                                      val forceRefresh: Boolean = false)

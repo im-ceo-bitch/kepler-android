@@ -21,6 +21,8 @@ internal data class ManualJourneyState(
     val outbound: GuidedFlightChoice? = null, val inbound: GuidedFlightChoice? = null,
     val rooms: Map<String,NuiteeRoomSelection> = emptyMap(), val vehicle: TransferVehicleKind? = null,
     val train: Boolean = false, val fare: HaramainFareClass = HaramainFareClass.ECONOMY, val tickets:Int = 1,
+    /** Explicitly configured dates/route cannot be overwritten by browsing a hotel. */
+    val routeConfigured: Boolean = false,
 ) {
     val cities get()=if(plan.scope==JourneyScope.MAKKAH_ONLY) listOf("makkah") else listOf("makkah","madinah")
     val hasPriceComponent get()=outbound!=null || inbound!=null || rooms.isNotEmpty()
@@ -47,6 +49,26 @@ internal data class ManualJourneyState(
         return r.adults==t.adults && r.childrenAges.isEmpty() && r.checkin==w.checkIn && r.checkout==w.checkOut && NuiteeRules.validRoomRate(r.rate)
     }
     val complete get()=trip!=null && sourceCompatible && plan.adults in 1..6 && (vehicle?.passengerCapacity?:0)>=plan.adults && cities.all(::validRoom)
+
+    /** Mirrors IumrahManualJourneyStore.select(room) for a single adult-only room. */
+    fun selectRoom(room: NuiteeRoomSelection): ManualJourneyState? {
+        if (room.city !in cities || room.roomIndex != 0 || room.childrenAges.isNotEmpty() ||
+            room.adults !in 1..5 || !room.checkout.isAfter(room.checkin) ||
+            !NuiteeRules.validRoomRate(room.rate) ||
+            (routeConfigured && room.adults != plan.adults)) return null
+        val updated = rooms + (room.city to room)
+        val nextPlan = if (!routeConfigured && outbound == null && inbound == null) {
+            plan.copy(
+                adults = room.adults,
+                departureDate = updated.values.minOf { it.checkin },
+                returnDate = updated.values.maxOf { it.checkout }.let { end ->
+                    if (end.isAfter(updated.values.minOf { it.checkin }.plusDays(1))) end
+                    else updated.values.minOf { it.checkin }.plusDays(2)
+                },
+            )
+        } else plan
+        return copy(plan = nextPlan, rooms = updated)
+    }
     fun estimateRequest():NuiteeManualEstimateRequest? {
         if(!hasPriceComponent)return null
         val t=trip?:plan;val selected=listOfNotNull(outbound,inbound)

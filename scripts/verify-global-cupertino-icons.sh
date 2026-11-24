@@ -31,9 +31,8 @@ ios={s.strip() for s in pathlib.Path('docs/cupertino/ios-system-names-20261012.t
 assert ios <= {name for name,_ in aliases}, 'Missing SF aliases: '+str(ios-{name for name,_ in aliases})
 assert 'requireNotNull(currentIosSystemNames[systemName])' in catalog,'Silent InfoCircle fallback is not allowed'
 theme=sources[app/'core/design/IumrahTheme.kt']
-assert 'R.font.lato_regular' in theme and 'R.font.lato_bold' in theme,'Missing Lato theme'
+assert 'val IumrahFontFamily = FontFamily.Default' in theme and 'includeFontPadding = false' in theme,'Missing native font fallback'
 font=pathlib.Path('app/src/main/res/font')
-assert 'R.font.lato_regular' in theme and 'R.font.lato_bold' in theme
 assert 'LATO_SOURCE' in pathlib.Path('scripts/install-cupertino-assets.py').read_text()
 installed=(font/'cupertino_icons.ttf').exists()
 # Parity guarantees for common elements. iOS design tokens are source-mirrored,
@@ -48,5 +47,5 @@ assert buttons.count('pressedScale = 0.985f') >= 2,'iOS button press scale diver
 assert 'shadowElevation = 0.dp, // iOS primary button has no elevation' in buttons,'Unexpected Android CTA elevation'
 print(f'Cupertino source audit PASS: {len(files)} Kotlin files; {len(ui)} UI; {len(symbols)} font symbols; {len(aliases)} SF aliases.')
 print('Font asset:', 'bundled/ready' if installed else 'to be installed automatically by Gradle on first build')
-print('Lato: global family configured; official typefaces installed by bootstrap; 0 handmade icon paths / 0 Material icon imports.')
+print('Native system fallback: global family configured; Cupertino typeface installed by bootstrap; 0 handmade icon paths / 0 Material icon imports.')
 PYAUDIT

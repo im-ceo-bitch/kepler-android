@@ -670,13 +670,15 @@ fun AccountSignalsParityScreen(
     language: AppLanguage,
     notifications: ClientNotificationStore,
     accountStore: IumrahAccountStore,
+    bookingStore: BookingStore,
     chrome: AppChromeStore,
 ) {
     val state by notifications.state.collectAsState()
     val scope = rememberCoroutineScope()
     var page by remember { mutableIntStateOf(0) }
     var refreshing by remember { mutableStateOf(false) }
-    LaunchedEffect(Unit) { notifications.refresh(accountStore.bearerToken) }
+    val accountState by accountStore.state.collectAsState()
+    LaunchedEffect(accountState.iumrahID, accountStore.bearerToken) { notifications.refresh(accountStore.bearerToken) }
 
     PullToRefreshBox(
         isRefreshing = refreshing,
@@ -696,7 +698,14 @@ fun AccountSignalsParityScreen(
                 SignalHero(language, state.unreadCount, state.inbox.size)
                 val unread = state.inbox.filter { !it.isRead }
                 val earlier = state.inbox.filter { it.isRead }
-                if (state.inbox.isEmpty()) {
+                if (state.inbox.isEmpty() && (refreshing || state.isSyncing)) {
+                    Box(Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+                } else if (state.inbox.isEmpty() && state.lastError != null) {
+                    ApCard(radius = 26.dp) {
+                        Text(apTr(language,"Could not load notifications","Не удалось загрузить уведомления","Bildirishnomalarni yuklab bo‘lmadi","Билдиришномаларни юклаб бўлмади"), fontSize = 17.sp, fontWeight = FontWeight.Bold)
+                        TextButton(onClick = { scope.launch { notifications.refresh(accountStore.bearerToken) } }) { Text(apTr(language,"Retry","Повторить","Qayta urinish","Қайта уриниш")) }
+                    }
+                } else if (state.inbox.isEmpty()) {
                     ApCard(radius = 26.dp) {
                         ApBadge(CupertinoSymbol.BellSignal, ApBlue, 48.dp, 19.dp, 16.dp)
                         Spacer(Modifier.height(12.dp))
@@ -705,8 +714,8 @@ fun AccountSignalsParityScreen(
                         Text(apTr(language, "When iumrah sends a Signal, it will appear here and on the Home screen.", "Когда iumrah отправит Signal, он появится здесь и на главной странице.", "iumrah Signal yuborganda, u shu yerda va Asosiy sahifada ko‘rinadi.", "iumrah Signal юборганда, у шу ерда ва Асосий саҳифада кўринади."), fontSize = 14.sp, lineHeight = 19.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 } else {
-                    if (unread.isNotEmpty()) SignalSection(language, apTr(language,"New","Новые","Yangi","Янги"), apTr(language,"Needs your attention","То, что стоит посмотреть","E’tibor berish kerak","Эътибор бериш керак"), unread, true, notifications, accountStore, chrome, scope, state.dismissedHomeIDs)
-                    if (earlier.isNotEmpty()) SignalSection(language, apTr(language,"Earlier","Ранее","Avvalgi","Аввалги"), apTr(language,"Already opened","Уже просмотрено","Ko‘rib chiqilgan","Кўриб чиқилган"), earlier, false, notifications, accountStore, chrome, scope, state.dismissedHomeIDs)
+                    if (unread.isNotEmpty()) SignalSection(language, apTr(language,"New","Новые","Yangi","Янги"), apTr(language,"Needs your attention","То, что стоит посмотреть","E’tibor berish kerak","Эътибор бериш керак"), unread, true, notifications, accountStore, bookingStore, chrome, scope, state.dismissedHomeIDs)
+                    if (earlier.isNotEmpty()) SignalSection(language, apTr(language,"Earlier","Ранее","Avvalgi","Аввалги"), apTr(language,"Already opened","Уже просмотрено","Ko‘rib chiqilgan","Кўриб чиқилган"), earlier, false, notifications, accountStore, bookingStore, chrome, scope, state.dismissedHomeIDs)
                 }
             }
             1 -> {
@@ -810,6 +819,7 @@ private fun SignalSection(
     unreadSection: Boolean,
     notifications: ClientNotificationStore,
     accountStore: IumrahAccountStore,
+    bookingStore: BookingStore,
     chrome: AppChromeStore,
     scope: kotlinx.coroutines.CoroutineScope,
     dismissed: Set<String>,
@@ -819,7 +829,7 @@ private fun SignalSection(
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) { Text(title, fontSize = 24.sp, fontWeight = FontWeight.Bold); Text(subtitle, fontSize = 12.sp, color = ApGray) }
             Text("${rows.size}", Modifier.clip(CircleShape).background((if(unreadSection) ApBlue else ApGray).copy(alpha=.10f)).padding(horizontal=10.dp, vertical=7.dp), fontSize = 12.sp, fontWeight = FontWeight.Bold, fontFamily = com.iumrah.beta.core.design.IumrahFontFamily, color = if(unreadSection) ApBlue else ApGray)
         }
-        rows.forEach { n -> SignalParityCard(language, n, dismissed.contains(n.id), notifications, accountStore, chrome, scope) }
+        rows.forEach { n -> SignalParityCard(language, n, dismissed.contains(n.id), notifications, accountStore, bookingStore, chrome, scope) }
     }
 }
 
@@ -827,7 +837,7 @@ private fun SignalSection(
 private fun signalDestinationIcon(destination: String): CupertinoSymbol = when (destination) {
     "hotels" -> CupertinoSymbol.BuildingFill
     "bookings", "booking" -> CupertinoSymbol.SuitcaseFill
-    "care" -> CupertinoSymbol.HeartFill
+    "care", "chat" -> CupertinoSymbol.HeartFill
     "account" -> CupertinoSymbol.PersonCircleFill
     else -> CupertinoSymbol.Home
 }
@@ -836,7 +846,7 @@ private fun signalDestinationTitle(language: AppLanguage, destination: String): 
     "hotels" -> apTr(language,"Hotels","Отели","Mehmonxonalar","Меҳмонхоналар")
     "bookings" -> apTr(language,"Trips","Поездки","Safarlar","Сафарлар")
     "booking" -> apTr(language,"Trip details","Детали поездки","Safar tafsilotlari","Сафар тафсилотлари")
-    "care" -> "iumrah Care"
+    "care", "chat" -> "iumrah Care"
     "account" -> "Account"
     else -> apTr(language,"Home","Главная","Asosiy","Асосий")
 }
@@ -856,7 +866,7 @@ private fun signalTimestamp(language: AppLanguage, raw: String): String {
 }
 
 @Composable
-private fun SignalParityCard(language: AppLanguage, n: ClientSystemNotification, hidden: Boolean, notifications: ClientNotificationStore, accountStore: IumrahAccountStore, chrome: AppChromeStore, scope: kotlinx.coroutines.CoroutineScope) {
+private fun SignalParityCard(language: AppLanguage, n: ClientSystemNotification, hidden: Boolean, notifications: ClientNotificationStore, accountStore: IumrahAccountStore, bookingStore: BookingStore, chrome: AppChromeStore, scope: kotlinx.coroutines.CoroutineScope) {
     val unread = !n.isRead
     val tint = if (unread) ApBlue else ApGray
     Surface(shape = RoundedCornerShape(26.dp), color = if(unread) ApBlue.copy(alpha=.065f) else MaterialTheme.colorScheme.surface, border = androidx.compose.foundation.BorderStroke(1.dp, if(unread) ApBlue.copy(alpha=.18f) else MaterialTheme.colorScheme.onSurface.copy(alpha=.055f))) {
@@ -882,14 +892,7 @@ private fun SignalParityCard(language: AppLanguage, n: ClientSystemNotification,
             }
             Button(onClick = {
                 scope.launch { notifications.markOpened(n, accountStore.bearerToken) }
-                when (n.destination) {
-                    "hotels" -> chrome.navigate(AppTab.HOTELS)
-                    "bookings" -> chrome.navigate(AppTab.BOOKING)
-                    "care" -> chrome.navigate(AppTab.CARE)
-                    "account" -> chrome.navigate(AppTab.ACCOUNT)
-                    "booking" -> n.destinationBookingID?.let(chrome::openBookingDetail) ?: chrome.navigate(AppTab.BOOKING)
-                    else -> chrome.navigate(AppTab.HOME)
-                }
+                com.iumrah.beta.ui.notifications.routeNotification(n, bookingStore, chrome)
             }, modifier = Modifier.fillMaxWidth().height(46.dp), shape = RoundedCornerShape(16.dp), colors = ButtonDefaults.buttonColors(containerColor = if(unread) ApBlue else MaterialTheme.colorScheme.onSurface.copy(alpha=.07f), contentColor = if(unread) Color.White else MaterialTheme.colorScheme.onSurface)) {
                 Text(apTr(language,"Open","Открыть","Ochish","Очиш"), Modifier.weight(1f), fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                 CupertinoIcon(CupertinoSymbol.ArrowUpRight, null, Modifier.size(15.dp), if(unread) Color.White else MaterialTheme.colorScheme.onSurface)

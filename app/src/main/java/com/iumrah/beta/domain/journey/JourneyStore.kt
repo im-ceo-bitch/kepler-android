@@ -467,6 +467,7 @@ class JourneyStore {
         _state.update { current ->
             if (current.trip == value) current else JourneyState(
                 trip = value,
+                childAges = JourneyGuestAgePolicy.afterTripEdit(current.trip, value, current.childAges),
                 packageFlightPath = if (value.isWeekendUmrah) PackageFlightPath.WEEKEND else PackageFlightPath.PUBLISHED_DIRECT,
             )
         }
@@ -516,7 +517,7 @@ class JourneyStore {
                 flightResults = emptyList(),
                 selectedJourneyId = null,
                 selectedOutboundJourneyId = null,
-                nuitee = null, quote = null, mixedFlightIdentity = null, savedPackageID = null, packageApprovalOwner = null, childAges = emptyList(), acceptedReviewTotal = null,
+                nuitee = null, quote = null, mixedFlightIdentity = null, savedPackageID = null, packageApprovalOwner = null, childAges = JourneyGuestAgePolicy.afterTripEdit(current.trip, value, current.childAges), acceptedReviewTotal = null,
                 packageError = null,
                 transferSelectionConfirmed = false,
             )

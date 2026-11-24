@@ -39,6 +39,7 @@
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" android:host="iumrah.app" android:pathPrefix="/s/" />
                 <data android:scheme="https" android:host="iumrah.app" android:pathPrefix="/flights/package/" />
                 <data android:scheme="https" android:host="iumrah.app" android:pathPrefix="/hotel/" />
                 <data android:scheme="https" android:host="iumrah.app" android:pathPrefix="/h/" />

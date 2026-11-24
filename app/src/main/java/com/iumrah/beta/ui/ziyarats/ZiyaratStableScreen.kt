@@ -17,6 +17,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -106,7 +108,7 @@ internal fun ZiyaratStableScreen(language: AppLanguage, chrome: AppChromeStore, 
     }
 
     Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
-        Column(Modifier.fillMaxSize().statusBarsPadding()) {
+        Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
             Row(
                 Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 10.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -184,6 +186,12 @@ internal fun ZiyaratStableScreen(language: AppLanguage, chrome: AppChromeStore, 
                             ) { Icon(CupertinoSymbol.Map, t(language, "Открыть карту", "Open map", "Xaritani ochish", "Харитани очиш"), Modifier.size(23.dp)) }
                         }
                     }
+                    if (updating) item {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
+                            Text(t(language, "Обновляем места…", "Updating places…", "Joylar yangilanmoqda…", "Жойлар янгиланмоқда…"), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
                     if (route.status == "offline" && !updating) {
                         item {
                             Text(
@@ -204,7 +212,7 @@ internal fun ZiyaratStableScreen(language: AppLanguage, chrome: AppChromeStore, 
     }
     selectedPlace?.let { place ->
         ModalBottomSheet(onDismissRequest = { selectedPlace = null }) {
-            StablePlaceDetail(language, place)
+            StablePlaceDetail(language, place, onClose = { selectedPlace = null })
         }
     }
     if (showMap) {
@@ -249,27 +257,29 @@ private fun StablePlaceRow(place: ZiyaratPlace, language: AppLanguage, onClick: 
 }
 
 @Composable
-private fun StablePlaceDetail(language: AppLanguage, place: ZiyaratPlace) {
+private fun StablePlaceDetail(language: AppLanguage, place: ZiyaratPlace, onClose: () -> Unit) {
     val content = place.localized(language)
     val context = LocalContext.current
     LazyColumn(
         modifier = Modifier.fillMaxWidth(),
         contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 35.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
+        verticalArrangement = Arrangement.spacedBy(18.dp),
     ) {
+        item { Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text(t(language, "Место", "Place", "Joy", "Жой"), Modifier.weight(1f), fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
+            TextButton(onClick = onClose) { Text(t(language, "Готово", "Done", "Tayyor", "Тайёр")) }
+        } }
         item {
-            Box(Modifier.fillMaxWidth().height(240.dp).clip(RoundedCornerShape(24.dp))) {
+            Box(Modifier.fillMaxWidth().height(if (place.images.isEmpty()) 200.dp else 260.dp).clip(RoundedCornerShape(24.dp))) {
                 StableThumbnail(place.images.firstOrNull(), Modifier.fillMaxSize())
             }
         }
-        item { Text(content.title.ifEmpty { place.title }, fontSize = 28.sp, fontWeight = FontWeight.Bold, lineHeight = 33.sp) }
+        item { Text(content.title.ifEmpty { place.title }, fontSize = 34.sp, fontWeight = FontWeight.Bold, lineHeight = 40.sp) }
         if (place.titleArabic.isNotBlank()) item { Text(place.titleArabic, fontSize = 19.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) }
-        if (content.shortDescription.isNotBlank()) item { Text(content.shortDescription, fontSize = 16.sp, fontWeight = FontWeight.Medium) }
-        if (content.longDescription.isNotBlank() && content.longDescription != content.shortDescription) {
-            item { Text(content.longDescription, fontSize = 15.sp, lineHeight = 23.sp) }
-        }
-        items(content.interestingFacts) { fact -> Text("•  $fact", fontSize = 14.sp) }
-        if (content.visitNotes.isNotBlank()) item { Text(content.visitNotes, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+        item { SelectionContainer { Text(content.longDescription.ifBlank { content.shortDescription }, fontSize = 16.sp, lineHeight = 24.sp) } }
+        if (content.interestingFacts.isNotEmpty()) item { Text(t(language, "Интересные факты", "Interesting facts", "Qiziqarli ma’lumotlar", "Қизиқарли маълумотлар"), fontSize = 17.sp, fontWeight = FontWeight.SemiBold) }
+        items(content.interestingFacts.take(10)) { fact -> Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { Icon(CupertinoSymbol.InfoCircle, null, Modifier.size(16.dp)); Text(fact, fontSize = 14.sp) } }
+        if (content.visitNotes.isNotBlank()) item { Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { Icon(CupertinoSymbol.InfoCircle, null, Modifier.size(16.dp)); Text(content.visitNotes, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) } }
         if (place.images.size > 1) {
             item {
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {

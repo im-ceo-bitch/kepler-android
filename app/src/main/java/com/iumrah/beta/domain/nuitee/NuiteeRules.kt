@@ -15,11 +15,16 @@ object NuiteeRules {
             !rate.currency.equals("USD", true) || !rate.price.isFinite() || rate.price <= 0) null else rate.price
     }
 
+    /** SwiftUI NuiteeCatalogModel.visibleHotels: exact phrase, unknown-star fallback last. */
     fun filterHotels(hotels: List<NuiteeHotel>, stars: Int, search: String): List<NuiteeHotel> {
-        val terms = search.trim().split(Regex("\\s+")).filter { it.isNotBlank() }
-        return hotels.filter { hotel -> (stars == 0 || hotel.roundedStars == stars) &&
-            terms.all { term -> (hotel.name + " " + hotel.address.orEmpty()).contains(term, ignoreCase = true) }
+        val term = search.trim()
+        val matching = hotels.filter { hotel ->
+            (stars == 0 || hotel.roundedStars == stars || hotel.roundedStars == 0) &&
+                (term.isEmpty() || hotel.name.contains(term, ignoreCase = true) ||
+                    hotel.address.orEmpty().contains(term, ignoreCase = true))
         }
+        return if (stars == 0) matching else
+            matching.filter { it.roundedStars == stars } + matching.filter { it.roundedStars == 0 }
     }
 
     fun validStay(checkin: LocalDate, checkout: LocalDate, adults: Int, roomChildren: List<Int>): Boolean =

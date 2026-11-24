@@ -21,7 +21,7 @@ account = (src/'ui/account/AccountScreens.kt').read_text()
 booking = (src/'ui/booking/BookingsHomeScreen.kt').read_text()
 theme = (src/'core/design/IumrahTheme.kt').read_text()
 assert 'val SignatureBlack = Color(0xFF090909)' in theme
-assert 'IumrahSignatureWorldBackground(Modifier.matchParentSize(), mapOpacity = .33f, isAnimating = !discovery)' in header
+assert 'IumrahSignatureWorldBackground(Modifier.matchParentSize(), mapOpacity = .33f, isAnimating = animateMap && !discovery)' in header
 assert 'drawsSignatureBackground: Boolean = true' in header
 assert 'SignatureHeaderButton(CupertinoSymbol.Menu, 44.dp, chrome::openSidebar,' in header
 assert 'val bottomRadius = if (roundedBottom || discovery) IumrahDesign.SignatureBottomRadius else 0.dp' in header
@@ -31,8 +31,14 @@ assert 'clearAndSetSemantics { }' in brand and '.clipToBounds()' in brand
 print('PASS: iOS black signature header / world atlas / 48dp brand controls, curved discovery and straight other tabs')
 assert '.height(65.dp)' in nav and '.padding(5.dp)' in nav and '.border(.8.dp, Color.Black.copy(alpha = .10f)' in nav
 assert 'selectedTint = Color.White' in nav and 'unselectedTint = Color.Black.copy(alpha = .75f)' in nav
-assert 'Modifier.size(21.dp)' in nav and 'fontSize = 10.5.sp' in nav
-print('PASS: five-tab monochrome navigation matches published SwiftUI metrics')
+assert 'Modifier.size(21.dp)' in nav and 'rememberTextMeasurer()' in nav and '(105 downTo 76)' in nav
+assert 'fontFamily = IumrahFontFamily' in nav and 'maxWidthPx' in nav
+assert 'modifier = Modifier.fillMaxSize()' in nav and '.clipToBounds()' in nav and 'height(statusInset)' in nav
+assert '.padding(bottom = bottomNavigationFootprint)' in nav and 'if (rootHeaderVisible)' in nav
+assert 'Modifier.statusBarsPadding().height(headerHeight)' not in header  # older wrong order was removed
+assert 'Modifier.fillMaxWidth().statusBarsPadding()' in header and '.then(if (flexibleFooter) Modifier else Modifier.height(headerHeight))' in header
+print('PASS: five tab labels are measured against rendered width instead of string length')
+print('PASS: root masthead receives its own top inset; status area follows scrolling masthead and root content clears bottom navigation')
 assert 'discovery = true' in board and 'IumrahDiscoveryPills(language, 2)' in board
 assert '.height(41.dp)' in board and '.38f' in board
 assert 'IumrahRootPageHeader(' in account and booking and 'IumrahRootPageHeader(' in header

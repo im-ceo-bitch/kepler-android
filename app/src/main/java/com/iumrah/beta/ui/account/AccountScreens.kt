@@ -247,16 +247,24 @@ fun AccountRootScreen(
     val context = LocalContext.current
     val app = context.applicationContext as IumrahApplication
     val pushState by app.container.pushManager.state.collectAsState()
-    val pushPermissionGranted = app.container.pushManager.hasNotificationPermission()
+    var pushPermissionGranted by remember { mutableStateOf(app.container.pushManager.hasNotificationPermission()) }
+    androidx.lifecycle.compose.LifecycleEventEffect(androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
+        pushPermissionGranted = app.container.pushManager.hasNotificationPermission()
+    }
     val notificationDeliveryStatus = when {
         !pushState.isConfigured -> tr(language, "FCM is not configured", "FCM не настроен", "FCM sozlanmagan", "FCM созланмаган")
         !pushPermissionGranted -> tr(language, "Disabled in Android Settings", "Выключены в настройках Android", "Android sozlamalarida o‘chirilgan", "Android созламаларида ўчирилган")
         pushState.deviceToken.isNullOrBlank() -> tr(language, "Registering with FCM…", "Регистрация FCM…", "FCM ro‘yxatdan o‘tmoqda…", "FCM рўйхатдан ўтмоқда…")
         bookings.pushRegistrationError != null || signalState.lastError != null -> tr(language, "Delivery connection error", "Ошибка подключения доставки", "Yetkazish ulanishida xato", "Етказиш уланишида хато")
         bookings.pushRegistrationReady == false || signalState.pushProviderReady == false -> tr(language, "Push service is not ready", "Push-сервис не готов", "Push xizmati tayyor emas", "Push хизмати тайёр эмас")
-        else -> tr(language, "Enabled · delivery connected", "Включены · доставка подключена", "Yoqilgan · yetkazish ulangan", "Ёқилган · етказиш уланган")
+        else -> tr(language, "Enabled · delivery not verified", "Включены · доставка не проверена", "Yoqilgan · yetkazish tekshirilmagan", "Ёқилган · етказиш текширилмаган")
     }
     val profile = accountState.account
+    var helpOpen by remember { mutableStateOf(false) }
+    LaunchedEffect(profile != null, settings.isLoaded) {
+        if (settings.isLoaded && settings.automaticPageHelp) helpOpen = true
+    }
+    LaunchedEffect(settings.automaticPageHelp) { if (!settings.automaticPageHelp) helpOpen = false }
     var signOutConfirm by remember { mutableStateOf(false) }
     var deleteAccountConfirm by remember { mutableStateOf(false) }
     var deletingAccount by remember { mutableStateOf(false) }
@@ -270,16 +278,24 @@ fun AccountRootScreen(
     val accountTrips = visibleTrips.filter { BookingSessionPolicy.sameIdentity(it.pilgrimID ?: it.accountOwnerID, profile?.iumrahID) }
     val activeTrip = accountTrips.filterNot { it.isPastAccountTrip() }.minByOrNull { accountTripPriority(it) }
 
-    LaunchedEffect(accountState.account?.iumrahID) {
-        bookingStore.refreshAll()
-    }
-
+    // Root application owns automatic account restoration and registration.
+    // Pull-to-refresh is the explicit request to revalidate the full chain.
     PullToRefreshBox(
         isRefreshing = isRefreshing,
         onRefresh = {
             if (!isRefreshing) scope.launch {
                 isRefreshing = true
-                try { accountStore.restore(); bookingStore.refreshAll(); rewardsRevision++ } finally { isRefreshing = false }
+                try {
+                    accountStore.restore()
+                    if (accountStore.bearerToken != null) bookingStore.restoreAccountTrips()
+                    bookingStore.refreshAll()
+                    rewardsRevision++
+                    val push = app.container.pushManager
+                    if (push.hasNotificationPermission()) push.refreshToken()
+                    val token = push.state.value.deviceToken.takeIf { push.hasNotificationPermission() }
+                    token?.let { bookingStore.syncPushSubscriptions(it, language.code) }
+                    notifications.sync(token, accountStore.bearerToken, bookingStore.state.value.sessions.isNotEmpty(), language.code)
+                } finally { isRefreshing = false }
             }
         },
         modifier = Modifier.fillMaxSize(),
@@ -290,12 +306,10 @@ fun AccountRootScreen(
         contentPadding = PaddingValues(start = PagePad, end = PagePad, top = 0.dp, bottom = 130.dp),
         verticalArrangement = Arrangement.spacedBy(20.dp),
     ) {
-        item { AccountHeader(language, profile != null, signalState.unreadCount, chrome) }
-        item { com.iumrah.beta.ui.home.HomeBrandSlogan(language) }
+        item { AccountHeader(language, profile, signalState.unreadCount, chrome, onHelp = { helpOpen = true }) }
         if (profile != null) {
             item { RewardsBalanceEntry(language, accountStore, chrome, rewardsRevision) }
             item { CardBlock { SettingsRow(CupertinoSymbol.Gift, "iumrah Friends", tr(language, "Invite a friend", "Пригласить друга", "Do‘stni taklif qilish", "Дўстни таклиф қилиш")) { chrome.openRewards("friends") } } }
-            item { IumrahUserDataEntryCardAndroid(language, profile.displayName) { chrome.openAccountUserData() } }
             item { AutomaticHelpCard(language, settings.automaticPageHelp, settingsStore::setAutomaticPageHelp) }
             item { RewardsAccountCarousel(language, chrome) { IumrahIdentityHeroAndroid(profile, language) } }
             item { TravelCompanionsParityCard(language) { chrome.openAccountTravelers() } }
@@ -325,6 +339,16 @@ fun AccountRootScreen(
             item { ServicesSection(language, chrome) }
             item { SettingsSection(language, settings.appearance, signalState.unreadCount, notificationDeliveryStatus, chrome, context) }
             item {
+                Row(
+                    Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(Danger.copy(alpha = .075f)).clickable { signOutConfirm = true }.padding(horizontal = 18.dp).height(56.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    CupertinoIcon(CupertinoSymbol.SignOut, null, Modifier.size(20.dp), Danger)
+                    Text(tr(language, "Sign out", "Выйти из аккаунта", "Akkauntdan chiqish", "Аккаунтдан чиқиш"), color = Danger, fontWeight = FontWeight.SemiBold)
+                }
+            }
+            item {
                 Column(Modifier.fillMaxWidth(),verticalArrangement=Arrangement.spacedBy(8.dp)) {
                     Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(28.dp))
                         .border(1.dp,Danger.copy(alpha=.5f),RoundedCornerShape(28.dp))
@@ -339,26 +363,26 @@ fun AccountRootScreen(
                     accountDeleteError?.let { Text(it,color=Danger,fontSize=13.sp) }
                 }
             }
-            item {
-                Row(
-                    Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(Danger.copy(alpha = .075f)).clickable { signOutConfirm = true }.padding(horizontal = 18.dp).height(56.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                ) {
-                    CupertinoIcon(CupertinoSymbol.SignOut, null, Modifier.size(20.dp), Danger)
-                    Text(tr(language, "Sign out", "Выйти из аккаунта", "Akkauntdan chiqish", "Аккаунтдан чиқиш"), color = Danger, fontWeight = FontWeight.SemiBold)
-                }
-            }
         } else {
             item { SeamlessGuestProfile(language, visibleTrips.firstOrNull(), chrome) }
-            item { CardBlock { SettingsRow(CupertinoSymbol.Ticket,tr(language,"Recover booking","Восстановить бронирование","Bronni tiklash","Бронни тиклаш"),tr(language,"By verified email or phone","По подтверждённой почте или телефону","Tasdiqlangan email yoki telefon orqali","Тасдиқланган email ёки телефон орқали")) { recoverBooking=true } } }
             item { AutomaticHelpCard(language, settings.automaticPageHelp, settingsStore::setAutomaticPageHelp) }
             item { com.iumrah.beta.ui.booking.BookingPasswordlessAccessCard(language, null, accountStore, app.container.accountService, bookingStore) {} }
             item { GuestSettingsSection(language, settings.appearance, signalState.unreadCount, notificationDeliveryStatus, chrome, context) }
         }
+        // iOS6 places the brand slogan AFTER account content, not before the
+        // guest profile. Keep the account task visually primary.
+        item { com.iumrah.beta.ui.home.HomeBrandSlogan(language) }
     }
     }
 
+    if (helpOpen && !deleteAccountConfirm && !signOutConfirm && !recoverBooking) {
+        val heading = tr(language, "What can I do here?", "Что делать здесь?", "Bu yerda nima qilish kerak?", "Бу ерда нима қилиш керак?")
+        val title = if (profile != null) tr(language, "Check traveler details", "Проверьте данные путешественников", "Yo‘lovchilar ma’lumotlarini tekshiring", "Ёъловчилар маълумотларини текширинг")
+            else tr(language, "Your trips in one place", "Ваши поездки в одном месте", "Safarlaringiz bir joyda", "Сафарларингиз бир жойда")
+        val body = if (profile != null) tr(language, "Open your personal details and travel companions. Your iumrah ID, trips and app settings are also available here.", "Откройте свои данные и данные попутчиков. Здесь также доступны ваш iumrah ID, поездки и настройки приложения.", "Shaxsiy ma’lumotlaringiz va hamrohlaringizni oching. Bu yerda iumrah ID, safarlar va ilova sozlamalari ham mavjud.", "Шахсий маълумотларингиз ва ҳамроҳларингизни очинг. Бу йерда iumrah ID, сафарлар ва илова созламалари ҳам мавжуд.")
+            else tr(language, "Your profile appears after your first booking. To restore an existing trip, use the verified email or phone from your booking.", "Профиль появится после первого бронирования. Если поездка уже оформлена, найдите её по подтверждённой почте или номеру телефона.", "Profil birinchi brondan keyin paydo bo‘ladi. Mavjud safarni tasdiqlangan email yoki telefon orqali toping.", "Профиль биринчи брондан кейин пайдо бўлади. Мавжуд сафарни тасдиқланган email ёки телефон орқали топинг.")
+        com.iumrah.beta.ui.home.IumrahPageHelpOverlay(Triple(heading, title, body)) { helpOpen = false }
+    }
     if (deleteAccountConfirm) {
         AlertDialog(onDismissRequest={if(!deletingAccount)deleteAccountConfirm=false},
             title={Text(tr(language,"Delete account permanently?","Удалить аккаунт навсегда?","Akkaunt butunlay o‘chirilsinmi?","Аккаунт бутунлай ўчирилсинми?"))},
@@ -434,11 +458,14 @@ private fun SeamlessGuestProfile(language: AppLanguage, session: StoredBookingSe
 }
 
 @Composable
-private fun AccountHeader(language: AppLanguage, authenticated: Boolean, unread: Int, chrome: AppChromeStore) {
+private fun AccountHeader(language: AppLanguage, profile: IumrahAccountProfile?, unread: Int, chrome: AppChromeStore, onHelp: () -> Unit) {
+    val details: (@Composable () -> Unit)? = if (profile == null) null else {
+        { Box(Modifier.padding(horizontal = PagePad)) { IumrahUserDataEntryCardAndroid(language, profile.displayName) { chrome.openAccountUserData() } } }
+    }
     IumrahRootPageHeader(
-        title = tr(language, "Account", "Аккаунт", "Akkaunt", "Аккаунт"),
+        title = tr(language, "Profile", "Профиль", "Profil", "Профиль"),
         chrome = chrome, unreadCount = unread, language = language,
-        subtitle = if (authenticated) tr(language, "Your profile, iumrah ID and journeys", "Ваш профиль, iumrah ID и поездки", "Profilingiz, iumrah ID va safarlar", "Профилингиз, iumrah ID ва сафарлар") else null,
+        onHelp = onHelp, flexibleFooter = profile != null, animateMap = false, footer = details,
     )
 }
 
@@ -739,7 +766,6 @@ private fun SettingsSection(language: AppLanguage, appearance: AppAppearance, un
         SettingsRow(CupertinoSymbol.Globe,tr(language,"Language","Язык","Til","Тил"),languageTitle(language)){chrome.openAccountLanguage()}
         HorizontalDivider(Modifier.padding(start=54.dp))
         SettingsRow(CupertinoSymbol.HalfCircle,tr(language,"Appearance","Оформление","Ko‘rinish","Кўриниш"),appearanceTitle(appearance,language)){chrome.openAccountAppearance()}
-        SettingsRow(CupertinoSymbol.ChartBar,tr(language,"Usage analytics","Аналитика использования","Foydalanish tahlili","Фойдаланиш таҳлили"),tr(language,"Privacy controls","Управление конфиденциальностью","Maxfiylik sozlamalari","Махфийлик созламалари")){chrome.openAccountAnalytics()}
         HorizontalDivider(Modifier.padding(start=54.dp))
         SettingsRow(CupertinoSymbol.BellSignal,tr(language,"Umrah status signal","Umra статус сигнал","Umra holat signali","Умра ҳолат сигнали"),if(unread>0) tr(language,"$unread new","$unread новых","$unread yangi","$unread янги") else tr(language,"All caught up","Новых нет","Yangi yo‘q","Янги йўқ")){chrome.openAccountSignals()}
         HorizontalDivider(Modifier.padding(start=54.dp))
@@ -753,14 +779,13 @@ private fun SettingsSection(language: AppLanguage, appearance: AppAppearance, un
 private fun GuestSettingsSection(language: AppLanguage, appearance: AppAppearance, unread: Int, notificationStatus: String, chrome: AppChromeStore, context: android.content.Context) {
     CardBlock {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            IconBadge(CupertinoSymbol.Sliders, Care, 42.dp, 17.dp)
+            IconBadge(CupertinoSymbol.Sliders, settingsIconTint(CupertinoSymbol.Sliders), 40.dp, 16.dp)
             Text(tr(language,"App settings","Настройки приложения","Ilova sozlamalari","Илова созламалари"), fontSize = 17.sp, fontWeight = FontWeight.Bold)
         }
         Spacer(Modifier.height(18.dp))
         SettingsRow(CupertinoSymbol.Globe,tr(language,"Language","Язык","Til","Тил"),languageTitle(language)){chrome.openAccountLanguage()}
         HorizontalDivider(Modifier.padding(start=54.dp))
         SettingsRow(CupertinoSymbol.HalfCircle,tr(language,"Appearance","Оформление","Ko‘rinish","Кўриниш"),appearanceTitle(appearance,language)){chrome.openAccountAppearance()}
-        SettingsRow(CupertinoSymbol.ChartBar,tr(language,"Usage analytics","Аналитика использования","Foydalanish tahlili","Фойдаланиш таҳлили"),tr(language,"Privacy controls","Управление конфиденциальностью","Maxfiylik sozlamalari","Махфийлик созламалари")){chrome.openAccountAnalytics()}
         HorizontalDivider(Modifier.padding(start=54.dp))
         SettingsRow(CupertinoSymbol.BellSignal,tr(language,"Umrah status signal","Umra статус сигнал","Umra holat signali","Умра ҳолат сигнали"),if(unread>0) tr(language,"$unread new","$unread новых","$unread yangi","$unread янги") else tr(language,"All caught up","Новых нет","Yangi yo‘q","Янги йўқ")){chrome.openAccountSignals()}
         HorizontalDivider(Modifier.padding(start=54.dp))
@@ -1257,13 +1282,23 @@ private fun AccountPage(title:String,chrome:AppChromeStore,content:@Composable C
 }
 
 @Composable private fun SectionCard(title:String,subtitle:String,icon:CupertinoSymbol,content:@Composable ColumnScope.()->Unit){CardBlock{SectionHeader(icon,title,subtitle);Spacer(Modifier.height(10.dp));content()}}
-@Composable private fun SectionHeader(icon:CupertinoSymbol,title:String,subtitle:String){Row(verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(12.dp)){IconBadge(icon,Care,42.dp,17.dp);Column(Modifier.weight(1f)){Text(title,fontSize=17.sp,fontWeight=FontWeight.Bold);Text(subtitle,fontSize=12.sp,color=IosGray)}}}
+// Match iOS IumrahIconRole semantics instead of painting every Settings
+// badge the same cyan, regardless of its meaning.
+private fun settingsIconTint(icon: CupertinoSymbol): Color = when (icon) {
+    CupertinoSymbol.Gear, CupertinoSymbol.Sliders -> Color(0xFF8E8E93) // settings
+    CupertinoSymbol.Globe -> Color(0xFF007AFF) // language
+    CupertinoSymbol.HalfCircle -> Color(0xFFAF52DE) // appearance
+    CupertinoSymbol.BellSignal, CupertinoSymbol.BellBadge -> Color(0xFFFF3B30) // notifications
+    CupertinoSymbol.LockShield -> Color(0xFF34C759) // security
+    else -> Color(0xFF8E8E93) // neutral (analytics, etc.)
+}
+@Composable private fun SectionHeader(icon:CupertinoSymbol,title:String,subtitle:String){Row(verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(12.dp)){IconBadge(icon,settingsIconTint(icon),40.dp,16.dp);Column(Modifier.weight(1f)){Text(title,fontSize=17.sp,fontWeight=FontWeight.Bold);Text(subtitle,fontSize=12.sp,color=IosGray)}}}
 @Composable private fun CardBlock(content:@Composable ColumnScope.()->Unit){val shape=RoundedCornerShape(CardRadius);Surface(shape=shape,color=MaterialTheme.colorScheme.surface,tonalElevation=0.dp,shadowElevation=3.dp,border=androidx.compose.foundation.BorderStroke(.7.dp,MaterialTheme.colorScheme.onSurface.copy(alpha=.075f))){Column(Modifier.fillMaxWidth().padding(18.dp),content=content)}}
 
 @Composable
 private fun SettingsRow(icon:CupertinoSymbol,title:String,value:String,enabled:Boolean=true,onClick:()->Unit){
     Row(Modifier.fillMaxWidth().then(if(enabled)Modifier.clickable(onClick=onClick) else Modifier).padding(vertical=9.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(12.dp)){
-        IconBadge(icon,Care,42.dp,17.dp);Column(Modifier.weight(1f)){Text(title,fontWeight=FontWeight.SemiBold,color=if(enabled)MaterialTheme.colorScheme.onSurface else IosGray);Text(value,fontSize=12.sp,color=IosGray,maxLines=2)};if(enabled)CupertinoIcon(CupertinoSymbol.ChevronRight,null,Modifier.size(15.dp),IosGray.copy(alpha=.7f))
+        IconBadge(icon,settingsIconTint(icon),40.dp,16.dp);Column(Modifier.weight(1f)){Text(title,fontWeight=FontWeight.SemiBold,color=if(enabled)MaterialTheme.colorScheme.onSurface else IosGray);Text(value,fontSize=12.sp,color=IosGray,maxLines=2)};if(enabled)CupertinoIcon(CupertinoSymbol.ChevronRight,null,Modifier.size(15.dp),IosGray.copy(alpha=.7f))
     }
 }
 @Composable private fun EmptyRow(icon:CupertinoSymbol,text:String){Row(Modifier.fillMaxWidth().padding(vertical=9.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(12.dp)){IconBadge(icon,IosGray,42.dp,17.dp);Text(text,color=IosGray,fontSize=13.sp)}}

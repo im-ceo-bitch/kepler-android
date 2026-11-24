@@ -1,5 +1,6 @@
 package com.iumrah.beta.ui.advisor
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -14,6 +15,17 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.onClick
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
+import com.iumrah.beta.domain.umrahflow.AdvisorCheckpoint
+import com.iumrah.beta.domain.umrahflow.AdvisorCheckpointStore
+import com.iumrah.beta.domain.umrahflow.TawafCounter
+import com.iumrah.beta.domain.umrahflow.UmrahFlowAudioUrlPolicy
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -70,7 +82,11 @@ enum class UmrahGuideLanguage(val code: String, val nativeName: String) {
     companion object {
         fun preferred(language: AppLanguage) = when (language) {
             AppLanguage.RUSSIAN -> RUSSIAN
-            AppLanguage.ENGLISH, AppLanguage.ARABIC, AppLanguage.TURKISH, AppLanguage.INDONESIAN, AppLanguage.MALAY -> ENGLISH
+            AppLanguage.ENGLISH -> ENGLISH
+            AppLanguage.ARABIC -> ARABIC
+            AppLanguage.TURKISH -> TURKISH
+            AppLanguage.INDONESIAN -> INDONESIAN
+            AppLanguage.MALAY -> MALAY
             AppLanguage.UZBEK, AppLanguage.UZBEK_CYRILLIC -> UZBEK
         }
     }
@@ -86,10 +102,8 @@ fun UmrahAdvisorScreen(
     chrome: AppChromeStore,
 ) {
     val context = LocalContext.current
-    val scope = rememberCoroutineScope()
     val service = remember(context) { UmrahFlowService(context.applicationContext) }
     val player = remember(context) { ExoPlayer.Builder(context).build() }
-    DisposableEffect(Unit) { onDispose { player.release() } }
 
     var selectedLanguage by remember { mutableStateOf(UmrahGuideLanguage.preferred(appLanguage)) }
     var started by remember { mutableStateOf(false) }
@@ -98,7 +112,8 @@ fun UmrahAdvisorScreen(
     var error by remember { mutableStateOf<String?>(null) }
     var stage by remember { mutableStateOf(Stage.START) }
     var startPhase by remember { mutableIntStateOf(0) }
-    var tawafRound by remember { mutableIntStateOf(1) }
+    var tawafCounter by remember { mutableStateOf(TawafCounter()) }
+    val tawafRound = tawafCounter.round
     var tawafTextMode by remember { mutableIntStateOf(0) }
     var tawafMode by remember { mutableStateOf(RitualMode.LISTEN) }
     var tawafReadingStep by remember { mutableIntStateOf(0) }
@@ -116,6 +131,22 @@ fun UmrahAdvisorScreen(
     var playingKey by remember { mutableStateOf<String?>(null) }
     var audioLoading by remember { mutableStateOf(false) }
     var audioPlaying by remember { mutableStateOf(false) }
+    val checkpointStore = remember(context) { AdvisorCheckpointStore(context) }
+    var showResume by remember { mutableStateOf(false) }
+    val snapshot = AdvisorCheckpoint(stage.name, startPhase, tawafCounter.completed, tawafTextMode,
+        tawafMode.name, tawafReadingStep, tawafZikrCount, postTawafStep, safaRound,
+        safaTextMode, safaMode.name, safaReadingStep, endPhase)
+    fun restore(saved: AdvisorCheckpoint) {
+        stage = Stage.valueOf(saved.stage); startPhase = saved.startPhase
+        tawafCounter = TawafCounter(saved.tawafCompleted); tawafTextMode = saved.tawafTextMode
+        tawafMode = RitualMode.valueOf(saved.tawafMode); tawafReadingStep = saved.tawafReadingStep
+        tawafZikrCount = saved.tawafZikrCount; postTawafStep = saved.postTawafStep
+        safaRound = saved.safaRound; safaTextMode = saved.safaTextMode
+        safaMode = RitualMode.valueOf(saved.safaMode); safaReadingStep = saved.safaReadingStep; endPhase = saved.endPhase
+    }
+    LaunchedEffect(started, showResume, snapshot) {
+        if (started && !showResume) checkpointStore.save(snapshot)
+    }
 
     DisposableEffect(player) {
         val listener = object : Player.Listener {
@@ -132,7 +163,7 @@ fun UmrahAdvisorScreen(
             }
         }
         player.addListener(listener)
-        onDispose { player.removeListener(listener) }
+        onDispose { player.removeListener(listener); player.release() }
     }
 
     fun text(key: String, fallback: String = key): String = content.translations[key]?.trim().takeUnless { it.isNullOrBlank() } ?: fallback
@@ -149,7 +180,7 @@ fun UmrahAdvisorScreen(
         playingKey = null; audioLoading = false; audioPlaying = false
     }
     fun play(key: String) {
-        val url = content.audio[key]?.takeIf { it.startsWith("https://", ignoreCase = true) } ?: return
+        val url = content.audio[key]?.takeIf(UmrahFlowAudioUrlPolicy::isAllowed) ?: return
         if (playingKey == key && (audioPlaying || audioLoading)) { stopAudio(); return }
         stopAudio()
         playingKey = key
@@ -159,11 +190,28 @@ fun UmrahAdvisorScreen(
         player.playWhenReady = true
     }
     fun reset() {
-        stopAudio(); stage = Stage.START; startPhase = 0; tawafRound = 1; tawafTextMode = 0; tawafMode = RitualMode.LISTEN
+        stopAudio(); stage = Stage.START; startPhase = 0; tawafCounter = TawafCounter(); tawafTextMode = 0; tawafMode = RitualMode.LISTEN
         tawafReadingStep = 0; tawafZikrCount = 0; postTawafStep = 0; safaRound = 1; safaTextMode = 0
         safaMode = RitualMode.LISTEN; safaReadingStep = 0; endPhase = 0
     }
 
+    fun completeTawafRound() {
+        if (stage != Stage.TAWAF || tawafMode != RitualMode.LISTEN || tawafCounter.complete) return
+        stopAudio(); tawafCounter = tawafCounter.confirm()
+        tawafTextMode = 0; tawafReadingStep = 0; tawafZikrCount = 0
+        checkpointStore.save(snapshot.copy(tawafCompleted = tawafCounter.completed, tawafTextMode = 0, tawafReadingStep = 0, tawafZikrCount = 0))
+    }
+    fun undoTawafRound() {
+        if (stage != Stage.TAWAF || tawafCounter.completed == 0) return
+        stopAudio(); tawafCounter = tawafCounter.undo()
+        tawafTextMode = 0; tawafReadingStep = 0; tawafZikrCount = 0
+        checkpointStore.save(snapshot.copy(tawafCompleted = tawafCounter.completed, tawafTextMode = 0, tawafReadingStep = 0, tawafZikrCount = 0))
+    }
+    LifecycleEventEffect(Lifecycle.Event.ON_PAUSE) {
+        stopAudio()
+        if (started && !showResume) checkpointStore.save(snapshot)
+    }
+    LaunchedEffect(stage, selectedLanguage) { stopAudio() }
     LaunchedEffect(started, selectedLanguage) {
         if (!started) return@LaunchedEffect
         // Load persisted content before hitting the network so offline pilgrim
@@ -185,8 +233,10 @@ fun UmrahAdvisorScreen(
 
     DisposableEffect(Unit) {
         chrome.setImmersive(true)
-        onDispose { stopAudio(); chrome.setImmersive(false) }
+        onDispose { chrome.setImmersive(false) }
     }
+
+    BackHandler(enabled = started && !showResume) { stopAudio(); checkpointStore.save(snapshot); chrome.back() }
 
     if (!started) {
         LanguagePicker(
@@ -194,19 +244,20 @@ fun UmrahAdvisorScreen(
             appLanguage = appLanguage,
             onSelect = { selectedLanguage = it },
             onClose = { chrome.back() },
-            onStart = { started = true },
+            onStart = { showResume = checkpointStore.restore() != null; started = true },
         )
         return
     }
 
-    val progress = when (stage) {
-        Stage.START -> .04f + (startPhase / 3f) * .06f
-        Stage.TAWAF -> .10f + ((tawafRound - 1) / 7f) * .42f
-        Stage.POST_TAWAF -> .52f + (postTawafStep / 4f) * .08f
-        Stage.SAFA -> .60f + ((safaRound - 1) / 7f) * .32f
-        Stage.END -> .94f + (endPhase / 3f) * .05f
-        Stage.AFTER -> 1f
+    if (showResume) {
+        AlertDialog(onDismissRequest = {},
+            title = { Text(advisorCopy(selectedLanguage, "Продолжить умру?", "Resume Umrah?", "Umrani davom ettirasizmi?")) },
+            text = { Text(advisorCopy(selectedLanguage, "Восстановить сохранённый этап или начать заново?", "Restore saved progress or start again?", "Saqlangan bosqichni tiklash yoki qayta boshlash?")) },
+            confirmButton = { TextButton(onClick = { checkpointStore.restore()?.let { restore(it) }; showResume = false }) { Text(advisorCopy(selectedLanguage, "Продолжить", "Resume", "Davom etish")) } },
+            dismissButton = { TextButton(onClick = { checkpointStore.clear(); reset(); showResume = false }) { Text(advisorCopy(selectedLanguage, "Заново", "Restart", "Qayta boshlash")) } })
+        return
     }
+    val progress = snapshot.progressFraction
     val animatedProgress by animateFloatAsState(progress, label = "advisor-progress")
 
     Column(
@@ -218,7 +269,7 @@ fun UmrahAdvisorScreen(
             title = stageLabel(stage),
             subtitle = advisorSubtitle(selectedLanguage),
             progress = animatedProgress,
-            onBack = { stopAudio(); chrome.back() },
+            onBack = { stopAudio(); checkpointStore.save(snapshot); chrome.back() },
             onNavigate = { stopAudio(); navigatorSelection = stage; showNavigator = true },
         )
         if (loading && content.translations.isEmpty()) {
@@ -228,6 +279,7 @@ fun UmrahAdvisorScreen(
             AnimatedContent(targetState = stage, transitionSpec = { fadeIn() togetherWith fadeOut() }, label = "advisor-stage") { active ->
                 when (active) {
                     Stage.START -> VoiceStep(
+                        language = selectedLanguage,
                         kicker = text("umrah_start_title", "Start Umrah"), title = "",
                         body = text(listOf("start_text","start_text1","start_text2","start_text3")[startPhase], startFallback(startPhase)),
                         counter = "${startPhase + 1} / 4", audioAvailable = content.audio["tawaf_start"] != null,
@@ -238,7 +290,7 @@ fun UmrahAdvisorScreen(
                         onNext = { stopAudio(); if (startPhase < 3) startPhase++ else stage = Stage.TAWAF },
                     )
                     Stage.TAWAF -> RitualScreen(
-                        title = text("tawaf_title", "Tawaf"), mode = tawafMode, onMode = { stopAudio(); tawafMode = it },
+                        title = text("tawaf_title", "Tawaf"), language = selectedLanguage, mode = tawafMode, onMode = { stopAudio(); tawafMode = it },
                         listening = {
                             VoiceStep(
                                 kicker = text("tawaf_title", "Tawaf"), title = text("tawaf${tawafRound}_tarab1", "Round $tawafRound"),
@@ -246,12 +298,12 @@ fun UmrahAdvisorScreen(
                                 counter = "$tawafRound / 7", audioAvailable = content.audio["tawaf_$tawafRound"] != null,
                                 audioActive = playingKey == "tawaf_$tawafRound" && audioPlaying, audioBuffering = playingKey == "tawaf_$tawafRound" && audioLoading,
                                 onListen = { play("tawaf_$tawafRound") }, onBodyTap = { tawafTextMode = (tawafTextMode + 1) % 2 },
-                                showPrevious = true, onPrevious = {
-                                    stopAudio(); tawafTextMode = 0; tawafReadingStep = 0; tawafZikrCount = 0
-                                    if (tawafRound > 1) tawafRound-- else { stage = Stage.START; startPhase = 3 }
-                                }, nextDone = tawafRound == 7, onNext = {
-                                    stopAudio(); tawafTextMode = 0; tawafReadingStep = 0; tawafZikrCount = 0
-                                    if (tawafRound < 7) tawafRound++ else stage = Stage.POST_TAWAF
+                                showPrevious = false, onPrevious = {}, nextDone = false, onNext = {},
+                                language = selectedLanguage,
+                                bottomOverride = {
+                                    TawafCompletionCard(tawafCounter, selectedLanguage, ::completeTawafRound, ::undoTawafRound) {
+                                        if (tawafCounter.complete) { stopAudio(); stage = Stage.POST_TAWAF; postTawafStep = 0 }
+                                    }
                                 }
                             )
                         },
@@ -262,12 +314,11 @@ fun UmrahAdvisorScreen(
                                 onSunnahDua = { showSunnahDua = true },
                                 onPrevious = {
                                     if (tawafReadingStep > 0) tawafReadingStep--
-                                    else if (tawafRound > 1) { tawafRound--; tawafReadingStep = 0; tawafZikrCount = 0 }
                                     else tawafMode = RitualMode.LISTEN
                                 },
                                 onNext = {
                                     if (tawafReadingStep < 6) tawafReadingStep++
-                                    else { tawafReadingStep = 0; tawafZikrCount = 0; if (tawafRound < 7) tawafRound++ else stage = Stage.POST_TAWAF }
+                                    else { tawafReadingStep = 0; tawafZikrCount = 0; tawafMode = RitualMode.LISTEN }
                                 }
                             )
                         }
@@ -281,19 +332,19 @@ fun UmrahAdvisorScreen(
                             else -> Triple(text("safadua_title","Dua at Safa"), text("safadua_title","Dua at Safa"), text("start_text3","Remember Allah and make dua before beginning Sa'i."))
                         }
                         VoiceStep(
-                            kicker = copy.first, title = copy.second, body = copy.third, counter = "${postTawafStep + 1} / 4",
+                            language = selectedLanguage, kicker = copy.first, title = copy.second, body = copy.third, counter = "${postTawafStep + 1} / 4",
                             audioAvailable = content.audio[keys[postTawafStep]] != null,
                             audioActive = playingKey == keys[postTawafStep] && audioPlaying, audioBuffering = playingKey == keys[postTawafStep] && audioLoading, onListen = { play(keys[postTawafStep]) },
-                            showPrevious = true, onPrevious = { stopAudio(); if (postTawafStep > 0) postTawafStep-- else { stage = Stage.TAWAF; tawafRound = 7 } },
+                            showPrevious = true, onPrevious = { stopAudio(); if (postTawafStep > 0) postTawafStep-- else { stage = Stage.TAWAF; tawafMode = RitualMode.LISTEN } },
                             nextDone = postTawafStep == 3, onNext = { stopAudio(); if (postTawafStep < 3) postTawafStep++ else { stage = Stage.SAFA; safaRound = 1 } },
                             secondaryAction = if (postTawafStep == 3) text("overlay_safa_title", "Dua at Safa and Marwa") to { showSafaDua = true } else null,
                         )
                     }
                     Stage.SAFA -> RitualScreen(
-                        title = text("sai_title", "Safa & Marwa"), mode = safaMode, onMode = { stopAudio(); safaMode = it },
+                        title = text("sai_title", "Safa & Marwa"), language = selectedLanguage, mode = safaMode, onMode = { stopAudio(); safaMode = it },
                         listening = {
                             VoiceStep(
-                                kicker = text("sai_title","Safa & Marwa"), title = text("safa${safaRound}_title1", "Round $safaRound"),
+                                language = selectedLanguage, kicker = text("sai_title","Safa & Marwa"), title = text("safa${safaRound}_title1", "Round $safaRound"),
                                 body = text("safa${safaRound}_text${if(safaTextMode == 0) 1 else 2}", "Continue Sa'i calmly and remember Allah."),
                                 counter = "$safaRound / 7", audioAvailable = content.audio["safa_$safaRound"] != null,
                                 audioActive = playingKey == "safa_$safaRound" && audioPlaying, audioBuffering = playingKey == "safa_$safaRound" && audioLoading,
@@ -312,6 +363,7 @@ fun UmrahAdvisorScreen(
                         }
                     )
                     Stage.END -> VoiceStep(
+                        language = selectedLanguage,
                         kicker = text("tahallul_title","Complete Umrah"), title = "",
                         body = text(listOf("end_text","end_text1","end_text3")[endPhase], endFallback(endPhase)), counter = "${endPhase + 1} / 3",
                         audioAvailable = content.audio["safa_end"] != null,
@@ -322,7 +374,7 @@ fun UmrahAdvisorScreen(
                     Stage.AFTER -> Completion(
                         title = text("home2_3title","Umrah completed"), subtitle = text("home2_3_subtitle","May Allah accept your Umrah and your duas."),
                         done = done(selectedLanguage), restart = text("home_3_btn3","Start another Umrah"),
-                        onDone = { chrome.back() }, onRestart = { reset() },
+                        onDone = { checkpointStore.clear(); chrome.back() }, onRestart = { checkpointStore.clear(); reset() },
                     )
                 }
             }
@@ -353,7 +405,7 @@ fun UmrahAdvisorScreen(
                     colors = ButtonDefaults.buttonColors(containerColor = Color.Black)) {
                     Text(text("navigate_button", "Go"), fontWeight = FontWeight.Bold)
                 }
-                TextButton(onClick = { showNavigator = false; chrome.back() }, modifier = Modifier.fillMaxWidth()) {
+                TextButton(onClick = { checkpointStore.save(snapshot); showNavigator = false; chrome.back() }, modifier = Modifier.fillMaxWidth()) {
                     Text(cancelUmrah(selectedLanguage), color = MaterialTheme.colorScheme.error)
                 }
                 Spacer(Modifier.height(16.dp))
@@ -392,7 +444,7 @@ private fun LanguagePicker(selection: UmrahGuideLanguage, appLanguage: AppLangua
         AppLanguage.UZBEK_CYRILLIC -> listOf("iumrah Advisor тили", "Умрани бошлашдан олдин овозли гид тилини танланг.", "Умрани бошлаш", "Ёпиш")
         AppLanguage.ENGLISH, AppLanguage.ARABIC, AppLanguage.TURKISH, AppLanguage.INDONESIAN, AppLanguage.MALAY -> listOf("iumrah Advisor language", "Choose the voice-guide language before you begin Umrah.", "Start Umrah", "Close")
     }
-    Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).statusBarsPadding().padding(20.dp)) {
+    Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).statusBarsPadding().navigationBarsPadding().padding(20.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 Text(copy[0], fontSize = 25.sp, fontWeight = FontWeight.Bold)
@@ -438,10 +490,10 @@ private fun AdvisorHeader(title: String, subtitle: String, progress: Float, onBa
 }
 
 @Composable
-private fun RitualScreen(title: String, mode: RitualMode, onMode: (RitualMode) -> Unit, listening: @Composable () -> Unit, reading: @Composable () -> Unit) {
+private fun RitualScreen(title: String, language: UmrahGuideLanguage, mode: RitualMode, onMode: (RitualMode) -> Unit, listening: @Composable () -> Unit, reading: @Composable () -> Unit) {
     Column(Modifier.fillMaxSize()) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 8.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceVariant).padding(4.dp)) {
-            listOf(RitualMode.LISTEN to "Listen", RitualMode.READ to "Read").forEach { (value, label) ->
+            listOf(RitualMode.LISTEN to advisorCopy(language, "Слушать", "Listen", "Tinglash"), RitualMode.READ to advisorCopy(language, "Читать", "Read", "O‘qish")).forEach { (value, label) ->
                 Box(
                     Modifier.weight(1f).clip(CircleShape).background(if(mode == value) Color.Black else Color.Transparent).clickable { onMode(value) }.padding(vertical = 10.dp),
                     contentAlignment = Alignment.Center,
@@ -452,12 +504,62 @@ private fun RitualScreen(title: String, mode: RitualMode, onMode: (RitualMode) -
     }
 }
 
+
+private fun advisorCopy(language: UmrahGuideLanguage, ru: String, en: String, uz: String): String = when (language) {
+    UmrahGuideLanguage.RUSSIAN -> ru
+    UmrahGuideLanguage.UZBEK -> uz
+    else -> en
+}
+
+/** Only a deliberate swipe (or the equivalent accessibility action) counts a circuit. */
+@Composable
+private fun TawafCompletionCard(counter: TawafCounter, language: UmrahGuideLanguage, onConfirm: () -> Unit, onUndo: () -> Unit, onContinue: () -> Unit) {
+    val confirmLabel = advisorCopy(language, "Подтвердить круг", "Confirm circuit", "Aylanishni tasdiqlash")
+    val currentConfirm by rememberUpdatedState(onConfirm)
+    var drag by remember(counter.completed) { mutableFloatStateOf(0f) }
+    Surface(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 9.dp), shape = RoundedCornerShape(28.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 2.dp) {
+        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                if (counter.complete) {
+                    Button(onClick = onContinue, modifier = Modifier.weight(1f).height(62.dp), shape = CircleShape,
+                        colors = ButtonDefaults.buttonColors(containerColor = Color.Black, contentColor = Color.White)) {
+                        Text(advisorCopy(language, "Продолжить", "Continue", "Davom etish"))
+                    }
+                } else {
+                    Box(Modifier.weight(1f).height(62.dp).clip(CircleShape).background(Color.Black)
+                        .semantics { contentDescription = confirmLabel; onClick(label = confirmLabel) { currentConfirm(); true } }
+                        .pointerInput(counter.completed) {
+                            detectHorizontalDragGestures(onDragStart = { drag = 0f }, onDragCancel = { drag = 0f },
+                                onDragEnd = { if (drag >= size.width * .55f) currentConfirm(); drag = 0f }) { change, amount ->
+                                change.consume(); drag = (drag + amount).coerceIn(0f, size.width.toFloat())
+                            }
+                        }.padding(horizontal = 10.dp), contentAlignment = Alignment.Center) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            CupertinoIcon(CupertinoSymbol.ChevronRight, null, Modifier.size(20.dp), tint = Color.White)
+                            Text(confirmLabel, color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                        }
+                    }
+                }
+                Box(Modifier.size(78.dp), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator(progress = { counter.completed / 7f }, modifier = Modifier.fillMaxSize().padding(6.dp), color = MaterialTheme.colorScheme.onSurface, trackColor = MaterialTheme.colorScheme.onSurface.copy(alpha = .12f), strokeWidth = 5.dp)
+                    Text("${counter.completed}/7", fontWeight = FontWeight.Bold)
+                }
+            }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(if (counter.complete) advisorCopy(language, "Семь кругов подтверждены", "Seven circuits confirmed", "Yetti aylanish tasdiqlandi") else advisorCopy(language, "Смахните вправо после круга", "Swipe right after each circuit", "Aylanishdan keyin o‘ngga suring"), Modifier.weight(1f), fontSize = 11.sp)
+                if (counter.completed > 0) TextButton(onClick = onUndo) { Text(advisorCopy(language, "Отменить", "Undo", "Bekor qilish"), fontSize = 11.sp) }
+            }
+        }
+    }
+}
+
 @Composable
 private fun VoiceStep(
     kicker: String, title: String, body: String, counter: String,
     audioAvailable: Boolean, audioActive: Boolean, audioBuffering: Boolean, onListen: () -> Unit,
     showPrevious: Boolean, onPrevious: () -> Unit, nextDone: Boolean, onNext: () -> Unit,
     onBodyTap: (() -> Unit)? = null, secondaryAction: Pair<String, () -> Unit>? = null,
+    language: UmrahGuideLanguage = UmrahGuideLanguage.ENGLISH, bottomOverride: (@Composable () -> Unit)? = null,
 ) {
     Box(Modifier.fillMaxSize()) {
         Box(Modifier.fillMaxSize().background(Brush.radialGradient(listOf(Color(0xFF356BFF).copy(alpha=.10f), Color.Transparent), radius = 650f)))
@@ -484,14 +586,15 @@ private fun VoiceStep(
             secondaryAction?.let { (label, action) ->
                 Spacer(Modifier.height(16.dp)); OutlinedButton(onClick = action, shape = CircleShape) { Text(label) }
             }
-            Spacer(Modifier.height(100.dp))
+            Spacer(Modifier.height(if (bottomOverride != null) 180.dp else 100.dp))
         }
-        Row(Modifier.fillMaxWidth().align(Alignment.BottomCenter).navigationBarsPadding().padding(horizontal = 16.dp, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+        if (bottomOverride != null) Box(Modifier.align(Alignment.BottomCenter).fillMaxWidth().navigationBarsPadding()) { bottomOverride() }
+        else Row(Modifier.fillMaxWidth().align(Alignment.BottomCenter).navigationBarsPadding().padding(horizontal = 16.dp, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
             if(showPrevious) FloatingActionButton(onClick = onPrevious, containerColor = MaterialTheme.colorScheme.surface) { CupertinoIcon(CupertinoSymbol.ChevronLeft, null, Modifier.size(22.dp)) } else Spacer(Modifier.size(56.dp))
             Spacer(Modifier.weight(1f))
             ExtendedFloatingActionButton(onClick = onNext, containerColor = Color.Black, contentColor = Color.White) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-                    Text(if(nextDone) "Done" else "Next", fontWeight = FontWeight.Bold)
+                    Text(if(nextDone) advisorCopy(language, "Готово", "Done", "Tayyor") else advisorCopy(language, "Далее", "Next", "Keyingi"), fontWeight = FontWeight.Bold)
                     CupertinoIcon(if(nextDone) CupertinoSymbol.Checkmark else CupertinoSymbol.ChevronRight, null, Modifier.size(16.dp), tint = Color.White)
                 }
             }

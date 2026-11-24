@@ -3,9 +3,11 @@ package com.iumrah.beta.core.navigation
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
+import java.time.LocalDate
 import com.iumrah.beta.domain.trip.JourneyScope
 import com.iumrah.beta.domain.trip.PackageMealSelection
 import com.iumrah.beta.domain.trip.SaudiArrivalAirport
+import com.iumrah.beta.domain.journey.JourneyStore
 
 enum class AppTab { HOME, HOTELS, BOOKING, CARE, ACCOUNT }
 
@@ -20,6 +22,34 @@ data class HotelConfiguratorDeepLink(
     val mealSelection: PackageMealSelection? = null,
     val outboundOptionId: String? = null,
     val inboundOptionId: String? = null,
+)
+
+/**
+ * iOS AppChromeStore.IumrahHotelTabSearch contract (Sources/AppShell/AppChromeStore.swift).
+ * A transfer belongs to one search event: repeating the same city/date still
+ * needs to re-open results, and a previously applied request must not replay
+ * when the user revisits the Hotels tab.
+ */
+data class HotelTabSearchRequest(
+    val revision: Long,
+    val city: String,
+    val checkin: LocalDate,
+    val nights: Int,
+    val adults: Int,
+    val childrenAges: List<Int> = emptyList(),
+) {
+    init {
+        require(city in setOf("makkah", "madinah"))
+        require(nights in 1..28)
+        require(adults in 1..6)
+        require(childrenAges.all { it in 0..17 })
+    }
+}
+
+/** One independent navigation identity for each of the five iOS TabView tabs. */
+data class TabNavigationState(
+    val route: AppRoute = AppRoute.Root,
+    val backStack: List<AppRoute> = emptyList(),
 )
 
 sealed interface AppRoute {
@@ -44,6 +74,7 @@ sealed interface AppRoute {
     data object ManualPackage : AppRoute
     data object BookingCheckout : AppRoute
     data class BusinessOffer(val token: String) : AppRoute
+    data class PublicTrip(val token: String) : AppRoute
     data class BookingDetail(val bookingID: String) : AppRoute
     data class BookingCelebration(val bookingID: String) : AppRoute
     data class BookingHotelChange(val bookingID: String, val role: String) : AppRoute
@@ -92,8 +123,12 @@ data class AppChromeState(
     val isImmersive: Boolean = false,
     val isSidebarOpen: Boolean = false,
     val discoveryFlights: Boolean = false,
+    val discoveryFlightsRevision: Long = 0,
     val discoveryBuild: Boolean = false,
     val homeHotelCity: String? = null,
+    val hotelSearch: HotelTabSearchRequest? = null,
+    val hotelSearchRevision: Long = 0,
+    val tabNavigation: Map<AppTab, TabNavigationState> = emptyMap(),
     val requestedBookingID: String? = null,
 )
 
@@ -101,44 +136,150 @@ class AppChromeStore {
     private val _state = MutableStateFlow(AppChromeState())
     val state: StateFlow<AppChromeState> = _state
 
+    // iOS HotelsHomeView owns @State private var familyJourney: JourneyStore?.
+    // Keep one private instance for its navigation chain; never reuse the main journey.
+    private var familyJourney: JourneyStore? = null
+    // Per-tab status-bar surface follows the actual moving masthead.
+    // SwiftUI has no permanent black plate when the header scrolls away.
+    private val _rootMastheadVisible = MutableStateFlow<Map<AppTab, Boolean>>(emptyMap())
+    val rootMastheadVisible: StateFlow<Map<AppTab, Boolean>> = _rootMastheadVisible
+
+    fun reportMastheadVisibility(tab: AppTab, visible: Boolean) {
+        _rootMastheadVisible.update { current ->
+            if (current[tab] == visible) current else current + (tab to visible)
+        }
+    }
+    private val familyRoutes: Set<AppRoute> = setOf(AppRoute.GuidedFlights,
+        AppRoute.NuiteeJourneyHotels, AppRoute.NuiteeJourneyReview,
+        AppRoute.FinalPackage, AppRoute.BookingCheckout)
+
+    fun beginFamilyJourney(value: JourneyStore) {
+        require(value.state.value.trip.adults in 1..12)
+        familyJourney = value
+        _state.update { old ->
+            old.copy(currentTab = AppTab.HOTELS, route = AppRoute.GuidedFlights,
+                backStack = listOf(AppRoute.Root),
+                tabNavigation = old.tabNavigation + (old.currentTab to TabNavigationState(old.route, old.backStack)),
+                isImmersive = false, isSidebarOpen = false)
+        }
+    }
+
+    fun journeyForRoute(route: AppRoute, tab: AppTab, ordinary: JourneyStore): JourneyStore =
+        if (tab == AppTab.HOTELS && route in familyRoutes) familyJourney ?: ordinary else ordinary
+
+    /**
+     * Native iOS TabView retains an independent NavigationStack per tab.
+     * Switching tabs must not turn the prior tab's detail into another tab's
+     * back destination; returning to a tab restores its own stack.
+     */
     fun navigate(tab: AppTab) {
-        _state.update { it.copy(currentTab = tab, route = AppRoute.Root, backStack = emptyList(), isImmersive = false, isSidebarOpen = false, discoveryFlights = false, discoveryBuild = false, homeHotelCity = null, requestedBookingID = null) }
+        _state.update { old ->
+            if (tab == old.currentTab && old.route == AppRoute.Root) return@update old.copy(isSidebarOpen = false)
+            val history = old.tabNavigation + (old.currentTab to TabNavigationState(old.route, old.backStack))
+            val next = history[tab] ?: TabNavigationState()
+            old.copy(currentTab = tab, route = next.route, backStack = next.backStack,
+                tabNavigation = history, isImmersive = false, isSidebarOpen = false,
+                discoveryFlights = false, discoveryBuild = false, homeHotelCity = null,
+                hotelSearch = null, requestedBookingID = null)
+        }
     }
-    fun openHomeHotelSearch(city: String) {
+
+    /** Matches the iOS Home destination cards: 14 days ahead, seven nights, two adults. */
+    fun openHomeHotelSearch(city: String) = findHotels(
+        city = city, checkin = LocalDate.now().plusDays(14), nights = 7, adults = 2,
+    )
+
+    /** Complete, one-shot Home -> Hotels handoff. No hidden defaults on the destination. */
+    fun findHotels(city: String, checkin: LocalDate, nights: Int, adults: Int,
+                   childrenAges: List<Int> = emptyList()) {
         require(city in setOf("makkah", "madinah"))
-        _state.update { it.copy(currentTab = AppTab.HOTELS, route = AppRoute.Root, backStack = emptyList(), isImmersive = false, isSidebarOpen = false, discoveryFlights = false, discoveryBuild = false, homeHotelCity = city) }
+        require(nights in 1..28 && adults in 1..6 && childrenAges.all { it in 0..17 })
+        _state.update { old ->
+            val revision = old.hotelSearchRevision + 1L
+            old.copy(currentTab = AppTab.HOTELS, route = AppRoute.Root, backStack = emptyList(),
+                tabNavigation = old.tabNavigation +
+                    (old.currentTab to TabNavigationState(old.route, old.backStack)) +
+                    (AppTab.HOTELS to TabNavigationState()),
+                isImmersive = false, isSidebarOpen = false, discoveryFlights = false,
+                discoveryBuild = false, homeHotelCity = city,
+                hotelSearchRevision = revision,
+                hotelSearch = HotelTabSearchRequest(revision, city, checkin, nights, adults, childrenAges),
+                requestedBookingID = null)
+        }
     }
+
+    /** Acknowledgement only after the catalogue applied the search to actual UI state. */
+    fun consumeHotelSearch(revision: Long) {
+        _state.update { old ->
+            if (old.hotelSearch?.revision != revision) old
+            else old.copy(hotelSearch = null, homeHotelCity = null)
+        }
+    }
+
     fun openDiscoveryFlights() {
-        _state.update { it.copy(currentTab = AppTab.HOTELS, route = AppRoute.Root, backStack = emptyList(), isImmersive = false, isSidebarOpen = false, discoveryFlights = true, discoveryBuild = false, homeHotelCity = null, requestedBookingID = null) }
+        _state.update { old ->
+            old.copy(currentTab = AppTab.HOTELS, route = AppRoute.Root, backStack = emptyList(),
+                tabNavigation = old.tabNavigation +
+                    (old.currentTab to TabNavigationState(old.route, old.backStack)) +
+                    (AppTab.HOTELS to TabNavigationState()),
+                isImmersive = false, isSidebarOpen = false,
+                discoveryFlights = true, discoveryFlightsRevision = old.discoveryFlightsRevision + 1,
+                discoveryBuild = false, homeHotelCity = null,
+                hotelSearch = null, requestedBookingID = null)
+        }
     }
     fun openDiscoveryBuild() {
-        _state.update { it.copy(currentTab = AppTab.HOME, route = AppRoute.Root, backStack = emptyList(), isImmersive = false, isSidebarOpen = false, discoveryFlights = false, discoveryBuild = true, homeHotelCity = null) }
+        _state.update { old ->
+            old.copy(currentTab = AppTab.HOME, route = AppRoute.Root, backStack = emptyList(),
+                tabNavigation = old.tabNavigation +
+                    (old.currentTab to TabNavigationState(old.route, old.backStack)) +
+                    (AppTab.HOME to TabNavigationState()),
+                isImmersive = false, isSidebarOpen = false,
+                discoveryFlights = false, discoveryBuild = true, homeHotelCity = null,
+                hotelSearch = null)
+        }
     }
     fun setDiscoveryFlights(value: Boolean) { _state.update { it.copy(discoveryFlights = value) } }
     fun consumeDiscoveryBuild() { _state.update { it.copy(discoveryBuild = false) } }
     fun openDiscoveryTransfer() = push(AppRoute.TransferService)
     fun openDiscoveryPackage() = push(AppRoute.ManualPackage)
-    fun startNewTrip() = push(AppRoute.TripBuilder, tab = AppTab.BOOKING)
+    // Current iOS routes all public "new trip" entry points to the Home search.
+    fun startNewTrip() = openDiscoveryBuild()
     fun openHotelSelection() = push(AppRoute.HotelSelection, tab = AppTab.BOOKING)
     fun openHotel(id: String, openConfigurator: Boolean = false, sharedConfiguration: HotelConfiguratorDeepLink? = null) = push(AppRoute.HotelDetail(id, openConfigurator, sharedConfiguration), tab = AppTab.HOTELS)
     fun openConfiguratorHotelSelection(role: String) = push(AppRoute.ConfiguratorHotelSelection(role), tab = AppTab.BOOKING)
     fun openConfiguratorHotelDetail(id: String, role: String) = push(AppRoute.ConfiguratorHotelDetail(id, role), tab = AppTab.BOOKING)
     fun openFlightPackage(id: String, sharedConfiguration: HotelConfiguratorDeepLink? = null) = push(AppRoute.FlightPackageDetail(id, sharedConfiguration), tab = AppTab.HOTELS)
-    fun openGuidedFlights() = push(AppRoute.GuidedFlights, tab = AppTab.BOOKING)
-    fun openNuiteeJourneyHotels() = push(AppRoute.NuiteeJourneyHotels, tab = AppTab.BOOKING)
-    fun openNuiteeJourneyReview() = push(AppRoute.NuiteeJourneyReview, tab = AppTab.BOOKING)
+    // HomeDashboardView presents guided flight selection in its Home NavigationStack.
+    // The previous Booking-tab ownership broke Back and tab restoration.
+    fun openGuidedFlights() = push(AppRoute.GuidedFlights, tab = AppTab.HOME)
+    fun openNuiteeJourneyHotels() = push(AppRoute.NuiteeJourneyHotels,
+        tab = if (state.value.route == AppRoute.GuidedFlights) state.value.currentTab else AppTab.BOOKING)
+    fun openNuiteeJourneyReview() = push(AppRoute.NuiteeJourneyReview,
+        tab = if (state.value.route == AppRoute.NuiteeJourneyHotels) state.value.currentTab else AppTab.BOOKING)
     fun openFlights() = push(AppRoute.Flights, tab = AppTab.BOOKING)
     fun openStorefrontFlights() = push(AppRoute.StorefrontFlights, tab = AppTab.HOTELS)
     fun openSundayClub() = push(AppRoute.StorefrontSunday, tab = AppTab.HOTELS)
     fun openReturnFlights() = push(AppRoute.ReturnFlights, tab = AppTab.BOOKING)
     fun openFlightDetails(id: String, direction: String) = push(AppRoute.FlightDetails(id, direction), tab = AppTab.BOOKING)
     fun openTransferSelection() = push(AppRoute.TransferSelection, tab = AppTab.BOOKING)
-    fun openFinalPackage() = push(AppRoute.FinalPackage, tab = AppTab.BOOKING)
+    fun openFinalPackage() = push(AppRoute.FinalPackage,
+        tab = if (state.value.currentTab == AppTab.HOTELS && state.value.route in familyRoutes) AppTab.HOTELS else AppTab.BOOKING)
     fun openSavedJourneys() = push(AppRoute.SavedJourneys, tab = AppTab.BOOKING)
     fun openBusinessOffer(token: String) = push(AppRoute.BusinessOffer(token), tab = AppTab.BOOKING)
-    fun openBookingCheckout() = push(AppRoute.BookingCheckout, tab = AppTab.BOOKING)
+    fun openPublicTrip(token: String) {
+        if (token.matches(Regex("^[A-Za-z0-9_-]{43}$"))) push(AppRoute.PublicTrip(token), tab = AppTab.BOOKING)
+    }
+    fun openBookingCheckout() = push(AppRoute.BookingCheckout,
+        tab = if (state.value.currentTab == AppTab.HOTELS && state.value.route in familyRoutes) AppTab.HOTELS else AppTab.BOOKING)
     fun openBookingPackageFromLink(id: String) {
-        _state.update { it.copy(currentTab = AppTab.BOOKING, route = AppRoute.Root, backStack = emptyList(), isImmersive = false, isSidebarOpen = false, requestedBookingID = id) }
+        _state.update { old ->
+            old.copy(currentTab = AppTab.BOOKING, route = AppRoute.Root, backStack = emptyList(),
+                tabNavigation = old.tabNavigation +
+                    (old.currentTab to TabNavigationState(old.route, old.backStack)) +
+                    (AppTab.BOOKING to TabNavigationState()),
+                isImmersive = false, isSidebarOpen = false, requestedBookingID = id)
+        }
     }
     fun consumeBookingPackageRequest(id: String) { _state.update { if (it.requestedBookingID == id) it.copy(requestedBookingID = null) else it } }
     fun openBookingDetail(id: String) = push(AppRoute.BookingDetail(id), tab = AppTab.BOOKING)
@@ -187,23 +328,34 @@ class AppChromeStore {
     fun openAccountAnalytics() = push(AppRoute.AccountAnalytics, tab = AppTab.ACCOUNT)
 
     private fun push(route: AppRoute, tab: AppTab? = null) {
-        _state.update { current ->
-            val previous = current.route
-            current.copy(
-                currentTab = tab ?: current.currentTab,
-                route = route,
-                backStack = if (previous == route) current.backStack else current.backStack + previous,
-                isImmersive = false,
-                isSidebarOpen = false,
-            )
+        _state.update { old ->
+            val destinationTab = tab ?: old.currentTab
+            if (destinationTab == old.currentTab) {
+                old.copy(route = route,
+                    backStack = if (old.route == route) old.backStack else old.backStack + old.route,
+                    isImmersive = false, isSidebarOpen = false)
+            } else {
+                // Open a destination within its owning tab, never append a
+                // Home/Account page to a Booking/Care back stack.
+                val saved = old.tabNavigation[destinationTab] ?: TabNavigationState()
+                old.copy(currentTab = destinationTab, route = route,
+                    backStack = if (saved.route == route) saved.backStack else saved.backStack + saved.route,
+                    tabNavigation = old.tabNavigation +
+                        (old.currentTab to TabNavigationState(old.route, old.backStack)),
+                    isImmersive = false, isSidebarOpen = false)
+            }
         }
     }
 
     fun back(): Boolean {
-        val current = _state.value
-        val previous = current.backStack.lastOrNull() ?: return false
-        _state.value = current.copy(route = previous, backStack = current.backStack.dropLast(1), isImmersive = false, isSidebarOpen = false)
-        return true
+        var didPop = false
+        _state.update { old ->
+            val previous = old.backStack.lastOrNull() ?: return@update old
+            didPop = true
+            old.copy(route = previous, backStack = old.backStack.dropLast(1),
+                isImmersive = false, isSidebarOpen = false)
+        }
+        return didPop
     }
 
     fun setImmersive(value: Boolean) { _state.update { it.copy(isImmersive = value) } }

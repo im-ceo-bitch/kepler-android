@@ -67,6 +67,8 @@ data class NuiteeHotelListEnvelope(
     val ok: Boolean = false, val sandbox: Boolean = false,
     val checkin: String = "", val checkout: String = "", val adults: Int = 2,
     val rates: List<NuiteeRoomRate> = emptyList(), val cached: Boolean = false,
+    /** Only explicit confirmation permits a sold-out state. Null is unknown. */
+    val availabilityConfirmed: Boolean? = null,
 )
 
 @Serializable data class NuiteeMealChoices(val breakfast: Boolean = false, val lunch: Boolean = false, val dinner: Boolean = false)

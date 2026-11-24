@@ -191,7 +191,7 @@ fun HomeScreen(
     LazyColumn(
         state = homeListState,
         modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background),
-        contentPadding = PaddingValues(start = 18.dp, end = 18.dp, top = 0.dp, bottom = 118.dp),
+        contentPadding = PaddingValues(start = 18.dp, end = 18.dp, top = 0.dp, bottom = 46.dp),
         verticalArrangement = Arrangement.spacedBy(30.dp),
     ) {
         item {
@@ -249,7 +249,6 @@ fun HomeScreen(
         item { HomeRecommendedHotelsSection(language, activity, owner, chrome) }
         item { HomeRewardsOffersSection(language, accountStore, chrome, showsRewards = false) }
         item { ConfidenceStrip(language) }
-        item { PhilosophyCard(language) }
         item { ProductsSection(language, chrome) }
         item { ConnectedTripCard(language) }
         item { PersonalUmrahFAQ(language) }

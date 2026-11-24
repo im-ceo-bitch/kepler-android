@@ -14,7 +14,9 @@ checks = [
     ('domain/umrahflow/UmrahFlowAudioUrlPolicy.kt', ['AppConfig.API_BASE_URL', '/api/services/advisor/audio/']),
     ('domain/umrahflow/UmrahFlowCheckpointStore.kt', ['fun restore()', 'fun save(', 'fun clear()']),
     ('data/advisor/UmrahFlowService.kt', ['offlineCatalog', 'UmrahFlowAudioUrlPolicy::isAllowed', 'snapshot.translations.ifEmpty', 'cached("en").translations']),
-    ('ui/umrahflow/UmrahFlowScreen.kt', ['FlowSwipeControl(', 'FlowOrbit(', 'service.load(', 'UmrahFlowCheckpointStore', 'playAudio(', 'showResume']),
+    ('ui/umrahflow/UmrahFlowScreen.kt', ['UmrahAdvisorScreen(appLanguage = language, chrome = chrome)']),
+    ('ui/advisor/UmrahAdvisorScreen.kt', ['TawafCompletionCard(', 'detectHorizontalDragGestures', 'service.load(', 'AdvisorCheckpointStore', 'showResume', 'tawafCounter.confirm()', 'tawafCounter.undo()']),
+    ('domain/umrahflow/AdvisorCheckpoint.kt', ['fun confirm()', 'fun undo()', 'fun isFresh(', 'val progressFraction']),
 ]
 for rel, patterns in checks:
     p = java / rel
@@ -22,6 +24,9 @@ for rel, patterns in checks:
     for pattern in patterns:
         assert pattern in source, f'Missing {pattern} in {rel}'
     print('PASS',rel)
+advisor = (java / 'ui/advisor/UmrahAdvisorScreen.kt').read_text()
+assert 'tawafRound++' not in advisor and 'tawafRound--' not in advisor
+assert 'else { tawafReadingStep = 0; tawafZikrCount = 0; tawafMode = RitualMode.LISTEN }' in advisor
 asset = root / 'app/src/main/assets/umrah_flow_catalog.json'
 catalog = json.loads(asset.read_text(encoding='utf-8'))
 assert set(('audio','translations')) <= set(catalog)

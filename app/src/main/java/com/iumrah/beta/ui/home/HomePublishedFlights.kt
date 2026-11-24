@@ -1,3 +1,4 @@
+@file:OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 package com.iumrah.beta.ui.home
 
 import androidx.compose.foundation.background
@@ -5,6 +6,18 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.style.TextAlign
+import coil3.compose.AsyncImage
+import com.iumrah.beta.ui.flights.IumrahPremiumFlightDetail
+import com.iumrah.beta.ui.flights.PremiumFlightLeg
+import com.iumrah.beta.ui.components.IumrahPrimaryButton
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -153,41 +166,23 @@ internal fun HomePublishedFlightCarousel(language: AppLanguage, trip: TripDraft,
                 }
             }
         }
-        if (list.isNotEmpty()) LazyRow(horizontalArrangement=Arrangement.spacedBy(12.dp),contentPadding=PaddingValues(end=3.dp)) {
-            items(list,key={it.id}) { flight ->
-                val selected=(if(direction==0)outbound else inbound)?.id==flight.id
-                val ink=MaterialTheme.colorScheme.onSurface
-                val green=Color(0xFF34C759)
-                val shape=RoundedCornerShape(24.dp)
-                Column(Modifier.width(290.dp).clip(shape).background(MaterialTheme.colorScheme.surface)
-                    .border(1.dp,if(selected)green else ink.copy(alpha=.08f),shape).clickable { opened=flight }.padding(16.dp),
-                    verticalArrangement=Arrangement.spacedBy(12.dp)) {
-                    Row(verticalAlignment=Alignment.CenterVertically) {
-                        Text(flight.leg.airline,modifier=Modifier.weight(1f),fontWeight=FontWeight.Bold,fontSize=15.sp,maxLines=1,overflow=TextOverflow.Ellipsis)
-                        if(selected) CupertinoIcon(CupertinoSymbol.CheckCircleFill,null,Modifier.size(22.dp),green)
-                    }
-                    Text("${flight.leg.origin}  →  ${flight.leg.destination}",fontSize=20.sp,fontWeight=FontWeight.Bold)
-                    Text("${flight.leg.flightNumber} · ${FlightDataParity.localDate(flight.leg.departureAt,flight.leg.origin, Locale.forLanguageTag(language.localeTag))} · ${FlightDataParity.localTime(flight.leg.departureAt,flight.leg.origin)}",
-                        fontSize=12.sp,color=ink.copy(alpha=.65f))
-                    Row(verticalAlignment=Alignment.CenterVertically) {
-                        Text("$${String.format(Locale.US,"%.2f",flight.priceUsd)}",fontWeight=FontWeight.Bold,fontSize=17.sp)
-                        Text(ft(language," / чел."," / person"," / kishi"," / киши"),fontSize=12.sp,color=ink.copy(alpha=.6f))
-                        Spacer(Modifier.weight(1f))
-                        TextButton(onClick={
-                            val day=PublishedHomeRules.day(flight.leg.departureAt,flight.leg.origin)
-                            if(day!=null) {
-                                if(direction==0) {
-                                    outbound=flight
-                                    if(inbound!=null && !PublishedHomeRules.compatible(flight,inbound!!,trip.scope)) inbound=null
-                                    journey.updateTrip(trip.copy(departureDate=day,returnDate=if(trip.returnDate.isAfter(day))trip.returnDate else day.plusDays(7)))
-                                } else {
-                                    if(outbound==null || PublishedHomeRules.compatible(outbound!!,flight,trip.scope)) {
-                                        inbound=flight;journey.updateTrip(trip.copy(returnDate=day))
-                                    }
-                                }
+        if (list.isNotEmpty()) {
+            val carousel=rememberLazyListState()
+            LazyRow(state=carousel,flingBehavior=rememberSnapFlingBehavior(lazyListState=carousel),horizontalArrangement=Arrangement.spacedBy(12.dp)) {
+                items(list,key={it.id}) { flight ->
+                    val selected=(if(direction==0)outbound else inbound)?.id==flight.id
+                    PublishedResultCard(language,flight,selected,onOpen={opened=flight},onSelect={
+                        val day=PublishedHomeRules.day(flight.leg.departureAt,flight.leg.origin)
+                        if(day!=null) {
+                            if(direction==0) {
+                                outbound=flight
+                                if(inbound!=null && !PublishedHomeRules.compatible(flight,inbound!!,trip.scope)) inbound=null
+                                journey.updateTrip(trip.copy(departureDate=day,returnDate=if(trip.returnDate.isAfter(day))trip.returnDate else day.plusDays(7)))
+                            } else if(day.isAfter(trip.departureDate) && (outbound==null || PublishedHomeRules.compatible(outbound!!,flight,trip.scope))) {
+                                inbound=flight;journey.updateTrip(trip.copy(returnDate=day))
                             }
-                        }) { Text(if(selected)ft(language,"Выбрано","Selected","Tanlangan","Танланган") else ft(language,"Выбрать","Select","Tanlash","Танлаш"),color=green,fontWeight=FontWeight.Bold) }
-                    }
+                        }
+                    })
                 }
             }
         } else {
@@ -224,12 +219,78 @@ internal fun HomePublishedFlightCarousel(language: AppLanguage, trip: TripDraft,
         }
     }
     opened?.let { flight ->
-        AlertDialog(onDismissRequest={opened=null},title={Text("${flight.leg.origin} → ${flight.leg.destination}")},
-            text={Column(verticalArrangement=Arrangement.spacedBy(8.dp)) {
-                Text("${flight.leg.airline} · ${flight.leg.flightNumber}")
-                Text(FlightDataParity.localDate(flight.leg.departureAt,flight.leg.origin,Locale.forLanguageTag(language.localeTag)))
-                Text(ft(language,"Прямой рейс","Nonstop flight","To‘g‘ridan-to‘g‘ri reys","Тўғридан-тўғри рейс"))
-                Text("$${String.format(Locale.US,"%.2f",flight.priceUsd)}")
-            }}, confirmButton={TextButton(onClick={opened=null}){Text(ft(language,"Закрыть","Close","Yopish","Ёпиш"))}})
+        val leg=flight.leg
+        Dialog(onDismissRequest={opened=null},properties=DialogProperties(usePlatformDefaultWidth=false)) {
+            Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).statusBarsPadding().navigationBarsPadding()) {
+                Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) { IconButton(onClick={opened=null}) { CupertinoIcon(CupertinoSymbol.ChevronLeft,ft(language,"Назад","Back","Orqaga","Орқага"),Modifier.size(20.dp)) };Text("${leg.origin} → ${leg.destination}",fontWeight=FontWeight.SemiBold) }
+                Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal=18.dp),verticalArrangement=Arrangement.spacedBy(18.dp)) {
+                    IumrahPremiumFlightDetail(PremiumFlightLeg(leg.origin,leg.destination,leg.departureAt,leg.arrivalAt,leg.airlineCode,leg.flightNumber,leg.airline,leg.stops,leg.durationMinutes,leg.cabinClass),language,pageHeroInset=18.dp)
+                    Text("$${String.format(Locale.US,"%.2f",flight.priceUsd)}",fontSize=28.sp,fontWeight=FontWeight.Bold)
+                    Text(if(flight.isPair)ft(language,"Туда и обратно · на человека","Round trip · per person","Borish va qaytish · bir kishi uchun","Бориш ва қайтиш · бир киши учун") else ft(language,"Стоимость на человека","Fare per person","Bir kishi uchun narx","Бир киши учун нарх"),color=MaterialTheme.colorScheme.onSurfaceVariant)
+                    if(flight.isPair) Text(ft(language,"Этот рейс опубликован в паре. Выберите второй рейс из того же маршрута.","This flight belongs to a published pair. Select its matching leg.","Bu reys juft yo‘nalishda. Ikkinchi reysni shu yo‘nalishdan tanlang.","Бу рейс жуфт йўналишда. Иккинчи рейсни шу йўналишдан танланг."),fontSize=13.sp)
+                    IumrahPrimaryButton(ft(language,"Добавить в мой пакет","Add to my package","Paketimga qo‘shish","Пакетимга қўшиш")) {
+                        val day=PublishedHomeRules.day(leg.departureAt,leg.origin)
+                        if(day!=null) {
+                            if(direction==0) {
+                                outbound=flight
+                                if(inbound!=null && !PublishedHomeRules.compatible(flight,inbound!!,trip.scope)) inbound=null
+                                journey.updateTrip(trip.copy(departureDate=day,returnDate=if(trip.returnDate.isAfter(day))trip.returnDate else day.plusDays(7)))
+                                opened=null
+                            } else if(day.isAfter(trip.departureDate) && (outbound==null || PublishedHomeRules.compatible(outbound!!,flight,trip.scope))) {
+                                inbound=flight;journey.updateTrip(trip.copy(returnDate=day));opened=null
+                            }
+                        }
+                    }
+                    Spacer(Modifier.height(30.dp))
+                }
+            }
+        }
+    }
+}
+
+/** Native Compose mirror of active IumrahFlightResultCard.swift for published fares. */
+@Composable private fun PublishedResultCard(l:AppLanguage,flight:PublishedHomeLeg,selected:Boolean,onOpen:()->Unit,onSelect:()->Unit) {
+    val leg=flight.leg
+    val ink=MaterialTheme.colorScheme.onSurface
+    val secondary=MaterialTheme.colorScheme.onSurfaceVariant
+    val green=Color(0xFF34C759)
+    val shape=RoundedCornerShape(22.dp)
+    Box(Modifier.width(290.dp).clip(shape).background(MaterialTheme.colorScheme.surface).border(if(selected)1.5.dp else .75.dp,if(selected)green else ink.copy(alpha=.07f),shape)) {
+        Column(Modifier.fillMaxWidth().clickable(onClick=onOpen).padding(16.dp),verticalArrangement=Arrangement.spacedBy(13.dp)) {
+            Row(Modifier.padding(end=44.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(10.dp)) {
+                Box(Modifier.size(34.dp).clip(RoundedCornerShape(8.dp)).background(Color.White),contentAlignment=Alignment.Center) {
+                    val code=leg.airlineCode.uppercase()
+                    if(code.matches(Regex("[A-Z0-9]{2}"))) AsyncImage(model="https://www.gstatic.com/flights/airline_logos/70px/$code.png",contentDescription=null,modifier=Modifier.size(30.dp),contentScale=ContentScale.Fit)
+                    else CupertinoIcon(CupertinoSymbol.Airplane,null,Modifier.size(18.dp),Color.Black)
+                }
+                Column(Modifier.weight(1f),verticalArrangement=Arrangement.spacedBy(3.dp)) {
+                    Text(leg.airline,fontSize=16.sp,fontWeight=FontWeight.Bold,maxLines=2,overflow=TextOverflow.Ellipsis)
+                    Row(horizontalArrangement=Arrangement.spacedBy(6.dp)) { Text(leg.flightNumber,fontSize=12.sp,fontWeight=FontWeight.Bold,maxLines=1);Text("iumrah Direct",fontSize=10.sp,color=secondary,maxLines=1) }
+                }
+            }
+            Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.Top,horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+                PublishedEndpoint(l,leg.origin,leg.departureAt,Modifier.weight(1f),Alignment.Start)
+                Column(Modifier.weight(.95f).padding(top=2.dp),horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.spacedBy(5.dp)) {
+                    if(leg.durationMinutes>0) Text("${leg.durationMinutes/60} "+ft(l,"ч","h","soat","соат")+" ${leg.durationMinutes%60} "+ft(l,"мин","m","daq","дақ"),fontSize=11.sp,color=secondary,textAlign=TextAlign.Center)
+                    CupertinoIcon(CupertinoSymbol.Airplane,null,Modifier.size(22.dp),ink)
+                    Text(ft(l,"Прямой","Direct","To‘g‘ri","Тўғри"),fontSize=11.sp,color=secondary,maxLines=1)
+                }
+                PublishedEndpoint(l,leg.destination,leg.arrivalAt,Modifier.weight(1f),Alignment.End)
+            }
+            HorizontalDivider(color=ink.copy(alpha=.08f))
+            Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+                Text(if(flight.isPair)ft(l,"Туда и обратно · 1 чел.","Round trip · per person","Borish va qaytish · 1 kishi","Бориш ва қайтиш · 1 киши") else ft(l,"За 1 человека","Per person","1 kishi uchun","1 киши учун"),Modifier.weight(1f),fontSize=12.sp,color=secondary)
+                Text("$"+java.text.NumberFormat.getNumberInstance(l.locale).apply{maximumFractionDigits=0}.format(flight.priceUsd),fontWeight=FontWeight.Bold,fontSize=25.sp,maxLines=1)
+            }
+        }
+        IconButton(onClick=onSelect,modifier=Modifier.align(Alignment.TopEnd).padding(9.dp).size(44.dp)) { CupertinoIcon(if(selected)CupertinoSymbol.CheckCircleFill else CupertinoSymbol.CircleOutline,ft(l,"Выбрать рейс","Select flight","Reysni tanlash","Рейсни танлаш"),Modifier.size(24.dp),if(selected)green else secondary) }
+    }
+}
+@Composable private fun PublishedEndpoint(l:AppLanguage,code:String,raw:String,modifier:Modifier,alignment:Alignment.Horizontal) {
+    val time=FlightDataParity.localTime(raw,code)
+    Column(modifier,horizontalAlignment=alignment,verticalArrangement=Arrangement.spacedBy(3.dp)) {
+        Text(time,fontSize=28.sp,fontWeight=FontWeight.Bold,maxLines=1)
+        Text(code.uppercase(),fontSize=19.sp,fontWeight=FontWeight.Bold,maxLines=1)
+        Text(FlightDataParity.localDate(raw,code,l.locale),fontSize=12.sp,color=MaterialTheme.colorScheme.onSurfaceVariant,maxLines=1)
     }
 }

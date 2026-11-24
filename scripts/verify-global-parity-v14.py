@@ -44,10 +44,9 @@ for f in C.rglob('*.kt'):
         if any('AppLanguage.'+key not in body for key in ('ENGLISH','RUSSIAN','UZBEK','UZBEK_CYRILLIC','ARABIC','TURKISH','INDONESIAN','MALAY')):
             issues.append(f'{f.name}:{text.count(chr(10),0,m.start())+1}')
 check(not issues, f'{checked} explicit language switches account for all 8 variants: {issues}')
-check('FontFamily(' in (C/'core/design/IumrahTheme.kt').read_text() and
-      'R.font.lato_regular' in (C/'core/design/IumrahTheme.kt').read_text() and
-      'R.font.lato_bold' in (C/'core/design/IumrahTheme.kt').read_text(),
-      'global Lato Regular/Bold resources remain configured')
+check('val IumrahFontFamily = FontFamily.Default' in (C/'core/design/IumrahTheme.kt').read_text() and
+      'includeFontPadding = false' in (C/'core/design/IumrahTheme.kt').read_text(),
+      'native system font fallback is configured for current iOS source')
 check('CupertinoGlyphCodepoints.bySymbol' in (C/'ui/cupertino/CupertinoIcons.kt').read_text(),
       'official Cupertino glyph lookup remains active')
 print('Global v14 source contracts PASS. Requires Android CI build + device visual/function QA for 1:1 claim.')

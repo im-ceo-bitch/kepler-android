@@ -9,6 +9,9 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
+import com.iumrah.beta.ui.cupertino.CupertinoIcon
+import com.iumrah.beta.ui.cupertino.CupertinoSymbol
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -50,21 +53,22 @@ import java.util.UUID
         catch (_: Exception) { error = t("Не удалось загрузить предложение", "Could not load offer", "Taklif yuklanmadi", "Таклиф юкланмади") }
         finally { busy = false }
     }
-    Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).statusBarsPadding().navigationBarsPadding().verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+    Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).statusBarsPadding().navigationBarsPadding().verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
         TextButton(onClick = { if (!busy) chrome.back() }) { Text(t("Закрыть", "Close", "Yopish", "Ёпиш")) }
         Column(Modifier.fillMaxWidth().background(Color.Black,RoundedCornerShape(24.dp)).padding(24.dp), verticalArrangement=Arrangement.spacedBy(8.dp)) {
-            Text("iumrah", color=Color.White, fontSize=30.sp,fontWeight=FontWeight.Bold)
-            Text(t("Ваше предложение", "Your offer", "Sizning taklifingiz", "Сизнинг таклифингиз"), color=Color.White,fontSize=23.sp,fontWeight=FontWeight.Bold)
+            Text("iumrah", color=Color.White, fontSize=34.sp,fontWeight=FontWeight.Bold)
+            Text(t("Ваше предложение", "Your offer", "Sizning taklifingiz", "Сизнинг таклифингиз"), color=Color.White,fontSize=22.sp,fontWeight=FontWeight.Bold)
             offer?.let { Text("Package ID · ${it.packageID}",color=Color.White.copy(alpha=.7f),fontSize=13.sp) }
         }
-        if (busy) CircularProgressIndicator()
+        if (busy) Box(Modifier.fillMaxWidth(),contentAlignment=Alignment.Center) { CircularProgressIndicator() }
         offer?.let { value ->
             val details = value.`package`
-            Text(java.text.NumberFormat.getCurrencyInstance(language.locale).apply { currency = java.util.Currency.getInstance("USD") }.format(details.totalUsd), fontSize=32.sp,fontWeight=FontWeight.Bold)
-            Text("${details.input.travelers.totalPeople} · " + t("паломников", "pilgrims", "ziyoratchi", "зиёратчи"))
-            Text("${details.input.startDate} — ${details.input.endDate}")
-            Text(details.flight); Text(details.hotelNames.makkah)
-            if (details.hotelNames.madinah.isNotBlank()) Text(details.hotelNames.madinah)
+            Text(java.text.NumberFormat.getCurrencyInstance(language.locale).apply { currency = java.util.Currency.getInstance("USD") }.format(details.totalUsd), fontSize=34.sp,fontWeight=FontWeight.Bold)
+            Text("${details.input.travelers.totalPeople} " + t("паломников", "pilgrims", "ziyoratchi", "зиёратчи"),fontSize=15.sp,color=MaterialTheme.colorScheme.onSurfaceVariant)
+            OfferFact(CupertinoSymbol.Calendar,"${details.input.startDate} — ${details.input.endDate}")
+            OfferFact(CupertinoSymbol.Airplane,details.flight)
+            OfferFact(CupertinoSymbol.Building,details.hotelNames.makkah)
+            if (details.hotelNames.madinah.isNotBlank()) OfferFact(CupertinoSymbol.Building,details.hotelNames.madinah)
             Text(t("Наличие и цена требуют подтверждения. Оплата пока не требуется.", "Availability and price require confirmation. No payment yet.", "Mavjudlik va narx tasdiqlanishi kerak. Hozircha to‘lov yo‘q.", "Мавжудлик ва нарх тасдиқланиши керак. Ҳозирча тўлов йўқ."), color=MaterialTheme.colorScheme.onSurfaceVariant)
             val existing = state.sessions.firstOrNull { it.booking.offerPackageID == value.packageID && bookings.booking(it.id) != null }
             if (existing != null) IumrahPrimaryButton(t("Открыть бронирование", "Open booking", "Bronni ochish", "Бронни очиш"), enabled = !busy) { chrome.openBookingDetail(existing.id) }
@@ -108,3 +112,5 @@ import java.util.UUID
         error?.let { Text(it,color=MaterialTheme.colorScheme.error); if(!submitted && !form) TextButton(enabled=!busy,onClick={refresh++}) { Text(t("Повторить","Retry","Qayta urinish","Қайта уриниш")) } }
     }
 }
+
+@Composable private fun OfferFact(symbol:CupertinoSymbol,value:String) { Row(verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(8.dp)) { CupertinoIcon(symbol,null,Modifier.size(18.dp));Text(value,fontSize=17.sp) } }

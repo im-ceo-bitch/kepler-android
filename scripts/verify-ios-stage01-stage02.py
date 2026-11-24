@@ -45,15 +45,15 @@ def main():
     check('val RoyalViolet = Color(0xFF6636D9)' in theme and
           'val SignatureBlack = Color(0xFF090909)' in theme and
           'val LightPage = Color(0xFFF2F2F7)' in theme, 'current iOS signature and accent palette')
-    check('Font(R.font.lato_regular' in theme and 'Font(R.font.lato_bold' in theme,
-          'Lato Regular/Bold is application typography')
+    check('val IumrahFontFamily = FontFamily.Default' in theme and 'includeFontPadding = false' in theme,
+          'current iOS system fallback is application typography')
     check('SignatureHeaderButton(CupertinoSymbol.Menu, 44.dp, chrome::openSidebar,' in header and
           'Modifier.width(logoWidth).height(IumrahDesign.SignatureLogoHeight)' in header and
           '48.dp, chrome::openNotifications' in header,
           'centered wordmark with symmetrical menu and notification chrome')
     check('val bottomRadius = if (roundedBottom || discovery) IumrahDesign.SignatureBottomRadius else 0.dp' in header,
           'Discovery headers curved; other root tabs straight')
-    check('IumrahSignatureWorldBackground(Modifier.matchParentSize(), mapOpacity = .33f, isAnimating = !discovery)' in header,
+    check('IumrahSignatureWorldBackground(Modifier.matchParentSize(), mapOpacity = .33f, isAnimating = animateMap && !discovery)' in header,
           'animated world map preserved')
     pills = source('ui/components/IumrahHeaderPills.kt')
     check('IumrahOverlappingMasthead(header = {' in home and

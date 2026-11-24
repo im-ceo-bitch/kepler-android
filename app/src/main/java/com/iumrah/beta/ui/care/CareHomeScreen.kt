@@ -27,6 +27,14 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import com.iumrah.beta.core.design.rememberIumrahMotionAllowed
+import com.iumrah.beta.ui.components.iumrahAnimatedSearchBorder
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.delay
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
@@ -89,7 +97,11 @@ fun CareHomeScreen(
     val accountState by accountStore.state.collectAsState()
     val context = LocalContext.current
     val palette = carePalette()
-    var telegram by remember { mutableStateOf("@saudiclub966") }
+    val app = context.applicationContext as com.iumrah.beta.IumrahApplication
+    val settings by app.container.settingsStore.state.collectAsState()
+    val contactCache = remember(context) { context.applicationContext.getSharedPreferences("iumrah.care.public", android.content.Context.MODE_PRIVATE) }
+    var telegram by remember { mutableStateOf(contactCache.getString("telegram", "@saudiclub966").orEmpty().ifBlank { "@saudiclub966" }) }
+    var loadingProfile by remember { mutableStateOf(false) }
 
     val chatKey = bookingStore.defaultCareChatKey()
     val activeSession = state.sessions.firstOrNull { bookingStore.careChatKey(it.id) == chatKey && chatKey != null }
@@ -109,12 +121,20 @@ fun CareHomeScreen(
         }
         Unit
     }
-    val openChat: () -> Unit = { chatKey?.let { chrome.openBookingChat(it) }; Unit }
+    val openChat: () -> Unit = { bookingStore.defaultCareChatKey()?.let { chrome.openBookingChat(it) }; Unit }
 
     suspend fun refreshCare() {
         bookingStore.refreshAll()
-        runCatching { chatService.loadCareProfile() }.getOrNull()?.telegram
-            ?.trim()?.takeIf { it.isNotEmpty() }?.let { telegram = it }
+        if (loadingProfile) return
+        loadingProfile = true
+        try {
+            chatService.loadCareProfile()?.telegram?.trim()?.takeIf { it.isNotEmpty() }?.let {
+                telegram = it
+                contactCache.edit().putString("telegram", it).apply()
+            }
+        } catch (cancelled: CancellationException) { throw cancelled }
+        catch (_: Exception) { /* Keep the last known public contact. */ }
+        finally { loadingProfile = false }
     }
     LaunchedEffect(bookingStore, chatService, accountState.account?.iumrahID) { refreshCare() }
 
@@ -149,6 +169,8 @@ fun CareHomeScreen(
                     )) { index -> when (index) { 0 -> callCare(); 1 -> openTelegram(); 2 -> openChat() } }
                 },
             )
+            Spacer(Modifier.height(10.dp))
+            CarePageHelp(language, chatKey != null, settings.automaticPageHelp)
             Spacer(Modifier.height(18.dp))
 
             // Mirrors adaptiveLayout.isWide from SwiftUI without altering the
@@ -402,9 +424,10 @@ private fun CareHero(
                 Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp))
                     .background(palette.primary.copy(alpha = .05f)).clickable(onClick = onChat).padding(13.dp),
                     verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(11.dp)) {
-                    CupertinoIcon(CupertinoSymbol.CheckCircle, null, Modifier.size(20.dp), palette.primary)
-                    Text(tr(language, "Your personal Care chat is available", "Ваш личный чат Care доступен", "Shaxsiy Care chatingiz mavjud", "Шахсий Care чатингиз мавжуд"),
-                        fontSize = 14.5.sp, fontWeight = FontWeight.SemiBold, color = palette.primary)
+                    CupertinoIcon(CupertinoSymbol.Message, null, Modifier.size(20.dp), palette.primary)
+                    Text(tr(language, "Open Care chat", "Открыть чат Care", "Care chatini ochish", "Care чатини очиш"),
+                        modifier = Modifier.weight(1f), fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = palette.primary)
+                    CupertinoIcon(CupertinoSymbol.ChevronRight, null, Modifier.size(14.dp), palette.primary)
                 }
             } else {
                 LockedChatNote(language, palette)
@@ -834,4 +857,38 @@ private fun tr(
     AppLanguage.RUSSIAN -> ru
     AppLanguage.UZBEK -> uz
     AppLanguage.UZBEK_CYRILLIC -> cyrl
+}
+
+/** Inline IumrahPageHelpCard: Care uses the iOS root's default (non-overlay) help mode. */
+@Composable
+private fun CarePageHelp(language: AppLanguage, chatAvailable: Boolean, automatic: Boolean) {
+    val title = if (chatAvailable) tr(language, "Get help with your trip", "Обратитесь по своей поездке", "Safaringiz bo‘yicha yordam oling", "Сафарингиз бўйича ёрдам олинг")
+        else tr(language, "Ask before booking", "Задайте вопрос до бронирования", "Bron qilishdan oldin savol bering", "Брон қилишдан олдин савол беринг")
+    val body = if (chatAvailable) tr(language, "Open chat to discuss your active booking. You can also call us or write on Telegram.", "Откройте чат, чтобы обсудить активное бронирование. Также можно позвонить или написать в Telegram.", "Faol broningizni muhokama qilish uchun chatni oching. Shuningdek, qo‘ng‘iroq qilishingiz yoki Telegram orqali yozishingiz mumkin.", "Фаол бронингизни муҳокама қилиш учун чатни очинг. Шунингдек, қўнғироқ қилишингиз ёки Telegram орқали ёзишингиз мумкин.")
+        else tr(language, "Call us or write on Telegram. Personal in-app chat becomes available when you have an active booking.", "Позвоните нам или напишите в Telegram. Личный чат внутри приложения станет доступен, когда появится активное бронирование.", "Bizga qo‘ng‘iroq qiling yoki Telegram orqali yozing. Ilovadagi shaxsiy chat faol bron paydo bo‘lganda ochiladi.", "Бизга қўнғироқ қилинг ёки Telegram орқали ёзинг. Иловадаги шахсий чат фаол брон пайдо бўлганда очилади.")
+    var expanded by rememberSaveable { mutableStateOf(automatic) }
+    LaunchedEffect(automatic) { if (!automatic) expanded = false }
+    val motion = rememberIumrahMotionAllowed()
+    val context = LocalContext.current
+    val screenReader = remember(context) { (context.getSystemService(android.content.Context.ACCESSIBILITY_SERVICE) as? android.view.accessibility.AccessibilityManager)?.isTouchExplorationEnabled == true }
+    Column(Modifier.fillMaxWidth().iumrahAnimatedSearchBorder(RoundedCornerShape(28.dp), motion, guidance = true).padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Row(Modifier.fillMaxWidth().heightIn(min = 44.dp).clickable { expanded = !expanded }, verticalAlignment = Alignment.CenterVertically) {
+            Text(tr(language,"What can I do here?","Что делать здесь?","Bu yerda nima qilish kerak?","Бу ерда нима қилиш керак?"), Modifier.weight(1f), fontSize = 17.sp, fontWeight = FontWeight.Bold)
+            CupertinoIcon(if (expanded) CupertinoSymbol.ChevronUp else CupertinoSymbol.ChevronDown, null, Modifier.size(16.dp), MaterialTheme.colorScheme.onSurface)
+        }
+        if (expanded) {
+            var visible by remember(body, motion, screenReader) { mutableStateOf(if (motion && !screenReader) "" else body) }
+            LaunchedEffect(body, motion, screenReader) {
+                if (motion && !screenReader) for (count in 3..body.length + 2 step 3) { visible = body.take(count); delay(18) }
+                visible = body
+            }
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(title, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+                Box(Modifier.fillMaxWidth().clearAndSetSemantics { contentDescription = body }) {
+                    Text(body, Modifier.alpha(0f), fontSize = 17.sp, lineHeight = 23.sp)
+                    Text(visible, fontSize = 17.sp, lineHeight = 23.sp)
+                }
+            }
+        }
+    }
 }

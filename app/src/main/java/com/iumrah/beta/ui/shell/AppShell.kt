@@ -24,6 +24,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -32,24 +33,39 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.platform.LocalContext
+import androidx.core.view.WindowCompat
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.platform.LocalDensity
+import com.iumrah.beta.core.design.IumrahFontFamily
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.iumrah.beta.core.design.IumrahHaptics
@@ -159,7 +175,32 @@ fun AppShell(
     settingsStore: AppSettingsStore,
 ) {
     val hapticView = LocalView.current
+    val context = LocalContext.current
+    val isRootTab = chromeState.route == AppRoute.Root
+    // Root headers own their top inset just like IumrahRootScrollingPage.
+    // An opaque status strip masks scroll content when the masthead leaves
+    // the viewport, preventing labels from appearing behind the clock.
+    val statusInset = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+    // iOS TabView reserves its bar's safe area. Android renders our five-slot
+    // bar as an overlay, so reserve its full footprint in every ROOT tab's
+    // scroll viewport instead of asking each page to guess a bottom spacer.
+    val bottomNavigationFootprint = 82.dp + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+    val visibleHeaders by chrome.rootMastheadVisible.collectAsState()
+    val rootHeaderVisible = visibleHeaders[chromeState.currentTab] ?: true
+    val window = (context as? android.app.Activity)?.window
+    DisposableEffect(window, hapticView, isRootTab, rootHeaderVisible) {
+        val controller = window?.let { WindowCompat.getInsetsController(it, hapticView) }
+        val previous = controller?.isAppearanceLightStatusBars
+        if (isRootTab) controller?.isAppearanceLightStatusBars = !rootHeaderVisible
+        onDispose { if (previous != null) controller?.isAppearanceLightStatusBars = previous }
+    }
     val shellNotificationState by notifications.state.collectAsState()
+    val guidedJourney = chrome.journeyForRoute(chromeState.route, chromeState.currentTab, journey)
+    // SwiftUI TabView preserves each NavigationStack's scroll/form state.
+    // AnimatedContent otherwise disposes a tab on every switch. Save Android's
+    // rememberSaveable state by tab identity without composing hidden tabs
+    // (which would accidentally start five background API requests).
+    val tabSaveableStates = rememberSaveableStateHolder()
     BackHandler(enabled = chromeState.isSidebarOpen || chromeState.route != AppRoute.Root) {
         if (chromeState.isSidebarOpen) chrome.closeSidebar() else chrome.back()
     }
@@ -168,17 +209,25 @@ fun AppShell(
     Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         AnimatedContent(
             targetState = chromeState.route to chromeState.currentTab,
-            modifier = Modifier.fillMaxSize(),
+            // iOS IumrahRootScrollingPage draws the scrolling masthead under
+            // the cutout, and puts safeAreaInsets.top INSIDE that masthead.
+            // Do not pre-consume the status inset here: doing so removes the
+            // child header's compensation and clips its scrolling background.
+            modifier = Modifier.fillMaxSize()
+                .then(if (isRootTab && !chromeState.isImmersive) Modifier.padding(bottom = bottomNavigationFootprint) else Modifier)
+                .clipToBounds(),
             transitionSpec = { rootTransform() },
             label = "iumrah-root-navigation",
         ) { (route, tab) ->
             when (route) {
-                AppRoute.Root -> when (tab) {
+                AppRoute.Root -> tabSaveableStates.SaveableStateProvider(tab) {
+                    when (tab) {
                     AppTab.HOME -> HomeScreen(language, chrome, hotelCatalog, journey, airports, curatedFlights, bookingStore, notifications, accountStore.bearerToken, accountStore, packageEngine, settingsStore::setLanguage)
                     AppTab.HOTELS -> HotelsScreen(language, hotelCatalog, journey, airports, flightDiscovery, chrome, initialBoard = if (chromeState.discoveryFlights) HotelsBoard.FLIGHTS else HotelsBoard.HOTELS, unreadCount = shellNotificationState.unreadCount)
                     AppTab.BOOKING -> BookingsHomeScreen(language, bookingStore, accountService, accountStore, chatService, notifications, chrome)
                     AppTab.CARE -> CareHomeScreen(language, bookingStore, accountStore, chatService, notifications, chrome)
                     AppTab.ACCOUNT -> AccountRootScreen(language, accountStore, bookingStore, settingsStore, notifications, chrome)
+                    }
                 }
 
                 is AppRoute.IumrahServices -> IumrahServicesScreen(language, route.initialService, chrome)
@@ -264,11 +313,11 @@ fun AppShell(
                 )
 
                 AppRoute.GuidedFlights -> IumrahGuidedFlightsScreen(
-                    language = language, journey = journey, curated = curatedFlights,
+                    language = language, journey = guidedJourney, curated = curatedFlights,
                     discovery = flightDiscovery, airports = airports, chrome = chrome,
                 )
-                AppRoute.NuiteeJourneyHotels -> NuiteeJourneyHotelsScreen(language, journey, chrome)
-                AppRoute.NuiteeJourneyReview -> NuiteeJourneyReviewScreen(language, journey, accountStore, chrome, curatedFlights, packageEngine, unreadCount = shellNotificationState.unreadCount)
+                AppRoute.NuiteeJourneyHotels -> NuiteeJourneyHotelsScreen(language, guidedJourney, chrome)
+                AppRoute.NuiteeJourneyReview -> NuiteeJourneyReviewScreen(language, guidedJourney, accountStore, chrome, curatedFlights, packageEngine, unreadCount = shellNotificationState.unreadCount)
                 AppRoute.Flights -> FlightSearchScreen(
                     language = language,
                     journey = journey,
@@ -282,13 +331,14 @@ fun AppShell(
 
                 AppRoute.ManualPackage -> com.iumrah.beta.ui.packageflow.ManualPackageScreen(language,journey,chrome,curatedFlights,flightDiscovery,packageEngine)
                 AppRoute.FinalPackage -> {
-                    val reviewState by journey.state.collectAsState()
-                    if (reviewState.nuitee != null) NuiteeJourneyReviewScreen(language, journey, accountStore, chrome, curatedFlights, packageEngine, unreadCount = shellNotificationState.unreadCount)
-                    else FinalPackageScreen(language, journey, hotelCatalog, packageEngine, chrome, unreadCount = shellNotificationState.unreadCount)
+                    val reviewState by guidedJourney.state.collectAsState()
+                    if (reviewState.nuitee != null) NuiteeJourneyReviewScreen(language, guidedJourney, accountStore, chrome, curatedFlights, packageEngine, unreadCount = shellNotificationState.unreadCount)
+                    else FinalPackageScreen(language, guidedJourney, hotelCatalog, packageEngine, chrome, unreadCount = shellNotificationState.unreadCount)
                 }
                 AppRoute.SavedJourneys -> com.iumrah.beta.ui.packageflow.SavedJourneysScreen(language, journey, bookingStore, chrome)
                 is AppRoute.BusinessOffer -> BusinessOfferScreen(route.token, language, bookingStore, chrome)
-                AppRoute.BookingCheckout -> BookingCheckoutScreen(language, journey, bookingStore, accountStore, chrome, curatedFlights, packageEngine)
+                is AppRoute.PublicTrip -> com.iumrah.beta.ui.booking.PublicTripShareScreen(route.token, language, chrome::back)
+                AppRoute.BookingCheckout -> BookingCheckoutScreen(language, guidedJourney, bookingStore, accountStore, chrome, curatedFlights, packageEngine)
                 is AppRoute.BookingCelebration -> IumrahBookingCelebrationScreen(route.bookingID, language, bookingStore, chrome)
                 is AppRoute.BookingDetail -> BookingDetailScreen(
                     route.bookingID,
@@ -320,7 +370,7 @@ fun AppShell(
                 AppRoute.TransferService -> IumrahTransferServiceScreen(language, chrome)
                 AppRoute.BackendSystem -> IumrahBackendSystemScreen(language, chrome)
                 AppRoute.IumrahStory -> IumrahStoryScreen(language, chrome)
-                AppRoute.Notifications -> AccountSignalsParityScreen(language, notifications, accountStore, chrome)
+                AppRoute.Notifications -> AccountSignalsParityScreen(language, notifications, accountStore, bookingStore, chrome)
                 AppRoute.AccountTravelers -> AccountTravelCompanionsParityScreen(language, accountStore, bookingStore, accountService, chrome)
                 is AppRoute.AccountTripsHistory -> AccountTripsHistoryScreen(language, bookingStore, chrome, route.initialPast)
                 AppRoute.AccountPasswordRecovery -> AccountPasswordRecoveryScreen(language, accountStore, chrome)
@@ -329,7 +379,7 @@ fun AppShell(
                 AppRoute.AccountSecurity -> AccountSecurityScreen(language, accountStore, chrome)
                 AppRoute.AccountAppearance -> AccountAppearanceParityScreen(language, settingsStore, chrome)
                 AppRoute.AccountLanguage -> AccountLanguageScreen(language, settingsStore, chrome)
-                AppRoute.AccountSignals -> AccountSignalsParityScreen(language, notifications, accountStore, chrome)
+                AppRoute.AccountSignals -> AccountSignalsParityScreen(language, notifications, accountStore, bookingStore, chrome)
                 AppRoute.AccountProfileEditor -> AccountProfileEditorParityScreen(language, accountStore, chrome)
                 AppRoute.AccountUserData -> IumrahUserDataScreen(language, accountStore, bookingStore, settingsStore, chrome)
                 is AppRoute.AccountKyc -> AccountKycScreen(route.bookingID, language, bookingStore, chrome)
@@ -339,6 +389,17 @@ fun AppShell(
                 is AppRoute.Rewards -> com.iumrah.beta.ui.account.IumrahRewardsScreen(route.page, language, accountStore, chrome)
                 AppRoute.GiftCards -> IumrahGiftCardsScreen(language, accountStore, chrome)
             }
+        }
+
+        // Mirror the moving iOS masthead: after it scrolls away, the status
+        // area becomes the page background, not a permanent black strip.
+        if (isRootTab) {
+            Box(
+                Modifier.align(Alignment.TopCenter).fillMaxWidth().height(statusInset)
+                    .background(if (rootHeaderVisible)
+                        com.iumrah.beta.core.design.IumrahColors.SignatureBlack
+                        else MaterialTheme.colorScheme.background)
+            )
         }
 
         if (!chromeState.isImmersive && chromeState.route == AppRoute.Root) {
@@ -361,7 +422,11 @@ fun AppShell(
 private fun rootTransform(): ContentTransform =
     fadeIn(IumrahMotion.rootFade).togetherWith(fadeOut(IumrahMotion.fastFade))
 
-/** Visual mirror of iOS IumrahStoreTabBar: stable five equal slots, no drag-only Android UI. */
+/**
+ * Android's five-slot tab chrome. Current iOS RootView actually uses native
+ * TabView; IumrahStoreTabBar.swift is not instantiated. This implementation
+ * preserves selection/semantics but still needs real-device visual comparison.
+ */
 @Composable
 private fun IumrahBottomBar(
     language: AppLanguage,
@@ -375,9 +440,10 @@ private fun IumrahBottomBar(
         Triple(AppTab.BOOKING, CupertinoSymbol.Suitcase, L10n.text("tab_booking", language)),
         Triple(AppTab.CARE, CupertinoSymbol.HeartFill, L10n.text("tab_care", language)),
         Triple(AppTab.ACCOUNT, CupertinoSymbol.PersonCircle, when (language) {
-            AppLanguage.RUSSIAN, AppLanguage.UZBEK_CYRILLIC -> "Аккаунт"
-            AppLanguage.UZBEK -> "Akkaunt"
-            AppLanguage.ENGLISH, AppLanguage.ARABIC, AppLanguage.TURKISH, AppLanguage.INDONESIAN, AppLanguage.MALAY -> "Account"
+            AppLanguage.RUSSIAN, AppLanguage.UZBEK_CYRILLIC -> "Профиль"
+            AppLanguage.UZBEK, AppLanguage.TURKISH, AppLanguage.INDONESIAN, AppLanguage.MALAY -> "Profil"
+            AppLanguage.ARABIC -> "الملف الشخصي"
+            AppLanguage.ENGLISH -> "Profile"
         }),
     )
     val black = com.iumrah.beta.core.design.IumrahColors.SignatureBlack
@@ -438,14 +504,34 @@ private fun RowScope.BottomTabItem(
                 tint = if (selected) selectedTint else unselectedTint,
             )
         }
-        Text(
-            text = label,
-            fontSize = 10.5.sp,
-            lineHeight = 12.sp,
-            fontWeight = if (selected) androidx.compose.ui.text.font.FontWeight.SemiBold else androidx.compose.ui.text.font.FontWeight.Medium,
-            color = if (selected) selectedTint else unselectedTint,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
+        // iOS uses a 10.5pt label with minimumScaleFactor(0.72).  Measure
+        // actual glyphs against the available tab width, rather than guessing
+        // from the string length (which truncated Uzbek/Cyrillic labels).
+        BoxWithConstraints(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+            val weight = if (selected) androidx.compose.ui.text.font.FontWeight.SemiBold
+                         else androidx.compose.ui.text.font.FontWeight.Medium
+            val textMeasurer = rememberTextMeasurer()
+            val density = LocalDensity.current
+            val fontTenths = remember(label, maxWidth, weight, density) {
+                val maxWidthPx = with(density) { maxWidth.roundToPx() }
+                (105 downTo 76).firstOrNull { candidate ->
+                    textMeasurer.measure(
+                        AnnotatedString(label),
+                        style = TextStyle(fontSize = (candidate / 10f).sp,
+                            fontFamily = IumrahFontFamily, fontWeight = weight),
+                        maxLines = 1, softWrap = false,
+                    ).size.width <= maxWidthPx
+                } ?: 76
+            }
+            Text(
+                text = label,
+                fontSize = (fontTenths / 10f).sp,
+                lineHeight = 12.sp,
+                fontWeight = weight,
+                color = if (selected) selectedTint else unselectedTint,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
     }
 }

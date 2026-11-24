@@ -82,3 +82,6 @@ python3 scripts/verify-seamless-booking-v2-v3.py
 
 # iOS 6 Trip Summary 13 / Brand 15 / Booking Notifications 14 client delta.
 python3 scripts/verify-ios6-parity-final.py
+
+# Preserve the public viewer without regressing the November manifest.
+python3 scripts/verify-public-trip-merge.py

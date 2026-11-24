@@ -92,7 +92,7 @@ import com.iumrah.beta.ui.components.IumrahPrimaryButton
                     items(rows, key = { it.id }) { option -> NuiteeListingCard(option, language, page.stale, option.id in favorites, {
                         favorites = if (option.id in favorites) favorites - option.id else favorites + option.id
                         favoritePrefs.edit().putStringSet("hotels", favorites).apply()
-                    }, { hotel = option }, nights = java.time.temporal.ChronoUnit.DAYS.between(room.checkin, room.checkout).toInt(), adults = room.adults, sandbox = page.sandbox) }
+                    }, { hotel = option }, nights = java.time.temporal.ChronoUnit.DAYS.between(room.checkin, room.checkout).toInt(), adults = room.adults, childrenCount = room.childrenAges.size, sandbox = page.sandbox) }
                     if (page.error == null && page.nextOffset != null && roomIndex == 0) item { OutlinedButton(enabled = !page.loading, onClick = page::loadMore) { Text(t("Показать ещё", "Load more", "Yana ko‘rsatish", "Яна кўрсатиш")) } }
                 } }
                 hotel?.let { option -> NuiteeHotelDetailSheet(language, service.editHotels, option, room.checkin, room.checkout, room.adults, room.childrenAges,

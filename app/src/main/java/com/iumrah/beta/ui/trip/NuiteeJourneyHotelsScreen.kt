@@ -188,7 +188,7 @@ fun NuiteeJourneyHotelsScreen(language: AppLanguage, journey: JourneyStore, chro
             }
             items(hotels, key = { "journey-${it.id}" }) { hotel ->
                 NuiteeListingCard(hotel, language, pricesStale, favorite = hotel.id in favorites,
-                    nights = java.time.temporal.ChronoUnit.DAYS.between(stay.checkIn, stay.checkOut).toInt(), adults = roomAdults, sandbox = sandbox,
+                    nights = java.time.temporal.ChronoUnit.DAYS.between(stay.checkIn, stay.checkOut).toInt(), adults = roomAdults, childrenCount = roomChildren.size, sandbox = sandbox,
                     onFavorite = {
                         favorites = if (hotel.id in favorites) favorites - hotel.id else favorites + hotel.id
                         favoritePrefs.edit().putStringSet("hotels", favorites).apply()

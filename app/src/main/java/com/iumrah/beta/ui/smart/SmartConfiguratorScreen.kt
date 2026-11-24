@@ -124,13 +124,13 @@ internal fun SmartConfiguratorScreen(language: AppLanguage, airports: AirportSea
     }
     val title = when (step) {
         0 -> t("Ваша Умра. Ваш выбор.", "Your Umrah. Your choice.", "Sizning Umrangiz. Sizning tanlovingiz.", "Сизнинг Умрангиз. Сизнинг танловингиз.")
-        1 -> t("Из какого города вы хотите вылететь?", "Where will you depart from?", "Qaysi shahardan uchmoqchisiz?", "Қайси шаҳардан учмоқчисиз?")
-        2 -> t("В каком месяце вы планируете совершить Умру?", "Which month would you like to travel?", "Qaysi oyda Umra safarini rejalashtiryapsiz?", "Қайси ойда Умра сафарини режалаштиряпсиз?")
-        3 -> t("На сколько дней вы планируете поездку?", "How long would you like to travel?", "Safarni necha kunga rejalashtiryapsiz?", "Сафарни неча кунга режалаштиряпсиз?")
-        4 -> t("Какие города вы хотите посетить?", "Which cities would you like to visit?", "Qaysi shaharlarga bormoqchisiz?", "Қайси шаҳарларга бормоқчисиз?")
-        5 -> t("С какого города начнём путешествие?", "Which city shall we visit first?", "Safarni qaysi shahardan boshlaymiz?", "Сафарни қайси шаҳардан бошлаймиз?")
-        6 -> t("Сколько человек отправляется на Умру?", "Who is traveling with you?", "Umraga necha kishi boradi?", "Умрага неча киши боради?")
-        7 -> t("Какой уровень комфорта вы предпочитаете?", "Choose your comfort level", "Qaysi qulaylik darajasini tanlaysiz?", "Қайси қулайлик даражасини танлайсиз?")
+        1 -> t("Город вылета", "Departure city", "Uchish shahri", "Учиш шаҳри")
+        2 -> t("Когда поедем?", "When shall we travel?", "Qachon boramiz?", "Қачон борамиз?")
+        3 -> t("Длительность поездки", "Trip duration", "Safar davomiyligi", "Сафар давомийлиги")
+        4 -> t("Маршрут поездки", "Journey route", "Safar yo‘nalishi", "Сафар йўналиши")
+        5 -> t("Первый город", "First city", "Birinchi shahar", "Биринчи шаҳар")
+        6 -> t("Кто едет на Умру?", "Who is traveling with you?", "Umraga necha kishi boradi?", "Умрага неча киши боради?")
+        7 -> t("Уровень комфорта", "Comfort level", "Qulaylik darajasi", "Қулайлик даражаси")
         else -> if (result != null) t("Ваша Умра собрана", "Your Umrah is ready", "Umrangiz tayyor", "Умрангиз тайёр") else t("Собираем вашу Умру", "Building your Umrah", "Umrangizni tayyorlayapmiz", "Умрангизни тайёрлаяпмиз")
     }
     val subtitle = when (step) {

@@ -156,6 +156,16 @@ fun HotelsScreen(
     val origin = journeyState.trip.originCode.ifBlank { "TAS" }.uppercase()
 
     var board by rememberSaveable(initialBoard) { mutableStateOf(initialBoard) }
+    // A new Home hotel search must always switch away from the Flights board,
+    // even when rememberSaveable restored the previous user-selected board.
+    val searchChrome by chrome.state.collectAsState()
+    LaunchedEffect(searchChrome.hotelSearch?.revision) {
+        if (searchChrome.hotelSearch != null) board = HotelsBoard.HOTELS
+    }
+    LaunchedEffect(searchChrome.discoveryFlightsRevision) {
+        if (searchChrome.discoveryFlightsRevision > 0 && searchChrome.discoveryFlights && searchChrome.hotelSearch == null)
+            board = HotelsBoard.FLIGHTS
+    }
     val selectBoard: (HotelsBoard) -> Unit = { next ->
         board = next
         if (chrome.state.value.route == AppRoute.Root) chrome.setDiscoveryFlights(next == HotelsBoard.FLIGHTS)
@@ -164,7 +174,10 @@ fun HotelsScreen(
     // generated-package storefront. Keep the existing Flights/Sunday boards intact.
     if (board == HotelsBoard.HOTELS) {
         val chromeState by chrome.state.collectAsState()
-        NuiteeHotelsCatalogScreen(language, chrome, onBoard = selectBoard, unreadCount = unreadCount, initialCity = chromeState.homeHotelCity ?: "makkah")
+        NuiteeHotelsCatalogScreen(language, chrome, onBoard = selectBoard,
+            unreadCount = unreadCount,
+            initialCity = chromeState.hotelSearch?.city ?: chromeState.homeHotelCity ?: "makkah",
+            searchRequest = chromeState.hotelSearch)
         return
     }
 

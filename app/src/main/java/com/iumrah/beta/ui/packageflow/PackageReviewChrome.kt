@@ -60,21 +60,13 @@ internal fun reviewTier(l: AppLanguage, tier: PackageTier) = when(tier) {
     chrome: AppChromeStore, unreadCount: Int = 0, onHelp: () -> Unit) {
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Box(Modifier.fillMaxWidth().background(Color.Black)) {
-            IumrahSignatureWorldBackground(Modifier.matchParentSize(),mapOpacity=.20f,isAnimating=false)
-            Row(Modifier.fillMaxWidth().statusBarsPadding().padding(top=IumrahDesign.SignatureHeaderTop,bottom=IumrahDesign.SignatureHeaderBottom)
-                .padding(horizontal=16.dp),verticalAlignment=Alignment.CenterVertically) {
-                Box(Modifier.width(88.dp),contentAlignment=Alignment.CenterStart) {
-                    ReviewHeaderAction(CupertinoSymbol.ChevronLeft,reviewText(l,"Назад","Back","Orqaga","Орқага"),chrome::back)
-                }
+            IumrahSignatureWorldBackground(Modifier.matchParentSize(),mapOpacity=.30f,isAnimating=false)
+            Row(Modifier.fillMaxWidth().statusBarsPadding().padding(horizontal=16.dp,vertical=12.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(12.dp)) {
+                ReviewHeaderAction(CupertinoSymbol.ChevronLeft,reviewText(l,"Назад","Back","Orqaga","Орқага"),chrome::back)
                 Box(Modifier.weight(1f),contentAlignment=Alignment.Center) {
-                    Image(painterResource(R.drawable.iumrah_header_wordmark_dark),"iumrah",Modifier.width(IumrahDesign.SignatureLogoWidth)
-                        .height(IumrahDesign.SignatureLogoHeight),contentScale=ContentScale.Fit)
+                    Image(painterResource(R.drawable.iumrah_header_wordmark_dark),"iumrah",Modifier.width(138.dp).height(44.dp),contentScale=ContentScale.Fit)
                 }
-                Row(Modifier.width(88.dp).clip(CircleShape).background(Color.White.copy(alpha=.12f)),verticalAlignment=Alignment.CenterVertically) {
-                    ReviewHeaderAction(if(unreadCount>0) CupertinoSymbol.BellBadge else CupertinoSymbol.Bell,
-                        reviewText(l,"Уведомления","Notifications","Bildirishnomalar","Билдиришномалар"),chrome::openNotifications,grouped=true)
-                    ReviewHeaderAction(CupertinoSymbol.QuestionMark,reviewText(l,"Что делать здесь?","Help","Yordam","Ёрдам"),onHelp,grouped=true)
-                }
+                ReviewHeaderAction(CupertinoSymbol.QuestionMark,reviewText(l,"Поддержка","Support","Yordam","Ёрдам"),onHelp)
             }
         }
         ReviewSummaryHero(l,state,quote,busy)
@@ -83,23 +75,25 @@ internal fun reviewTier(l: AppLanguage, tier: PackageTier) = when(tier) {
 
 @Composable private fun ReviewSummaryHero(l: AppLanguage,state: JourneyState,quote:PackageQuote?,busy:Boolean) {
     val trip=state.trip
-    val stay=TripStayPlanner.breakdown(trip)
+    val stay=quote?.stayPlan?.takeIf { state.hasFinalGeneratorQuote }?.let { com.iumrah.beta.domain.trip.TripStayBreakdown(it.totalNights,it.totalDays,it.makkahNights,it.madinahNights) } ?: TripStayPlanner.breakdown(trip)
+    val verified=quote?.takeIf { state.hasFinalGeneratorQuote && it.hasVerifiedBreakdown }?.tripSummary
     val total=if(busy) reviewText(l,"Расчёт…","Calculating…","Hisoblanmoqda…","Ҳисобланмоқда…")
-        else quote?.let {smartMoney(it.totalPackagePrice,it.currency,l)} ?: "—"
-    val perPerson=if(busy) "—" else quote?.let {smartMoney(it.pricePerPerson,it.currency,l)} ?: "—"
+        else verified?.let {smartMoney(it.totalUsd,"USD",l)} ?: "—"
+    val perPerson=if(busy) "—" else verified?.let {smartMoney(it.perPilgrimUsd,"USD",l)} ?: "—"
     val low=Color.White.copy(alpha=.72f)
     Column(Modifier.fillMaxWidth().padding(horizontal=16.dp).clip(RoundedCornerShape(24.dp))
         .background(Brush.verticalGradient(listOf(Color.Black,Color(0xFF1F1F1F),Color(0xFF0B0B0B))))) {
         Box(Modifier.fillMaxWidth().height(168.dp)) {
             Image(painterResource(R.drawable.about_iumrah_kaaba_corner),null,Modifier.fillMaxSize(),contentScale=ContentScale.Crop)
-            Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color.Transparent,Color.Black.copy(alpha=.30f),Color.Black))))
+            Box(Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(90.dp).background(Brush.verticalGradient(listOf(Color.Transparent,Color.Black.copy(alpha=.45f),Color.Black))))
         }
         Column(Modifier.fillMaxWidth().padding(16.dp),verticalArrangement=Arrangement.spacedBy(12.dp)) {
             Text(reviewText(l,"ИНДИВИДУАЛЬНАЯ УМРА","INDIVIDUAL UMRAH","INDIVIDUAL UMRA","ИНДИВИДУАЛ УМРА")
                 + " · " + reviewTier(l,trip.packageTier).uppercase(),fontSize=11.sp,fontWeight=FontWeight.SemiBold,color=low)
             Text(reviewText(l,"Ваше путешествие","Your journey","Safaringiz","Сафарингиз"),
                 fontSize=23.sp,fontWeight=FontWeight.Bold,color=Color.White)
-            Text("${trip.departureDate} – ${trip.returnDate}",fontSize=14.sp,color=Color.White.copy(alpha=.8f))
+            val dateFormat=java.time.format.DateTimeFormatter.ofPattern("d MMM",l.locale)
+            Text("${trip.departureDate.format(dateFormat)} – ${trip.returnDate.format(dateFormat)} · ${trip.returnDate.year}",fontSize=15.sp,color=Color.White.copy(alpha=.8f))
             val out=state.selectedJourney?.outbound
             if(out!=null) {
                 val inn=state.selectedJourney?.inbound
@@ -120,11 +114,11 @@ internal fun reviewTier(l: AppLanguage, tier: PackageTier) = when(tier) {
             Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.Bottom,horizontalArrangement=Arrangement.spacedBy(10.dp)) {
                 Column(Modifier.weight(1f),verticalArrangement=Arrangement.spacedBy(4.dp)) {
                     Text(reviewText(l,"За всех паломников","For all pilgrims","Barcha ziyoratchilar","Барча зиёратчилар"),fontSize=12.sp,color=low)
-                    Text(total,fontSize=25.sp,fontWeight=FontWeight.Bold,color=Color.White,maxLines=1)
+                    Text(total,fontSize=28.sp,fontWeight=FontWeight.Bold,color=Color.White)
                 }
-                Column(horizontalAlignment=Alignment.End,verticalArrangement=Arrangement.spacedBy(4.dp)) {
+                Column(Modifier.weight(1f),horizontalAlignment=Alignment.End,verticalArrangement=Arrangement.spacedBy(4.dp)) {
                     Text(reviewText(l,"На человека","Per person","Kishi uchun","Киши учун"),fontSize=12.sp,color=low)
-                    Text(perPerson,fontSize=19.sp,fontWeight=FontWeight.Bold,color=Color.White,maxLines=1)
+                    Text(perPerson,fontSize=20.sp,fontWeight=FontWeight.Bold,color=Color.White)
                 }
             }
         }
@@ -140,7 +134,7 @@ internal fun reviewTier(l: AppLanguage, tier: PackageTier) = when(tier) {
 }
 
 @Composable private fun ReviewHeaderAction(icon: CupertinoSymbol, label: String, action: () -> Unit, grouped: Boolean=false) {
-    IumrahPressable(onClick=action,modifier=Modifier.size(if(grouped) 44.dp else 48.dp),cornerRadius=99.dp,background=if(grouped) Color.Transparent else Color.White.copy(alpha=.12f)) {
+    IumrahPressable(onClick=action,modifier=Modifier.size(44.dp),cornerRadius=99.dp,background=if(grouped) Color.Transparent else Color.White.copy(alpha=.12f)) {
         Box(Modifier.fillMaxSize(),contentAlignment=Alignment.Center) { CupertinoIcon(icon,label,Modifier.size(19.dp),Color.White) }
     }
 }
@@ -338,13 +332,13 @@ internal fun reviewTier(l: AppLanguage, tier: PackageTier) = when(tier) {
                 values.forEachIndexed { index,pair ->
                     if(pair.second.signum()>0) {
                         val fraction=pair.second.divide(positive,java.math.MathContext.DECIMAL64).toFloat().coerceAtLeast(.000001f)
-                        Box(Modifier.weight(fraction).fillMaxHeight().background(Color.Black.copy(alpha=(.95f-index*.07f).coerceAtLeast(.18f))))
+                        Box(Modifier.weight(fraction).fillMaxHeight().background(MaterialTheme.colorScheme.onSurface.copy(alpha=(.95f-index*.07f).coerceAtLeast(.18f))))
                     }
                 }
             }
             values.forEachIndexed { index,pair ->
                 if(pair.second.signum()!=0) Row(verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(8.dp)) {
-                    Box(Modifier.size(9.dp).clip(CircleShape).background(Color.Black.copy(alpha=(.95f-index*.07f).coerceAtLeast(.18f))))
+                    Box(Modifier.size(9.dp).clip(CircleShape).background(MaterialTheme.colorScheme.onSurface.copy(alpha=(.95f-index*.07f).coerceAtLeast(.18f))))
                     Box(Modifier.weight(1f)) { ReviewPriceRow(l,pair.first,pair.second) }
                 }
             }

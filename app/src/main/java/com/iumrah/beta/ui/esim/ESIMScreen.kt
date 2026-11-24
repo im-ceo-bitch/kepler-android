@@ -5,6 +5,7 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.os.Build
+import android.os.PersistableBundle
 import android.telephony.euicc.EuiccManager
 import android.graphics.Bitmap
 import androidx.compose.foundation.Canvas
@@ -454,7 +455,12 @@ private fun ClientESIMProfile.validityText(language: AppLanguage): String? = whe
 private fun dataText(mb: Double): String = if (mb >= 1024)
     String.format(java.util.Locale.US, "%.1f GB", mb / 1024.0)
 else "${max(0.0, mb).roundToInt()} MB"
-private fun copy(context: Context, value: String) { (context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager)?.setPrimaryClip(ClipData.newPlainText("iumrah eSIM", value)) }
+private fun copy(context: Context, value: String) {
+    val clip = ClipData.newPlainText("iumrah eSIM", value)
+    // Android's clipboard preview must never expose activation credentials.
+    clip.description.extras = PersistableBundle().apply { putBoolean("android.content.extra.IS_SENSITIVE", true) }
+    (context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager)?.setPrimaryClip(clip)
+}
 
 private fun esimText(language: AppLanguage, key: String): String {
     val ru = mapOf(
