@@ -91,5 +91,35 @@ fun main()=runBlocking {
  check(restored.accessToken=="restored-proof" && restored.effectiveStatus=="BOOKING_CONFIRMED" && restored.operationPaymentStatus=="paid" && restored.verifiedBookingEmail=="guest@example.com")
  check(unpaid.booking("b")!=null)
  check(runCatching{unpaid.recoverGuestBooking("42","email","challenge","bad")}.isFailure)
+ // P14: explicit server acknowledgment and mutation race protection.
+ val mutateSvc=BookingService(); val mutateVault=SecureJsonStore(listOf(StoredBookingSession("b","proof",remote)))
+ val mutateStore=BookingStore(mutateSvc,guest,mutateVault,RemotePackageEngineClient())
+ mutateSvc.mutation=BookingMutationResponse(ok=false)
+ check(runCatching{mutateStore.updateContacts("b","tg","wa")}.isFailure)
+ check(mutateStore.booking("b")!!.telegram==null && mutateVault.writes==0)
+ mutateSvc.mutation=BookingMutationResponse(ok=true)
+ mutateStore.updateContacts("b"," tg "," wa "); check(mutateStore.booking("b")!!.telegram=="tg")
+ mutateSvc.mutationDelay=25
+ awaitAll(async{mutateStore.updateContacts("b","new","wa")},async{mutateStore.updateESIM("b",true)})
+ check(mutateStore.booking("b")!!.telegram=="new" && mutateStore.booking("b")!!.esimOverride==true)
+ // Old response after a new account logs in must not mutate its account-only trip.
+ val scopeAcc=IumrahAccountStore(); val scopeVault=SecureJsonStore(listOf(StoredBookingSession("b","",remote,accountOwnerID="123")))
+ val scopeStore=BookingStore(mutateSvc,scopeAcc,scopeVault,RemotePackageEngineClient())
+ val mutation=async(start=CoroutineStart.UNDISPATCHED){runCatching{scopeStore.updateContacts("b","leak","leak")}}
+ scopeAcc.state.value=IumrahAccountStore.State("456");scopeAcc.bearerToken="other";scopeStore.reconcileAccountScope()
+ check(mutation.await().isFailure && scopeStore.booking("b")==null)
+ // Keystore failure must not overwrite the only saved access proof.
+ val damagedVault=SecureJsonStore(listOf(StoredBookingSession("b","proof",remote))).also{it.readFailure=true}
+ val damaged=BookingStore(mutateSvc,guest,damagedVault,RemotePackageEngineClient())
+ check(damaged.state.value.storageUnavailable)
+ check(runCatching{damaged.adoptOfferBooking(offerReceipt,"pkg","email","guest@example.com")}.isFailure)
+ check(damagedVault.writes==0 && damagedVault.rows.single().accessToken=="proof")
+ // Wrong booking id / negative acknowledgement cannot publish private eSIM data.
+ val esimSvc=BookingService().also { it.operational=ClientTripResponse(false,trip) }
+ val esimStore=BookingStore(esimSvc,guest,SecureJsonStore(listOf(StoredBookingSession("b","proof",remote))),RemotePackageEngineClient())
+ check(runCatching{esimStore.loadESIMs("b")}.isFailure)
+ esimSvc.operational=ClientTripResponse(true,trip.copy(bookingID="other"))
+ check(runCatching{esimStore.loadESIMs("b")}.isFailure)
+ println("P14 booking mutations, account switch, secure store, eSIM regression: passed")
  println("BookingStore runtime with fake transport/vault: legacy and seamless-guest assertions passed")
 }

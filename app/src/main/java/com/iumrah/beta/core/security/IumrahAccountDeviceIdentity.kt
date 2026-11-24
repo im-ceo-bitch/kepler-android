@@ -17,8 +17,9 @@ class IumrahAccountDeviceIdentity(
     private val context: Context,
     private val store: SecureJsonStore,
 ) {
+    @Synchronized
     fun current(locale: String = Locale.getDefault().toLanguageTag()): IumrahClientDevice {
-        val credentials = store.read(CREDENTIALS_KEY, DeviceCredentials.serializer()) ?: createCredentials()
+        val credentials = store.readStrict(CREDENTIALS_KEY, DeviceCredentials.serializer()) ?: createCredentials()
         val info = context.packageManager.getPackageInfo(context.packageName, 0)
         val version = info.versionName.orEmpty()
         val buildNumber = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {

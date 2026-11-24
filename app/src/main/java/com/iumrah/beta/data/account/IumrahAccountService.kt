@@ -66,6 +66,7 @@ class IumrahAccountService(
 
     suspend fun session(token: String): IumrahAccountProfile {
         val value: IumrahAccountSessionResponse = api.get(IumrahAccountRoutes.SESSION, headers = bearer(token))
+        check(value.ok) { "Account response rejected" }
         return value.account
     }
 
@@ -77,16 +78,19 @@ class IumrahAccountService(
     }
 
     suspend fun logout(token: String) {
-        runCatching { api.post<IumrahSimpleResponse, EmptyBody>(IumrahAccountRoutes.LOGOUT, EmptyBody(), bearer(token)) }
+        try { api.post<IumrahSimpleResponse, EmptyBody>(IumrahAccountRoutes.LOGOUT, EmptyBody(), bearer(token)) }
+        catch (e: kotlinx.coroutines.CancellationException) { throw e } catch (_: Exception) { /* local logout remains available offline */ }
     }
 
     suspend fun updateProfile(request: IumrahAccountProfileUpdateRequest, token: String): IumrahAccountProfile {
         val value: IumrahAccountSessionResponse = api.put(IumrahAccountRoutes.PROFILE, request, bearer(token))
+        check(value.ok) { "Account response rejected" }
         return value.account
     }
 
     suspend fun trips(token: String): List<ClientTripSnapshot> {
         val value: IumrahAccountTripsResponse = api.get(IumrahAccountRoutes.TRIPS, headers = bearer(token))
+        check(value.ok) { "Trip list not confirmed" }
         return value.trips
     }
 
@@ -116,6 +120,7 @@ class IumrahAccountService(
 
     suspend fun saveTraveler(bookingID: String, position: Int, form: IumrahTravelerForm, token: String): IumrahTravelerForm {
         val value: IumrahTravelerSaveResponse = api.put(IumrahAccountRoutes.traveler(bookingID, position), IumrahTravelerSaveRequest(form), bearer(token))
+        check(value.ok && value.traveler.position == position) { "Traveler update not confirmed" }
         return value.traveler
     }
 
@@ -126,6 +131,7 @@ class IumrahAccountService(
 
     suspend fun uploadReceipt(bookingID: String, method: String, data: ByteArray, contentType: String, token: String): String {
         val value: IumrahReceiptResponse = api.upload(IumrahAccountRoutes.receipt(bookingID), data, contentType, bearer(token) + ("x-payment-method" to method), 60)
+        check(value.ok && value.id.isNotBlank()) { "Receipt upload not confirmed" }
         return value.id
     }
 

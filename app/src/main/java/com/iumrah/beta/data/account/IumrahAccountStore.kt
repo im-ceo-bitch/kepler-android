@@ -32,11 +32,12 @@ class IumrahAccountStore(
     private val _state: MutableStateFlow<IumrahAccountState>
     val state: StateFlow<IumrahAccountState> get() = _state.asStateFlow()
     private var token: String? = null
+    private val initialLoad = runCatching { vault.readStrict(VAULT_KEY, StoredIumrahAccountSession.serializer()) }
 
     init {
-        val saved = vault.read(VAULT_KEY, StoredIumrahAccountSession.serializer())
+        val saved = initialLoad.getOrNull()
         token = saved?.token
-        _state = MutableStateFlow(IumrahAccountState(account = saved?.account))
+        _state = MutableStateFlow(IumrahAccountState(account = saved?.account, lastError = initialLoad.exceptionOrNull()?.let { "Account storage unavailable" }))
     }
 
     val bearerToken: String? get() = token
@@ -151,14 +152,16 @@ class IumrahAccountStore(
     suspend fun updateProfile(firstName: String, lastName: String, phone: String, email: String, telegram: String, whatsapp: String): IumrahAccountProfile {
         val current = requireToken()
         val profile = service.updateProfile(IumrahAccountProfileUpdateRequest(firstName, lastName, phone, email, telegram, whatsapp), current)
+        check(token == current) { "Account changed" }
         saveSession(current, profile)
         _state.value = IumrahAccountState(account = profile)
         return profile
     }
 
     suspend fun logout() {
-        token?.let { service.logout(it) }
-        clearLocalSession()
+        val current = token
+        current?.let { service.logout(it) }
+        if (token == current) clearLocalSession()
     }
 
     /** Account access is only deleted following a confirmed server response. */
@@ -176,7 +179,7 @@ class IumrahAccountStore(
         } catch (error: Throwable) {
             val revoked = (error is APIException.Status && error.code == 401) ||
                 (error is APIException.Server && error.code == 401)
-            if (revoked) clearLocalSession()
+            if (revoked && token == current) clearLocalSession()
             throw error
         }
     }
@@ -197,7 +200,9 @@ class IumrahAccountStore(
     suspend fun claimPrimaryDevice(password: String): IumrahSecurityOverview = service.claimPrimaryDevice(password, requireToken())
 
     suspend fun terminateSecuritySession(id: String): Boolean {
-        val response = service.terminateSession(id, requireToken())
+        val current = requireToken()
+        val response = service.terminateSession(id, current)
+        check(response.ok && token == current) { "Session termination not confirmed or account changed" }
         if (response.signedOut) clearLocalSession()
         return response.signedOut
     }
@@ -232,6 +237,7 @@ class IumrahAccountStore(
     suspend fun confirmEmailVerification(challengeID: String, code: String, securityProof: String): IumrahEmailChallengeConfirmResponse {
         val current = requireToken()
         val response = service.confirmEmailVerification(challengeID, code, securityProof, current)
+        check(response.ok && token == current) { "Email verification not confirmed or account changed" }
         val profile = _state.value.account
         if (profile != null) {
             val updated = profile.copy(email = response.email)
@@ -272,19 +278,22 @@ class IumrahAccountStore(
     }
 
     private fun setSession(response: IumrahAccountAuthResponse) {
-        token = response.session.token
+        check(response.ok && response.session.token.isNotBlank()) { "Invalid account session" }
         saveSession(response.session.token, response.account)
+        token = response.session.token
         clearReferral()
         _state.value = IumrahAccountState(account = response.account)
     }
 
     private fun saveSession(token: String, profile: IumrahAccountProfile) {
+        check(initialLoad.isSuccess) { "Account storage unavailable" }
         vault.write(VAULT_KEY, StoredIumrahAccountSession(token, profile), StoredIumrahAccountSession.serializer())
     }
 
     private fun clearLocalSession() {
-        token = null
+        check(initialLoad.isSuccess) { "Account storage unavailable" }
         vault.remove(VAULT_KEY)
+        token = null
         _state.value = IumrahAccountState()
     }
 

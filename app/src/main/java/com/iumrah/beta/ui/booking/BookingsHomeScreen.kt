@@ -171,7 +171,7 @@ fun BookingsHomeScreen(
                     accountToken = bookingStore.accountBearerToken()?.takeIf { com.iumrah.beta.domain.booking.BookingSessionPolicy.sameIdentity(session.pilgrimID ?: session.accountOwnerID, accountState.iumrahID) },
                 )
             }.getOrNull()
-            val schedule = runCatching { bookingStore.service.fetchItineraryResponse(session.id,bookingStore.headersFor(session)) }.getOrNull()
+            val schedule = runCatching { bookingStore.service.fetchItineraryResponse(session.id,bookingStore.headersFor(session),language.code) }.getOrNull()
             val loadedItinerary = localizeServerItinerary(schedule?.items.orEmpty(),language)
             currentCoroutineContext().ensureActive()
             if (requestedID == currentSelectedID && requestedOwner == bookingStore.accountBearerToken()) {
@@ -242,13 +242,14 @@ fun BookingsHomeScreen(
         val displayedSession = bookingID?.let(bookingStore::booking)
         if (displayedSession == null) {
             when {
-                accountState.isRestoring || (accountState.isAuthenticated &&
+                bookingState.storageUnavailable || accountState.isRestoring || (accountState.isAuthenticated &&
                     bookingState.accountTripsRestoreState != AccountTripsRestoreState.LOADED) -> {
                     BookingRestoreNotice(
                         language = language,
                         chrome = chrome,
                         unreadCount = notificationState.unreadCount,
-                        failed = !accountState.isRestoring && bookingState.accountTripsRestoreState == AccountTripsRestoreState.FAILED,
+                        failed = bookingState.storageUnavailable || (!accountState.isRestoring && bookingState.accountTripsRestoreState == AccountTripsRestoreState.FAILED),
+                        storageUnavailable = bookingState.storageUnavailable,
                         onRetry = { refreshScope.launch { bookingStore.restoreAccountTrips() } },
                     )
                 }
@@ -2031,6 +2032,7 @@ private fun BookingRestoreNotice(
     chrome: AppChromeStore,
     unreadCount: Int,
     failed: Boolean,
+    storageUnavailable: Boolean = false,
     onRetry: () -> Unit,
 ) {
     LazyColumn(
@@ -2054,16 +2056,18 @@ private fun BookingRestoreNotice(
                         else t(language,"Проверяем ваши поездки","Checking your trips","Safarlaringizni tekshiryapmiz","Сафарларингизни текширяпмиз"),
                         fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
                 }
-                Text(if (failed)
+                Text(if (storageUnavailable)
+                    t(language,"Защищённое хранилище недоступно. Закройте и снова откройте приложение. Не удаляйте его данные.","Secure storage is unavailable. Close and reopen the app. Do not clear app data.","Himoyalangan xotira ishlamayapti. Ilovani qayta oching. Ma’lumotlarni o‘chirmang.","Ҳимояланган хотира ишламаяпти. Иловани қайта очинг. Маълумотларни ўчирманг.")
+                    else if (failed)
                     t(language,"Проверьте интернет и попробуйте снова.","Check your connection and try again.","Internetni tekshirib qayta urinib ko‘ring.","Интернетни текшириб қайта уриниб кўринг.")
                     else t(language,"Данные бронирований появятся здесь после синхронизации.","Your bookings will appear here when synchronization finishes.","Bronlar sinxronlashdan so‘ng shu yerda ko‘rinadi.","Бронлар синхронлашдан сўнг шу ерда кўринади."),
                     fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha=.62f))
-                if (failed) IumrahPressable(onClick = onRetry, modifier = Modifier.fillMaxWidth().height(50.dp),
+                if (failed && !storageUnavailable) IumrahPressable(onClick = onRetry, modifier = Modifier.fillMaxWidth().height(50.dp),
                     cornerRadius = 24.dp, background = Color.Black) {
                     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Text(t(language,"Повторить","Try again","Qayta urinish","Қайта уриниш"), color = Color.White, fontWeight = FontWeight.SemiBold)
                     }
-                } else CircularProgressIndicator(Modifier.size(20.dp), strokeWidth=2.dp)
+                } else if (!failed) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth=2.dp)
             }
         }
     }

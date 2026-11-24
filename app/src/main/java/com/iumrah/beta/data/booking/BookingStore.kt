@@ -36,6 +36,7 @@ data class BookingStoreState(
     val lastError: String? = null,
     val pushRegistrationReady: Boolean? = null,
     val pushRegistrationError: String? = null,
+    val storageUnavailable: Boolean = false,
 )
 
 class BookingStore(
@@ -45,6 +46,7 @@ class BookingStore(
     private val packageEngine: RemotePackageEngineClient,
 ) {
     private val createMutex = Mutex()
+    private val mutationMutex = Mutex()
     private val refreshMutex = Mutex()
     private val restoreMutex = Mutex()
     private var accountRestoreScope: String? = null
@@ -53,7 +55,8 @@ class BookingStore(
     private var linkedAccountToken: String? = null
     private val linkedBookings = mutableSetOf<Pair<String, String>>()
     private val serializer = ListSerializer(StoredBookingSession.serializer())
-    private val _state = MutableStateFlow(BookingStoreState(load().filter(::isVisible)))
+    private val initialLoad = runCatching { vault.readStrict(VAULT_KEY, serializer).orEmpty() }
+    private val _state = MutableStateFlow(BookingStoreState(initialLoad.getOrDefault(emptyList()).filter(::isVisible), lastError = initialLoad.exceptionOrNull()?.let { "Booking storage unavailable" }, storageUnavailable = initialLoad.isFailure))
     val state: StateFlow<BookingStoreState> = _state.asStateFlow()
 
     private fun isVisible(session: StoredBookingSession): Boolean = BookingSessionPolicy.visible(
@@ -203,7 +206,8 @@ class BookingStore(
         // Do not let an old account/session response repopulate private activation credentials.
         val currentSession = booking(bookingID) ?: return emptyList()
         if (headersFor(currentSession) != headers) return emptyList()
-        val profiles = response.esims.orEmpty()
+        check(response.ok != false && response.trip.bookingID == bookingID) { "Invalid eSIM response" }
+        val profiles = response.esims ?: return esimProfiles(bookingID)
         _state.update { current ->
             if (current.sessions.none { it.id == bookingID && isVisible(it) && headersFor(it) == headers }) current
             else current.copy(esimProfilesByBooking = if (profiles.isEmpty()) current.esimProfilesByBooking - bookingID else current.esimProfilesByBooking + (bookingID to profiles))
@@ -228,6 +232,7 @@ class BookingStore(
         notificationIntent: BookingCreationNotificationIntent? = null,
     ): StoredBookingSession {
         // Reject concurrent checkout submissions rather than queueing a second booking.
+        check(initialLoad.isSuccess) { "Booking storage unavailable" }
         check(createMutex.tryLock()) { "Booking creation is already in progress." }
         _state.update { it.copy(isMutating = true, lastError = null) }
         try {
@@ -265,7 +270,7 @@ class BookingStore(
                 accessToken = session.accessToken,
                 trace = payload.booking.generatorTrace,
             )
-            if (operational != null) {
+            if (operational != null && operational.ok != false && operational.trip.bookingID == session.id) {
                 session = session.mergeOperationalTrip(
                     trip = operational.trip,
                     history = operational.statusHistory,
@@ -274,14 +279,14 @@ class BookingStore(
             }
 
             if (serverProfile != null && serverProfile.firstName.isNotBlank() && serverProfile.lastName.isNotBlank()) {
-                runCatching {
+                attempt {
                     service.syncBookingProfile(
                         session.id,
                         session.accessToken,
                         serverProfile,
                         if (operational == null) payload.booking.generatorTrace else null,
                     )
-                }.getOrNull()?.let { synced ->
+                }?.takeIf { it.ok != false && it.trip.bookingID == session.id }?.let { synced ->
                     session = session.mergeOperationalTrip(
                         trip = synced.trip,
                         history = synced.statusHistory,
@@ -329,6 +334,7 @@ class BookingStore(
     }
 
     suspend fun recoverGuestBooking(number:String,channel:String,challengeID:String,code:String): StoredBookingSession {
+        check(initialLoad.isSuccess) { "Booking storage unavailable" }
         val verified=service.confirmGuestContact(channel,challengeID,code)
         val contact=if(channel=="email") verified.email else verified.phone
         val response=service.recoverBooking(number,channel,verified.verificationToken)
@@ -372,6 +378,9 @@ class BookingStore(
 
     suspend fun restoreAccountTrips() = restoreMutex.withLock {
         reconcileAccountScope()
+        if (initialLoad.isFailure) {
+            _state.update { it.copy(accountTripsRestoreState = AccountTripsRestoreState.FAILED) }; return@withLock
+        }
         val token = accountStore.bearerToken ?: return@withLock
         val owner = accountStore.state.value.iumrahID ?: return@withLock
         _state.update { it.copy(accountTripsRestoreState = AccountTripsRestoreState.LOADING) }
@@ -394,7 +403,7 @@ class BookingStore(
             val detail = attempt { accountStore.tripDetail(trip.bookingID, token) }
             if (detail == null) { failedDetails = true; continue }
             if (accountStore.bearerToken != token) return@withLock
-            if (detail.booking.id != trip.bookingID || detail.trip.bookingID != trip.bookingID) {
+            if (!detail.ok || detail.booking.id != trip.bookingID || detail.trip.bookingID != trip.bookingID) {
                 failedDetails = true
                 continue
             }
@@ -406,7 +415,7 @@ class BookingStore(
         }
         if (accountStore.bearerToken != token) return@withLock
         _state.update { current -> current.copy(accountTripsRestoreState =
-            if (failedDetails && current.sessions.none(::isVisible)) AccountTripsRestoreState.FAILED else AccountTripsRestoreState.LOADED
+            if (failedDetails) AccountTripsRestoreState.FAILED else AccountTripsRestoreState.LOADED
         ) }
     }
 
@@ -468,7 +477,7 @@ class BookingStore(
         val response = attempt { service.fetchOperationalTrip(id, mapOf("x-booking-token" to token)) } ?: return booking(id)
         kotlinx.coroutines.currentCoroutineContext().ensureActive()
         val current = booking(id) ?: return null
-        if (response.trip.bookingID != id || current.accessToken != initial.accessToken || current.operationStatus != initial.operationStatus || current.effectiveStatus != initial.effectiveStatus) return current
+        if (response.ok == false || response.trip.bookingID != id || current.accessToken != initial.accessToken || current.operationStatus != initial.operationStatus || current.effectiveStatus != initial.effectiveStatus) return current
         val next = current.mergeOperationalTrip(response.trip, response.statusHistory, response.assignment)
         if (next != current) upsert(next)
         return booking(id)
@@ -476,6 +485,8 @@ class BookingStore(
 
     suspend fun refresh(id: String): StoredBookingSession? {
         val current = booking(id) ?: return null
+        val initialHeaders = headersFor(current)
+        if (initialHeaders.isEmpty()) return null
         val accountToken = accountStore.bearerToken?.takeIf { BookingSessionPolicy.sameIdentity(current.pilgrimID ?: current.accountOwnerID, accountStore.state.value.iumrahID) }
         val bookingToken = current.accessToken.trim()
         var accountDetail: com.iumrah.beta.models.account.IumrahAccountTripDetailResponse? = null
@@ -506,11 +517,11 @@ class BookingStore(
             }
         }
         if (accountDetail != null && accountStore.bearerToken != accountToken) return booking(id)
-        if (accountDetail != null && (accountDetail.booking.id != id || accountDetail.trip.bookingID != id)) return booking(id)
+        if (accountDetail != null && (!accountDetail.ok || accountDetail.booking.id != id || accountDetail.trip.bookingID != id)) return booking(id)
         if (remote != null && remote.id != id) return booking(id)
-        if (operational != null && operational.trip.bookingID != id) return booking(id)
+        if (operational != null && (operational.ok == false || operational.trip.bookingID != id)) return booking(id)
         var next = booking(id) ?: return null // never resurrect a locally deleted trip
-        if (next.accessToken != current.accessToken) return next
+        if (next != current || headersFor(next) != initialHeaders) return next
         val fetched = accountDetail?.booking ?: remote
         if (fetched != null) next = mergeRemote(next, fetched)
         if (accountDetail != null) {
@@ -532,6 +543,23 @@ class BookingStore(
         return booking(id)
     }
 
+    /** Apply only a confirmed mutation to the latest authorized snapshot, never to a stale copy. */
+    private suspend fun mutateBooking(
+        bookingID: String,
+        request: suspend (Map<String, String>) -> BookingMutationResponse,
+        transform: (StoredBookingSession) -> StoredBookingSession,
+    ) = mutationMutex.withLock {
+        val session = booking(bookingID) ?: throw APIException.MissingBookingToken
+        val headers = headersFor(session)
+        check(headers.isNotEmpty()) { "Booking access required" }
+        val result = request(headers)
+        check(result.ok == true) { "Booking change not confirmed" }
+        kotlinx.coroutines.currentCoroutineContext().ensureActive()
+        val latest = booking(bookingID) ?: throw APIException.MissingBookingToken
+        check(headersFor(latest) == headers) { "Booking access changed" }
+        upsert(transform(latest))
+    }
+
     suspend fun updateHotel(
         bookingID: String,
         role: String,
@@ -539,47 +567,44 @@ class BookingStore(
         room: HotelRoom?,
         category: IumrahRoomCategoryOption?,
     ) {
-        val session = booking(bookingID) ?: throw APIException.MissingBookingToken
-        val headers = headersFor(session)
-        if (headers.isEmpty()) throw APIException.MissingBookingToken
-        service.updateHotelSelection(bookingID, headers, role, hotel, room, category)
+        require(role in setOf("makkah", "madinah"))
         val snapshot = BookingHotelSelectionSnapshot.from(hotel, room, category)
-        val next = if (role == "madinah") session.copy(madinahHotelSelection = snapshot, pendingChangeConfirmation = true)
-        else session.copy(hotelSelection = snapshot, pendingChangeConfirmation = true)
-        upsert(next)
+        mutateBooking(bookingID, { service.updateHotelSelection(bookingID, it, role, hotel, room, category) }) { latest ->
+            if (role == "madinah") latest.copy(madinahHotelSelection = snapshot, pendingChangeConfirmation = true)
+            else latest.copy(hotelSelection = snapshot, pendingChangeConfirmation = true)
+        }
     }
 
     suspend fun updateContacts(bookingID: String, telegram: String, whatsapp: String) {
-        val session = booking(bookingID) ?: throw APIException.MissingBookingToken
-        val headers = headersFor(session)
-        service.updateContacts(bookingID, headers, telegram.trim(), whatsapp.trim())
-        upsert(session.copy(telegram = telegram.trim(), whatsapp = whatsapp.trim(), pendingChangeConfirmation = true))
+        mutateBooking(bookingID, { service.updateContacts(bookingID, it, telegram.trim(), whatsapp.trim()) }) {
+            it.copy(telegram = telegram.trim(), whatsapp = whatsapp.trim(), pendingChangeConfirmation = true)
+        }
     }
 
     suspend fun updateZiyarat(bookingID: String, makkah: Boolean, madinah: Boolean) {
-        val session = booking(bookingID) ?: throw APIException.MissingBookingToken
-        service.updateZiyarat(bookingID, headersFor(session), makkah, madinah)
-        upsert(session.copy(ziyaratMakkahOverride = makkah, ziyaratMadinahOverride = madinah, pendingChangeConfirmation = true))
+        mutateBooking(bookingID, { service.updateZiyarat(bookingID, it, makkah, madinah) }) {
+            it.copy(ziyaratMakkahOverride = makkah, ziyaratMadinahOverride = madinah, pendingChangeConfirmation = true)
+        }
     }
 
     suspend fun updateESIM(bookingID: String, enabled: Boolean) {
-        val session = booking(bookingID) ?: throw APIException.MissingBookingToken
-        service.updateESIM(bookingID, headersFor(session), enabled)
-        upsert(session.copy(esimOverride = enabled, pendingChangeConfirmation = true))
+        mutateBooking(bookingID, { service.updateESIM(bookingID, it, enabled) }) {
+            it.copy(esimOverride = enabled, pendingChangeConfirmation = true)
+        }
     }
 
     fun clearPendingConfirmation(bookingID: String) {
         booking(bookingID)?.let { upsert(it.copy(pendingChangeConfirmation = false)) }
     }
 
-    suspend fun deleteBooking(bookingID: String) {
-        val session = booking(bookingID) ?: return purge(bookingID)
+    suspend fun deleteBooking(bookingID: String) = mutationMutex.withLock {
+        val session = booking(bookingID) ?: return@withLock
         check(session.canDeleteUnpaid) { "Use cancellation and refund for this booking" }
         val headers = headersFor(session)
         check(headers.isNotEmpty())
         val result = service.deleteBooking(bookingID, headers)
-        check(result.deleted == true || (result.deleted == null && result.ok == true)) { "Deletion not confirmed" }
-        purge(bookingID)
+        check(result.ok != false && (result.deleted == true || (result.deleted == null && result.ok == true))) { "Deletion not confirmed" }
+        if (booking(bookingID)?.let(::headersFor) == headers) purge(bookingID)
     }
 
     private suspend fun syncGeneratorReportWithRetry(
@@ -601,18 +626,20 @@ class BookingStore(
         if (index >= 0) values[index] = session else values.add(0, session)
         if (!isVisible(session)) return
         val sorted = values.sortedByDescending { it.booking.createdAt }
-        _state.update { it.copy(sessions = sorted) }
         persist(sorted)
+        _state.update { it.copy(sessions = sorted) }
     }
 
     private fun purge(id: String) {
         val values = _state.value.sessions.filterNot { it.id == id }
-        _state.update { it.copy(sessions = values, esimProfilesByBooking = it.esimProfilesByBooking - id) }
         persist(values)
+        _state.update { it.copy(sessions = values, esimProfilesByBooking = it.esimProfilesByBooking - id) }
     }
 
-    private fun persist(values: List<StoredBookingSession>) = vault.write(VAULT_KEY, values, serializer)
-    private fun load(): List<StoredBookingSession> = vault.read(VAULT_KEY, serializer).orEmpty()
+    private fun persist(values: List<StoredBookingSession>) {
+        check(initialLoad.isSuccess) { "Booking storage unavailable" }
+        vault.write(VAULT_KEY, values, serializer)
+    }
 
     companion object { private const val VAULT_KEY = "iumrah-booking-sessions-v2" }
 }

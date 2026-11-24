@@ -26,9 +26,9 @@ class HotelCatalogService(private val api: APIClient) {
         val merged = linkedMapOf<String, HotelSummary>()
         var lastError: Throwable? = null
         for (city in cities) {
-            runCatching { listHotels(city) }
-                .onSuccess { values -> values.forEach { merged[it.id] = it } }
-                .onFailure { lastError = it }
+            try { listHotels(city).forEach { merged[it.id] = it } }
+            catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled }
+            catch (error: Exception) { lastError = error }
         }
         if (merged.isEmpty() && lastError != null) throw lastError as Throwable
         return merged.values.sortedWith(
@@ -37,7 +37,9 @@ class HotelCatalogService(private val api: APIClient) {
     }
 
     suspend fun hotelDetail(id: String): HotelDetail =
-        api.get<HotelDetailResponse>("/api/catalog/hotels/$id").hotel
+        api.get<HotelDetailResponse>("/api/catalog/hotels/$id").let { response ->
+            check(response.ok && response.hotel.id == id) { "Hotel response mismatch" }; response.hotel
+        }
 
     suspend fun storefrontFlightBoard(origin: String): StorefrontFlightBoardResponse =
         api.get(
@@ -78,7 +80,10 @@ class HotelCatalogService(private val api: APIClient) {
         api.get<StorefrontPackageEnvelope>(
             "/api/storefront/packages/$id",
             timeoutSeconds = 15,
-        ).`package`
+        ).let { response ->
+            check(response.ok && response.`package`.id == id) { "Package response mismatch" }
+            response.`package`
+        }
 
     suspend fun storefrontPackageQuote(
         snapshot: StorefrontPackageSnapshot,
@@ -144,11 +149,19 @@ class HotelCatalogService(private val api: APIClient) {
                 ) else null,
             ),
         )
-        return api.post<StorefrontQuoteEnvelope, StorefrontQuoteRequest>(
+        val response = api.post<StorefrontQuoteEnvelope, StorefrontQuoteRequest>(
             "/api/package/quote",
             request,
-            timeoutSeconds = 15,
-        ).quote
+            timeoutSeconds = 180,
+        )
+        if (!response.ok) throw APIException.InvalidResponse
+        val quote = response.quote
+        if (quote.totalPackagePrice.signum() <= 0 || quote.pricePerPerson.signum() <= 0 ||
+            quote.quoteId?.startsWith("server-") != true || quote.quoteProof.isNullOrBlank() || quote.currency != "USD")
+            throw APIException.Server(502, "PACKAGE_QUOTE_INVALID")
+        if (quote.tripSummary?.reconciles(quote.totalPackagePrice) == false)
+            throw APIException.Server(502, "PACKAGE_PRICE_BREAKDOWN_INVALID")
+        return quote
     }
 }
 

@@ -2,6 +2,7 @@ package com.iumrah.beta.data.booking
 
 import com.iumrah.beta.core.config.AppConfig
 import com.iumrah.beta.core.network.APIClient
+import com.iumrah.beta.domain.booking.ItineraryResolution
 import com.iumrah.beta.models.account.IumrahFriendCreditApplyRequest
 import com.iumrah.beta.models.account.IumrahFriendGiftRedeemRequest
 import com.iumrah.beta.models.account.IumrahFriendsBookingSummary
@@ -74,12 +75,14 @@ class BookingService(private val api: APIClient) {
     suspend fun fetchOperationalTrip(id: String, headers: Map<String, String>): ClientTripResponse =
         api.get("/api/catalog/hotels/client/trips/$id", headers = headers)
 
-    suspend fun fetchItineraryResponse(id: String, headers: Map<String, String>): BookingItineraryResponse {
-        val response = api.get<BookingItineraryResponse>("/api/catalog/hotels/client/trips/$id/itinerary", headers = headers)
-        check(response.ok && response.bookingID == id && response.items.all { it.bookingID == id })
-        return response.copy(items = response.items.sortedWith(compareBy<BookingItineraryItem> { it.dateLocal }.thenBy { it.sortOrder }))
+    suspend fun fetchItineraryResponse(id: String, headers: Map<String, String>, language: String): BookingItineraryResponse {
+        require(headers.isNotEmpty()) { "Booking access required" }
+        return ItineraryResolution.resolve(id,
+            operational = { localized -> api.get("/api/catalog/hotels/client/trips/$id/itinerary", query = if (localized) mapOf("lang" to language) else emptyMap(), headers = headers) },
+            packageSchedule = { api.get("/api/package/booking/$id/itinerary", query = mapOf("lang" to language), headers = headers) },
+        )
     }
-    suspend fun fetchItinerary(id: String, headers: Map<String, String>): List<BookingItineraryItem> = fetchItineraryResponse(id,headers).items
+    suspend fun fetchItinerary(id: String, headers: Map<String, String>, language: String): List<BookingItineraryItem> = fetchItineraryResponse(id, headers, language).items
 
     suspend fun updateHotelSelection(
         id: String,

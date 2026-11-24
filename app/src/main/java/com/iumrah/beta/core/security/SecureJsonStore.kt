@@ -41,7 +41,7 @@ class SecureJsonStore(context: Context) {
 
     @Synchronized
     fun remove(key: String) {
-        prefs.edit().remove(key).commit()
+        check(prefs.edit().remove(key).commit()) { "Secure storage removal failed" }
     }
 
     private fun encrypt(raw: String): String {

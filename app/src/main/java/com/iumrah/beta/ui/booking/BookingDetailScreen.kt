@@ -107,7 +107,7 @@ fun BookingDetailScreen(
                 if (refreshed != null) {
                     val headers = bookingStore.headersFor(refreshed)
                     if (headers.isNotEmpty()) {
-                        val schedule = try { bookingStore.service.fetchItineraryResponse(bookingID, headers) } catch (e: kotlinx.coroutines.CancellationException) { throw e } catch (_: Exception) { null }
+                        val schedule = try { bookingStore.service.fetchItineraryResponse(bookingID, headers, language.code) } catch (e: kotlinx.coroutines.CancellationException) { throw e } catch (_: Exception) { null }
                         if (schedule != null && bookingStore.booking(bookingID)?.let(bookingStore::headersFor) == headers) {
                             managedItinerary = schedule.managed == true
                             itinerary = localizeServerItinerary(schedule.items, language)
