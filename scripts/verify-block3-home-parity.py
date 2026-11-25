@@ -25,23 +25,11 @@ def main():
     weather=(PKG/'ui/home/HomeWeatherScreen.kt').read_text()
     panel=(PKG/'ui/booking/JourneyTravelInfoPanel.kt').read_text()
 
-    ordering=[
-        'item { SmartConfiguratorHomeCard(',
-        'item { EmotionalPrompt(',
-        'item { HomeVideoCarousel(',
-        'item { IumrahServicesCarousel(',
-        'item { JourneyTravelInfoPanel(',
-        'item { AudienceSection(',
-        'item { HomeIntegrationsSection(',
-        'item { ConfidenceStrip(',
-        'item { ProductsSection(',
-        'item { ConnectedTripCard(',
-        'item { PersonalUmrahFAQ(',
-        'item { AboutFooter(',
-    ]
-    check(all(x in home for x in ordering) and [home.index(x) for x in ordering]==sorted(home.index(x) for x in ordering),'Home sections preserve current SwiftUI marketing order')
-    check('IumrahHomeSearchHero(language, journeyState.trip, journey, airports, curatedFlights, chrome, searchExpanded, onSearch = { history.saveFlight(owner, it) })' in home, 'iOS collapsed journey search uses real JourneyStore and published catalog')
-    check('IumrahServicesCarousel(language, chrome)' in home, 'Nine services carousel replaces legacy product-only cards')
+    ordering=['HomeDashboardActiveBooking(', 'HomeDashboardBalance(', 'HomeGlobalPublishedSection(', 'HomeRecentActivitySection(', 'HomeNotificationCarousel(', 'HomeDashboardSaved(', 'HomeDashboardPlanning(', 'DashboardFriendsPromotion(', 'HomeDashboardServices(', 'HomeDashboardGuides(', 'DashboardGuestRewards(', 'HomeAvailablePackagesSection(', 'HomeDestinationsSection(', 'HomeDashboardIncluded(', 'HomeDashboardBenefits(', 'HomeBrandExperience(', 'HomeBrandMission(', 'HomeDashboardCare(', 'HomeBrandSlogan(']
+    body=home[home.index('fun HomeScreen('):home.index('private fun HomeTripToolsSection')]
+    check(all(x in body for x in ordering) and [body.index(x) for x in ordering]==sorted(body.index(x) for x in ordering),'Home sections preserve iOS 7 Dashboard order')
+    check('flightsSelected = published.complete, onContinue = continueFlights' in body and 'published.clear(); history.saveFlight(owner, it)' in body, 'Home search uses real JourneyStore and shared published selection')
+    check('item { HomeDashboardServices(language, chrome) }' in body and 'item { IumrahServicesCarousel(' not in body, 'Current service grid replaces legacy carousel')
     check('item { HotelFirstPackagesSection(' not in home, 'Home omits historical Hotel-First cards like current iOS')
     check('private fun HomeTripToolsSection' in home and 'Arrangement.spacedBy(13.dp)' in home,'Pilgrim tools block present with 13dp section spacing')
     check('modifier = modifier.height(98.dp)' in home and 'cornerRadius = 22.dp' in home and 'Modifier.height(28.dp)' in home and 'Modifier.height(10.dp)' in home,'Three tool tiles have iOS 98/22/28/10 geometry')
@@ -65,7 +53,7 @@ def main():
         ios=a.ios/'Sources'
         source=(ios/'Views/Home/HomeDashboardView.swift').read_text()
         flight=(ios/'Views/Home/HomeAppleStoreSections.swift').read_text()
-        check('IumrahHomeJourneySearchHero' in source and 'HomeEmotionalJourneyPrompt()' in source, 'Current iOS Home has collapsed search before emotional journey')
+        check('IumrahHomeJourneySearchHero' in source and 'dashboardPlanningSection.modifier' in source and 'dashboardGuideShowcase' in source, 'Current iOS Home has dashboard planner and guides')
         check('.frame(height: 98)' in source and 'cornerRadius: 22' in source and 'HStack(spacing: 9)' in source,'iOS trip tiles geometry compared directly')
         check('showPrayerTimes = true' in source and 'showTravelInfo = true' in source and 'openGuideLanguages()' in source,'iOS tool navigation baseline inspected')
         check('.frame(width: 318, height: 398' in source and '.frame(height: 398' in flight,'iOS flight cards really use 318x398pt')

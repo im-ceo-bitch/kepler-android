@@ -59,7 +59,7 @@ internal data class IOSContinuousShape(val radius: Dp) : Shape {
 
 @Composable
 internal fun IOSParityScope(tab: AppTab, route: AppRoute, profile: IOSLayoutProfile, immersive: Boolean, sidebarVisible: Boolean, content: @Composable () -> Unit) {
-    val enabled = !(tab == AppTab.HOME && route == AppRoute.Root)
+    val enabled = true
     CompositionLocalProvider(LocalIOSParity provides enabled, LocalParityTab provides tab,
         LocalParityRoute provides route, LocalIOSLayout provides profile, LocalIOSSidebarVisible provides (enabled && sidebarVisible)) {
         if (!enabled) content() else {

@@ -207,7 +207,7 @@ fun AppShell(
     DisposableEffect(window, hapticView, isRootTab, rootHeaderVisible, isHomeRoot, darkPage) {
         val controller = window?.let { WindowCompat.getInsetsController(it, hapticView) }
         val previous = controller?.isAppearanceLightStatusBars
-        if (isRootTab) controller?.isAppearanceLightStatusBars = !rootHeaderVisible && (isHomeRoot || !darkPage)
+        if (isRootTab) controller?.isAppearanceLightStatusBars = !rootHeaderVisible && !darkPage
         onDispose { if (previous != null) controller?.isAppearanceLightStatusBars = previous }
     }
     val shellNotificationState by notifications.state.collectAsState()
@@ -228,9 +228,9 @@ fun AppShell(
         if (chromeState.isSidebarOpen) chrome.closeSidebar() else chrome.back()
     }
 
-    SidebarDrawerHost(open = chromeState.isSidebarOpen, language = language, chrome = chrome, preserveHome = isHomeRoot) {
+    SidebarDrawerHost(open = chromeState.isSidebarOpen, language = language, chrome = chrome, preserveHome = false) {
     BoxWithConstraints(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
-        val useSidebar = !isHomeRoot && !chromeState.isImmersive && IOSLayoutProfile.resolve(maxWidth.value).usesSidebar
+        val useSidebar = !chromeState.isImmersive && IOSLayoutProfile.resolve(maxWidth.value).usesSidebar
         Row(Modifier.fillMaxSize()) {
             if (useSidebar) {
                 Box {
@@ -374,6 +374,8 @@ fun AppShell(
                     unreadCount = shellNotificationState.unreadCount,
                 )
 
+                AppRoute.HomeAllPublishedFlights -> com.iumrah.beta.ui.home.HomeAllPublishedFlightsPage(language, journey, hotelCatalog, chrome)
+                is AppRoute.HomePublishedFlightDetail -> com.iumrah.beta.ui.home.HomePublishedFlightDetailPage(language, journey, hotelCatalog, chrome, route.flightId)
                 AppRoute.GuidedFlights -> IumrahGuidedFlightsScreen(
                     language = language, journey = guidedJourney, curated = curatedFlights,
                     discovery = flightDiscovery, airports = airports, chrome = chrome,
@@ -488,7 +490,7 @@ fun AppShell(
             IumrahBottomBar(
                 language = language,
                 selected = chromeState.currentTab,
-                preserveHome = isHomeRoot,
+                preserveHome = false,
                 onSelect = {
                     if (it != chromeState.currentTab) {
                         IumrahHaptics.selection(hapticView)

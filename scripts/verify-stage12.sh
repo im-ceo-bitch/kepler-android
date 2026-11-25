@@ -25,15 +25,12 @@ grep -q 'makkahRoomIdOverride: String? = snapshot.configuration?.makkahRoomId' "
 python3 - "$HOME" <<'PY'
 import sys
 s=open(sys.argv[1], encoding='utf-8').read()
-aud=s.index('item { AudienceSection(language) }')
-build=s.index('item { SmartConfiguratorHomeCard(language, startSmart, active = !smartOpen && storyStartIndex == null) }')
-services=s.index('item { IumrahServicesCarousel(language, chrome) }')
-assert 'item { ServicesSection(language, chrome) }' not in s, 'Legacy services must not be displayed'
-travel=s.index('item { JourneyTravelInfoPanel(language) }')
-assert build < services < travel < aud, 'Current SwiftUI order is Smart, services, travel information, audience'
-assert 'item { ReadyPackagesSection(' not in s, 'Current Home has no legacy ready packages section'
+ordering=['HomeGlobalPublishedSection(', 'HomeDashboardSaved(', 'HomeDashboardPlanning(', 'DashboardFriendsPromotion(', 'HomeDashboardServices(', 'HomeDashboardGuides(', 'DashboardGuestRewards(', 'HomeAvailablePackagesSection(', 'HomeDestinationsSection(', 'HomeDashboardIncluded(', 'HomeDashboardBenefits(', 'HomeBrandExperience(', 'HomeBrandMission(', 'HomeDashboardCare(', 'HomeBrandSlogan(']
+assert [s.index(x) for x in ordering] == sorted(s.index(x) for x in ordering), 'iOS 7 Dashboard order'
+for obsolete in ['item { ServicesSection(', 'item { ReadyPackagesSection(', 'item { EmotionalPrompt(', 'item { HomeVideoCarousel(', 'item { AudienceSection(']:
+    assert obsolete not in s, obsolete
+
 PY
-grep -q 'isStoryPresented = storyStartIndex != null' "$HOME"
 grep -q 'play = pager.currentPage == index && !isStoryPresented' "$HOME"
 grep -q 'isClickable = false' "$VIDEO"
 grep -q 'setOnTouchListener { _, _ -> false }' "$VIDEO"

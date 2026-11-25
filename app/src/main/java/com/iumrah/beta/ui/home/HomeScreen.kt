@@ -56,6 +56,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.saveable.rememberSaveable
+import com.iumrah.beta.ui.account.DashboardFriendsPromotion
+import com.iumrah.beta.ui.account.DashboardGuestRewards
+import com.iumrah.beta.ui.account.rememberRewardsDashboard
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.derivedStateOf
@@ -151,14 +155,10 @@ fun HomeScreen(
     val bookingState by bookingStore.state.collectAsState()
     // Booking proof grants guest access; account-only entries still require matching identity.
     val activeBooking = if (!accountState.isRestoring) bookingState.sessions.firstOrNull {
-        bookingStore.booking(it.id) != null && com.iumrah.beta.domain.booking.BookingSessionPolicy.careIsActive(it.effectiveStatus)
+        bookingStore.booking(it.id) != null && it.effectiveStatus.uppercase() !in setOf("COMPLETED", "CANCELLED", "CANCELED")
     } else null
-    val smartService = remember(context, curatedFlights, packageEngine) { SmartConfiguratorService(curatedFlights, NuiteeHotelService(context), packageEngine) }
-    var smartOpen by remember(owner) { mutableStateOf(false) }
-    var resumeSmart by remember(owner) { mutableStateOf<SmartDraft?>(null) }
-    val startSmart: () -> Unit = { resumeSmart = null; smartOpen = true }
-    var storyStartIndex by remember { mutableStateOf<Int?>(null) }
-    var searchExpanded by remember { mutableStateOf(false) }
+    val startSmart: () -> Unit = { chrome.openHomeSmart(SmartDraft(com.iumrah.beta.domain.smart.SmartPreferences(), 0)) }
+    var searchExpanded by rememberSaveable { mutableStateOf(false) }
     val homeSettings by (context.applicationContext as com.iumrah.beta.IumrahApplication).container.settingsStore.state.collectAsState()
     var helpOpen by remember { mutableStateOf(homeSettings.automaticPageHelp) }
     LaunchedEffect(homeSettings.automaticPageHelp) { if (!homeSettings.automaticPageHelp) helpOpen = false }
@@ -174,6 +174,32 @@ fun HomeScreen(
     val journeyState by journey.state.collectAsState()
     val notificationState by notifications.state.collectAsState()
     val storefrontOrigin = journeyState.trip.originCode.ifBlank { "TAS" }.uppercase()
+    val published = remember(journey) { homePublishedSelection(journey) }
+    val catalog = remember(hotelCatalog) { homeGlobalCatalogue(hotelCatalog) }
+    LaunchedEffect(journeyState.trip) { published.reconcile(journeyState.trip) }
+    rememberRewardsDashboard(accountStore)
+    var refreshing by remember { mutableStateOf(false) }
+    val refreshScope = rememberCoroutineScope()
+    val focusSearch: () -> Unit = { searchExpanded = true; refreshScope.launch { homeListState.animateScrollToItem(0) } }
+    var continuing by remember { mutableStateOf(false) }
+    var continueError by remember { mutableStateOf(false) }
+    val continueFlights: () -> Unit = {
+        if (!continuing) {
+            continueError = false
+            if (published.commit(journey)) {
+                continuing = true
+                refreshScope.launch {
+                    try {
+                        journey.prepareUnifiedHotelSelection(curatedFlights)
+                        if (chrome.state.value.currentTab == AppTab.HOME && chrome.state.value.route == com.iumrah.beta.core.navigation.AppRoute.Root) chrome.openHomePublishedHotels()
+                    } catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled }
+                    catch (_: Exception) { continueError = true }
+                    finally { continuing = false }
+                }
+            } else continueError = true
+        }
+    }
+
     // Current SwiftUI non-sticky root disables top rubber band and refresh indicator.
     // Booking refresh starts after the first frame, not on a synthetic pull gesture.
     LaunchedEffect(activeBooking?.id, accountToken) {
@@ -188,6 +214,16 @@ fun HomeScreen(
         }
     }
     CompositionLocalProvider(LocalOverscrollFactory provides null) {
+    PullToRefreshBox(isRefreshing = refreshing, onRefresh = {
+        if (!refreshing) { refreshing = true; refreshScope.launch {
+            try { kotlinx.coroutines.supervisorScope {
+                launch { accountStore.refreshDashboardRewards(force = true) }
+                launch { catalog.load(force = true) }
+                launch { bookingStore.refreshAll() }
+                launch { notifications.refresh(accountToken) }
+            } } finally { refreshing = false }
+        } }
+    }, modifier = Modifier.fillMaxSize()) {
     LazyColumn(
         state = homeListState,
         modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background),
@@ -220,54 +256,39 @@ fun HomeScreen(
                     },
                 )
             }, search = {
-                IumrahHomeSearchHero(language, journeyState.trip, journey, airports, curatedFlights, chrome, searchExpanded, onSearch = { history.saveFlight(owner, it) }) { searchExpanded = it }
+                IumrahHomeSearchHero(language, journeyState.trip, journey, airports, curatedFlights, chrome, searchExpanded, onSearch = { published.clear(); history.saveFlight(owner, it) }, flightsSelected = published.complete, onContinue = continueFlights) { searchExpanded = it }
             })
         }
-        item { HomePublishedFlightCarousel(language,journeyState.trip,journey,curatedFlights,chrome) }
-        item { HomeBrandExperience(language,chrome) }
-        item { HomeBrandMission(language) }
+        activeBooking?.let { session -> item { HomeDashboardActiveBooking(language, session, chrome) } }
+        if (accountState.isAuthenticated) item { HomeDashboardBalance(language, accountStore, chrome) }
+        item { HomeGlobalPublishedSection(language, journey, catalog, published, chrome, startSmart, continueFlights, continuing, continueError) }
         if (activity.smart != null || activity.flight != null || activity.hotels.isNotEmpty() || activeBooking != null) item {
             HomeRecentActivitySection(language, activity, activeBooking, chrome, owner,
-                resume = { resumeSmart = it; smartOpen = true }, repeat = { trip ->
-                    journey.startHomePublishedSearch(trip)
-                    chrome.openGuidedFlights()
+                resume = { chrome.openHomeSmart(it) }, repeat = { trip ->
+                    published.clear(); journey.startHomePublishedSearch(trip); chrome.openGuidedFlights()
                 })
         }
-        if (notificationState.home.isNotEmpty()) {
-            item { HomeNotificationCarousel(language, notificationState.home.take(5), chrome, notifications, accountToken) }
-        }
-        item { SmartConfiguratorHomeCard(language, startSmart, active = !smartOpen && storyStartIndex == null) }
-        item { EmotionalPrompt(language = language, onOpen = { storyStartIndex = 0 }) }
-        item { HomeVideoCarousel(language = language, isStoryPresented = storyStartIndex != null, onOpenStory = { storyStartIndex = it }) }
+        if (notificationState.home.isNotEmpty()) item { HomeNotificationCarousel(language, notificationState.home.take(5), chrome, notifications, accountToken) }
+        item { HomeDashboardSaved(language, chrome) }
+        item { HomeDashboardPlanning(language, chrome, focusSearch, startSmart) }
+        item { DashboardFriendsPromotion(language, chrome) }
+        item { HomeDashboardServices(language, chrome) }
+        item { HomeDashboardGuides(language, chrome) }
+        item { DashboardGuestRewards(language, accountStore, chrome) }
+        item { HomeAvailablePackagesSection(language, storefrontOrigin, chrome, startSmart, showsFallback = false) }
         item { HomeDestinationsSection(language, chrome::openHomeHotelSearch) }
-        item { IumrahServicesCarousel(language, chrome) }
-        item { HomeAvailablePackagesSection(language, storefrontOrigin, chrome, startSmart) }
-        item { JourneyTravelInfoPanel(language) }
-        item { AudienceSection(language) }
-        item { HomeRewardsOffersSection(language, accountStore, chrome, showsOffers = false) }
-        item { HomeIntegrationsSection(language, chrome) }
-        item { HomeRecommendedHotelsSection(language, activity, owner, chrome) }
-        item { HomeRewardsOffersSection(language, accountStore, chrome, showsRewards = false) }
-        item { ConfidenceStrip(language) }
-        item { ProductsSection(language, chrome) }
-        item { ConnectedTripCard(language) }
-        item { PersonalUmrahFAQ(language) }
-        item { AboutFooter(language, chrome) }
-        item { HomeWhyAndPreferencesSection(language, history, owner, revision, showsWhy = false) }
+        item { HomeDashboardIncluded(language, chrome) }
+        item { HomeDashboardBenefits(language, chrome) }
+        item { HomeBrandExperience(language, chrome) }
+        item { HomeBrandMission(language) }
+        item { HomeDashboardCare(language, chrome) }
         item { HomeBrandSlogan(language) }
     }
 
+    } // PullToRefreshBox
     } // no overscroll on current iOS Home
-    if (helpOpen && !smartOpen && storyStartIndex == null) IumrahHomeHelpCard(language) { helpOpen = false }
+    if (helpOpen) IumrahHomeHelpCard(language) { helpOpen = false }
 
-    if (smartOpen) SmartConfiguratorScreen(language, airports, smartService, resumeSmart,
-        onSave = { history.saveSmart(owner, it) }, onClose = { smartOpen = false }, onReview = { result ->
-            // The private draft only replaces the manual selection on explicit review.
-            journey.adoptSmartResult(result)
-            smartOpen = false
-            chrome.openNuiteeJourneyReview()
-        }, onLanguage = onLanguage)
-    storyStartIndex?.let { start -> EmotionalJourneyFullscreen(language = language, initialPage = start, onClose = { storyStartIndex = null }) }
 }
 
 /**

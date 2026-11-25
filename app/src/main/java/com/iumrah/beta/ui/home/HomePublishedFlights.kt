@@ -249,13 +249,13 @@ internal fun HomePublishedFlightCarousel(language: AppLanguage, trip: TripDraft,
 }
 
 /** Native Compose mirror of active IumrahFlightResultCard.swift for published fares. */
-@Composable private fun PublishedResultCard(l:AppLanguage,flight:PublishedHomeLeg,selected:Boolean,onOpen:()->Unit,onSelect:()->Unit) {
+@Composable internal fun PublishedResultCard(l:AppLanguage,flight:PublishedHomeLeg,selected:Boolean,onOpen:()->Unit,onSelect:(()->Unit)?,width: androidx.compose.ui.unit.Dp? = 290.dp, hasPrice:Boolean = true) {
     val leg=flight.leg
     val ink=MaterialTheme.colorScheme.onSurface
     val secondary=MaterialTheme.colorScheme.onSurfaceVariant
     val green=Color(0xFF34C759)
     val shape=RoundedCornerShape(22.dp)
-    Box(Modifier.width(290.dp).clip(shape).background(MaterialTheme.colorScheme.surface).border(if(selected)1.5.dp else .75.dp,if(selected)green else ink.copy(alpha=.07f),shape)) {
+    Box((if(width == null) Modifier.fillMaxWidth() else Modifier.width(width)).clip(shape).background(MaterialTheme.colorScheme.surface).border(if(selected)1.5.dp else .75.dp,if(selected)green else ink.copy(alpha=.07f),shape)) {
         Column(Modifier.fillMaxWidth().clickable(onClick=onOpen).padding(16.dp),verticalArrangement=Arrangement.spacedBy(13.dp)) {
             Row(Modifier.padding(end=44.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(10.dp)) {
                 Box(Modifier.size(34.dp).clip(RoundedCornerShape(8.dp)).background(Color.White),contentAlignment=Alignment.Center) {
@@ -280,10 +280,10 @@ internal fun HomePublishedFlightCarousel(language: AppLanguage, trip: TripDraft,
             HorizontalDivider(color=ink.copy(alpha=.08f))
             Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(8.dp)) {
                 Text(if(flight.isPair)ft(l,"Туда и обратно · 1 чел.","Round trip · per person","Borish va qaytish · 1 kishi","Бориш ва қайтиш · 1 киши") else ft(l,"За 1 человека","Per person","1 kishi uchun","1 киши учун"),Modifier.weight(1f),fontSize=12.sp,color=secondary)
-                Text("$"+java.text.NumberFormat.getNumberInstance(l.locale).apply{maximumFractionDigits=0}.format(flight.priceUsd),fontWeight=FontWeight.Bold,fontSize=25.sp,maxLines=1)
+                Text(if(hasPrice) "$"+java.text.NumberFormat.getNumberInstance(l.locale).apply{maximumFractionDigits=0}.format(flight.priceUsd) else "—",fontWeight=FontWeight.Bold,fontSize=25.sp,maxLines=1)
             }
         }
-        IconButton(onClick=onSelect,modifier=Modifier.align(Alignment.TopEnd).padding(9.dp).size(44.dp)) { CupertinoIcon(if(selected)CupertinoSymbol.CheckCircleFill else CupertinoSymbol.CircleOutline,ft(l,"Выбрать рейс","Select flight","Reysni tanlash","Рейсни танлаш"),Modifier.size(24.dp),if(selected)green else secondary) }
+        if(onSelect != null) IconButton(onClick=onSelect,modifier=Modifier.align(Alignment.TopEnd).padding(9.dp).size(44.dp)) { CupertinoIcon(if(selected)CupertinoSymbol.CheckCircleFill else CupertinoSymbol.CircleOutline,ft(l,"Выбрать рейс","Select flight","Reysni tanlash","Рейсни танлаш"),Modifier.size(24.dp),if(selected)green else secondary) }
     }
 }
 @Composable private fun PublishedEndpoint(l:AppLanguage,code:String,raw:String,modifier:Modifier,alignment:Alignment.Horizontal) {

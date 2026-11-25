@@ -87,7 +87,7 @@ private fun tier(raw:String?)=raw?.lowercase(Locale.ROOT)?.takeIf{it in listOf("
     DisposableEffect(lifecycle){val observer=androidx.lifecycle.LifecycleEventObserver{_,_->foreground=lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED)};lifecycle.addObserver(observer);onDispose{lifecycle.removeObserver(observer)}}
     val context=androidx.compose.ui.platform.LocalContext.current
     val reduce=remember(foreground){!android.animation.ValueAnimator.areAnimatorsEnabled() || (context.getSystemService(android.content.Context.ACTIVITY_SERVICE) as? android.app.ActivityManager)?.isLowRamDevice==true}
-    val active=foreground&&navigation.currentTab==AppTab.ACCOUNT&&navigation.route==com.iumrah.beta.core.navigation.AppRoute.Root
+    val active=foreground&&(navigation.currentTab==AppTab.ACCOUNT||navigation.currentTab==AppTab.HOME)&&navigation.route==com.iumrah.beta.core.navigation.AppRoute.Root
     var phase by remember{mutableFloatStateOf(4f)}
     LaunchedEffect(active,reduce){if(!active||reduce){phase=4f;return@LaunchedEffect};val start=System.nanoTime();while(true){phase=((System.nanoTime()-start)/1_000_000_000.0%10).toFloat();kotlinx.coroutines.delay(34)}}
     fun smooth(x:Float):Float {val a=x.coerceIn(0f,1f);return a*a*(3f-2*a)}

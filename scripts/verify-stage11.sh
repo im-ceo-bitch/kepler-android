@@ -13,6 +13,6 @@ grep -q 'api.met.no/weatherapi/locationforecast/2.0/compact' "$FILE"
 grep -q 'Weather data · MET Norway' "$FILE"
 grep -q 'AnalogTravelClock' "$FILE"
 grep -q 'HorizontalPager' "$FILE"
-grep -q 'JourneyTravelInfoPanel(language)' app/src/main/java/com/iumrah/beta/ui/home/HomeScreen.kt
+grep -q 'JourneyTravelInfoPanel(language, initialPage = 1)' app/src/main/java/com/iumrah/beta/ui/home/HomeWeatherScreen.kt
 grep -q 'showsMakkahTime = false' "$HOME"
 echo 'Stage 011 Booking Travel Info parity checks passed.'

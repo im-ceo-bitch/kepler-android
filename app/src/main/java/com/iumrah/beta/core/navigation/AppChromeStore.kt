@@ -61,6 +61,8 @@ sealed interface AppRoute {
     data class ConfiguratorHotelSelection(val role: String) : AppRoute
     data class ConfiguratorHotelDetail(val hotelId: String, val role: String) : AppRoute
     data class FlightPackageDetail(val packageId: String, val sharedConfiguration: HotelConfiguratorDeepLink? = null) : AppRoute
+    data object HomeAllPublishedFlights : AppRoute
+    data class HomePublishedFlightDetail(val flightId: String) : AppRoute
     data object GuidedFlights : AppRoute
     data object NuiteeJourneyHotels : AppRoute
     data object NuiteeJourneyReview : AppRoute
@@ -278,6 +280,11 @@ class AppChromeStore {
     fun openFlightPackage(id: String, sharedConfiguration: HotelConfiguratorDeepLink? = null) = push(AppRoute.FlightPackageDetail(id, sharedConfiguration), tab = AppTab.HOTELS)
     // HomeDashboardView presents guided flight selection in its Home NavigationStack.
     // The previous Booking-tab ownership broke Back and tab restoration.
+    fun openHomeSmart(draft: SmartDraft) = push(AppRoute.SmartFlow(draft), tab = AppTab.HOME)
+    fun openHomeAllPublishedFlights() = push(AppRoute.HomeAllPublishedFlights, tab = AppTab.HOME)
+    fun openHomePublishedFlightDetail(id: String) = push(AppRoute.HomePublishedFlightDetail(id), tab = AppTab.HOME)
+    fun openHomePublishedHotels() = push(AppRoute.NuiteeJourneyHotels, tab = AppTab.HOME)
+    fun openHomeSavedJourneys() = push(AppRoute.SavedJourneys, tab = AppTab.HOME)
     fun openGuidedFlights() = push(AppRoute.GuidedFlights, tab = AppTab.HOME)
     fun openNuiteeJourneyHotels() {
         val current = state.value.route

@@ -105,13 +105,14 @@ import com.iumrah.beta.core.navigation.AppTab
         Text(title, fontSize = 19.sp, fontWeight = FontWeight.Bold); Text(subtitle, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2)
     }
 }
-@Composable internal fun HomeAvailablePackagesSection(language: AppLanguage, origin: String, chrome: AppChromeStore, startSmart: () -> Unit) {
+@Composable internal fun HomeAvailablePackagesSection(language: AppLanguage, origin: String, chrome: AppChromeStore, startSmart: () -> Unit, showsFallback: Boolean = true) {
     fun t(ru: String, en: String, uz: String, cy: String) = nuiteeText(language, ru, en, uz, cy)
     var values by remember(origin) { mutableStateOf<List<StorefrontPackageSnapshot>>(emptyList()) }
     LaunchedEffect(origin) { values = HomePublicContentCache.packages(origin) }
     val points = values.filter { it.startDate?.take(10)?.let { day -> day >= LocalDate.now().toString() } == true }
+    if (points.isEmpty() && !showsFallback) return
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        HomePersonalHeader(t("Актуальные пакеты Умры", "Umrah packages", "Umra paketlari", "Умра пакетлари"))
+        HomePersonalHeader(t("Готовые предложения", "Ready offers", "Tayyor takliflar", "Тайёр таклифлар"))
         if (points.isEmpty()) Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(22.dp)).background(MaterialTheme.colorScheme.surface).clickable(onClick = startSmart).padding(16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(13.dp)) {
             CupertinoIcon(CupertinoSymbol.SuitcaseFill, null, Modifier.size(36.dp)); Column(Modifier.weight(1f)) {
                 Text(t("Подобрать пакет по вашим датам", "Find a package for your dates", "Sanalaringizga mos paket", "Саналарингизга мос пакет"), fontWeight = FontWeight.Bold)

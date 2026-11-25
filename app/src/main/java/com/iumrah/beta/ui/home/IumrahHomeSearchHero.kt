@@ -93,6 +93,8 @@ fun IumrahHomeSearchHero(
     chrome: AppChromeStore,
     expanded: Boolean,
     onSearch: (TripDraft) -> Unit = {},
+    flightsSelected: Boolean = false,
+    onContinue: () -> Unit = {},
     onExpandedChange: (Boolean) -> Unit,
 ) {
     var calendarOpen by remember { mutableStateOf(false) }
@@ -237,15 +239,17 @@ fun IumrahHomeSearchHero(
                             .background(Color(0xFF090909).copy(alpha = if (ok) 1f else .5f))
                             .clickable(enabled = ok) {
                                 // Exactly the same Store used by TripBuilder / flight results.
-                                journey.startHomePublishedSearch(trip)
-                                onSearch(journey.state.value.trip)
-                                onExpandedChange(false)
-                                IumrahIntelligence.record("tap", "home", "start_trip_search")
-                                chrome.openGuidedFlights()
+                                if (flightsSelected) onContinue() else {
+                                    journey.startHomePublishedSearch(trip)
+                                    onSearch(journey.state.value.trip)
+                                    onExpandedChange(false)
+                                    IumrahIntelligence.record("tap", "home", "start_trip_search")
+                                    chrome.openGuidedFlights()
+                                }
                             },
                         contentAlignment = Alignment.Center,
                     ) {
-                        Text(homeTr(language, "Найти авиабилеты", "Find flights", "Reyslarni topish", "Рейсларни топиш"),
+                        Text(if (flightsSelected) homeTr(language, "Продолжить и выбрать отель", "Continue and choose hotel", "Davom etish va mehmonxona tanlash", "Давом этиш ва меҳмонхона танлаш") else homeTr(language, "Найти авиабилеты", "Find flights", "Reyslarni topish", "Рейсларни топиш"),
                             fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White)
                     }
 
