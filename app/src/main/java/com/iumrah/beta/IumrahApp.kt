@@ -70,10 +70,10 @@ fun IumrahApp() {
             AppTab.CARE -> "care"
             AppTab.ACCOUNT -> "account"
         }
-        AppRoute.BookingCheckout -> "checkout"
+        AppRoute.BookingCheckout, is AppRoute.SmartCheckout -> "checkout"
         AppRoute.TripBuilder, AppRoute.GuidedFlights -> "flight_builder"
-        AppRoute.NuiteeJourneyHotels -> "hotel_builder"
-        AppRoute.NuiteeJourneyReview -> "journey_review"
+        AppRoute.NuiteeJourneyHotels, is AppRoute.SmartHotels -> "hotel_builder"
+        AppRoute.NuiteeJourneyReview, is AppRoute.SmartReview -> "journey_review"
         is AppRoute.HotelDetail -> "hotel_details"
         else -> "navigation"
     }
@@ -97,6 +97,10 @@ fun IumrahApp() {
         }
     }
 
+    LaunchedEffect(accountState.iumrahID, container.accountStore.bearerToken, bookingState.sessions.map { it.id }) {
+        container.notificationStore.reconcileScope()
+    }
+
     LaunchedEffect(settings.hasCompletedOnboarding, accountState.iumrahID, accountState.isRestoring) {
         container.bookingStore.reconcileAccountScope()
         if (settings.hasCompletedOnboarding && accountState.isAuthenticated && !accountState.isRestoring) {
@@ -118,13 +122,14 @@ fun IumrahApp() {
 
     LaunchedEffect(
         settings.hasCompletedOnboarding,
+        accountRestored, accountState.isRestoring, container.accountStore.bearerToken,
         accountState.iumrahID,
         bookingState.sessions.map { Triple(it.id, it.accessToken, it.pilgrimID) },
         settings.language.code,
         pushState.deviceToken,
         permissionRevision,
     ) {
-        if (!settings.hasCompletedOnboarding) return@LaunchedEffect
+        if (!settings.hasCompletedOnboarding || !accountRestored || accountState.isRestoring) return@LaunchedEffect
         val token = pushState.deviceToken
         if (!token.isNullOrBlank()) {
             container.bookingStore.syncPushSubscriptions(token, settings.language.code)
@@ -145,11 +150,11 @@ fun IumrahApp() {
     }
 
     // Keep iOS-local booking receipts synchronized with the same scoped sessions shown in Booking.
-    LaunchedEffect(settings.isLoaded, settings.language, bookingState.sessions) {
+    LaunchedEffect(settings.isLoaded, settings.language, accountState.iumrahID, container.accountStore.bearerToken, bookingState.sessions) {
         if (settings.isLoaded) container.notificationStore.syncBookingReceipts(bookingState.sessions, settings.language)
     }
 
-    LaunchedEffect(accountState.account?.iumrahID) { container.chatService.clearCache() }
+    LaunchedEffect(accountState.account?.iumrahID, container.accountStore.bearerToken) { container.chatService.clearCache() }
 
     LaunchedEffect(pushState.eventRevision) {
         if (!settings.hasCompletedOnboarding || pushState.eventRevision == 0L) return@LaunchedEffect
@@ -175,7 +180,7 @@ fun IumrahApp() {
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
         IumrahIntelligence.resume(telemetryScreen)
         container.connectivityMonitor.refresh()
-        if (!settings.hasCompletedOnboarding) return@LifecycleEventEffect
+        if (!settings.hasCompletedOnboarding || !accountRestored || accountState.isRestoring) return@LifecycleEventEffect
         container.pushManager.refreshToken()
         scope.launch {
             container.bookingStore.refreshAll()

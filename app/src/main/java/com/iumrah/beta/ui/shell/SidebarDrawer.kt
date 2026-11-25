@@ -4,6 +4,10 @@ import com.iumrah.beta.ui.cupertino.Icon
 import com.iumrah.beta.ui.cupertino.CupertinoSymbol
 
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.snap
+import androidx.compose.runtime.CompositionLocalProvider
+import com.iumrah.beta.core.design.LocalIOSParity
+import com.iumrah.beta.core.design.rememberIumrahMotionAllowed
 import androidx.compose.foundation.background
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.rememberScrollState
@@ -61,11 +65,13 @@ fun SidebarDrawerHost(
     open: Boolean,
     language: AppLanguage,
     chrome: AppChromeStore,
+    preserveHome: Boolean = true,
     content: @Composable () -> Unit,
 ) {
-    val contentScale = animateFloatAsState(if (open) .985f else 1f, iosSpring(.34f, .88f), label = "sidebar-content-scale").value
-    val drawerX = animateFloatAsState(if (open) 0f else -1f, iosSpring(.34f, .88f), label = "sidebar-x").value
-    val scrim = animateFloatAsState(if (open) .28f else 0f, iosSpring(.34f, .88f), label = "sidebar-scrim").value
+    val motion = if (preserveHome) true else rememberIumrahMotionAllowed()
+    val contentScale = animateFloatAsState(if (open) .985f else 1f, if (motion) iosSpring(.34f, .88f) else snap(), label = "sidebar-content-scale").value
+    val drawerX = animateFloatAsState(if (open) 0f else -1f, if (motion) iosSpring(.34f, .88f) else snap(), label = "sidebar-x").value
+    val scrim = animateFloatAsState(if (open) .28f else 0f, if (motion) iosSpring(.34f, .88f) else snap(), label = "sidebar-scrim").value
 
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val width = (maxWidth * .74f).coerceAtMost(360.dp)
@@ -97,7 +103,7 @@ fun SidebarDrawerHost(
                 .graphicsLayer { translationX = drawerX * hiddenOffset.toPx() }
                 .shadow(if (open) 30.dp else 0.dp, RectangleShape),
         ) {
-            SidebarDrawer(language, chrome)
+            CompositionLocalProvider(LocalIOSParity provides !preserveHome) { SidebarDrawer(language, chrome) }
         }
     }
 }

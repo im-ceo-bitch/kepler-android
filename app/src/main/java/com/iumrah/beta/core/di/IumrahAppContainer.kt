@@ -44,7 +44,7 @@ class IumrahAppContainer(context: Context) {
     val bookingStore = BookingStore(bookingService, accountStore, secureStore, packageEngine)
     val savedPackages = com.iumrah.beta.data.packageflow.SavedPackageStore(apiClient, secureStore)
     val chatService = ChatService(apiClient)
-    val notificationStore = ClientNotificationStore(appContext, apiClient)
+    val notificationStore = ClientNotificationStore(appContext, apiClient, { accountStore.bearerToken }, { bookingStore.state.value.sessions.mapNotNull { bookingStore.booking(it.id)?.id } })
     val pushManager = IumrahPushManager(appContext)
     val settingsStore = AppSettingsStore(appContext)
     val chromeStore = AppChromeStore()

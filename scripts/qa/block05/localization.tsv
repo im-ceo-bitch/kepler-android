@@ -1,0 +1,2168 @@
+en	adults	Adults
+en	airport_jeddah	Jeddah
+en	airport_jeddah_full	Jeddah · for Makkah
+en	airport_madinah	Madinah
+en	airport_map_airport	Airport
+en	airport_map_choose	Choose %@
+en	airport_map_hint_title	Choose an airport on the globe
+en	airport_map_reset	Show the globe
+en	airport_map_resolve_failed	We couldn't match this Apple Maps place to an airport code. Try another airport label or use text search.
+en	airport_map_resolving	Checking the airport and IATA code…
+en	airport_map_tap_hint	Tap an airport label on the map to select it.
+en	airport_map_title	Choose on globe
+en	airport_map_zoom_hint	Rotate the globe and zoom in until airport labels appear, then tap one.
+en	airport_none	Nothing found
+en	airport_none_body	Try another city or airport code.
+en	airport_search_body	Search by city, airport name or three-letter code — for example TAS, Tashkent, Istanbul.
+en	airport_search_failed	Could not search airports right now.
+en	airport_search_title	Find your departure airport
+en	airport_title	Departure airport
+en	amenity_air_conditioning	Air conditioning
+en	amenity_breakfast	Breakfast
+en	amenity_coffee_shop	Coffee shop
+en	amenity_concierge	Concierge
+en	amenity_dry_cleaning	Dry cleaning
+en	amenity_elevator	Elevator
+en	amenity_family_rooms	Family rooms
+en	amenity_fitness_center	Fitness center
+en	amenity_laundry	Laundry
+en	amenity_luggage_storage	Luggage storage
+en	amenity_non_smoking	Non-smoking rooms
+en	amenity_parking	Parking
+en	amenity_reception	24-hour reception
+en	amenity_restaurant	Restaurant
+en	amenity_room_service	Room service
+en	amenity_spa	Spa
+en	amenity_transfer	Transfer / shuttle
+en	amenity_wifi	Free Wi‑Fi
+en	app_language	App language
+en	appearance_dark	Dark
+en	appearance_light	Light
+en	appearance_section	Appearance
+en	appearance_system	Match iPhone
+en	back	Back
+en	booking_all_in_one_price	Flights, stay and services together
+en	booking_authoritative_quote_required	The package price must be securely confirmed before booking. Please wait a moment and try again.
+en	booking_cancel_and_delete	Cancel and delete booking
+en	booking_care_body	Ask about this booking without explaining the trip again.
+en	booking_change_confirmation_message	Please confirm the latest changes in my booking, including hotel, contacts and selected services.
+en	booking_change_hotel	Change hotel
+en	booking_change_hotel_body	Choose another hotel from the iumrah catalog, open its page and select a room.
+en	booking_change_hotel_title	Change hotel
+en	booking_changes_pending_body	Your updated hotel, contacts or services are saved. Send them to iumrah Care for final availability confirmation.
+en	booking_changes_pending_title	Changes need confirmation
+en	booking_contact_edit	Edit
+en	booking_contact_edit_body	Keep at least one current contact so iumrah Care and the trip team can reach you.
+en	booking_contact_edit_title	Change contact number
+en	booking_contact_empty	No contact number has been saved yet.
+en	booking_contacts	Contacts
+en	booking_delete	Delete booking
+en	booking_delete_confirm_action	Delete permanently
+en	booking_delete_confirm_body	The booking will be removed from your account only after the server confirms permanent deletion. This cannot be undone.
+en	booking_delete_confirm_title	Delete this booking?
+en	booking_delete_failed	The booking could not be deleted from the server. Nothing was removed from this iPhone.
+en	booking_delete_server_required	Permanent deletion is not enabled by the booking server yet. The booking was not removed from this iPhone.
+en	booking_detail_title	Your booking
+en	booking_empty_body	After confirmation, your first trip will appear here.
+en	booking_empty_title	No bookings yet
+en	booking_guide_assigned	Assigned to your booking and visible to iumrah Care.
+en	booking_guide_care_note	iumrah Care will show your assigned guide here as soon as the trip team is confirmed.
+en	booking_guide_pending	Your guide is being assigned to this trip.
+en	booking_guide_title	Your guide
+en	booking_hero_body	Choose dates, travelers and a travel tier. iumrah will then suggest a hotel and find matching flights with a clear package price.
+en	booking_hero_cta	Create my Umrah
+en	booking_hero_kicker	NEW TRIP
+en	booking_hero_title	Build your Umrah
+en	booking_home_subtitle	Every trip, its status and iumrah Care stay together in one place.
+en	booking_hotel_pending	Hotel is being confirmed
+en	booking_included	Included
+en	booking_legacy_flight_note	This booking was created before detailed flight segments were stored on this iPhone.
+en	booking_madinah_hotel	Hotel in Madinah
+en	booking_makkah_hotel	Hotel in Makkah
+en	booking_nights_count	%d nights
+en	booking_number_short	Booking %@
+en	booking_open_care	Open booking chat
+en	booking_outbound_flight	Outbound flight
+en	booking_phone	Phone
+en	booking_request_confirmation	Request confirmation
+en	booking_request_sent	Confirmation requested
+en	booking_return_flight	Return flight
+en	booking_save_changes	Save changes
+en	booking_total_package	Total package
+en	booking_transfer_arrival	Pickup from %@ airport
+en	booking_transfer_body	Transport for the complete route of your Umrah.
+en	booking_transfer_departure	Transfer to %@ for the return flight
+en	booking_transfer_intercity	Makkah ↔ Madinah intercity transfer
+en	booking_transfer_madinah	Transfer to and from your Madinah hotel
+en	booking_transfer_makkah	Transfer to and from your Makkah hotel
+en	booking_transfer_title	Full transfer
+en	booking_transfer_ziyarat	Transport for ziyarat routes
+en	booking_update_failed	We could not save the hotel change. Your current booking was left unchanged.
+en	booking_your_trip	Your Umrah
+en	booking_ziyarat_body	Choose which ziyarat programs should stay in this booking.
+en	booking_ziyarat_madinah	Madinah ziyarat
+en	booking_ziyarat_makkah	Makkah ziyarat
+en	booking_ziyarat_title	Ziyarat
+en	cancel	Cancel
+en	care_chats	Your chats
+en	care_chats_subtitle	Each chat is linked to a specific trip, so there is no need to explain the route, dates and hotel again.
+en	care_free_year	Included free for every pilgrim during the first year
+en	care_locked_body	Build your trip and send it for availability checking. After that, support will be linked to your booking.
+en	care_locked_title	Chat opens after booking
+en	care_metric_answers	Answers
+en	care_metric_care	Care
+en	care_metric_updates	Updates
+en	care_promise_body	Before the trip, on the road and during Umrah, iumrah Care remains one support line linked to your trip.
+en	care_promise_title	Independent does not mean alone.
+en	care_subtitle	Support stays with your trip before, during and after Umrah.
+en	care_title	iumrah Care
+en	challenge_open	Complete verification
+en	chat_empty_body	Ask about your booking, flight, hotel, transfer or route.
+en	chat_empty_title	Start the conversation
+en	chat_load	Loading chat…
+en	chat_online	online
+en	chat_placeholder	Message…
+en	chat_retry	Retry
+en	chat_send_failed	Message was not sent. %@
+en	chat_staff	iumrah Care
+en	chat_unavailable	Chat unavailable
+en	chat_you	You
+en	checkout_cta	Review and create booking
+en	checkout_subtitle	Before confirmation, iumrah checks availability for your selected hotel and flights one more time.
+en	checkout_title	Let's verify your trip
+en	children	Children
+en	children_age	2–11 years
+en	city_madinah	Madinah
+en	city_makkah	Makkah
+en	close	Close
+en	collapse	Collapse
+en	departure	Departure
+en	detail_booking	Booking
+en	detail_chat_cta	Chat with iumrah Care
+en	detail_dates	Travel dates
+en	detail_hotel	Hotel
+en	detail_not_found	Booking not found
+en	detail_updates	Status updates automatically
+en	drawer_chats	Chats
+en	drawer_greeting	Assalamu alaikum
+en	drawer_open	Open menu
+en	drawer_welcome	Welcome to iumrah
+en	error_booking_access	Booking access could not be verified.
+en	error_chat_load	Could not load the chat.
+en	error_chat_send	Could not send the message.
+en	error_decoding	Could not read the server response.
+en	error_invalid_request	The request could not be processed.
+en	error_invalid_response	The server returned an invalid response.
+en	error_missing_booking_token	The booking was created without an access token. Please create a new booking or contact iumrah Care.
+en	error_network	A network error occurred. Please try again.
+en	error_offline	No internet connection. Check your connection and try again.
+en	error_rate_limit	Too many messages were sent. Try again in a minute.
+en	error_server_named	Server error: %@.
+en	error_service_unavailable	The service is temporarily unavailable.
+en	error_status	Server request failed (%d).
+en	error_timeout	The request took too long. Please try again.
+en	error_unknown	Something went wrong. Please try again.
+en	expand	Expand
+en	field_first_name	First name
+en	field_last_name	Last name
+en	field_telegram	Telegram
+en	field_whatsapp	WhatsApp
+en	final_before	Before booking
+en	final_body	We built the trip around your dates and preferences. Flights, hotel and selected services are connected in one package.
+en	final_book_cta	Book my Umrah
+en	final_calculating	Calculating package price…
+en	final_care	iumrah Care
+en	final_check_one	We will check availability once more
+en	final_check_three	After booking, the trip appears in Booking and iumrah Care
+en	final_check_two	Conditions remain visible before confirmation
+en	final_hotel	Hotel
+en	final_in_trip	In your trip
+en	final_nav_title	Your trip
+en	final_outbound	Outbound flight
+en	final_price	Package price
+en	final_price_note	Your selected flights, hotels, transfers and services have been calculated automatically as one connected Umrah package.
+en	final_return	Return flight
+en	final_title	Your Umrah is ready
+en	final_total_group	Total for %d travelers: %@
+en	final_transfer	Transfers and services
+en	final_visa	Visa
+en	flex_exact	Exact
+en	flex_pm1	±1 day
+en	flex_pm2	Dates
+en	flex_weekend	Weekend
+en	flight_airline_unknown	Airline
+en	flight_airport_change	%@ · airport change · %@
+en	flight_arrival_terminal	Arrival terminal
+en	flight_bot_challenge	Human verification is required by %@.
+en	flight_bot_invalid_page	The airline page could not be prepared.
+en	flight_bot_no_candidates	The provider returned no readable flight options.
+en	flight_bot_timeout	The flight provider took too long to respond.
+en	flight_cabin_business	Business
+en	flight_cabin_economy	Economy
+en	flight_cabin_first	First
+en	flight_cabin_premium	Premium economy
+en	flight_challenge_body	%@ requires a human verification. Complete it and retry the search. The session stays on this iPhone.
+en	flight_challenge_title	Verification required
+en	flight_choose_return	Choose return flight
+en	flight_departure_terminal	Departure terminal
+en	flight_detail_aircraft	Aircraft
+en	flight_detail_cabin	Cabin
+en	flight_detail_duration	Flight time
+en	flight_detail_operated_by	Operated by
+en	flight_detail_unknown	Not provided
+en	flight_details_cta	Flight details
+en	flight_details_price_note	The displayed difference is based on the complete journey fare for all selected travelers.
+en	flight_details_route	%@ → %@
+en	flight_details_title	Flight details
+en	flight_direct	Direct
+en	flight_duration_short	%dh %dm
+en	flight_error_candidate	The flight system can no longer find the selected option %@.
+en	flight_error_fare_scope	Could not verify the fare type from %@.
+en	flight_error_insufficient	Only %d verified flight options were found; at least %d are required.
+en	flight_error_insufficient_challenge	Only %d verified flight options were found; at least %d are required. Verification is required for: %@.
+en	flight_error_madinah	The Madinah hotel price is not configured yet for this route.
+en	flight_error_makkah	The Makkah hotel price is not configured yet.
+en	flight_error_minimum	Only %d verified options remained; at least %d are required.
+en	flight_error_outbound	The outbound flight selection is no longer available. Search flights again.
+en	flight_error_service	The trip calculation service is temporarily unavailable.
+en	flight_hours_short	%dh
+en	flight_layover_airport_change	Airport change in %@
+en	flight_layover_overnight	Overnight layover
+en	flight_layover_summary	%@ · %@ layover
+en	flight_layover_title	Layover in %@
+en	flight_minutes_short	%dm
+en	flight_nav_out	Flight
+en	flight_nav_return	Return
+en	flight_out_body	Price differences are based on the complete outbound + return or open-jaw itinerary.
+en	flight_out_eyebrow	Outbound
+en	flight_out_title	Choose your outbound flight
+en	flight_package_contents	Hotel + flights + services
+en	flight_provider_not_configured	Flight search is not configured yet.
+en	flight_ready_body	Suitable complete-journey fare options were found.
+en	flight_ready_title	Ready
+en	flight_recommended	Recommended
+en	flight_retry	Retry search
+en	flight_return_body	Each return option matches your selected outbound and is priced as one complete journey.
+en	flight_return_eyebrow	Return
+en	flight_return_title	Choose your return flight
+en	flight_search_airlines	Checking available flights
+en	flight_search_almost	Almost ready — finishing the search
+en	flight_search_dates	Comparing suitable dates
+en	flight_search_failed	Search did not finish
+en	flight_search_hero	Building your Umrah
+en	flight_search_reprice	Comparing complete journey fares
+en	flight_segment_count	Flight %d of %d
+en	flight_select_hotel_first	Choose a hotel first.
+en	flight_select_outbound_first	Choose an outbound flight first.
+en	flight_stops	%d stops
+en	flight_terminal	Terminal %@
+en	flight_view_package	View my completed Umrah
+en	flight_wait_01	Searching for the best options for your trip
+en	flight_wait_02	Checking available flights
+en	flight_wait_03	Comparing return and open-jaw fare combinations
+en	flight_wait_04	Comparing location, conditions and cost
+en	flight_wait_05	Checking matching itineraries for your dates
+en	flight_wait_06	Selecting suitable transfer options
+en	flight_wait_07	Bringing everything into one trip
+en	flight_wait_08	Comparing available combinations
+en	flight_wait_09	Comparing complete journey fares
+en	flight_wait_10	Choosing the most suitable options
+en	flight_wait_11	Almost ready — finishing the search
+en	flight_wait_12	Preparing your trip…
+en	flight_wait_average	Search usually takes 1–2 minutes
+en	flight_wait_long_01	We are still searching — this can take a little longer
+en	flight_wait_long_02	Checking more options so we do not rush your choice
+en	flight_wait_long_03	Just a little more — finishing the comparison
+en	flight_wait_long_04	Your options are almost ready
+en	flight_whole_package	Whole package
+en	home_connected_body	Flight → hotel → transfer → Umrah → Care. One calm journey instead of scattered services.
+en	home_connected_title	One trip. Everything connected.
+en	home_hero_badge	Final price is shown before booking
+en	home_hero_body	Flights, stay and support — organized around your trip, not around a large group.
+en	home_hero_cta	Build my Umrah
+en	home_hero_kicker	YOUR UMRAH
+en	home_hero_title	Your Umrah.\nYour path.
+en	home_philosophy_body	iumrah helps you organize Umrah for yourself, your family or friends — without a large group, while Care stays connected to the same trip.
+en	home_philosophy_title	Not a tour. Your own Umrah.
+en	hotel_about_title	About the hotel
+en	hotel_all_photos_count	All %d
+en	hotel_amenities_empty	Hotel amenities will appear here when available.
+en	hotel_amenities_title	What this hotel offers
+en	hotel_care_call	Call
+en	hotel_care_card_body	Questions about the hotel, package or season? Speak directly with Abdulaziz, iumrah founder, before booking.
+en	hotel_care_contact	Contact iumrah Care
+en	hotel_care_prebook_body	iumrah Care is direct contact with Abdulaziz, iumrah founder. Ask about the hotel, package, payment or seasonal conditions before booking; he also oversees support throughout the trip.
+en	hotel_catalog_eyebrow	iumrah catalog
+en	hotel_change_body	Only hotels selected by iumrah for pilgrims are shown here.
+en	hotel_change_title	Choose another hotel
+en	hotel_checkin	Check-in
+en	hotel_checkout	Check-out
+en	hotel_continue_flights	Continue to flights
+en	hotel_detail_days_short	days
+en	hotel_detail_nights_fmt	%@ · %d nights
+en	hotel_detail_nights_short	nights
+en	hotel_detail_open_configurator	Open Configurator
+en	hotel_detail_package_counter_fmt	%d of %d
+en	hotel_detail_package_id	Package ID
+en	hotel_detail_package_options_subtitle_fmt	%d ready packages with this hotel
+en	hotel_detail_package_options_title	Trip options
+en	hotel_detail_package_subtitle	One package price from the next compatible published flight pair
+en	hotel_detail_package_title	Your Umrah with this hotel
+en	hotel_detail_package_total_for_fmt	%@ total for %d pilgrims
+en	hotel_detail_preparing_price	Preparing current price…
+en	hotel_detail_services	Meals · transfers · visa
+en	hotel_detail_standard_note	iumrah Configurator applies the package category automatically from the hotel: up to 3★ Standard, 4★ Comfort, 5★ Luxury.
+en	hotel_detail_upgrade_luxury	Upgrade to Luxury
+en	hotel_detail_variant_balanced	Balanced trip
+en	hotel_detail_variant_extended	Longer Umrah
+en	hotel_detail_variant_ready_fmt	Ready %d-day package · its composition and price are fixed to this Package ID.
+en	hotel_detail_variant_short	Short trip
+en	hotel_gallery_all	All photos
+en	hotel_gallery_bathroom	Bathroom
+en	hotel_gallery_facility	Facility
+en	hotel_gallery_lobby	Lobby
+en	hotel_gallery_restaurant	Restaurant
+en	hotel_gallery_rooms	Rooms
+en	hotel_gallery_view	View
+en	hotel_level	Hotel level
+en	hotel_loading_detail	Loading hotel details…
+en	hotel_location_title	Location
+en	hotel_not_available	This hotel is no longer available for selection.
+en	hotel_open_map	Open map
+en	hotel_photos	Photos
+en	hotel_practical_title	Good to know
+en	hotel_primary_room_badge	Recommended · iumrah
+en	hotel_primary_rooms_body	Start with the simplest room options prepared by iumrah.
+en	hotel_primary_rooms_error	Room categories are temporarily unavailable. Try again.
+en	hotel_primary_rooms_loading	Loading iumrah room categories…
+en	hotel_primary_rooms_title	Recommended room selection
+en	hotel_property_type	Property type
+en	hotel_rating_exceptional	Exceptional
+en	hotel_rating_good	Good
+en	hotel_rating_very_good	Very good
+en	hotel_real_rooms_body	You can also choose from the actual room options currently shown for this hotel.
+en	hotel_real_rooms_title	Rooms available in this hotel
+en	hotel_reviews_count	%d reviews
+en	hotel_room_chosen	Selected room
+en	hotel_rooms_empty	Room options are not available in the catalog yet.
+en	hotel_rooms_subtitle	Select the room that suits your pilgrims. The separate hotel component price is not shown.
+en	hotel_rooms_title	Choose your room
+en	hotel_selected_quality	Selected by iumrah
+en	hotel_storefront_calculating	Preparing price…
+en	hotel_storefront_current	CURRENT
+en	hotel_storefront_direct	Direct
+en	hotel_storefront_favorite_add	Add to favorites
+en	hotel_storefront_favorite_remove	Remove from favorites
+en	hotel_storefront_flights	Flights
+en	hotel_storefront_flights_hero_body	iumrah Flights Scanner finds current direct routes from Uzbekistan to Saudi Arabia and combines compatible legs into ready Umrah packages.
+en	hotel_storefront_flights_hero_note	Jeddah routes can form 2–3 day Makkah-only Comfort packages. Trips of 4–15 days form Makkah + Madinah Standard packages, returning to the same city when possible or Tashkent as fallback.
+en	hotel_storefront_hero_body	Hotels curated by iumrah for a calmer Umrah — convenient locations, trusted service and a ready package price.
+en	hotel_storefront_hero_note	Choose your departure airport once. iumrah Configurator uses the next compatible published return, falls back to Tashkent for the return when needed, and prices each hotel by category: up to 3★ Standard, 4★ Comfort, 5★ Luxury.
+en	hotel_storefront_includes	Flight + hotel + iumrah Services
+en	hotel_storefront_loading	Preparing hotels and package prices…
+en	hotel_storefront_outbound	Outbound
+en	hotel_storefront_package_baseline	Package flight
+en	hotel_storefront_package_total_fmt	%@ · package for two
+en	hotel_storefront_per_pilgrim	per pilgrim
+en	hotel_storefront_published_direct	Direct · iumrah Flights Scanner
+en	hotel_storefront_published_flights	Find us with iumrah Flights Scanner
+en	hotel_storefront_recommends	IUMRAH RECOMMENDS
+en	hotel_storefront_return	Return
+en	hotel_storefront_round_trip	per pilgrim\nround trip
+en	hotel_storefront_section	Section
+en	hotel_storefront_share	Share hotel
+en	hotel_storefront_weekend	Weekend
+en	hotel_storefront_weekend_body	Umrah that fits into your weekend. Sunday Umrah Club will collect short ready-to-go journeys here.
+en	hotel_storefront_weekend_note	Weekend packages will appear here as published departures.
+en	hotel_time_body	Reception-style clocks for home and the cities of your Umrah.
+en	hotel_time_madinah	Madinah
+en	hotel_time_makkah	Makkah
+en	hotel_time_moscow	Moscow
+en	hotel_time_tashkent	Tashkent
+en	hotel_time_title	Local time
+en	hotel_view_all_photos	See all photos
+en	hotel_view_all_photos_fmt	View all %d
+en	hotels_load_error	Could not load hotels right now.
+en	hotels_madinah	Madinah selection
+en	hotels_makkah	Makkah selection
+en	hotels_note	iumrah does not own these hotels. We carefully select and monitor properties that suit our pilgrims.
+en	hotels_selected_badge	Selected by iumrah
+en	hotels_subtitle	Hotels selected by the iumrah team for pilgrims who want reliable service, a convenient location and a calmer stay.
+en	included	Included
+en	infants	Infants
+en	infants_age	under 2
+en	language_english	English
+en	language_russian	Russian
+en	language_section	Language
+en	language_uzbek	Uzbek
+en	language_uzbek_cyr	Uzbek (Cyrillic)
+en	makkah_time	Makkah time
+en	next_four	iumrah Care chat links to this trip
+en	next_one	Your trip gets a protected booking ID
+en	next_three	Status appears in Booking
+en	next_title	What happens next
+en	next_two	Availability checking starts
+en	notifications_denied	Notifications are disabled in iPhone Settings
+en	notifications_enable	Enable notifications
+en	notifications_enabled	Notifications enabled
+en	notifications_ephemeral	Temporary permission is active
+en	notifications_error	Could not enable notifications. Check iPhone Settings and try again.
+en	notifications_not_determined	Notifications are not enabled yet
+en	notifications_provisional	Quiet notifications are enabled
+en	notifications_registering	Allowed · registering this device
+en	notifications_title	Trip notifications
+en	notifications_unknown	Notification status is unknown
+en	onboarding_bismillah	Bismillah
+en	onboarding_builder_body	Route, dates, travelers and trip level — a few clear choices instead of dozens of searches.
+en	onboarding_builder_footnote	One input. One journey.
+en	onboarding_builder_kicker	BUILD YOUR TRIP
+en	onboarding_builder_title	You set the path. iumrah builds the rest.
+en	onboarding_care_body	Status, changes and iumrah Care stay in one interface before, during and after Umrah.
+en	onboarding_care_footnote	One journey. One line of support.
+en	onboarding_care_kicker	STATUS & CARE
+en	onboarding_care_title	Your journey stays with you.
+en	onboarding_chip_flight	Flight
+en	onboarding_chip_hotel	Hotel
+en	onboarding_chip_makkah_madinah	Makkah + Madinah
+en	onboarding_chip_status	Status
+en	onboarding_chip_support	Support
+en	onboarding_closing_body	Created in Makkah for pilgrims — with care, calm and love for every step of your Umrah.
+en	onboarding_closing_footnote	When you are ready, begin with iumrah.
+en	onboarding_closing_headline	We made this for you.
+en	onboarding_closing_kicker	READY TO BEGIN
+en	onboarding_closing_message	Created in Makkah for pilgrims, with love.
+en	onboarding_closing_title	We made this for you.
+en	onboarding_intro_line	Your Umrah, organized around you.
+en	onboarding_next	Continue
+en	onboarding_package_body	Flights, hotels, transfers and Care are combined before you confirm the trip.
+en	onboarding_package_footnote	The final price is visible in advance.
+en	onboarding_package_kicker	ONE PACKAGE
+en	onboarding_package_title	One package. No scattered bookings.
+en	onboarding_skip	Skip
+en	onboarding_start	Start
+en	onboarding_welcome_body	Trip, booking and support — from the first step to the journey home.
+en	onboarding_welcome_footnote	Everything is gathered around your journey.
+en	onboarding_welcome_kicker	WELCOME
+en	onboarding_welcome_overlay	Thoughtfully built around your journey
+en	onboarding_welcome_title	Your Umrah.\nIn one place.
+en	open_booking	Open booking
+en	open_care	Open iumrah Care
+en	popular	POPULAR
+en	price_per_person	/ person
+en	primary_hotel_badge	Recommended by iumrah
+en	primary_hotel_continue	Continue with this hotel
+en	primary_hotel_empty	No matching hotel is available in the curated catalog yet.
+en	primary_hotel_loading	Loading the iumrah hotel catalog…
+en	primary_hotel_other	See other options
+en	primary_hotel_subtitle	It fits your %@ level and %d★ hotel preference. Keep it or browse other curated options.
+en	primary_hotel_title	We selected a hotel for your trip
+en	profile_accessibility	Profile
+en	profile_placeholder	Your profile
+en	profile_required_body	Before booking, please add your first name, last name and at least one contact so support can recognize the pilgrim.
+en	profile_required_title	Pilgrim details
+en	profile_section	Profile
+en	profile_subtitle_empty	Add your name and contacts
+en	profile_subtitle_ready	Pilgrim profile
+en	recommended_madinah_hotel	iumrah selected hotel · Madinah
+en	retry	Retry
+en	return	Return
+en	room_area	Room size
+en	room_beds	Beds
+en	room_beds_double	1 double bed
+en	room_beds_quad	4 separate beds
+en	room_beds_triple	3 separate beds
+en	room_capacity	Capacity
+en	room_not_available	This room is no longer available. Please choose another room.
+en	room_select	Select this room
+en	room_selected	Selected
+en	room_size	%.0f m²
+en	room_sleeps	Sleeps %d
+en	room_type_double	Double Room
+en	room_type_double_body	Comfortable choice for husband and wife.
+en	room_type_quad	Quadruple Room
+en	room_type_quad_body	Four separate beds for family or group.
+en	room_type_triple	Triple Room
+en	room_type_triple_body	Three separate beds for a small group.
+en	rooms	Rooms
+en	route_label	Route
+en	route_return	Return
+en	save_continue	Save and continue
+en	scope_both	Makkah + Madinah
+en	scope_makkah	Makkah only
+en	selected	Selected
+en	settings_done	Done
+en	settings_title	Settings
+en	status_availability	New package created · Checking availability
+en	status_cancelled	Cancelled
+en	status_completed	Trip completed
+en	status_confirmed	Paid · Booking confirmed
+en	status_in_trip	Pilgrim is travelling
+en	status_payment	Availability confirmed · Payment & pilgrim details
+en	status_ready	Documents ready · Ready to travel
+en	step_flight	Flight
+en	step_hotel	Hotel
+en	step_ready	Ready
+en	step_transfer	Transfer
+en	step_trip	Trip
+en	story_intro	iumrah did not begin as an idea for another travel service. It began with experience.
+en	story_kicker	BORN IN MAKKAH
+en	story_mission_body	Do not make the pilgrim understand the system. The system should understand the pilgrim’s trip.
+en	story_mission_title	Our task
+en	story_nav_title	Our story
+en	story_p1	After spending more than a year in Makkah and staying close to pilgrims, we kept seeing the same problem: a journey people travel thousands of kilometres for too often depended on a large group, intermediaries and someone else’s schedule.
+en	story_p2	We wanted to build another path — one where a person can perform Umrah independently, with family or friends, without being left alone with the organisation of the journey.
+en	story_title	Why iumrah Project
+en	story_why_project_body	Because this path should never be considered finished. With every trip, every question and every new pilgrim need, iumrah should become better.
+en	story_why_project_title	Why Project
+en	success_body	iumrah is now checking availability. Your status and support chat are already linked to this trip.
+en	success_title	Trip created
+en	tab_booking	Booking
+en	tab_care	Care
+en	tab_home	Home
+en	tab_hotels	Hotels
+en	tab_umrah	Umrah
+en	theme_label	Theme
+en	tier_comfort	Comfort
+en	tier_economy	Economy
+en	tier_luxury	Luxury
+en	tier_standard	Standard
+en	total_for	Total for
+en	travelers	travelers
+en	trip_arrival_jeddah_hint	Start with Makkah via Jeddah. Return flights will be searched from Madinah.
+en	trip_arrival_madinah_hint	Start with Madinah. Return flights will be searched from Jeddah.
+en	trip_arrival_picker	Arrival airport
+en	trip_arrival_title	Which airport first
+en	trip_continue_hotel	Continue to hotel
+en	trip_dates_title	When do you want to travel
+en	trip_destination_title	Where do you want to go
+en	trip_flexible_hint	The fare calendar grows from real searches and helps compare nearby dates before a new flight search is started.
+en	trip_format_title	What trip format fits you
+en	trip_intro_kicker	BUILD YOUR UMRAH
+en	trip_origin_title	Where your trip starts
+en	trip_route_picker	Route
+en	trip_travelers_body	Rooming and flights will be calculated for your family or group.
+en	trip_travelers_title	Who travels with you
+en	umrah_coming	Step-by-step Umrah guidance will appear here in a future update.
+ru	adults	Взрослые
+ru	airport_jeddah	Джидда
+ru	airport_jeddah_full	Джидда · для Мекки
+ru	airport_madinah	Медина
+ru	airport_map_airport	Аэропорт
+ru	airport_map_choose	Выбрать %@
+ru	airport_map_hint_title	Выберите аэропорт на глобусе
+ru	airport_map_reset	Показать глобус
+ru	airport_map_resolve_failed	Не удалось сопоставить эту точку Apple Maps с кодом аэропорта. Выберите другой аэропорт на карте или воспользуйтесь текстовым поиском.
+ru	airport_map_resolving	Проверяем аэропорт и IATA-код…
+ru	airport_map_tap_hint	Нажмите на название аэропорта на карте, чтобы выбрать его.
+ru	airport_map_title	Выбрать на глобусе
+ru	airport_map_zoom_hint	Вращайте глобус и приближайте карту, пока не появятся названия аэропортов. Затем нажмите на нужный.
+ru	airport_none	Ничего не найдено
+ru	airport_none_body	Попробуйте другой город или код аэропорта.
+ru	airport_search_body	Можно искать по городу, названию или трёхбуквенному коду аэропорта — например TAS, Ташкент, Стамбул.
+ru	airport_search_failed	Сейчас не удалось выполнить поиск аэропортов.
+ru	airport_search_title	Найдите аэропорт вылета
+ru	airport_title	Аэропорт вылета
+ru	amenity_air_conditioning	Кондиционер
+ru	amenity_breakfast	Завтрак
+ru	amenity_coffee_shop	Кофейня
+ru	amenity_concierge	Консьерж
+ru	amenity_dry_cleaning	Химчистка
+ru	amenity_elevator	Лифт
+ru	amenity_family_rooms	Семейные номера
+ru	amenity_fitness_center	Фитнес-центр
+ru	amenity_laundry	Прачечная
+ru	amenity_luggage_storage	Хранение багажа
+ru	amenity_non_smoking	Номера для некурящих
+ru	amenity_parking	Парковка
+ru	amenity_reception	Стойка 24/7
+ru	amenity_restaurant	Ресторан
+ru	amenity_room_service	Обслуживание номеров
+ru	amenity_spa	Спа
+ru	amenity_transfer	Трансфер / шаттл
+ru	amenity_wifi	Бесплатный Wi‑Fi
+ru	app_language	Язык приложения
+ru	appearance_dark	Тёмная
+ru	appearance_light	Светлая
+ru	appearance_section	Оформление
+ru	appearance_system	Как на iPhone
+ru	back	Назад
+ru	booking_all_in_one_price	Перелёты, проживание и услуги вместе
+ru	booking_authoritative_quote_required	Перед бронированием стоимость пакета должна быть безопасно подтверждена сервером iumrah. Подождите немного и попробуйте снова.
+ru	booking_cancel_and_delete	Отменить и удалить бронирование
+ru	booking_care_body	Напишите по этому бронированию — данные поездки уже будут в контексте.
+ru	booking_change_confirmation_message	Пожалуйста, подтвердите последние изменения в моей брони: отели, контакты и выбранные услуги.
+ru	booking_change_hotel	Изменить отель
+ru	booking_change_hotel_body	Выберите другой отель из каталога iumrah, откройте его страницу и выберите номер.
+ru	booking_change_hotel_title	Изменить отель
+ru	booking_changes_pending_body	Новые данные отеля, контактов или услуг сохранены. Отправьте их в iumrah Care для финального подтверждения наличия.
+ru	booking_changes_pending_title	Изменения требуют подтверждения
+ru	booking_contact_edit	Изменить
+ru	booking_contact_edit_body	Оставьте хотя бы один актуальный контакт, чтобы iumrah Care и команда поездки могли связаться с Вами.
+ru	booking_contact_edit_title	Изменить контактный номер
+ru	booking_contact_empty	Контактный номер пока не указан.
+ru	booking_contacts	Контакты
+ru	booking_delete	Удалить бронирование
+ru	booking_delete_confirm_action	Удалить навсегда
+ru	booking_delete_confirm_body	Бронирование исчезнет с устройства только после подтверждения полного удаления сервером. Это действие нельзя отменить.
+ru	booking_delete_confirm_title	Удалить бронирование?
+ru	booking_delete_failed	Не удалось удалить бронирование с сервера. На iPhone ничего не удалено.
+ru	booking_delete_server_required	Сервер бронирований пока не поддерживает полное удаление. Бронирование не удалено с iPhone.
+ru	booking_detail_title	Ваше бронирование
+ru	booking_empty_body	После подтверждения первая поездка появится здесь.
+ru	booking_empty_title	Бронирований пока нет
+ru	booking_guide_assigned	Закреплён за вашей бронью и находится на связи с iumrah Care.
+ru	booking_guide_care_note	Как только команда поездки будет подтверждена, назначенный гид появится здесь.
+ru	booking_guide_pending	Гид закрепляется за этой поездкой.
+ru	booking_guide_title	Ваш гид
+ru	booking_hero_body	Выберите даты, людей и уровень поездки. Затем iumrah предложит отель и найдёт подходящие перелёты с прозрачной итоговой стоимостью пакета.
+ru	booking_hero_cta	Создать мою Умру
+ru	booking_hero_kicker	НОВАЯ ПОЕЗДКА
+ru	booking_hero_title	Соберите свою Умру
+ru	booking_home_subtitle	Все поездки, их статусы и iumrah Care остаются в одном месте.
+ru	booking_hotel_pending	Отель уточняется
+ru	booking_included	Включено
+ru	booking_legacy_flight_note	Это бронирование было создано до сохранения подробных сегментов рейса на этом iPhone.
+ru	booking_madinah_hotel	Отель в Медине
+ru	booking_makkah_hotel	Отель в Мекке
+ru	booking_nights_count	%d ноч.
+ru	booking_number_short	Бронь %@
+ru	booking_open_care	Открыть чат брони
+ru	booking_outbound_flight	Перелёт туда
+ru	booking_phone	Телефон
+ru	booking_request_confirmation	Запросить подтверждение
+ru	booking_request_sent	Запрос отправлен
+ru	booking_return_flight	Обратный перелёт
+ru	booking_save_changes	Сохранить изменения
+ru	booking_total_package	Весь пакет
+ru	booking_transfer_arrival	Встреча в аэропорту %@
+ru	booking_transfer_body	Транспорт на всём маршруте вашей Умры.
+ru	booking_transfer_departure	Трансфер в %@ к обратному рейсу
+ru	booking_transfer_intercity	Междугородний трансфер Мекка ↔ Медина
+ru	booking_transfer_madinah	Трансфер до и от отеля в Медине
+ru	booking_transfer_makkah	Трансфер до и от отеля в Мекке
+ru	booking_transfer_title	Полный трансфер
+ru	booking_transfer_ziyarat	Транспорт на маршрутах зияратов
+ru	booking_update_failed	Не удалось сохранить изменение отеля. Текущее бронирование осталось без изменений.
+ru	booking_your_trip	Ваша Умра
+ru	booking_ziyarat_body	Выберите, какие программы зияратов оставить в этой брони.
+ru	booking_ziyarat_madinah	Зияраты в Медине
+ru	booking_ziyarat_makkah	Зияраты в Мекке
+ru	booking_ziyarat_title	Зияраты
+ru	cancel	Отмена
+ru	care_chats	Ваши чаты
+ru	care_chats_subtitle	Каждый чат связан с конкретной поездкой, поэтому не нужно заново объяснять маршрут, даты и отель.
+ru	care_free_year	Первый год включено бесплатно для каждого паломника
+ru	care_locked_body	Соберите поездку и отправьте её на проверку доступности. После этого поддержка будет связана с вашим бронированием.
+ru	care_locked_title	Чат откроется после бронирования
+ru	care_metric_answers	Ответы
+ru	care_metric_care	Забота
+ru	care_metric_updates	Статус
+ru	care_promise_body	До поездки, в дороге и во время Умры iumrah Care остаётся одной линией поддержки, связанной с вашей поездкой.
+ru	care_promise_title	Самостоятельно — не значит одному.
+ru	care_subtitle	Поддержка сопровождает вашу поездку до, во время и после Умры.
+ru	care_title	iumrah Care
+ru	challenge_open	Пройти проверку
+ru	chat_empty_body	Спросите о бронировании, рейсе, отеле, трансфере или маршруте.
+ru	chat_empty_title	Начните разговор
+ru	chat_load	Загружаем чат…
+ru	chat_online	онлайн
+ru	chat_placeholder	Сообщение…
+ru	chat_retry	Повторить
+ru	chat_send_failed	Сообщение не отправлено. %@
+ru	chat_staff	iumrah Care
+ru	chat_unavailable	Чат недоступен
+ru	chat_you	Вы
+ru	checkout_cta	Проверить и создать бронирование
+ru	checkout_subtitle	Перед подтверждением iumrah ещё раз проверит доступность выбранного отеля и перелётов.
+ru	checkout_title	Проверим вашу поездку
+ru	children	Дети
+ru	children_age	2–11 лет
+ru	city_madinah	Медина
+ru	city_makkah	Мекка
+ru	close	Закрыть
+ru	collapse	Свернуть
+ru	departure	Вылет
+ru	detail_booking	Бронирование
+ru	detail_chat_cta	Чат с iumrah Care
+ru	detail_dates	Даты поездки
+ru	detail_hotel	Отель
+ru	detail_not_found	Бронирование не найдено
+ru	detail_updates	Статус обновляется автоматически
+ru	drawer_chats	Чаты
+ru	drawer_greeting	Ассаляму алейкум
+ru	drawer_open	Открыть меню
+ru	drawer_welcome	Добро пожаловать в iumrah
+ru	error_booking_access	Не удалось подтвердить доступ к бронированию.
+ru	error_chat_load	Не удалось загрузить чат.
+ru	error_chat_send	Не удалось отправить сообщение.
+ru	error_decoding	Не удалось прочитать данные сервера.
+ru	error_invalid_request	Не удалось обработать запрос.
+ru	error_invalid_response	Сервер вернул некорректный ответ.
+ru	error_missing_booking_token	Бронирование создано без токена доступа. Создайте новое бронирование или обратитесь в iumrah Care.
+ru	error_network	Произошла ошибка сети. Повторите попытку.
+ru	error_offline	Нет подключения к интернету. Проверьте соединение и повторите попытку.
+ru	error_rate_limit	Отправлено слишком много сообщений. Повторите через минуту.
+ru	error_server_named	Ошибка сервера: %@.
+ru	error_service_unavailable	Сервис временно недоступен.
+ru	error_status	Ошибка сервера (%d).
+ru	error_timeout	Сервер отвечает слишком долго. Повторите попытку.
+ru	error_unknown	Что-то пошло не так. Повторите попытку.
+ru	expand	Развернуть
+ru	field_first_name	Имя
+ru	field_last_name	Фамилия
+ru	field_telegram	Telegram
+ru	field_whatsapp	WhatsApp
+ru	final_before	Перед бронированием
+ru	final_body	Мы собрали поездку по вашим датам и предпочтениям. Перелёты, отель и выбранные услуги связаны в один пакет.
+ru	final_book_cta	Забронировать мою Умру
+ru	final_calculating	Рассчитываем стоимость пакета…
+ru	final_care	iumrah Care
+ru	final_check_one	Ещё раз проверим доступность
+ru	final_check_three	После бронирования поездка появится в «Бронирование» и iumrah Care
+ru	final_check_two	Условия доступны до подтверждения
+ru	final_hotel	Отель
+ru	final_in_trip	В вашей поездке
+ru	final_nav_title	Готовая поездка
+ru	final_outbound	Перелёт туда
+ru	final_price	Стоимость пакета
+ru	final_price_note	Выбранные перелёты, отели, трансферы и услуги автоматически рассчитаны как один связанный Umrah-пакет.
+ru	final_return	Перелёт обратно
+ru	final_title	Ваша Умра готова
+ru	final_total_group	Всего за %d путешественников: %@
+ru	final_transfer	Трансферы и услуги
+ru	final_visa	Виза
+ru	flex_exact	Точно
+ru	flex_pm1	±1 день
+ru	flex_pm2	Даты
+ru	flex_weekend	Выходные
+ru	flight_airline_unknown	Авиакомпания
+ru	flight_airport_change	%@ · смена аэропорта · %@
+ru	flight_arrival_terminal	Терминал прилёта
+ru	flight_bot_challenge	%@ запросил человеческую проверку.
+ru	flight_bot_invalid_page	Не удалось подготовить страницу авиакомпании.
+ru	flight_bot_no_candidates	Провайдер не вернул читаемых вариантов перелёта.
+ru	flight_bot_timeout	Провайдер перелётов слишком долго не отвечает.
+ru	flight_cabin_business	Бизнес
+ru	flight_cabin_economy	Эконом
+ru	flight_cabin_first	Первый класс
+ru	flight_cabin_premium	Премиум-эконом
+ru	flight_challenge_body	%@ запросил человеческую проверку. Пройдите её и повторите поиск. Сессия сохраняется на этом iPhone.
+ru	flight_challenge_title	Нужна проверка
+ru	flight_choose_return	Выбрать обратный рейс
+ru	flight_departure_terminal	Терминал вылета
+ru	flight_detail_aircraft	Самолёт
+ru	flight_detail_cabin	Класс
+ru	flight_detail_duration	Время в пути
+ru	flight_detail_operated_by	Выполняет
+ru	flight_detail_unknown	Нет данных
+ru	flight_details_cta	Подробнее о перелёте
+ru	flight_details_price_note	Разница рассчитана по полной стоимости маршрута туда и обратно для всех выбранных путешественников.
+ru	flight_details_route	%@ → %@
+ru	flight_details_title	Детали перелёта
+ru	flight_direct	Прямой
+ru	flight_duration_short	%dч %dм
+ru	flight_error_candidate	Система перелётов больше не видит выбранный вариант %@.
+ru	flight_error_fare_scope	Не удалось подтвердить тип тарифа у %@.
+ru	flight_error_insufficient	Найдено только %d подтверждённых вариантов перелёта; требуется минимум %d.
+ru	flight_error_insufficient_challenge	Найдено только %d подтверждённых вариантов; требуется минимум %d. Нужна проверка у: %@.
+ru	flight_error_madinah	Для этого маршрута пока не настроена цена основного отеля в Медине.
+ru	flight_error_makkah	Для Мекки пока не настроена цена основного отеля.
+ru	flight_error_minimum	После проверки осталось %d вариантов; требуется минимум %d.
+ru	flight_error_outbound	Выбранный рейс туда больше недоступен. Повторите поиск перелёта.
+ru	flight_error_service	Сервис расчёта поездки временно недоступен.
+ru	flight_hours_short	%dч
+ru	flight_layover_airport_change	Смена аэропорта в %@
+ru	flight_layover_overnight	Ночная пересадка
+ru	flight_layover_summary	%@ · пересадка %@
+ru	flight_layover_title	Пересадка в %@
+ru	flight_minutes_short	%dм
+ru	flight_nav_out	Перелёт
+ru	flight_nav_return	Обратно
+ru	flight_out_body	Разница в цене рассчитана по полной стоимости маршрута туда и обратно.
+ru	flight_out_eyebrow	Туда
+ru	flight_out_title	Выберите перелёт
+ru	flight_package_contents	Отель + перелёты + услуги
+ru	flight_provider_not_configured	Поиск авиабилетов пока не настроен.
+ru	flight_ready_body	Подходящие варианты маршрута туда и обратно найдены.
+ru	flight_ready_title	Готово
+ru	flight_recommended	Рекомендуем
+ru	flight_retry	Повторить поиск
+ru	flight_return_body	Каждый обратный рейс совместим с выбранным рейсом туда и рассчитан как один полный маршрут.
+ru	flight_return_eyebrow	Обратно
+ru	flight_return_title	Выберите обратный перелёт
+ru	flight_search_airlines	Проверяем доступные рейсы
+ru	flight_search_almost	Почти готово — завершаем подбор
+ru	flight_search_dates	Сравниваем подходящие даты
+ru	flight_search_failed	Поиск не завершён
+ru	flight_search_hero	Собираем вашу Умру
+ru	flight_search_reprice	Сравниваем цены маршрутов туда и обратно
+ru	flight_segment_count	Рейс %d из %d
+ru	flight_select_hotel_first	Сначала выберите отель.
+ru	flight_select_outbound_first	Сначала выберите рейс туда.
+ru	flight_stops	Пересадок: %d
+ru	flight_terminal	Терминал %@
+ru	flight_view_package	Посмотреть готовую Умру
+ru	flight_wait_01	Ищем лучшие варианты для вашей поездки
+ru	flight_wait_02	Проверяем доступные рейсы
+ru	flight_wait_03	Сравниваем комбинации перелёта туда и обратно
+ru	flight_wait_04	Сравниваем расположение, условия и стоимость
+ru	flight_wait_05	Проверяем маршруты на выбранные даты
+ru	flight_wait_06	Подбираем оптимальные варианты трансфера
+ru	flight_wait_07	Собираем всё в одну поездку
+ru	flight_wait_08	Сравниваем доступные комбинации
+ru	flight_wait_09	Сравниваем цены маршрутов туда и обратно
+ru	flight_wait_10	Выбираем наиболее подходящие варианты
+ru	flight_wait_11	Почти готово — завершаем подбор
+ru	flight_wait_12	Готовим вашу поездку…
+ru	flight_wait_average	Обычно поиск занимает 1–2 минуты
+ru	flight_wait_long_01	Мы продолжаем поиск — это может занять немного времени
+ru	flight_wait_long_02	Проверяем больше вариантов, чтобы не торопиться с выбором
+ru	flight_wait_long_03	Ещё немного — завершаем сравнение предложений
+ru	flight_wait_long_04	Ваши варианты почти готовы
+ru	flight_whole_package	Весь пакет
+ru	home_connected_body	Перелёт → отель → трансфер → Умра → Care. Одна спокойная поездка вместо разрозненных сервисов.
+ru	home_connected_title	Одна поездка. Всё связано.
+ru	home_hero_badge	Итоговая стоимость показывается до бронирования
+ru	home_hero_body	Перелёт, проживание и поддержка — собраны вокруг вашей поездки, а не вокруг большой группы.
+ru	home_hero_cta	Собрать мою Умру
+ru	home_hero_kicker	ВАША УМРА
+ru	home_hero_title	Ваша Умра.\nВаш путь.
+ru	home_philosophy_body	iumrah помогает организовать Умру для себя, семьи или друзей — без большой группы, а Care остаётся связан с той же поездкой.
+ru	home_philosophy_title	Не тур. Ваша собственная Умра.
+ru	hotel_about_title	Об отеле
+ru	hotel_all_photos_count	Все %d
+ru	hotel_amenities_empty	Удобства появятся здесь, когда они будут доступны в каталоге.
+ru	hotel_amenities_title	Что есть в отеле
+ru	hotel_care_call	Позвонить
+ru	hotel_care_card_body	Есть вопросы об отеле, пакете или сезоне? До бронирования можно напрямую проконсультироваться с Абдулазизом, основателем iumrah.
+ru	hotel_care_contact	Связаться с iumrah Care
+ru	hotel_care_prebook_body	iumrah Care — прямой контакт с Абдулазизом, основателем iumrah. До бронирования можно обсудить отель, пакет, оплату и сезонные вопросы; он также контролирует поддержку вашей поездки.
+ru	hotel_catalog_eyebrow	Каталог iumrah
+ru	hotel_change_body	Здесь только отели, которые команда iumrah отобрала для паломников.
+ru	hotel_change_title	Выбрать другой отель
+ru	hotel_checkin	Заезд
+ru	hotel_checkout	Выезд
+ru	hotel_continue_flights	Перейти к билетам
+ru	hotel_detail_days_short	дн.
+ru	hotel_detail_nights_fmt	%@ · %d ноч.
+ru	hotel_detail_nights_short	ноч.
+ru	hotel_detail_open_configurator	Открыть конфигуратор
+ru	hotel_detail_package_counter_fmt	%d из %d
+ru	hotel_detail_package_id	Package ID
+ru	hotel_detail_package_options_subtitle_fmt	Готовых пакетов с этим отелем: %d
+ru	hotel_detail_package_options_title	Варианты поездки
+ru	hotel_detail_package_subtitle	Одна итоговая цена по следующей совместимой паре опубликованных рейсов
+ru	hotel_detail_package_title	Ваша Умра с этим отелем
+ru	hotel_detail_package_total_for_fmt	%@ за пакет на %d паломников
+ru	hotel_detail_preparing_price	Готовим актуальную цену…
+ru	hotel_detail_services	Питание · трансферы · виза
+ru	hotel_detail_standard_note	iumrah Configurator автоматически применяет категорию пакета по отелю: до 3★ Standard, 4★ Comfort, 5★ Luxury.
+ru	hotel_detail_upgrade_luxury	Перейти на Luxury
+ru	hotel_detail_variant_balanced	Оптимальная поездка
+ru	hotel_detail_variant_extended	Больше дней в Умре
+ru	hotel_detail_variant_ready_fmt	Готовый пакет на %d дн. · его состав и цена закреплены за этим Package ID.
+ru	hotel_detail_variant_short	Короткая поездка
+ru	hotel_gallery_all	Все фото
+ru	hotel_gallery_bathroom	Ванная
+ru	hotel_gallery_facility	Удобства
+ru	hotel_gallery_lobby	Лобби
+ru	hotel_gallery_restaurant	Ресторан
+ru	hotel_gallery_rooms	Номера
+ru	hotel_gallery_view	Вид
+ru	hotel_level	Уровень отеля
+ru	hotel_loading_detail	Загружаем данные отеля…
+ru	hotel_location_title	Расположение
+ru	hotel_not_available	Этот отель больше недоступен для выбора.
+ru	hotel_open_map	Открыть карту
+ru	hotel_photos	Фотографии
+ru	hotel_practical_title	Полезная информация
+ru	hotel_primary_room_badge	Рекомендуем · iumrah
+ru	hotel_primary_rooms_body	Начните с самых понятных вариантов комнаты, подготовленных iumrah.
+ru	hotel_primary_rooms_error	Категории комнат временно недоступны. Попробуйте ещё раз.
+ru	hotel_primary_rooms_loading	Загружаем категории комнат iumrah…
+ru	hotel_primary_rooms_title	Рекомендуемый выбор комнаты
+ru	hotel_property_type	Тип размещения
+ru	hotel_rating_exceptional	Превосходно
+ru	hotel_rating_good	Хорошо
+ru	hotel_rating_very_good	Очень хорошо
+ru	hotel_real_rooms_body	Либо выберите один из реальных вариантов комнаты, доступных в этом отеле.
+ru	hotel_real_rooms_title	Комнаты этого отеля
+ru	hotel_reviews_count	%d отзывов
+ru	hotel_room_chosen	Выбранная комната
+ru	hotel_rooms_empty	В каталоге пока нет вариантов номеров.
+ru	hotel_rooms_subtitle	Выберите номер, который подходит вашим паломникам. Отдельная стоимость отеля не показывается.
+ru	hotel_rooms_title	Выберите номер
+ru	hotel_selected_quality	Отобран iumrah
+ru	hotel_storefront_calculating	Готовим цену…
+ru	hotel_storefront_current	АКТУАЛЬНО
+ru	hotel_storefront_direct	Прямой
+ru	hotel_storefront_favorite_add	Добавить в избранное
+ru	hotel_storefront_favorite_remove	Убрать из избранного
+ru	hotel_storefront_flights	Авиабилеты
+ru	hotel_storefront_flights_hero_body	iumrah Flights Scanner находит актуальные прямые рейсы из городов Узбекистана в Саудовскую Аравию и собирает совместимые рейсы в готовые пакеты Умры.
+ru	hotel_storefront_flights_hero_note	Маршруты через Джидду могут стать Comfort-пакетом только Мекка на 2–3 дня. Поездки на 4–15 дней становятся Standard-пакетом Мекка + Медина с возвратом в исходный город или, если пары нет, в Ташкент.
+ru	hotel_storefront_hero_body	Отели, отобранные iumrah для более спокойной Умры — удобное расположение, проверенный сервис и готовая цена пакета.
+ru	hotel_storefront_hero_note	Выберите аэропорт вылета один раз. iumrah Configurator подберёт следующий совместимый обратный рейс, при необходимости использует Ташкент как fallback для возврата и рассчитает каждый отель по категории: до 3★ Standard, 4★ Comfort, 5★ Luxury.
+ru	hotel_storefront_includes	Перелёт + отель + iumrah Services
+ru	hotel_storefront_loading	Готовим отели и цены пакетов…
+ru	hotel_storefront_outbound	Туда
+ru	hotel_storefront_package_baseline	Рейс для пакета
+ru	hotel_storefront_package_total_fmt	%@ · пакет для двоих
+ru	hotel_storefront_per_pilgrim	на паломника
+ru	hotel_storefront_published_direct	Прямой рейс · iumrah Flights Scanner
+ru	hotel_storefront_published_flights	Найдите нас с помощью iumrah Flights Scanner
+ru	hotel_storefront_recommends	IUMRAH РЕКОМЕНДУЕТ
+ru	hotel_storefront_return	Обратно
+ru	hotel_storefront_round_trip	на паломника\nтуда-обратно
+ru	hotel_storefront_section	Раздел
+ru	hotel_storefront_share	Поделиться отелем
+ru	hotel_storefront_weekend	Выходные
+ru	hotel_storefront_weekend_body	Умра, которая помещается в ваши выходные. Здесь Sunday Umrah Club соберёт короткие готовые поездки.
+ru	hotel_storefront_weekend_note	Weekend-пакеты появятся здесь как опубликованные готовые вылеты.
+ru	hotel_time_body	Часы в стиле гостиничного ресепшена — дома и в городах вашей Умры.
+ru	hotel_time_madinah	Медина
+ru	hotel_time_makkah	Мекка
+ru	hotel_time_moscow	Москва
+ru	hotel_time_tashkent	Ташкент
+ru	hotel_time_title	Местное время
+ru	hotel_view_all_photos	Посмотреть все фото
+ru	hotel_view_all_photos_fmt	Посмотреть все %d
+ru	hotels_load_error	Сейчас не удалось загрузить отели.
+ru	hotels_madinah	Подборка для Медины
+ru	hotels_makkah	Подборка для Мекки
+ru	hotels_note	iumrah не владеет этими отелями. Мы внимательно отбираем и проверяем объекты, которые подходят нашим паломникам.
+ru	hotels_selected_badge	Подобрано iumrah
+ru	hotels_subtitle	Отели, подобранные командой iumrah для паломников, которым важны надёжный сервис, удобная локация и более спокойное проживание.
+ru	included	Включено
+ru	infants	Младенцы
+ru	infants_age	до 2 лет
+ru	language_english	Английский
+ru	language_russian	Русский
+ru	language_section	Язык
+ru	language_uzbek	Узбекский
+ru	language_uzbek_cyr	Узбекский · кириллица
+ru	makkah_time	Время в Мекке
+ru	next_four	Чат iumrah Care будет связан с этой поездкой
+ru	next_one	Поездка получит защищённый номер
+ru	next_three	Статус появится во вкладке «Бронирование»
+ru	next_title	Что произойдёт дальше
+ru	next_two	Начнётся проверка доступности
+ru	notifications_denied	Уведомления отключены в настройках iPhone
+ru	notifications_enable	Включить уведомления
+ru	notifications_enabled	Уведомления подключены
+ru	notifications_ephemeral	Временное разрешение активно
+ru	notifications_error	Не удалось включить уведомления. Проверьте настройки iPhone и повторите попытку.
+ru	notifications_not_determined	Уведомления ещё не включены
+ru	notifications_provisional	Тихие уведомления подключены
+ru	notifications_registering	Разрешено · регистрируем устройство
+ru	notifications_title	Уведомления о поездке
+ru	notifications_unknown	Статус уведомлений неизвестен
+ru	onboarding_bismillah	Бисмилля
+ru	onboarding_builder_body	Маршрут, даты, люди и уровень поездки — несколько понятных решений вместо десятков поисков.
+ru	onboarding_builder_footnote	Один ввод. Один маршрут.
+ru	onboarding_builder_kicker	СОБЕРИТЕ ПОЕЗДКУ
+ru	onboarding_builder_title	Вы задаёте путь. iumrah собирает остальное.
+ru	onboarding_care_body	Статус, изменения и iumrah Care — в одном интерфейсе до, во время и после Умры.
+ru	onboarding_care_footnote	Один путь. Одна линия поддержки.
+ru	onboarding_care_kicker	СТАТУС И CARE
+ru	onboarding_care_title	Поездка остаётся с Вами.
+ru	onboarding_chip_flight	Перелёт
+ru	onboarding_chip_hotel	Отель
+ru	onboarding_chip_makkah_madinah	Мекка + Медина
+ru	onboarding_chip_status	Статус
+ru	onboarding_chip_support	Поддержка
+ru	onboarding_closing_body	Создано в Мекке для паломников — с заботой, спокойствием и любовью к каждому этапу Вашей Умры.
+ru	onboarding_closing_footnote	Когда будете готовы — начните вместе с iumrah.
+ru	onboarding_closing_headline	Мы создали это для Вас.
+ru	onboarding_closing_kicker	ГОТОВО К НАЧАЛУ
+ru	onboarding_closing_message	Создано в Мекке для паломников, с любовью.
+ru	onboarding_closing_title	Мы создали это для Вас.
+ru	onboarding_intro_line	Ваша Умра, собранная вокруг Вас.
+ru	onboarding_next	Продолжить
+ru	onboarding_package_body	Перелёты, отели, трансферы и Care объединены ещё до подтверждения поездки.
+ru	onboarding_package_footnote	Итоговая стоимость видна заранее.
+ru	onboarding_package_kicker	ОДИН ПАКЕТ
+ru	onboarding_package_title	Один пакет. Без разрозненных бронирований.
+ru	onboarding_skip	Пропустить
+ru	onboarding_start	Начать
+ru	onboarding_welcome_body	Поездка, бронирование и поддержка — от первого шага до возвращения домой.
+ru	onboarding_welcome_footnote	Всё собрано вокруг Вашей поездки.
+ru	onboarding_welcome_kicker	ДОБРО ПОЖАЛОВАТЬ
+ru	onboarding_welcome_overlay	Продумано вокруг Вашей поездки
+ru	onboarding_welcome_title	Ваша Умра.\nВ одном месте.
+ru	open_booking	Открыть бронирование
+ru	open_care	Открыть iumrah Care
+ru	popular	ЧАЩЕ ВЫБИРАЮТ
+ru	price_per_person	/ чел.
+ru	primary_hotel_badge	Рекомендует iumrah
+ru	primary_hotel_continue	Продолжить с этим отелем
+ru	primary_hotel_empty	В каталоге пока нет подходящего отеля.
+ru	primary_hotel_loading	Загружаем каталог iumrah…
+ru	primary_hotel_other	Посмотреть другие варианты
+ru	primary_hotel_subtitle	Подходит выбранному уровню %@ и категории %d★. Вы можете оставить его или посмотреть другие варианты.
+ru	primary_hotel_title	Мы подобрали отель для вашей поездки
+ru	profile_accessibility	Профиль
+ru	profile_placeholder	Ваш профиль
+ru	profile_required_body	Перед бронированием добавьте имя, фамилию и хотя бы один контакт, чтобы поддержка видела, кто именно оформляет поездку.
+ru	profile_required_title	Данные паломника
+ru	profile_section	Профиль
+ru	profile_subtitle_empty	Добавьте имя и контакты
+ru	profile_subtitle_ready	Профиль паломника
+ru	recommended_madinah_hotel	Отель, подобранный iumrah · Медина
+ru	retry	Повторить
+ru	return	Обратно
+ru	room_area	Площадь
+ru	room_beds	Кровати
+ru	room_beds_double	1 двуспальная кровать
+ru	room_beds_quad	4 отдельные кровати
+ru	room_beds_triple	3 отдельные кровати
+ru	room_capacity	Вместимость
+ru	room_not_available	Этот номер больше недоступен. Выберите другой номер.
+ru	room_select	Выбрать этот номер
+ru	room_selected	Выбрано
+ru	room_size	%.0f м²
+ru	room_sleeps	До %d гостей
+ru	room_type_double_body	Удобный вариант для мужа и жены.
+ru	room_type_quad_body	Четыре отдельные кровати для семьи или группы.
+ru	room_type_triple_body	Три отдельные кровати для небольшой группы.
+ru	rooms	Комнаты
+ru	route_label	Маршрут
+ru	route_return	Обратно
+ru	save_continue	Сохранить и продолжить
+ru	scope_both	Мекка + Медина
+ru	scope_makkah	Только Мекка
+ru	selected	Выбран
+ru	settings_done	Готово
+ru	settings_title	Настройки
+ru	status_availability	Новый пакет создан · Проверка наличия
+ru	status_cancelled	Отменено
+ru	status_completed	Поездка завершена
+ru	status_confirmed	Оплачено · Бронирование подтверждено
+ru	status_in_trip	Паломник в поездке
+ru	status_payment	Наличие подтверждено · Оплата и данные паломников
+ru	status_ready	Документы готовы · Готово к поездке
+ru	step_flight	Перелёт
+ru	step_hotel	Отель
+ru	step_ready	Готово
+ru	step_transfer	Трансфер
+ru	step_trip	Поездка
+ru	story_intro	iumrah появилась не из идеи создать ещё один туристический сервис. Она появилась из опыта.
+ru	story_kicker	ПРОЕКТ, РОЖДЁННЫЙ В МЕККЕ
+ru	story_mission_body	Не заставлять паломника разбираться в системе. Система должна разбираться в его поездке.
+ru	story_mission_title	Наша задача
+ru	story_nav_title	Наша история
+ru	story_p1	Проведя больше года в Мекке и находясь рядом с паломниками, мы снова и снова видели одну проблему: поездка, ради которой человек преодолевает тысячи километров, слишком часто становилась зависимой от большой группы, посредников и чужого расписания.
+ru	story_p2	Мы захотели построить другой путь — чтобы человек мог совершить Умру самостоятельно, с семьёй или друзьями, но при этом не оставался один на один с организацией поездки.
+ru	story_title	Почему iumrah Project
+ru	story_why_project_body	Потому что этот путь не должен однажды считаться законченным. С каждой поездкой, каждым вопросом и каждой новой потребностью паломника iumrah должна становиться лучше.
+ru	story_why_project_title	Почему Project
+ru	success_body	Сейчас iumrah проверяет доступность. Статус поездки и чат поддержки уже связаны с этим номером.
+ru	success_title	Поездка создана
+ru	tab_booking	Бронирование
+ru	tab_home	Главная
+ru	tab_hotels	Отели
+ru	tab_umrah	Умра
+ru	theme_label	Тема
+ru	tier_comfort	Комфорт
+ru	tier_economy	Эконом
+ru	tier_luxury	Люкс
+ru	tier_standard	Стандарт
+ru	total_for	Итого за
+ru	travelers	путешественников
+ru	trip_arrival_jeddah_hint	Сначала Мекка через Джидду. Обратный перелёт будем искать из Медины.
+ru	trip_arrival_madinah_hint	Сначала Медина. Обратный перелёт будем искать из Джидды.
+ru	trip_arrival_picker	Аэропорт прилёта
+ru	trip_arrival_title	Куда прилететь сначала
+ru	trip_continue_hotel	Продолжить к отелю
+ru	trip_dates_title	Когда хотите отправиться
+ru	trip_destination_title	Куда хотите отправиться
+ru	trip_flexible_hint	Календарь цен пополняется реальными поисками и помогает сравнить соседние даты до запуска нового поиска авиабилетов.
+ru	trip_format_title	Какой формат поездки вам ближе
+ru	trip_intro_kicker	СОБЕРИТЕ СВОЮ УМРУ
+ru	trip_origin_title	Откуда начинается поездка
+ru	trip_route_picker	Маршрут
+ru	trip_travelers_body	Размещение и перелёты будут рассчитаны под вашу семью или компанию.
+ru	trip_travelers_title	Кто отправляется с вами
+ru	umrah_coming	Пошаговое сопровождение Умры появится здесь в одном из следующих обновлений.
+uz	adults	Kattalar
+uz	airport_jeddah	Jidda
+uz	airport_jeddah_full	Jidda · Makka uchun
+uz	airport_madinah	Madina
+uz	airport_map_airport	Aeroport
+uz	airport_map_choose	Tanlash: %@
+uz	airport_map_hint_title	Globusdan aeroport tanlang
+uz	airport_map_reset	Globusni ko‘rsatish
+uz	airport_map_resolve_failed	Apple Maps’dagi bu joyni aeroport kodi bilan moslab bo‘lmadi. Xaritadan boshqa aeroportni tanlang yoki matnli qidiruvdan foydalaning.
+uz	airport_map_resolving	Aeroport va IATA kodi tekshirilmoqda…
+uz	airport_map_tap_hint	Tanlash uchun xaritadagi aeroport nomini bosing.
+uz	airport_map_title	Globusdan tanlash
+uz	airport_map_zoom_hint	Globusni aylantiring va aeroport nomlari ko‘ringuncha yaqinlashtiring. So‘ng kerakli aeroportni bosing.
+uz	airport_none	Hech narsa topilmadi
+uz	airport_none_body	Boshqa shahar yoki aeroport kodini kiriting.
+uz	airport_search_body	Shahar, aeroport nomi yoki uch harfli kod bo‘yicha qidiring — masalan TAS, Toshkent, Istanbul.
+uz	airport_search_failed	Hozir aeroportlarni qidirib bo‘lmadi.
+uz	airport_search_title	Jo‘nash aeroportini toping
+uz	airport_title	Jo‘nash aeroporti
+uz	amenity_air_conditioning	Konditsioner
+uz	amenity_breakfast	Nonushta
+uz	amenity_coffee_shop	Qahvaxona
+uz	amenity_concierge	Konsyerj
+uz	amenity_dry_cleaning	Kimyoviy tozalash
+uz	amenity_elevator	Lift
+uz	amenity_family_rooms	Oilaviy xonalar
+uz	amenity_fitness_center	Fitnes markazi
+uz	amenity_laundry	Kir yuvish
+uz	amenity_luggage_storage	Bagaj saqlash
+uz	amenity_non_smoking	Chekilmaydigan xonalar
+uz	amenity_parking	Avtoturargoh
+uz	amenity_reception	24/7 resepshn
+uz	amenity_restaurant	Restoran
+uz	amenity_room_service	Xona xizmati
+uz	amenity_spa	Spa
+uz	amenity_transfer	Transfer / shuttle
+uz	amenity_wifi	Bepul Wi‑Fi
+uz	app_language	Ilova tili
+uz	appearance_dark	Qorong‘i
+uz	appearance_light	Yorug‘
+uz	appearance_section	Ko‘rinish
+uz	appearance_system	iPhone kabi
+uz	back	Ortga
+uz	booking_all_in_one_price	Parvoz, yashash va xizmatlar birga
+uz	booking_authoritative_quote_required	Bron qilishdan oldin paket narxi iumrah xavfsiz serverida tasdiqlanishi kerak. Biroz kutib, qayta urinib ko‘ring.
+uz	booking_cancel_and_delete	Bronni bekor qilish va o‘chirish
+uz	booking_care_body	Safarni qayta tushuntirmasdan shu bron bo‘yicha yozing.
+uz	booking_change_confirmation_message	Iltimos, bronimdagi so‘nggi o‘zgarishlarni — mehmonxonalar, kontaktlar va tanlangan xizmatlarni tasdiqlang.
+uz	booking_change_hotel	Mehmonxonani o‘zgartirish
+uz	booking_change_hotel_body	iumrah katalogidan boshqa mehmonxonani tanlang, sahifasini oching va xonani belgilang.
+uz	booking_change_hotel_title	Mehmonxonani o‘zgartirish
+uz	booking_changes_pending_body	Mehmonxona, kontakt yoki xizmatlardagi yangi ma’lumotlar saqlandi. Yakuniy mavjudlik tasdig‘i uchun ularni iumrah Care’ga yuboring.
+uz	booking_changes_pending_title	O‘zgarishlar tasdiqlanishi kerak
+uz	booking_contact_edit	O‘zgartirish
+uz	booking_contact_edit_body	iumrah Care va safar jamoasi Siz bilan bog‘lana olishi uchun kamida bitta amaldagi aloqa qoldiring.
+uz	booking_contact_edit_title	Aloqa raqamini o‘zgartirish
+uz	booking_contact_empty	Aloqa raqami hali kiritilmagan.
+uz	booking_contacts	Aloqa
+uz	booking_delete	Bronni o‘chirish
+uz	booking_delete_confirm_action	Butunlay o‘chirish
+uz	booking_delete_confirm_body	Bron faqat server butunlay o‘chirilganini tasdiqlagandan keyin qurilmadan ham yo‘qoladi. Buni ortga qaytarib bo‘lmaydi.
+uz	booking_delete_confirm_title	Bron o‘chirilsinmi?
+uz	booking_delete_failed	Bronni serverdan o‘chirib bo‘lmadi. iPhone’da hech narsa o‘chirilmadi.
+uz	booking_delete_server_required	Bron serverida to‘liq o‘chirish hali yoqilmagan. Bron iPhone’dan o‘chirilmadi.
+uz	booking_detail_title	Broningiz
+uz	booking_empty_body	Tasdiqlangandan so‘ng birinchi safaringiz shu yerda ko‘rinadi.
+uz	booking_empty_title	Hozircha bron yo‘q
+uz	booking_guide_assigned	Broningizga biriktirilgan va iumrah Care bilan aloqada.
+uz	booking_guide_care_note	Safar jamoasi tasdiqlangach, biriktirilgan gid shu yerda ko‘rinadi.
+uz	booking_guide_pending	Gid ushbu safarga biriktirilmoqda.
+uz	booking_guide_title	Sizning gidingiz
+uz	booking_hero_body	Sanalar, odamlar va safar darajasini tanlang. So‘ng iumrah mehmonxona tavsiya qiladi va aniq paket narxi bilan mos parvozlarni topadi.
+uz	booking_hero_cta	Umramni yaratish
+uz	booking_hero_kicker	YANGI SAFAR
+uz	booking_hero_title	Umrangizni yig‘ing
+uz	booking_home_subtitle	Barcha safarlar, ularning holati va iumrah Care bitta joyda saqlanadi.
+uz	booking_hotel_pending	Mehmonxona aniqlashtirilmoqda
+uz	booking_included	Kiritilgan
+uz	booking_legacy_flight_note	Bu bron batafsil parvoz segmentlari iPhone’da saqlanishidan oldin yaratilgan.
+uz	booking_madinah_hotel	Madinadagi mehmonxona
+uz	booking_makkah_hotel	Makkadagi mehmonxona
+uz	booking_nights_count	%d kecha
+uz	booking_number_short	Bron %@
+uz	booking_open_care	Bron chatini ochish
+uz	booking_outbound_flight	Borish reysi
+uz	booking_phone	Telefon
+uz	booking_request_confirmation	Tasdiq so‘rash
+uz	booking_request_sent	So‘rov yuborildi
+uz	booking_return_flight	Qaytish reysi
+uz	booking_save_changes	O‘zgarishlarni saqlash
+uz	booking_total_package	Jami paket
+uz	booking_transfer_arrival	%@ aeroportida kutib olish
+uz	booking_transfer_body	Umra safaringizning butun yo‘nalishi uchun transport.
+uz	booking_transfer_departure	Qaytish reysi uchun %@ ga transfer
+uz	booking_transfer_intercity	Makka ↔ Madina shaharlararo transferi
+uz	booking_transfer_madinah	Madinadagi mehmonxonaga va undan transfer
+uz	booking_transfer_makkah	Makkadagi mehmonxonaga va undan transfer
+uz	booking_transfer_title	To‘liq transfer
+uz	booking_transfer_ziyarat	Ziyorat yo‘nalishlari uchun transport
+uz	booking_update_failed	Mehmonxona o‘zgarishini saqlab bo‘lmadi. Joriy bron o‘zgarishsiz qoldi.
+uz	booking_your_trip	Sizning Umrangiz
+uz	booking_ziyarat_body	Ushbu bronda qaysi ziyorat dasturlari qolishini tanlang.
+uz	booking_ziyarat_madinah	Madina ziyoratlari
+uz	booking_ziyarat_makkah	Makka ziyoratlari
+uz	booking_ziyarat_title	Ziyoratlar
+uz	cancel	Bekor qilish
+uz	care_chats	Chatlaringiz
+uz	care_chats_subtitle	Har bir chat aniq safarga bog‘langan, shuning uchun yo‘nalish, sanalar va mehmonxonani qayta tushuntirish shart emas.
+uz	care_free_year	Birinchi yil har bir ziyoratchi uchun bepul kiritilgan
+uz	care_locked_body	Safaringizni yig‘ing va mavjudlikka yuboring. Shundan keyin yordam jamoasi broningizga ulanadi.
+uz	care_locked_title	Chat bron yaratilgach ochiladi
+uz	care_metric_answers	Javoblar
+uz	care_metric_care	G‘amxo‘rlik
+uz	care_metric_updates	Holat
+uz	care_promise_body	Safargacha, yo‘lda va Umra davomida iumrah Care safaringizga bog‘langan yagona yordam liniyasi bo‘lib qoladi.
+uz	care_promise_title	Mustaqil — yolg‘iz degani emas.
+uz	care_subtitle	Yordam Umradan oldin, davomida va keyin safaringiz bilan qoladi.
+uz	care_title	iumrah Care
+uz	challenge_open	Tekshiruvdan o‘tish
+uz	chat_empty_body	Bron, parvoz, mehmonxona, transfer yoki yo‘nalish bo‘yicha yozing.
+uz	chat_empty_title	Suhbatni boshlang
+uz	chat_load	Chat yuklanmoqda…
+uz	chat_online	online
+uz	chat_placeholder	Xabar…
+uz	chat_retry	Qayta urinish
+uz	chat_send_failed	Xabar yuborilmadi. %@
+uz	chat_staff	iumrah Care
+uz	chat_unavailable	Chat mavjud emas
+uz	chat_you	Siz
+uz	checkout_cta	Tekshirish va bron yaratish
+uz	checkout_subtitle	Tasdiqlashdan oldin iumrah tanlangan mehmonxona va parvozlar mavjudligini yana bir bor tekshiradi.
+uz	checkout_title	Safaringizni tekshiramiz
+uz	children	Bolalar
+uz	children_age	2–11 yosh
+uz	city_madinah	Madina
+uz	city_makkah	Makka
+uz	close	Yopish
+uz	collapse	Yig‘ish
+uz	departure	Jo‘nash
+uz	detail_booking	Bron
+uz	detail_chat_cta	iumrah Care bilan chat
+uz	detail_dates	Safar sanalari
+uz	detail_hotel	Mehmonxona
+uz	detail_not_found	Bron topilmadi
+uz	detail_updates	Holat avtomatik yangilanadi
+uz	drawer_chats	Chatlar
+uz	drawer_greeting	Assalomu alaykum
+uz	drawer_open	Menyuni ochish
+uz	drawer_welcome	iumrah’ga xush kelibsiz
+uz	error_booking_access	Bron ma’lumotlariga kirishni tasdiqlab bo‘lmadi.
+uz	error_chat_load	Chatni yuklab bo‘lmadi.
+uz	error_chat_send	Xabarni yuborib bo‘lmadi.
+uz	error_decoding	Server ma’lumotlarini o‘qib bo‘lmadi.
+uz	error_invalid_request	So‘rovni qayta ishlab bo‘lmadi.
+uz	error_invalid_response	Server noto‘g‘ri javob qaytardi.
+uz	error_missing_booking_token	Bron kirish tokenisiz yaratildi. Yangi bron yarating yoki iumrah Care bilan bog‘laning.
+uz	error_network	Tarmoq xatosi yuz berdi. Qayta urinib ko‘ring.
+uz	error_offline	Internet aloqasi yo‘q. Ulanishni tekshirib, qayta urinib ko‘ring.
+uz	error_rate_limit	Juda ko‘p xabar yuborildi. Bir daqiqadan keyin qayta urinib ko‘ring.
+uz	error_server_named	Server xatosi: %@.
+uz	error_service_unavailable	Xizmat vaqtincha ishlamayapti.
+uz	error_status	Server xatosi (%d).
+uz	error_timeout	So‘rov juda uzoq davom etdi. Qayta urinib ko‘ring.
+uz	error_unknown	Nimadir xato ketdi. Qayta urinib ko‘ring.
+uz	expand	Yoyish
+uz	field_first_name	Ism
+uz	field_last_name	Familiya
+uz	field_telegram	Telegram
+uz	field_whatsapp	WhatsApp
+uz	final_before	Bron qilishdan oldin
+uz	final_body	Safarni sanalaringiz va istaklaringiz asosida tuzdik. Parvozlar, mehmonxona va tanlangan xizmatlar bitta paketga birlashtirildi.
+uz	final_book_cta	Umramni bron qilish
+uz	final_calculating	Paket narxi hisoblanmoqda…
+uz	final_care	iumrah Care
+uz	final_check_one	Mavjudlikni yana bir bor tekshiramiz
+uz	final_check_three	Bron qilingach safar Bron va iumrah Care bo‘limida paydo bo‘ladi
+uz	final_check_two	Shartlar tasdiqlashgacha ko‘rinadi
+uz	final_hotel	Mehmonxona
+uz	final_in_trip	Safaringiz tarkibida
+uz	final_nav_title	Tayyor safar
+uz	final_outbound	Borish parvozi
+uz	final_price	Paket narxi
+uz	final_price_note	Tanlangan reyslar, mehmonxonalar, transferlar va xizmatlar avtomatik ravishda bitta bog‘langan Umra paketi sifatida hisoblandi.
+uz	final_return	Qaytish parvozi
+uz	final_title	Umrangiz tayyor
+uz	final_total_group	%d yo‘lovchi uchun jami: %@
+uz	final_transfer	Transfer va xizmatlar
+uz	final_visa	Viza
+uz	flex_exact	Aniq
+uz	flex_pm1	±1 kun
+uz	flex_pm2	Sanalar
+uz	flex_weekend	Dam olish kunlari
+uz	flight_airline_unknown	Aviakompaniya
+uz	flight_airport_change	%@ · aeroport almashadi · %@
+uz	flight_arrival_terminal	Kelish terminali
+uz	flight_bot_challenge	%@ inson tekshiruvini talab qilmoqda.
+uz	flight_bot_invalid_page	Aviakompaniya sahifasini tayyorlab bo‘lmadi.
+uz	flight_bot_no_candidates	Provayder o‘qib bo‘ladigan parvoz variantlarini qaytarmadi.
+uz	flight_bot_timeout	Parvoz provayderi juda uzoq javob bermadi.
+uz	flight_cabin_business	Biznes
+uz	flight_cabin_economy	Ekonom
+uz	flight_cabin_first	Birinchi klass
+uz	flight_cabin_premium	Premium ekonom
+uz	flight_challenge_body	%@ inson tekshiruvini so‘radi. Uni yakunlab, qidiruvni qayta boshlang. Sessiya shu iPhone’da saqlanadi.
+uz	flight_challenge_title	Tekshiruv kerak
+uz	flight_choose_return	Qaytish reysini tanlash
+uz	flight_departure_terminal	Uchish terminali
+uz	flight_detail_aircraft	Samolyot
+uz	flight_detail_cabin	Klass
+uz	flight_detail_duration	Parvoz vaqti
+uz	flight_detail_operated_by	Amalga oshiradi
+uz	flight_detail_unknown	Ma’lumot yo‘q
+uz	flight_details_cta	Parvoz tafsilotlari
+uz	flight_details_price_note	Ko‘rsatilgan farq barcha tanlangan yo‘lovchilar uchun to‘liq yo‘nalish narxiga asoslangan.
+uz	flight_details_route	%@ → %@
+uz	flight_details_title	Parvoz tafsilotlari
+uz	flight_direct	To‘g‘ridan-to‘g‘ri
+uz	flight_duration_short	%dsoat %ddaq
+uz	flight_error_candidate	Parvoz tizimi tanlangan %@ variantini topa olmadi.
+uz	flight_error_fare_scope	%@ tarif turini tasdiqlab bo‘lmadi.
+uz	flight_error_insufficient	Faqat %d ta tasdiqlangan parvoz varianti topildi; kamida %d ta kerak.
+uz	flight_error_insufficient_challenge	Faqat %d ta tasdiqlangan variant topildi; kamida %d ta kerak. Quyidagilarda tekshiruv talab qilinadi: %@.
+uz	flight_error_madinah	Bu yo‘nalish uchun Madinadagi asosiy mehmonxona narxi hali sozlanmagan.
+uz	flight_error_makkah	Makka uchun asosiy mehmonxona narxi hali sozlanmagan.
+uz	flight_error_minimum	Tekshiruvdan keyin %d variant qoldi; kamida %d ta kerak.
+uz	flight_error_outbound	Tanlangan borish reysi endi mavjud emas. Parvozni qayta qidiring.
+uz	flight_error_service	Safar hisoblash xizmati vaqtincha ishlamayapti.
+uz	flight_hours_short	%dsoat
+uz	flight_layover_airport_change	%@ shahrida aeroport almashadi
+uz	flight_layover_overnight	Tungi ulanish
+uz	flight_layover_summary	%@ · %@ kutish
+uz	flight_layover_title	%@ shahrida ulanish
+uz	flight_minutes_short	%ddaq
+uz	flight_nav_out	Parvoz
+uz	flight_nav_return	Qaytish
+uz	flight_out_body	Narx farqi to‘liq borish-qaytish yo‘nalishi narxi asosida hisoblangan.
+uz	flight_out_eyebrow	Borish
+uz	flight_out_title	Jo‘nash parvozini tanlang
+uz	flight_package_contents	Mehmonxona + parvozlar + xizmatlar
+uz	flight_provider_not_configured	Aviachiptalar qidiruvi hali sozlanmagan.
+uz	flight_ready_body	Mos borish-qaytish yo‘nalishlari topildi.
+uz	flight_ready_title	Tayyor
+uz	flight_recommended	Tavsiya qilamiz
+uz	flight_retry	Qidiruvni takrorlash
+uz	flight_return_body	Har bir qaytish reysi tanlangan borish reysiga mos va bitta to‘liq yo‘nalish sifatida narxlangan.
+uz	flight_return_eyebrow	Qaytish
+uz	flight_return_title	Qaytish parvozini tanlang
+uz	flight_search_airlines	Mavjud reyslarni tekshiryapmiz
+uz	flight_search_almost	Deyarli tayyor — tanlovni yakunlayapmiz
+uz	flight_search_dates	Mos sanalarni solishtiryapmiz
+uz	flight_search_failed	Qidiruv yakunlanmadi
+uz	flight_search_hero	Umrangizni yig‘moqdamiz
+uz	flight_search_reprice	Borish-qaytish yo‘nalishlari narxlarini solishtiryapmiz
+uz	flight_segment_count	%d-reys, jami %d ta
+uz	flight_select_hotel_first	Avval mehmonxonani tanlang.
+uz	flight_select_outbound_first	Avval borish reysini tanlang.
+uz	flight_stops	%d ta to‘xtash
+uz	flight_terminal	%@-terminal
+uz	flight_view_package	Tayyor Umramni ko‘rish
+uz	flight_wait_01	Safaringiz uchun eng yaxshi variantlarni izlayapmiz
+uz	flight_wait_02	Mavjud reyslarni tekshiryapmiz
+uz	flight_wait_03	Borish-qaytish kombinatsiyalarini solishtiryapmiz
+uz	flight_wait_04	Joylashuv, shartlar va narxni solishtiryapmiz
+uz	flight_wait_05	Tanlangan sanalarga mos yo‘nalishlarni tekshiryapmiz
+uz	flight_wait_06	Mos transfer variantlarini tanlayapmiz
+uz	flight_wait_07	Barchasini bitta safarga birlashtiryapmiz
+uz	flight_wait_08	Mavjud kombinatsiyalarni solishtiryapmiz
+uz	flight_wait_09	Borish-qaytish yo‘nalishlari narxlarini solishtiryapmiz
+uz	flight_wait_10	Eng mos variantlarni tanlayapmiz
+uz	flight_wait_11	Deyarli tayyor — tanlovni yakunlayapmiz
+uz	flight_wait_12	Safaringizni tayyorlayapmiz…
+uz	flight_wait_average	Odatda qidiruv 1–2 daqiqa davom etadi
+uz	flight_wait_long_01	Qidiruv davom etmoqda — biroz ko‘proq vaqt ketishi mumkin
+uz	flight_wait_long_02	Tanlovga shoshilmaslik uchun ko‘proq variantlarni tekshiryapmiz
+uz	flight_wait_long_03	Yana ozgina — takliflarni solishtirishni yakunlayapmiz
+uz	flight_wait_long_04	Variantlaringiz deyarli tayyor
+uz	flight_whole_package	Butun paket
+uz	home_connected_body	Parvoz → mehmonxona → transfer → Umra → Care. Tarqoq xizmatlar o‘rniga bitta xotirjam safar.
+uz	home_connected_title	Bitta safar. Hammasi bog‘langan.
+uz	home_hero_badge	Yakuniy narx bron qilishdan oldin ko‘rsatiladi
+uz	home_hero_body	Parvoz, turar joy va yordam — katta guruh atrofida emas, aynan safaringiz atrofida jamlanadi.
+uz	home_hero_cta	Umramni yig‘ish
+uz	home_hero_kicker	SIZNING UMRANGIZ
+uz	home_hero_title	Sizning Umrangiz.\nSizning yo‘lingiz.
+uz	home_philosophy_body	iumrah Umrani o‘zingiz, oilangiz yoki do‘stlaringiz uchun katta guruhsiz tashkil qilishga yordam beradi, Care esa shu safarga bog‘langan qoladi.
+uz	home_philosophy_title	Tur emas. O‘zingizning Umrangiz.
+uz	hotel_about_title	Mehmonxona haqida
+uz	hotel_all_photos_count	Barchasi %d
+uz	hotel_amenities_empty	Qulayliklar katalogda mavjud bo‘lganda shu yerda ko‘rinadi.
+uz	hotel_amenities_title	Mehmonxona imkoniyatlari
+uz	hotel_care_call	Qo‘ng‘iroq qilish
+uz	hotel_care_card_body	Mehmonxona, paket yoki mavsum haqida savol bormi? Bron qilishdan oldin iumrah asoschisi Abdulaziz bilan bevosita maslahatlashishingiz mumkin.
+uz	hotel_care_contact	iumrah Care bilan bog‘lanish
+uz	hotel_care_prebook_body	iumrah Care — iumrah asoschisi Abdulaziz bilan bevosita aloqa. Bron oldidan mehmonxona, paket, to‘lov va mavsumiy sharoitlarni muhokama qilishingiz mumkin; u safar davomida yordamni ham nazorat qiladi.
+uz	hotel_catalog_eyebrow	iumrah katalogi
+uz	hotel_change_body	Bu yerda faqat iumrah ziyoratchilar uchun tanlagan mehmonxonalar ko‘rsatiladi.
+uz	hotel_change_title	Boshqa mehmonxonani tanlash
+uz	hotel_checkin	Kirish
+uz	hotel_checkout	Chiqish
+uz	hotel_continue_flights	Parvozlarga o‘tish
+uz	hotel_detail_days_short	kun
+uz	hotel_detail_nights_fmt	%@ · %d tun
+uz	hotel_detail_nights_short	tun
+uz	hotel_detail_open_configurator	Configuratorni ochish
+uz	hotel_detail_package_counter_fmt	%d / %d
+uz	hotel_detail_package_id	Package ID
+uz	hotel_detail_package_options_subtitle_fmt	Shu mehmonxona bilan tayyor paketlar: %d
+uz	hotel_detail_package_options_title	Safar variantlari
+uz	hotel_detail_package_subtitle	Keyingi mos e’lon qilingan reyslar juftligi bo‘yicha bitta yakuniy paket narxi
+uz	hotel_detail_package_title	Umrangiz — shu mehmonxona bilan
+uz	hotel_detail_package_total_for_fmt	%@ · %d ziyoratchi uchun jami
+uz	hotel_detail_preparing_price	Amaldagi narx tayyorlanmoqda…
+uz	hotel_detail_services	Ovqatlanish · transferlar · viza
+uz	hotel_detail_standard_note	iumrah Configurator paket toifasini mehmonxona darajasiga ko‘ra avtomatik qo‘llaydi: 3★ gacha Standard, 4★ Comfort, 5★ Luxury.
+uz	hotel_detail_upgrade_luxury	Luxury’ga o‘tish
+uz	hotel_detail_variant_balanced	Optimal safar
+uz	hotel_detail_variant_extended	Umrada ko‘proq kun
+uz	hotel_detail_variant_ready_fmt	%d kunlik tayyor paket · tarkibi va narxi shu Package ID uchun saqlangan.
+uz	hotel_detail_variant_short	Qisqa safar
+uz	hotel_gallery_all	Barcha rasmlar
+uz	hotel_gallery_bathroom	Hammom
+uz	hotel_gallery_facility	Qulayliklar
+uz	hotel_gallery_lobby	Lobbi
+uz	hotel_gallery_restaurant	Restoran
+uz	hotel_gallery_rooms	Xonalar
+uz	hotel_gallery_view	Ko‘rinish
+uz	hotel_level	Mehmonxona darajasi
+uz	hotel_loading_detail	Mehmonxona ma’lumotlari yuklanmoqda…
+uz	hotel_location_title	Joylashuv
+uz	hotel_not_available	Bu mehmonxona endi tanlash uchun mavjud emas.
+uz	hotel_open_map	Xaritani ochish
+uz	hotel_photos	Rasmlar
+uz	hotel_practical_title	Muhim ma’lumot
+uz	hotel_primary_room_badge	Tavsiya etiladi · iumrah
+uz	hotel_primary_rooms_body	Avval iumrah tayyorlagan eng sodda xona variantlaridan boshlang.
+uz	hotel_primary_rooms_error	Xona toifalari vaqtincha mavjud emas. Qayta urinib ko‘ring.
+uz	hotel_primary_rooms_loading	iumrah xona toifalari yuklanmoqda…
+uz	hotel_primary_rooms_title	Tavsiya etilgan xona tanlovi
+uz	hotel_property_type	Joylashuv turi
+uz	hotel_rating_exceptional	Ajoyib
+uz	hotel_rating_good	Yaxshi
+uz	hotel_rating_very_good	Juda yaxshi
+uz	hotel_real_rooms_body	Yoki shu mehmonxonada ko‘rsatilgan haqiqiy xona variantlaridan birini tanlang.
+uz	hotel_real_rooms_title	Bu mehmonxonadagi xonalar
+uz	hotel_reviews_count	%d ta sharh
+uz	hotel_room_chosen	Tanlangan xona
+uz	hotel_rooms_empty	Katalogda hozircha xona variantlari yo‘q.
+uz	hotel_rooms_subtitle	Ziyoratchilaringizga mos xonani tanlang. Mehmonxonaning alohida narxi ko‘rsatilmaydi.
+uz	hotel_rooms_title	Xonani tanlang
+uz	hotel_selected_quality	iumrah tanlovi
+uz	hotel_storefront_calculating	Narx tayyorlanmoqda…
+uz	hotel_storefront_current	DOLZARB
+uz	hotel_storefront_direct	To‘g‘ridan-to‘g‘ri
+uz	hotel_storefront_favorite_add	Saralanganlarga qo‘shish
+uz	hotel_storefront_favorite_remove	Saralanganlardan olib tashlash
+uz	hotel_storefront_flights	Aviachiptalar
+uz	hotel_storefront_flights_hero_body	iumrah Flights Scanner O‘zbekiston shaharlaridan Saudiya Arabistoniga dolzarb to‘g‘ridan-to‘g‘ri reyslarni topadi va mos reyslarni tayyor Umra paketlariga birlashtiradi.
+uz	hotel_storefront_flights_hero_note	Jidda yo‘nalishlari 2–3 kunlik faqat Makka Comfort paketiga aylanishi mumkin. 4–15 kunlik safarlar Makka + Madina Standard paketiga aylanadi; qaytish imkon qadar boshlang‘ich shaharga, aks holda Toshkentga.
+uz	hotel_storefront_hero_body	iumrah sokinroq Umra uchun tanlagan mehmonxonalar — qulay joylashuv, ishonchli xizmat va tayyor paket narxi.
+uz	hotel_storefront_hero_note	Jo‘nash aeroportini bir marta tanlang. iumrah Configurator keyingi mos qaytish reysini topadi, kerak bo‘lsa qaytishda Toshkent fallback sifatida ishlatiladi va har bir mehmonxonani toifasiga ko‘ra hisoblaydi: 3★ gacha Standard, 4★ Comfort, 5★ Luxury.
+uz	hotel_storefront_includes	Parvoz + mehmonxona + iumrah Services
+uz	hotel_storefront_loading	Mehmonxonalar va paket narxlari tayyorlanmoqda…
+uz	hotel_storefront_outbound	Borish
+uz	hotel_storefront_package_baseline	Paket uchun reys
+uz	hotel_storefront_package_total_fmt	%@ · ikki kishilik paket
+uz	hotel_storefront_per_pilgrim	bir ziyoratchiga
+uz	hotel_storefront_published_direct	To‘g‘ridan-to‘g‘ri · iumrah Flights Scanner
+uz	hotel_storefront_published_flights	iumrah Flights Scanner yordamida bizni toping
+uz	hotel_storefront_recommends	IUMRAH TAVSIYASI
+uz	hotel_storefront_return	Qaytish
+uz	hotel_storefront_round_trip	bir ziyoratchiga\nborib-kelish
+uz	hotel_storefront_section	Bo‘lim
+uz	hotel_storefront_share	Mehmonxonani ulashish
+uz	hotel_storefront_weekend	Dam olish
+uz	hotel_storefront_weekend_body	Dam olish kunlariga sig‘adigan Umra. Sunday Umrah Club bu yerda qisqa va tayyor safarlarni jamlaydi.
+uz	hotel_storefront_weekend_note	Weekend paketlar bu yerda e’lon qilingan tayyor jo‘nashlar sifatida paydo bo‘ladi.
+uz	hotel_time_body	Mehmonxona resepshenidagi kabi — uy va Umra shaharlaridagi vaqt.
+uz	hotel_time_madinah	Madina
+uz	hotel_time_makkah	Makka
+uz	hotel_time_moscow	Moskva
+uz	hotel_time_tashkent	Toshkent
+uz	hotel_time_title	Mahalliy vaqt
+uz	hotel_view_all_photos	Barcha suratlarni ko‘rish
+uz	hotel_view_all_photos_fmt	Barchasini ko‘rish %d
+uz	hotels_load_error	Hozir mehmonxonalarni yuklab bo‘lmadi.
+uz	hotels_madinah	Madina uchun tanlov
+uz	hotels_makkah	Makka uchun tanlov
+uz	hotels_note	iumrah bu mehmonxonalarga egalik qilmaydi. Biz ziyoratchilarimizga mos joylarni sinchiklab tanlaymiz va kuzatib boramiz.
+uz	hotels_selected_badge	iumrah tanlovi
+uz	hotels_subtitle	iumrah jamoasi tomonidan ziyoratchilar uchun tanlangan mehmonxonalar: ishonchli xizmat, qulay joylashuv va xotirjam yashash uchun.
+uz	included	Kiritilgan
+uz	infants	Go‘daklar
+uz	infants_age	2 yoshgacha
+uz	language_english	Inglizcha
+uz	language_russian	Ruscha
+uz	language_section	Til
+uz	language_uzbek	O‘zbekcha
+uz	language_uzbek_cyr	O‘zbekcha · kirill
+uz	makkah_time	Makka vaqti
+uz	next_four	iumrah Care chati shu safarga ulanadi
+uz	next_one	Safarga himoyalangan bron raqami beriladi
+uz	next_three	Holat Bron bo‘limida paydo bo‘ladi
+uz	next_title	Keyin nima bo‘ladi
+uz	next_two	Mavjudlik tekshiruvi boshlanadi
+uz	notifications_denied	Bildirishnomalar iPhone sozlamalarida o‘chirilgan
+uz	notifications_enable	Bildirishnomalarni yoqish
+uz	notifications_enabled	Bildirishnomalar ulandi
+uz	notifications_ephemeral	Vaqtinchalik ruxsat faol
+uz	notifications_error	Bildirishnomalarni yoqib bo‘lmadi. iPhone sozlamalarini tekshirib, qayta urinib ko‘ring.
+uz	notifications_not_determined	Bildirishnomalar hali yoqilmagan
+uz	notifications_provisional	Sokin bildirishnomalar yoqilgan
+uz	notifications_registering	Ruxsat berildi · qurilma ro‘yxatdan o‘tmoqda
+uz	notifications_title	Safar bildirishnomalari
+uz	notifications_unknown	Bildirishnoma holati noma’lum
+uz	onboarding_bismillah	Bismillah
+uz	onboarding_builder_body	Yo‘nalish, sanalar, odamlar va safar darajasi — o‘nlab qidiruv o‘rniga bir nechta aniq tanlov.
+uz	onboarding_builder_footnote	Bitta kiritish. Bitta yo‘l.
+uz	onboarding_builder_kicker	SAFARNI YIG‘ING
+uz	onboarding_builder_title	Yo‘lni siz belgilaysiz. Qolganini iumrah yig‘adi.
+uz	onboarding_care_body	Holat, o‘zgarishlar va iumrah Care — Umradan oldin, davomida va keyin bitta interfeysda.
+uz	onboarding_care_footnote	Bitta yo‘l. Bitta yordam liniyasi.
+uz	onboarding_care_kicker	HOLAT VA CARE
+uz	onboarding_care_title	Safaringiz doim yoningizda.
+uz	onboarding_chip_flight	Parvoz
+uz	onboarding_chip_hotel	Mehmonxona
+uz	onboarding_chip_makkah_madinah	Makka + Madina
+uz	onboarding_chip_status	Holat
+uz	onboarding_chip_support	Yordam
+uz	onboarding_closing_body	Makkada ziyoratchilar uchun yaratildi — Umrangizning har bir bosqichi uchun mehr, xotirjamlik va g‘amxo‘rlik bilan.
+uz	onboarding_closing_footnote	Tayyor bo‘lsangiz — iumrah bilan boshlang.
+uz	onboarding_closing_headline	Biz buni siz uchun yaratdik.
+uz	onboarding_closing_kicker	BOSHLASHGA TAYYOR
+uz	onboarding_closing_message	Makkada ziyoratchilar uchun, mehr bilan yaratildi.
+uz	onboarding_closing_title	Biz buni siz uchun yaratdik.
+uz	onboarding_intro_line	Sizning Umrangiz, aynan siz uchun yig‘ilgan.
+uz	onboarding_next	Davom etish
+uz	onboarding_package_body	Parvoz, mehmonxona, transfer va Care safarni tasdiqlashdan oldin birlashtiriladi.
+uz	onboarding_package_footnote	Yakuniy narx oldindan ko‘rinadi.
+uz	onboarding_package_kicker	BITTA PAKET
+uz	onboarding_package_title	Bitta paket. Tarqoq bronlarsiz.
+uz	onboarding_skip	O‘tkazib yuborish
+uz	onboarding_start	Boshlash
+uz	onboarding_welcome_body	Safar, bron va yordam — ilk qadamdan uyga qaytguningizgacha bir joyda.
+uz	onboarding_welcome_footnote	Hammasi safaringiz atrofida jamlangan.
+uz	onboarding_welcome_kicker	XUSH KELIBSIZ
+uz	onboarding_welcome_overlay	Safaringiz atrofida puxta yaratilgan
+uz	onboarding_welcome_title	Sizning Umrangiz.\nBitta joyda.
+uz	open_booking	Bronni ochish
+uz	open_care	iumrah Care'ni ochish
+uz	popular	KO‘P TANLANADI
+uz	price_per_person	/ kishi
+uz	primary_hotel_badge	iumrah tavsiya qiladi
+uz	primary_hotel_continue	Shu mehmonxona bilan davom etish
+uz	primary_hotel_empty	Katalogda hozircha mos mehmonxona yo‘q.
+uz	primary_hotel_loading	iumrah katalogi yuklanmoqda…
+uz	primary_hotel_other	Boshqa variantlarni ko‘rish
+uz	primary_hotel_subtitle	Tanlangan %@ darajasi va %d★ toifasiga mos. Uni qoldirishingiz yoki boshqa variantlarni ko‘rishingiz mumkin.
+uz	primary_hotel_title	Safaringiz uchun mehmonxona tanladik
+uz	profile_accessibility	Profil
+uz	profile_placeholder	Profilingiz
+uz	profile_required_body	Bron qilishdan oldin ism, familiya va kamida bitta kontaktni kiriting, shunda yordam jamoasi ziyoratchini taniydi.
+uz	profile_required_title	Ziyoratchi ma’lumotlari
+uz	profile_section	Profil
+uz	profile_subtitle_empty	Ism va kontaktlarni qo‘shing
+uz	profile_subtitle_ready	Ziyoratchi profili
+uz	recommended_madinah_hotel	iumrah tanlagan mehmonxona · Madina
+uz	retry	Qayta urinish
+uz	return	Qaytish
+uz	room_area	Xona maydoni
+uz	room_beds	Yotoqlar
+uz	room_beds_double	1 ta ikki kishilik karavot
+uz	room_beds_quad	4 ta alohida karavot
+uz	room_beds_triple	3 ta alohida karavot
+uz	room_capacity	Sig‘imi
+uz	room_not_available	Bu xona endi mavjud emas. Boshqa xonani tanlang.
+uz	room_select	Shu xonani tanlash
+uz	room_selected	Tanlandi
+uz	room_size	%.0f m²
+uz	room_sleeps	%d kishigacha
+uz	room_type_double_body	Er-xotin uchun qulay variant.
+uz	room_type_quad_body	Oila yoki guruh uchun to‘rtta alohida karavot.
+uz	room_type_triple_body	Kichik guruh uchun uchta alohida karavot.
+uz	rooms	Xonalar
+uz	route_label	Yo‘nalish
+uz	route_return	Qaytish
+uz	save_continue	Saqlash va davom etish
+uz	scope_both	Makka + Madina
+uz	scope_makkah	Faqat Makka
+uz	selected	Tanlangan
+uz	settings_done	Tayyor
+uz	settings_title	Sozlamalar
+uz	status_availability	Yangi paket yaratildi · Mavjudlik tekshiruvi
+uz	status_cancelled	Bekor qilindi
+uz	status_completed	Safar yakunlandi
+uz	status_confirmed	To‘landi · Bron tasdiqlandi
+uz	status_in_trip	Ziyoratchi safarda
+uz	status_payment	Mavjudlik tasdiqlandi · To‘lov va ziyoratchi ma’lumotlari
+uz	status_ready	Hujjatlar tayyor · Safarga tayyor
+uz	step_flight	Parvoz
+uz	step_hotel	Mehmonxona
+uz	step_ready	Tayyor
+uz	step_transfer	Transfer
+uz	step_trip	Safar
+uz	story_intro	iumrah yana bir sayohat xizmatini yaratish g‘oyasidan boshlanmagan. U tajribadan tug‘ilgan.
+uz	story_kicker	MAKKADA TUG‘ILGAN LOYIHA
+uz	story_mission_body	Ziyoratchini tizimni tushunishga majbur qilmaslik. Tizim uning safarini tushunishi kerak.
+uz	story_mission_title	Bizning vazifamiz
+uz	story_nav_title	Bizning hikoyamiz
+uz	story_p1	Makkada bir yildan ortiq vaqt yashab, ziyoratchilar yonida bo‘lganimizda bir muammoni qayta-qayta ko‘rdik: odam minglab kilometr bosib keladigan safar ko‘pincha katta guruh, vositachilar va boshqalarning jadvaliga bog‘lanib qolardi.
+uz	story_p2	Biz boshqa yo‘lni qurishni istadik — inson Umrani mustaqil, oilasi yoki do‘stlari bilan ado eta olsin, lekin safarni tashkil qilishda yolg‘iz qolmasin.
+uz	story_title	Nega iumrah Project
+uz	story_why_project_body	Chunki bu yo‘l bir kun tugallangan deb hisoblanmasligi kerak. Har bir safar, har bir savol va ziyoratchining har bir yangi ehtiyoji bilan iumrah yaxshilanib borishi kerak.
+uz	story_why_project_title	Nega Project
+uz	success_body	Hozir iumrah mavjudlikni tekshirmoqda. Safar holati va yordam chati shu safarga bog‘landi.
+uz	success_title	Safar yaratildi
+uz	tab_booking	Bron
+uz	tab_home	Asosiy
+uz	tab_hotels	Mehmonxonalar
+uz	tab_umrah	Umra
+uz	theme_label	Mavzu
+uz	tier_comfort	Komfort
+uz	tier_economy	Ekonom
+uz	tier_luxury	Lyuks
+uz	tier_standard	Standart
+uz	total_for	Jami
+uz	travelers	yo‘lovchi uchun
+uz	trip_arrival_jeddah_hint	Avval Makka Jidda orqali. Qaytish reysi Madinadan qidiriladi.
+uz	trip_arrival_madinah_hint	Avval Madina. Qaytish reysi Jiddadan qidiriladi.
+uz	trip_arrival_picker	Kelish aeroporti
+uz	trip_arrival_title	Avval qaysi aeroportga
+uz	trip_continue_hotel	Mehmonxonaga o‘tish
+uz	trip_dates_title	Qachon yo‘lga chiqmoqchisiz
+uz	trip_destination_title	Qayerga yo‘l olmoqchisiz
+uz	trip_flexible_hint	Narxlar kalendari haqiqiy qidiruvlar bilan to‘lib boradi va yangi parvoz qidiruvidan oldin yaqin sanalarni solishtirishga yordam beradi.
+uz	trip_format_title	Qaysi safar formati sizga mos
+uz	trip_intro_kicker	UMRANGIZNI YIG‘ING
+uz	trip_origin_title	Safar qayerdan boshlanadi
+uz	trip_route_picker	Yo‘nalish
+uz	trip_travelers_body	Joylashuv va parvozlar oilangiz yoki guruhingiz uchun hisoblanadi.
+uz	trip_travelers_title	Siz bilan kim safar qiladi
+uz	umrah_coming	Umra bo‘yicha bosqichma-bosqich yo‘riqnoma keyingi yangilanishlardan birida shu yerga qo‘shiladi.
+uz-cyrl	adults	Катталар
+uz-cyrl	airport_jeddah	Жидда
+uz-cyrl	airport_jeddah_full	Жидда · Макка учун
+uz-cyrl	airport_madinah	Мадина
+uz-cyrl	airport_map_airport	Аэропорт
+uz-cyrl	airport_map_choose	Танлаш: %@
+uz-cyrl	airport_map_hint_title	Глобусдан аэропорт танланг
+uz-cyrl	airport_map_reset	Глобусни кўрсатиш
+uz-cyrl	airport_map_resolve_failed	Apple Maps’даги бу жойни аэропорт коди билан мослаб бўлмади. Харитадан бошқа аэропортни танланг ёки матнли қидирувдан фойдаланинг.
+uz-cyrl	airport_map_resolving	Аэропорт ва IATA коди текширилмоқда…
+uz-cyrl	airport_map_tap_hint	Танлаш учун харитадаги аэропорт номини босинг.
+uz-cyrl	airport_map_title	Глобусдан танлаш
+uz-cyrl	airport_map_zoom_hint	Глобусни айлантиринг ва аэропорт номлари кўрингунча яқинлаштиринг. Сўнг керакли аэропортни босинг.
+uz-cyrl	airport_none	Ҳеч нарса топилмади
+uz-cyrl	airport_none_body	Бошқа шаҳар ёки аэропорт кодини киритинг.
+uz-cyrl	airport_search_body	Шаҳар, аэропорт номи ёки уч ҳарфли код бўйича қидиринг — масалан TAS, Тошкент, Истанбул.
+uz-cyrl	airport_search_failed	Ҳозир аэропортларни қидириб бўлмади.
+uz-cyrl	airport_search_title	Жўнаш аэропортини топинг
+uz-cyrl	airport_title	Жўнаш аэропорти
+uz-cyrl	amenity_air_conditioning	Кондиционер
+uz-cyrl	amenity_breakfast	Нонушта
+uz-cyrl	amenity_coffee_shop	Қаҳвахона
+uz-cyrl	amenity_concierge	Консьерж
+uz-cyrl	amenity_dry_cleaning	Кимёвий тозалаш
+uz-cyrl	amenity_elevator	Лифт
+uz-cyrl	amenity_family_rooms	Оилавий хоналар
+uz-cyrl	amenity_fitness_center	Фитнес маркази
+uz-cyrl	amenity_laundry	Кир ювиш
+uz-cyrl	amenity_luggage_storage	Багаж сақлаш
+uz-cyrl	amenity_non_smoking	Чекилмайдиган хоналар
+uz-cyrl	amenity_parking	Автотураргоҳ
+uz-cyrl	amenity_reception	24/7 ресепшн
+uz-cyrl	amenity_restaurant	Ресторан
+uz-cyrl	amenity_room_service	Хона хизмати
+uz-cyrl	amenity_spa	Спа
+uz-cyrl	amenity_transfer	Трансфер / шаттл
+uz-cyrl	amenity_wifi	Бепул Wi‑Fi
+uz-cyrl	app_language	Илова тили
+uz-cyrl	appearance_dark	Қоронғи
+uz-cyrl	appearance_light	Ёруғ
+uz-cyrl	appearance_section	Кўриниш
+uz-cyrl	appearance_system	iPhone каби
+uz-cyrl	back	Ортга
+uz-cyrl	booking_all_in_one_price	Парвоз, яшаш ва хизматлар бирга
+uz-cyrl	booking_authoritative_quote_required	Брон қилишдан олдин пакет нархи iumrah хавфсиз серверида тасдиқланиши керак. Бироз кутиб, қайта уриниб кўринг.
+uz-cyrl	booking_cancel_and_delete	Бронни бекор қилиш ва ўчириш
+uz-cyrl	booking_care_body	Сафарни қайта тушунтирмасдан шу брон бўйича ёзинг.
+uz-cyrl	booking_change_confirmation_message	Илтимос, бронимдаги сўнгги ўзгаришларни — меҳмонхоналар, контактлар ва танланган хизматларни тасдиқланг.
+uz-cyrl	booking_change_hotel	Меҳмонхонани ўзгартириш
+uz-cyrl	booking_change_hotel_body	iumrah каталогидан бошқа меҳмонхонани танланг, саҳифасини очинг ва хонани белгиланг.
+uz-cyrl	booking_change_hotel_title	Меҳмонхонани ўзгартириш
+uz-cyrl	booking_changes_pending_body	Меҳмонхона, контакт ёки хизматлардаги янги маълумотлар сақланди. Якуний мавжудлик тасдиғи учун уларни iumrah Care’га юборинг.
+uz-cyrl	booking_changes_pending_title	Ўзгаришлар тасдиқланиши керак
+uz-cyrl	booking_contact_edit	Ўзгартириш
+uz-cyrl	booking_contact_edit_body	iumrah Care ва сафар жамоаси Сиз билан боғлана олиши учун камида битта амалдаги алоқа қолдиринг.
+uz-cyrl	booking_contact_edit_title	Алоқа рақамини ўзгартириш
+uz-cyrl	booking_contact_empty	Алоқа рақами ҳали киритилмаган.
+uz-cyrl	booking_contacts	Алоқа
+uz-cyrl	booking_delete	Бронни ўчириш
+uz-cyrl	booking_delete_confirm_action	Бутунлай ўчириш
+uz-cyrl	booking_delete_confirm_body	Брон фақат сервер бутунлай ўчирилганини тасдиқлагандан кейин қурилмадан ҳам йўқолади. Буни ортга қайтариб бўлмайди.
+uz-cyrl	booking_delete_confirm_title	Брон ўчирилсинми?
+uz-cyrl	booking_delete_failed	Бронни сервердан ўчириб бўлмади. iPhone’да ҳеч нарса ўчирилмади.
+uz-cyrl	booking_delete_server_required	Брон серверида тўлиқ ўчириш ҳали ёқилмаган. Брон iPhone’дан ўчирилмади.
+uz-cyrl	booking_detail_title	Бронингиз
+uz-cyrl	booking_empty_body	Тасдиқлангандан сўнг биринчи сафарингиз шу ерда кўринади.
+uz-cyrl	booking_empty_title	Ҳозирча брон йўқ
+uz-cyrl	booking_guide_assigned	Бронингизга бириктирилган ва iumrah Care билан алоқада.
+uz-cyrl	booking_guide_care_note	Сафар жамоаси тасдиқлангач, бириктирилган гид шу ерда кўринади.
+uz-cyrl	booking_guide_pending	Гид ушбу сафарга бириктирилмоқда.
+uz-cyrl	booking_guide_title	Сизнинг гидингиз
+uz-cyrl	booking_hero_body	Саналар, одамлар ва сафар даражасини танланг. Сўнг iumrah меҳмонхона тавсия қилади ва аниқ пакет нархи билан мос парвозларни топади.
+uz-cyrl	booking_hero_cta	Умрамни яратиш
+uz-cyrl	booking_hero_kicker	ЯНГИ САФАР
+uz-cyrl	booking_hero_title	Умрангизни йиғинг
+uz-cyrl	booking_home_subtitle	Барча сафарлар, уларнинг ҳолати ва iumrah Care битта жойда сақланади.
+uz-cyrl	booking_hotel_pending	Меҳмонхона аниқлаштирилмоқда
+uz-cyrl	booking_included	Киритилган
+uz-cyrl	booking_legacy_flight_note	Бу брон батафсил парвоз сегментлари iPhone’да сақланишидан олдин яратилган.
+uz-cyrl	booking_madinah_hotel	Мадинадаги меҳмонхона
+uz-cyrl	booking_makkah_hotel	Маккадаги меҳмонхона
+uz-cyrl	booking_nights_count	%d кеча
+uz-cyrl	booking_number_short	Брон %@
+uz-cyrl	booking_open_care	Брон чатини очиш
+uz-cyrl	booking_outbound_flight	Бориш рейси
+uz-cyrl	booking_phone	Телефон
+uz-cyrl	booking_request_confirmation	Тасдиқ сўраш
+uz-cyrl	booking_request_sent	Сўров юборилди
+uz-cyrl	booking_return_flight	Қайтиш рейси
+uz-cyrl	booking_save_changes	Ўзгаришларни сақлаш
+uz-cyrl	booking_total_package	Жами пакет
+uz-cyrl	booking_transfer_arrival	%@ аэропортида кутиб олиш
+uz-cyrl	booking_transfer_body	Умра сафарингизнинг бутун йўналиши учун транспорт.
+uz-cyrl	booking_transfer_departure	Қайтиш рейси учун %@ га трансфер
+uz-cyrl	booking_transfer_intercity	Макка ↔ Мадина шаҳарлараро трансфери
+uz-cyrl	booking_transfer_madinah	Мадинадаги меҳмонхонага ва ундан трансфер
+uz-cyrl	booking_transfer_makkah	Маккадаги меҳмонхонага ва ундан трансфер
+uz-cyrl	booking_transfer_title	Тўлиқ трансфер
+uz-cyrl	booking_transfer_ziyarat	Зиёрат йўналишлари учун транспорт
+uz-cyrl	booking_update_failed	Меҳмонхона ўзгаришини сақлаб бўлмади. Жорий брон ўзгаришсиз қолди.
+uz-cyrl	booking_your_trip	Сизнинг Умрангиз
+uz-cyrl	booking_ziyarat_body	Ушбу бронда қайси зиёрат дастурлари қолишини танланг.
+uz-cyrl	booking_ziyarat_madinah	Мадина зиёратлари
+uz-cyrl	booking_ziyarat_makkah	Макка зиёратлари
+uz-cyrl	booking_ziyarat_title	Зиёратлар
+uz-cyrl	cancel	Бекор қилиш
+uz-cyrl	care_chats	Чатларингиз
+uz-cyrl	care_chats_subtitle	Ҳар бир чат аниқ сафарга боғланган, шунинг учун йўналиш, саналар ва отелни қайта тушунтириш шарт эмас.
+uz-cyrl	care_free_year	Биринчи йил ҳар бир зиёратчи учун бепул киритилган
+uz-cyrl	care_locked_body	Сафарингизни тузинг ва мавжудлик текширувига юборинг. Шундан кейин ёрдам жамоаси бронингизга уланади.
+uz-cyrl	care_locked_title	Чат брон яратилгандан кейин очилади
+uz-cyrl	care_metric_answers	Жавоблар
+uz-cyrl	care_metric_care	Ғамхўрлик
+uz-cyrl	care_metric_updates	Ҳолат
+uz-cyrl	care_promise_body	Сафаргача, йўлда ва Умра давомида iumrah Care сафарингизга боғланган ягона ёрдам линияси бўлиб қолади.
+uz-cyrl	care_promise_title	Мустақил — ёлғиз дегани эмас.
+uz-cyrl	care_subtitle	Ёрдам Умрадан олдин, давомида ва кейин сафарингиз билан қолади.
+uz-cyrl	care_title	iumrah Care
+uz-cyrl	challenge_open	Текширувдан ўтиш
+uz-cyrl	chat_empty_body	Брон, парвоз, отель, трансфер ёки йўналиш бўйича ёзинг.
+uz-cyrl	chat_empty_title	Суҳбатни бошланг
+uz-cyrl	chat_load	Чат юкланмоқда…
+uz-cyrl	chat_online	онлайн
+uz-cyrl	chat_placeholder	Хабар…
+uz-cyrl	chat_retry	Қайта уриниш
+uz-cyrl	chat_send_failed	Хабар юборилмади. %@
+uz-cyrl	chat_staff	iumrah Care
+uz-cyrl	chat_unavailable	Чат мавжуд эмас
+uz-cyrl	chat_you	Сиз
+uz-cyrl	checkout_cta	Текшириш ва брон яратиш
+uz-cyrl	checkout_subtitle	Тасдиқлашдан олдин iumrah танланган отель ва парвозлар мавжудлигини яна бир бор текширади.
+uz-cyrl	checkout_title	Сафарингизни текширамиз
+uz-cyrl	children	Болалар
+uz-cyrl	children_age	2–11 ёш
+uz-cyrl	city_madinah	Мадина
+uz-cyrl	city_makkah	Макка
+uz-cyrl	close	Ёпиш
+uz-cyrl	collapse	Йиғиш
+uz-cyrl	departure	Жўнаш
+uz-cyrl	detail_booking	Брон
+uz-cyrl	detail_chat_cta	iumrah Care билан чат
+uz-cyrl	detail_dates	Сафар саналари
+uz-cyrl	detail_hotel	Меҳмонхона
+uz-cyrl	detail_not_found	Брон топилмади
+uz-cyrl	detail_updates	Ҳолат автоматик янгиланади
+uz-cyrl	drawer_chats	Чатлар
+uz-cyrl	drawer_greeting	Ассалому алайкум
+uz-cyrl	drawer_open	Менюни очиш
+uz-cyrl	drawer_welcome	iumrah’га хуш келибсиз
+uz-cyrl	error_booking_access	Брон маълумотларига киришни тасдиқлаб бўлмади.
+uz-cyrl	error_chat_load	Чатни юклаб бўлмади.
+uz-cyrl	error_chat_send	Хабарни юбориб бўлмади.
+uz-cyrl	error_decoding	Сервер маълумотларини ўқиб бўлмади.
+uz-cyrl	error_invalid_request	Сўровни қайта ишлаб бўлмади.
+uz-cyrl	error_invalid_response	Сервер нотўғри жавоб қайтарди.
+uz-cyrl	error_missing_booking_token	Брон кириш токенисиз яратилди. Янги брон яратинг ёки iumrah Care билан боғланинг.
+uz-cyrl	error_network	Тармоқ хатоси юз берди. Қайта уриниб кўринг.
+uz-cyrl	error_offline	Интернет алоқаси йўқ. Уланишни текшириб, қайта уриниб кўринг.
+uz-cyrl	error_rate_limit	Жуда кўп хабар юборилди. Бир дақиқадан кейин қайта уриниб кўринг.
+uz-cyrl	error_server_named	Сервер хатоси: %@.
+uz-cyrl	error_service_unavailable	Хизмат вақтинча ишламаяпти.
+uz-cyrl	error_status	Сервер хатоси (%d).
+uz-cyrl	error_timeout	Сўров жуда узоқ давом этди. Қайта уриниб кўринг.
+uz-cyrl	error_unknown	Нимадир хато кетди. Қайта уриниб кўринг.
+uz-cyrl	expand	Ёйиш
+uz-cyrl	field_first_name	Исм
+uz-cyrl	field_last_name	Фамилия
+uz-cyrl	field_telegram	Telegram
+uz-cyrl	field_whatsapp	WhatsApp
+uz-cyrl	final_before	Брон қилишдан олдин
+uz-cyrl	final_body	Сафарни саналарингиз ва истакларингиз асосида туздик. Парвозлар, меҳмонхона ва танланган хизматлар битта пакетга бирлаштирилди.
+uz-cyrl	final_book_cta	Умрамни брон қилиш
+uz-cyrl	final_calculating	Пакет нархи ҳисобланмоқда…
+uz-cyrl	final_care	iumrah Care
+uz-cyrl	final_check_one	Мавжудликни яна бир бор текширамиз
+uz-cyrl	final_check_three	Брон қилингач сафар Брон ва iumrah Care бўлимида пайдо бўлади
+uz-cyrl	final_check_two	Шартлар тасдиқлашгача кўринади
+uz-cyrl	final_hotel	Меҳмонхона
+uz-cyrl	final_in_trip	Сафарингиз таркибида
+uz-cyrl	final_nav_title	Тайёр сафар
+uz-cyrl	final_outbound	Бориш парвози
+uz-cyrl	final_price	Пакет нархи
+uz-cyrl	final_price_note	Танланган рейслар, меҳмонхоналар, трансферлар ва хизматлар автоматик равишда битта боғланган Умра пакети сифатида ҳисобланди.
+uz-cyrl	final_return	Қайтиш парвози
+uz-cyrl	final_title	Умрангиз тайёр
+uz-cyrl	final_total_group	%d йўловчи учун жами: %@
+uz-cyrl	final_transfer	Трансфер ва хизматлар
+uz-cyrl	final_visa	Виза
+uz-cyrl	flex_exact	Аниқ
+uz-cyrl	flex_pm1	±1 кун
+uz-cyrl	flex_pm2	Саналар
+uz-cyrl	flex_weekend	Дам олиш кунлари
+uz-cyrl	flight_airline_unknown	Авиакомпания
+uz-cyrl	flight_airport_change	%@ · аэропорт алмашади · %@
+uz-cyrl	flight_arrival_terminal	Келиш терминали
+uz-cyrl	flight_bot_challenge	%@ инсон текширувини талаб қилмоқда.
+uz-cyrl	flight_bot_invalid_page	Авиакомпания саҳифасини тайёрлаб бўлмади.
+uz-cyrl	flight_bot_no_candidates	Провайдер ўқиб бўладиган парвоз вариантларини қайтармади.
+uz-cyrl	flight_bot_timeout	Парвоз провайдери жуда узоқ жавоб бермади.
+uz-cyrl	flight_cabin_business	Бизнес
+uz-cyrl	flight_cabin_economy	Эконом
+uz-cyrl	flight_cabin_first	Биринчи класс
+uz-cyrl	flight_cabin_premium	Премиум эконом
+uz-cyrl	flight_challenge_body	%@ инсон текширувини сўради. Уни якунлаб, қидирувни қайта бошланг. Сессия шу iPhone’да сақланади.
+uz-cyrl	flight_challenge_title	Текширув керак
+uz-cyrl	flight_choose_return	Қайтиш рейсини танлаш
+uz-cyrl	flight_departure_terminal	Учиш терминали
+uz-cyrl	flight_detail_aircraft	Самолёт
+uz-cyrl	flight_detail_cabin	Класс
+uz-cyrl	flight_detail_duration	Парвоз вақти
+uz-cyrl	flight_detail_operated_by	Амалга оширади
+uz-cyrl	flight_detail_unknown	Маълумот йўқ
+uz-cyrl	flight_details_cta	Парвоз тафсилотлари
+uz-cyrl	flight_details_price_note	Кўрсатилган фарқ барча танланган йўловчилар учун тўлиқ йўналиш нархига асосланган.
+uz-cyrl	flight_details_route	%@ → %@
+uz-cyrl	flight_details_title	Парвоз тафсилотлари
+uz-cyrl	flight_direct	Тўғридан-тўғри
+uz-cyrl	flight_duration_short	%dсоат %dдақ
+uz-cyrl	flight_error_candidate	Парвоз тизими танланган %@ вариантини топа олмади.
+uz-cyrl	flight_error_fare_scope	%@ тариф турини тасдиқлаб бўлмади.
+uz-cyrl	flight_error_insufficient	Фақат %d та тасдиқланган парвоз варианти топилди; камида %d та керак.
+uz-cyrl	flight_error_insufficient_challenge	Фақат %d та тасдиқланган вариант топилди; камида %d та керак. Қуйидагиларда текширув талаб қилинади: %@.
+uz-cyrl	flight_error_madinah	Бу йўналиш учун Мадинадаги асосий меҳмонхона нархи ҳали созланмаган.
+uz-cyrl	flight_error_makkah	Макка учун асосий меҳмонхона нархи ҳали созланмаган.
+uz-cyrl	flight_error_minimum	Текширувдан кейин %d вариант қолди; камида %d та керак.
+uz-cyrl	flight_error_outbound	Танланган бориш рейси энди мавжуд эмас. Парвозни қайта қидиринг.
+uz-cyrl	flight_error_service	Сафар ҳисоблаш хизмати вақтинча ишламаяпти.
+uz-cyrl	flight_hours_short	%dсоат
+uz-cyrl	flight_layover_airport_change	%@ шаҳрида аэропорт алмашади
+uz-cyrl	flight_layover_overnight	Тунги уланиш
+uz-cyrl	flight_layover_summary	%@ · %@ кутиш
+uz-cyrl	flight_layover_title	%@ шаҳрида уланиш
+uz-cyrl	flight_minutes_short	%dдақ
+uz-cyrl	flight_nav_out	Парвоз
+uz-cyrl	flight_nav_return	Қайтиш
+uz-cyrl	flight_out_body	Нарх фарқи тўлиқ бориш-қайтиш йўналиши нархи асосида ҳисобланган.
+uz-cyrl	flight_out_eyebrow	Бориш
+uz-cyrl	flight_out_title	Жўнаш парвозини танланг
+uz-cyrl	flight_package_contents	Меҳмонхона + парвозлар + хизматлар
+uz-cyrl	flight_provider_not_configured	Авиачипталар қидируви ҳали созланмаган.
+uz-cyrl	flight_ready_body	Мос бориш-қайтиш йўналишлари топилди.
+uz-cyrl	flight_ready_title	Тайёр
+uz-cyrl	flight_recommended	Тавсия қиламиз
+uz-cyrl	flight_retry	Қидирувни такрорлаш
+uz-cyrl	flight_return_body	Ҳар бир қайтиш рейси танланган бориш рейсига мос ва битта тўлиқ йўналиш сифатида нархланган.
+uz-cyrl	flight_return_eyebrow	Қайтиш
+uz-cyrl	flight_return_title	Қайтиш парвозини танланг
+uz-cyrl	flight_search_airlines	Мавжуд рейсларни текширяпмиз
+uz-cyrl	flight_search_almost	Деярли тайёр — танловни якунлаяпмиз
+uz-cyrl	flight_search_dates	Мос саналарни солиштиряпмиз
+uz-cyrl	flight_search_failed	Қидирув якунланмади
+uz-cyrl	flight_search_hero	Умрангизни йиғмоқдамиз
+uz-cyrl	flight_search_reprice	Бориш-қайтиш йўналишлари нархларини солиштиряпмиз
+uz-cyrl	flight_segment_count	%d-рейс, жами %d та
+uz-cyrl	flight_select_hotel_first	Аввал меҳмонхонани танланг.
+uz-cyrl	flight_select_outbound_first	Аввал бориш рейсини танланг.
+uz-cyrl	flight_stops	%d та тўхташ
+uz-cyrl	flight_terminal	%@-терминал
+uz-cyrl	flight_view_package	Тайёр Умрамни кўриш
+uz-cyrl	flight_wait_01	Сафарингиз учун энг яхши вариантларни излаяпмиз
+uz-cyrl	flight_wait_02	Мавжуд рейсларни текширяпмиз
+uz-cyrl	flight_wait_03	Бориш-қайтиш комбинацияларини солиштиряпмиз
+uz-cyrl	flight_wait_04	Жойлашув, шартлар ва нархни солиштиряпмиз
+uz-cyrl	flight_wait_05	Танланган саналарга мос йўналишларни текширяпмиз
+uz-cyrl	flight_wait_06	Мос трансфер вариантларини танлаяпмиз
+uz-cyrl	flight_wait_07	Барчасини битта сафарга бирлаштиряпмиз
+uz-cyrl	flight_wait_08	Мавжуд комбинацияларни солиштиряпмиз
+uz-cyrl	flight_wait_09	Бориш-қайтиш йўналишлари нархларини солиштиряпмиз
+uz-cyrl	flight_wait_10	Энг мос вариантларни танлаяпмиз
+uz-cyrl	flight_wait_11	Деярли тайёр — танловни якунлаяпмиз
+uz-cyrl	flight_wait_12	Сафарингизни тайёрлаяпмиз…
+uz-cyrl	flight_wait_average	Одатда қидирув 1–2 дақиқа давом этади
+uz-cyrl	flight_wait_long_01	Қидирув давом этмоқда — бироз кўпроқ вақт кетиши мумкин
+uz-cyrl	flight_wait_long_02	Танловга шошилмаслик учун кўпроқ вариантларни текширяпмиз
+uz-cyrl	flight_wait_long_03	Яна озгина — таклифларни солиштиришни якунлаяпмиз
+uz-cyrl	flight_wait_long_04	Вариантларингиз деярли тайёр
+uz-cyrl	flight_whole_package	Бутун пакет
+uz-cyrl	home_connected_body	Парвоз → меҳмонхона → трансфер → Умра → Care. Тарқоқ хизматлар ўрнига битта хотиржам сафар.
+uz-cyrl	home_connected_title	Битта сафар. Ҳаммаси боғланган.
+uz-cyrl	home_hero_badge	Якуний нарх брон қилишдан олдин кўрсатилади
+uz-cyrl	home_hero_body	Парвоз, яшаш ва ёрдам — катта гуруҳ атрофида эмас, айнан сафарингиз атрофида жамланади.
+uz-cyrl	home_hero_cta	Умрамни йиғиш
+uz-cyrl	home_hero_kicker	СИЗНИНГ УМРАНГИЗ
+uz-cyrl	home_hero_title	Сизнинг Умрангиз.\nСизнинг йўлингиз.
+uz-cyrl	home_philosophy_body	iumrah Умрани ўзингиз, оилангиз ёки дўстларингиз учун катта гуруҳсиз ташкил қилишга ёрдам беради, Care эса шу сафарга боғланган қолади.
+uz-cyrl	home_philosophy_title	Тур эмас. Ўзингизнинг Умрангиз.
+uz-cyrl	hotel_about_title	Меҳмонхона ҳақида
+uz-cyrl	hotel_all_photos_count	Барчаси %d
+uz-cyrl	hotel_amenities_empty	Қулайликлар каталогда мавжуд бўлганда шу ерда кўринади.
+uz-cyrl	hotel_amenities_title	Меҳмонхона имкониятлари
+uz-cyrl	hotel_care_call	Қўнғироқ қилиш
+uz-cyrl	hotel_care_card_body	Меҳмонхона, пакет ёки мавсум ҳақида савол борми? Брон қилишдан олдин iumrah асосчиси Абдулазиз билан бевосита маслаҳатлашишингиз мумкин.
+uz-cyrl	hotel_care_contact	iumrah Care билан боғланиш
+uz-cyrl	hotel_care_prebook_body	iumrah Care — iumrah асосчиси Абдулазиз билан бевосита алоқа. Брон олдидан меҳмонхона, пакет, тўлов ва мавсумий шароитларни муҳокама қилишингиз мумкин; у сафар давомида ёрдамни ҳам назорат қилади.
+uz-cyrl	hotel_catalog_eyebrow	iumrah каталоги
+uz-cyrl	hotel_change_body	Бу ерда фақат iumrah зиёратчилар учун танлаган меҳмонхоналар кўрсатилади.
+uz-cyrl	hotel_change_title	Бошқа меҳмонхонани танлаш
+uz-cyrl	hotel_checkin	Кириш
+uz-cyrl	hotel_checkout	Чиқиш
+uz-cyrl	hotel_continue_flights	Парвозларга ўтиш
+uz-cyrl	hotel_detail_days_short	кун
+uz-cyrl	hotel_detail_nights_fmt	%@ · %d тун
+uz-cyrl	hotel_detail_nights_short	тун
+uz-cyrl	hotel_detail_open_configurator	Configuratorни очиш
+uz-cyrl	hotel_detail_package_counter_fmt	%d / %d
+uz-cyrl	hotel_detail_package_id	Package ID
+uz-cyrl	hotel_detail_package_options_subtitle_fmt	Шу меҳмонхона билан тайёр пакетлар: %d
+uz-cyrl	hotel_detail_package_options_title	Сафар вариантлари
+uz-cyrl	hotel_detail_package_subtitle	Кейинги мос эълон қилинган рейслар жуфтлиги бўйича битта якуний пакет нархи
+uz-cyrl	hotel_detail_package_title	Умрангиз — шу меҳмонхона билан
+uz-cyrl	hotel_detail_package_total_for_fmt	%@ · %d зиёратчи учун жами
+uz-cyrl	hotel_detail_preparing_price	Амалдаги нарх тайёрланмоқда…
+uz-cyrl	hotel_detail_services	Овқатланиш · трансферлар · виза
+uz-cyrl	hotel_detail_standard_note	iumrah Configurator пакет тоифасини меҳмонхона даражасига кўра автоматик қўллайди: 3★ гача Standard, 4★ Comfort, 5★ Luxury.
+uz-cyrl	hotel_detail_upgrade_luxury	Luxury’га ўтиш
+uz-cyrl	hotel_detail_variant_balanced	Оптимал сафар
+uz-cyrl	hotel_detail_variant_extended	Умрада кўпроқ кун
+uz-cyrl	hotel_detail_variant_ready_fmt	%d кунлик тайёр пакет · таркиби ва нархи шу Package ID учун сақланган.
+uz-cyrl	hotel_detail_variant_short	Қисқа сафар
+uz-cyrl	hotel_gallery_all	Барча расмлар
+uz-cyrl	hotel_gallery_bathroom	Ҳаммом
+uz-cyrl	hotel_gallery_facility	Қулайликлар
+uz-cyrl	hotel_gallery_lobby	Лобби
+uz-cyrl	hotel_gallery_restaurant	Ресторан
+uz-cyrl	hotel_gallery_rooms	Хоналар
+uz-cyrl	hotel_gallery_view	Кўриниш
+uz-cyrl	hotel_level	Меҳмонхона даражаси
+uz-cyrl	hotel_loading_detail	Меҳмонхона маълумотлари юкланмоқда…
+uz-cyrl	hotel_location_title	Жойлашув
+uz-cyrl	hotel_not_available	Бу меҳмонхона энди танлаш учун мавжуд эмас.
+uz-cyrl	hotel_open_map	Харитани очиш
+uz-cyrl	hotel_photos	Расмлар
+uz-cyrl	hotel_practical_title	Муҳим маълумот
+uz-cyrl	hotel_primary_room_badge	Тавсия этилади · iumrah
+uz-cyrl	hotel_primary_rooms_body	Аввал iumrah тайёрлаган энг содда хона вариантларидан бошланг.
+uz-cyrl	hotel_primary_rooms_error	Хона тоифалари вақтинча мавжуд эмас. Қайта уриниб кўринг.
+uz-cyrl	hotel_primary_rooms_loading	iumrah хона тоифалари юкланмоқда…
+uz-cyrl	hotel_primary_rooms_title	Тавсия этилган хона танлови
+uz-cyrl	hotel_property_type	Жойлашув тури
+uz-cyrl	hotel_rating_exceptional	Ажойиб
+uz-cyrl	hotel_rating_good	Яхши
+uz-cyrl	hotel_rating_very_good	Жуда яхши
+uz-cyrl	hotel_real_rooms_body	Ёки шу меҳмонхонада кўрсатилган ҳақиқий хона вариантларидан бирини танланг.
+uz-cyrl	hotel_real_rooms_title	Бу меҳмонхонадаги хоналар
+uz-cyrl	hotel_reviews_count	%d та шарҳ
+uz-cyrl	hotel_room_chosen	Танланган хона
+uz-cyrl	hotel_rooms_empty	Каталогда ҳозирча хона вариантлари йўқ.
+uz-cyrl	hotel_rooms_subtitle	Зиёратчиларингизга мос хонани танланг. Меҳмонхонанинг алоҳида нархи кўрсатилмайди.
+uz-cyrl	hotel_rooms_title	Хонани танланг
+uz-cyrl	hotel_selected_quality	iumrah танлови
+uz-cyrl	hotel_storefront_calculating	Нарх тайёрланмоқда…
+uz-cyrl	hotel_storefront_current	ДОЛЗАРБ
+uz-cyrl	hotel_storefront_direct	Тўғридан-тўғри
+uz-cyrl	hotel_storefront_favorite_add	Сараланганларга қўшиш
+uz-cyrl	hotel_storefront_favorite_remove	Сараланганлардан олиб ташлаш
+uz-cyrl	hotel_storefront_flights	Авиачипталар
+uz-cyrl	hotel_storefront_flights_hero_body	iumrah Flights Scanner Ўзбекистон шаҳарларидан Саудия Арабистонига долзарб тўғридан-тўғри рейсларни топади ва мос рейсларни тайёр Умра пакетларига бирлаштиради.
+uz-cyrl	hotel_storefront_flights_hero_note	Жидда йўналишлари 2–3 кунлик фақат Макка Comfort пакетига айланиши мумкин. 4–15 кунлик сафарлар Макка + Мадина Standard пакетига айланади; қайтиш имкон қадар бошланғич шаҳарга, акс ҳолда Тошкентга.
+uz-cyrl	hotel_storefront_hero_body	iumrah сокинроқ Умра учун танлаган меҳмонхоналар — қулай жойлашув, ишончли хизмат ва тайёр пакет нархи.
+uz-cyrl	hotel_storefront_hero_note	Жўнаш аэропортини бир марта танланг. iumrah Configurator кейинги мос қайтиш рейсини топади, керак бўлса қайтишда Тошкент fallback сифатида ишлатилади ва ҳар бир меҳмонхонани тоифасига кўра ҳисоблайди: 3★ гача Standard, 4★ Comfort, 5★ Luxury.
+uz-cyrl	hotel_storefront_includes	Парвоз + меҳмонхона + iumrah Services
+uz-cyrl	hotel_storefront_loading	Меҳмонхоналар ва пакет нархлари тайёрланмоқда…
+uz-cyrl	hotel_storefront_outbound	Бориш
+uz-cyrl	hotel_storefront_package_baseline	Пакет учун рейс
+uz-cyrl	hotel_storefront_package_total_fmt	%@ · икки кишилик пакет
+uz-cyrl	hotel_storefront_per_pilgrim	бир зиёратчига
+uz-cyrl	hotel_storefront_published_direct	Тўғридан-тўғри · iumrah Flights Scanner
+uz-cyrl	hotel_storefront_published_flights	iumrah Flights Scanner ёрдамида бизни топинг
+uz-cyrl	hotel_storefront_recommends	IUMRAH ТАВСИЯСИ
+uz-cyrl	hotel_storefront_return	Қайтиш
+uz-cyrl	hotel_storefront_round_trip	бир зиёратчига\nбориб-келиш
+uz-cyrl	hotel_storefront_section	Бўлим
+uz-cyrl	hotel_storefront_share	Меҳмонхонани улашиш
+uz-cyrl	hotel_storefront_weekend	Дам олиш
+uz-cyrl	hotel_storefront_weekend_body	Дам олиш кунларига сиғадиган Умра. Sunday Umrah Club бу ерда қисқа ва тайёр сафарларни жамлайди.
+uz-cyrl	hotel_storefront_weekend_note	Weekend пакетлар бу ерда эълон қилинган тайёр жўнашлар сифатида пайдо бўлади.
+uz-cyrl	hotel_time_body	Меҳмонхона ресепшенидаги каби — уй ва Умра шаҳарларидаги вақт.
+uz-cyrl	hotel_time_madinah	Мадина
+uz-cyrl	hotel_time_makkah	Макка
+uz-cyrl	hotel_time_moscow	Москва
+uz-cyrl	hotel_time_tashkent	Тошкент
+uz-cyrl	hotel_time_title	Маҳаллий вақт
+uz-cyrl	hotel_view_all_photos	Барча суратларни кўриш
+uz-cyrl	hotel_view_all_photos_fmt	Барчасини кўриш %d
+uz-cyrl	hotels_load_error	Ҳозир отелларни юклаб бўлмади.
+uz-cyrl	hotels_madinah	Мадина учун танлов
+uz-cyrl	hotels_makkah	Макка учун танлов
+uz-cyrl	hotels_note	iumrah бу отелларга эгалик қилмайди. Биз зиёратчиларимизга мос жойларни синчиклаб танлаймиз ва кузатиб борамиз.
+uz-cyrl	hotels_selected_badge	iumrah танлови
+uz-cyrl	hotels_subtitle	iumrah жамоаси томонидан зиёратчилар учун танланган отеллар: ишончли сервис, қулай жойлашув ва хотиржам яшаш учун.
+uz-cyrl	included	Киритилган
+uz-cyrl	infants	Гўдаклар
+uz-cyrl	infants_age	2 ёшгача
+uz-cyrl	language_english	Инглизча
+uz-cyrl	language_russian	Русча
+uz-cyrl	language_section	Тил
+uz-cyrl	language_uzbek	Ўзбекча
+uz-cyrl	language_uzbek_cyr	Ўзбекча · кирилл
+uz-cyrl	makkah_time	Макка вақти
+uz-cyrl	next_four	iumrah Care чати шу сафарга уланади
+uz-cyrl	next_one	Сафарга ҳимояланган брон рақами берилади
+uz-cyrl	next_three	Ҳолат Брон бўлимида пайдо бўлади
+uz-cyrl	next_title	Кейин нима бўлади
+uz-cyrl	next_two	Мавжудлик текшируви бошланади
+uz-cyrl	notifications_denied	Билдиришномалар iPhone созламаларида ўчирилган
+uz-cyrl	notifications_enable	Билдиришномаларни ёқиш
+uz-cyrl	notifications_enabled	Билдиришномалар уланди
+uz-cyrl	notifications_ephemeral	Вақтинчалик рухсат фаол
+uz-cyrl	notifications_error	Билдиришномаларни ёқиб бўлмади. iPhone созламаларини текшириб, қайта уриниб кўринг.
+uz-cyrl	notifications_not_determined	Билдиришномалар ҳали ёқилмаган
+uz-cyrl	notifications_provisional	Сокин билдиришномалар ёқилган
+uz-cyrl	notifications_registering	Рухсат берилди · қурилма рўйхатдан ўтмоқда
+uz-cyrl	notifications_title	Сафар билдиришномалари
+uz-cyrl	notifications_unknown	Билдиришнома ҳолати номаълум
+uz-cyrl	onboarding_bismillah	Бисмилля
+uz-cyrl	onboarding_builder_body	Йўналиш, саналар, одамлар ва сафар даражаси — ўнлаб қидирув ўрнига бир нечта аниқ танлов.
+uz-cyrl	onboarding_builder_footnote	Битта киритиш. Битта йўл.
+uz-cyrl	onboarding_builder_kicker	САФАРНИ ЙИҒИНГ
+uz-cyrl	onboarding_builder_title	Йўлни Сиз белгилайсиз. Қолганини iumrah йиғади.
+uz-cyrl	onboarding_care_body	Ҳолат, ўзгаришлар ва iumrah Care — Умрадан олдин, давомида ва кейин битта интерфейсда.
+uz-cyrl	onboarding_care_footnote	Битта йўл. Битта ёрдам линияси.
+uz-cyrl	onboarding_care_kicker	ҲОЛАТ ВА CARE
+uz-cyrl	onboarding_care_title	Сафарингиз доим ёнингизда.
+uz-cyrl	onboarding_chip_flight	Парвоз
+uz-cyrl	onboarding_chip_hotel	Меҳмонхона
+uz-cyrl	onboarding_chip_makkah_madinah	Макка + Мадина
+uz-cyrl	onboarding_chip_status	Ҳолат
+uz-cyrl	onboarding_chip_support	Ёрдам
+uz-cyrl	onboarding_closing_body	Маккада зиёратчилар учун яратилди — Умрангизнинг ҳар бир босқичи учун меҳр, хотиржамлик ва ғамхўрлик билан.
+uz-cyrl	onboarding_closing_footnote	Тайёр бўлсангиз — iumrah билан бошланг.
+uz-cyrl	onboarding_closing_headline	Биз буни Сиз учун яратдик.
+uz-cyrl	onboarding_closing_kicker	БОШЛАШГА ТАЙЁР
+uz-cyrl	onboarding_closing_message	Маккада зиёратчилар учун, меҳр билан яратилди.
+uz-cyrl	onboarding_closing_title	Биз буни Сиз учун яратдик.
+uz-cyrl	onboarding_intro_line	Сизнинг Умрангиз, айнан Сиз учун йиғилган.
+uz-cyrl	onboarding_next	Давом этиш
+uz-cyrl	onboarding_package_body	Парвоз, меҳмонхона, трансфер ва Care сафарни тасдиқлашдан олдин бирлаштирилади.
+uz-cyrl	onboarding_package_footnote	Якуний нарх олдиндан кўринади.
+uz-cyrl	onboarding_package_kicker	БИТТА ПАКЕТ
+uz-cyrl	onboarding_package_title	Битта пакет. Тарқоқ бронларсиз.
+uz-cyrl	onboarding_skip	Ўтказиб юбориш
+uz-cyrl	onboarding_start	Бошлаш
+uz-cyrl	onboarding_welcome_body	Сафар, брон ва ёрдам — илк қадамдан уйга қайтгунингизгача битта жойда.
+uz-cyrl	onboarding_welcome_footnote	Ҳаммаси сафарингиз атрофида жамланган.
+uz-cyrl	onboarding_welcome_kicker	ХУШ КЕЛИБСИЗ
+uz-cyrl	onboarding_welcome_overlay	Сафарингиз атрофида пухта яратилган
+uz-cyrl	onboarding_welcome_title	Сизнинг Умрангиз.\nБитта жойда.
+uz-cyrl	open_booking	Бронни очиш
+uz-cyrl	open_care	iumrah Care'ни очиш
+uz-cyrl	popular	КЎП ТАНЛАНАДИ
+uz-cyrl	price_per_person	/ киши
+uz-cyrl	primary_hotel_badge	iumrah тавсия қилади
+uz-cyrl	primary_hotel_continue	Шу меҳмонхона билан давом этиш
+uz-cyrl	primary_hotel_empty	Каталогда ҳозирча мос меҳмонхона йўқ.
+uz-cyrl	primary_hotel_loading	iumrah каталоги юкланмоқда…
+uz-cyrl	primary_hotel_other	Бошқа вариантларни кўриш
+uz-cyrl	primary_hotel_subtitle	Танланган %@ даражаси ва %d★ тоифасига мос. Уни қолдиришингиз ёки бошқа вариантларни кўришингиз мумкин.
+uz-cyrl	primary_hotel_title	Сафарингиз учун меҳмонхона танладик
+uz-cyrl	profile_accessibility	Профиль
+uz-cyrl	profile_placeholder	Профилингиз
+uz-cyrl	profile_required_body	Брон қилишдан олдин исм, фамилия ва камида битта контактни киритинг, шунда ёрдам жамоаси зиёратчини танийди.
+uz-cyrl	profile_required_title	Зиёратчи маълумотлари
+uz-cyrl	profile_section	Профиль
+uz-cyrl	profile_subtitle_empty	Исм ва контактларни қўшинг
+uz-cyrl	profile_subtitle_ready	Зиёратчи профили
+uz-cyrl	recommended_madinah_hotel	iumrah танлаган меҳмонхона · Мадина
+uz-cyrl	retry	Қайта уриниш
+uz-cyrl	return	Қайтиш
+uz-cyrl	room_area	Хона майдони
+uz-cyrl	room_beds	Ётоқлар
+uz-cyrl	room_beds_double	1 та икки кишилик каравот
+uz-cyrl	room_beds_quad	4 та алоҳида каравот
+uz-cyrl	room_beds_triple	3 та алоҳида каравот
+uz-cyrl	room_capacity	Сиғими
+uz-cyrl	room_not_available	Бу хона энди мавжуд эмас. Бошқа хонани танланг.
+uz-cyrl	room_select	Шу хонани танлаш
+uz-cyrl	room_selected	Танланди
+uz-cyrl	room_size	%.0f м²
+uz-cyrl	room_sleeps	%d кишигача
+uz-cyrl	room_type_double_body	Эр-хотин учун қулай вариант.
+uz-cyrl	room_type_quad_body	Оила ёки гуруҳ учун тўртта алоҳида каравот.
+uz-cyrl	room_type_triple_body	Кичик гуруҳ учун учта алоҳида каравот.
+uz-cyrl	rooms	Хоналар
+uz-cyrl	route_label	Йўналиш
+uz-cyrl	route_return	Қайтиш
+uz-cyrl	save_continue	Сақлаш ва давом этиш
+uz-cyrl	scope_both	Макка + Мадина
+uz-cyrl	scope_makkah	Фақат Макка
+uz-cyrl	selected	Танланган
+uz-cyrl	settings_done	Тайёр
+uz-cyrl	settings_title	Созламалар
+uz-cyrl	status_availability	Янги пакет яратилди · Мавжудлик текшируви
+uz-cyrl	status_cancelled	Бекор қилинди
+uz-cyrl	status_completed	Сафар якунланди
+uz-cyrl	status_confirmed	Тўланди · Брон тасдиқланди
+uz-cyrl	status_in_trip	Зиёратчи сафарда
+uz-cyrl	status_payment	Мавжудлик тасдиқланди · Тўлов ва зиёратчи маълумотлари
+uz-cyrl	status_ready	Ҳужжатлар тайёр · Сафарга тайёр
+uz-cyrl	step_flight	Парвоз
+uz-cyrl	step_hotel	Отель
+uz-cyrl	step_ready	Тайёр
+uz-cyrl	step_transfer	Трансфер
+uz-cyrl	step_trip	Сафар
+uz-cyrl	story_intro	iumrah яна бир саёҳат хизматини яратиш ғоясидан бошланмаган. У тажрибадан туғилган.
+uz-cyrl	story_kicker	МАККАДА ТУҒИЛГАН ЛОЙИҲА
+uz-cyrl	story_mission_body	Зиёратчини тизимни тушунишга мажбур қилмаслик. Тизим унинг сафарини тушуниши керак.
+uz-cyrl	story_mission_title	Бизнинг вазифамиз
+uz-cyrl	story_nav_title	Бизнинг ҳикоямиз
+uz-cyrl	story_p1	Маккада бир йилдан ортиқ вақт яшаб, зиёратчилар ёнида бўлганимизда бир муаммони қайта-қайта кўрдик: одам минглаб километр босиб келадиган сафар кўпинча катта гуруҳ, воситачилар ва бошқаларнинг жадвалига боғланиб қоларди.
+uz-cyrl	story_p2	Биз бошқа йўлни қуришни истадик — инсон Умрани мустақил, оиласи ёки дўстлари билан адо эта олсин, лекин сафарни ташкил қилишда ёлғиз қолмасин.
+uz-cyrl	story_title	Нега iumrah Project
+uz-cyrl	story_why_project_body	Чунки бу йўл бир кун тугалланган деб ҳисобланмаслиги керак. Ҳар бир сафар, ҳар бир савол ва зиёратчининг ҳар бир янги эҳтиёжи билан iumrah яхшиланиб бориши керак.
+uz-cyrl	story_why_project_title	Нега Project
+uz-cyrl	success_body	Ҳозир iumrah мавжудликни текширмоқда. Сафар ҳолати ва ёрдам чати шу сафарга боғланди.
+uz-cyrl	success_title	Сафар яратилди
+uz-cyrl	tab_booking	Брон
+uz-cyrl	tab_home	Асосий
+uz-cyrl	tab_hotels	Отеллар
+uz-cyrl	tab_umrah	Умра
+uz-cyrl	theme_label	Мавзу
+uz-cyrl	tier_comfort	Комфорт
+uz-cyrl	tier_economy	Эконом
+uz-cyrl	tier_luxury	Люкс
+uz-cyrl	tier_standard	Стандарт
+uz-cyrl	total_for	Жами
+uz-cyrl	travelers	йўловчи учун
+uz-cyrl	trip_arrival_jeddah_hint	Аввал Макка Жидда орқали. Қайтиш рейси Мадинадан қидирилади.
+uz-cyrl	trip_arrival_madinah_hint	Аввал Мадина. Қайтиш рейси Жиддадан қидирилади.
+uz-cyrl	trip_arrival_picker	Келиш аэропорти
+uz-cyrl	trip_arrival_title	Аввал қайси аэропортга
+uz-cyrl	trip_continue_hotel	Отелга ўтиш
+uz-cyrl	trip_dates_title	Қачон йўлга чиқмоқчисиз
+uz-cyrl	trip_destination_title	Қаерга йўл олмоқчисиз
+uz-cyrl	trip_flexible_hint	Нархлар календари ҳақиқий қидирувлар билан тўлиб боради ва янги парвоз қидирувидан олдин яқин саналарни солиштиришга ёрдам беради.
+uz-cyrl	trip_format_title	Қайси сафар формати сизга мос
+uz-cyrl	trip_intro_kicker	УМРАНГИЗНИ ЙИҒИНГ
+uz-cyrl	trip_origin_title	Сафар қаердан бошланади
+uz-cyrl	trip_route_picker	Йўналиш
+uz-cyrl	trip_travelers_body	Жойлашув ва парвозлар оилангиз ёки гуруҳингиз учун ҳисобланади.
+uz-cyrl	trip_travelers_title	Сиз билан ким сафар қилади
+uz-cyrl	umrah_coming	Умра бўйича босқичма-босқич йўриқнома кейинги янгиланишлардан бирида шу ерга қўшилади.

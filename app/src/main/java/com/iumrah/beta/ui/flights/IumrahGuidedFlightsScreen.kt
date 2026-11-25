@@ -43,6 +43,8 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
+import com.iumrah.beta.data.flight.FlightDiscoveryCalendarDay
+import com.iumrah.beta.data.flight.FlightDataParity
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -91,8 +93,8 @@ import kotlinx.coroutines.launch
 
 /**
  * Flight-first search counterpart of the current SwiftUI IumrahGuidedFlightSelectionView.
- * It shows real published and Data API observations together but NEVER mixes them
- * in one booking selection. No guessed fares, fabricated segments, or new API endpoints.
+ * Independent legs may mix only under the existing server quote contract.
+ * No guessed fares, fabricated segments, or new API endpoints.
  */
 @Composable
 fun IumrahGuidedFlightsScreen(
@@ -116,6 +118,10 @@ fun IumrahGuidedFlightsScreen(
     var published by remember { mutableStateOf<List<CuratedFlightRecommendation>>(emptyList()) }
     var dataOutbound by remember { mutableStateOf<List<FlightDiscoveryOffer>>(emptyList()) }
     var dataReturn by remember { mutableStateOf<List<FlightDiscoveryOffer>>(emptyList()) }
+    var filters by remember { mutableStateOf(GuidedFilters()) }
+    var outboundCalendar by remember { mutableStateOf<List<FlightDiscoveryCalendarDay>>(emptyList()) }
+    var returnCalendar by remember { mutableStateOf<List<FlightDiscoveryCalendarDay>>(emptyList()) }
+    val calendarCache = remember { mutableMapOf<String, Pair<Long, List<FlightDiscoveryCalendarDay>>>() }
     var busy by remember { mutableStateOf(false) }
     var loadingError by remember { mutableStateOf<String?>(null) }
     var selectionError by remember { mutableStateOf<String?>(null) }
@@ -127,14 +133,22 @@ fun IumrahGuidedFlightsScreen(
     val searchIdentity = listOf(trip.originCode, trip.outboundDestinationCode, trip.returnOriginCode, trip.departureDate, trip.returnDate,
         trip.effectiveFlightFilters.cabinClass, trip.adults, trip.children, trip.infants)
     var loadedIdentity by remember { mutableStateOf<List<Any>?>(null) }
+    // Keep the confirmed outbound when only the return date changes.
+    val outboundIdentity = listOf(trip.originCode, trip.outboundDestinationCode, trip.returnOriginCode,
+        trip.departureDate, trip.effectiveFlightFilters.cabinClass, trip.adults, trip.children, trip.infants)
+    var loadedOutboundIdentity by remember { mutableStateOf<List<Any>?>(null) }
 
     LaunchedEffect(searchIdentity, refreshKey) {
         val sameSearch = loadedIdentity == searchIdentity
         if (!sameSearch) {
-            pending = null; outbound = null; inbound = null; stepReturn = false; editing = false
-            published = emptyList(); dataOutbound = emptyList(); dataReturn = emptyList()
+            pending = null; inbound = null
+            if (loadedOutboundIdentity != outboundIdentity) {
+                outbound = null; stepReturn = false; dataOutbound = emptyList(); outboundCalendar = emptyList()
+            }
+            published = emptyList(); dataReturn = emptyList(); returnCalendar = emptyList()
         }
         loadedIdentity = searchIdentity
+        loadedOutboundIdentity = outboundIdentity
         loadingError = null
         busy = true
         IumrahIntelligence.record("search_started", "flight_builder", "published_and_data")
@@ -145,7 +159,7 @@ fun IumrahGuidedFlightsScreen(
             catch (ex: Exception) { firstError = ex; null }
             kotlinx.coroutines.currentCoroutineContext().ensureActive()
             if (nextPublished != null) published = nextPublished
-            if (trip.effectiveFlightFilters.cabinClass == FlightCabinClass.ECONOMY && trip.children == 0 && trip.infants == 0) {
+            if (trip.effectiveFlightFilters.cabinClass == FlightCabinClass.ECONOMY) {
                 // Retain the same exact-day and surrounding-month fallback as SwiftUI.
                 val legs = listOf(
                     Triple(trip.originCode, trip.outboundDestinationCode, trip.departureDate),
@@ -153,13 +167,13 @@ fun IumrahGuidedFlightsScreen(
                 )
                 for ((index, leg) in legs.withIndex()) {
                     val (origin, destination, target) = leg
-                    val months = (-3..3).map { target.plusDays(it.toLong()).toString().take(7) }.distinct()
+                    val months = (-4..4).map { target.plusDays(it.toLong()).toString().take(7) }.distinct()
                     val rows = mutableListOf<FlightDiscoveryOffer>()
                     var loaded = false
                     for (dayOrMonth in months + target.toString()) {
                         try {
-                            rows += discovery.offers(origin, destination, dayOrMonth, direct = false, limit = 100).offers
-                            loaded = true
+                            val result = discovery.offers(origin, destination, dayOrMonth, direct = false, limit = 100)
+                            if (result.currency.equals("USD", true)) { rows += result.offers; loaded = true }
                         } catch (ex: CancellationException) { throw ex
                         } catch (ex: Exception) { if (firstError == null) firstError = ex }
                     }
@@ -168,6 +182,23 @@ fun IumrahGuidedFlightsScreen(
                         .distinctBy { "${it.id}|${it.departureAt}|${it.flightNumber}" }
                     kotlinx.coroutines.currentCoroutineContext().ensureActive()
                     if (loaded) { if (index == 0) dataOutbound = filtered else dataReturn = filtered }
+                    val calendar = mutableListOf<FlightDiscoveryCalendarDay>()
+                    val calendarMonths = listOf(target.minusDays(14), target, target.plusDays(14)).map { it.toString().take(7) }.distinct()
+                    for (month in calendarMonths) {
+                        val key = "$origin|$destination|$month"
+                        val now = System.currentTimeMillis()
+                        val cached = calendarCache[key]?.takeIf { it.first > now }?.second
+                        if (cached != null) calendar += cached else try {
+                            val result = discovery.calendar(origin, destination, month)
+                            kotlinx.coroutines.currentCoroutineContext().ensureActive()
+                            if (result.currency.equals("USD", true)) {
+                                calendar += result.days
+                                calendarCache.entries.removeAll { it.value.first <= now }
+                                calendarCache[key] = (now + 300_000L) to result.days
+                            }
+                        } catch (ex: CancellationException) { throw ex } catch (_: Exception) { }
+                    }
+                    if (index == 0) outboundCalendar = calendar else returnCalendar = calendar
                 }
             }
             if (published.isEmpty() && dataOutbound.isEmpty() && dataReturn.isEmpty() && firstError != null) {
@@ -186,11 +217,37 @@ fun IumrahGuidedFlightsScreen(
         GuidedFlightRules.options(trip, published, dataOutbound, dataReturn, stepReturn, outbound)
     }
     val target = if (stepReturn) trip.returnDate else trip.departureDate
-    val groupExact = results.filter { GuidedFlightRules.departureDay(it.departureAt) == target && it.stops == 0 }
-    val groupNearby = results.filter { GuidedFlightRules.departureDay(it.departureAt) != target }
-    val groupConnecting = results.filter { GuidedFlightRules.departureDay(it.departureAt) == target && it.stops > 0 }
+    val filtered = remember(results, filters) {
+        val matching = results.filter { filters.accepts(it.stops, it.airlineCode) }
+        val byDate = compareBy<GuidedFlightChoice> { it.departureAt }.thenBy { it.id }
+        matching.sortedWith(when(filters.sort) {
+            GuidedSort.DATE -> byDate
+            GuidedSort.CHEAPEST -> compareBy<GuidedFlightChoice> { it.priceUsd ?: Double.POSITIVE_INFINITY }.then(byDate)
+            GuidedSort.FASTEST -> compareBy<GuidedFlightChoice> { it.durationMinutes.takeIf { n -> n > 0 } ?: Int.MAX_VALUE }.then(byDate)
+        })
+    }
+    val groupExact = filtered.filter { GuidedFlightRules.departureDay(it.departureAt, it.origin) == target && it.stops == 0 }
+    val groupNearby = filtered.filter { GuidedFlightRules.departureDay(it.departureAt, it.origin) != target }
+    val groupConnecting = filtered.filter { GuidedFlightRules.departureDay(it.departureAt, it.origin) == target && it.stops > 0 }
+    val minimumDay = if (stepReturn) maxOf(LocalDate.now(), trip.departureDate.plusDays(1)) else LocalDate.now()
+    val observations = if (trip.effectiveFlightFilters.cabinClass != FlightCabinClass.ECONOMY) emptyList() else buildList<Pair<LocalDate, Double?>> {
+        val origin = if (stepReturn) trip.returnOriginCode else trip.originCode
+        val destination = if (stepReturn) trip.originCode else trip.outboundDestinationCode
+        (if (stepReturn) dataReturn else dataOutbound).filter { !it.isRoundTrip && it.origin.equals(origin,true) && it.destination.equals(destination,true) && filters.accepts(it.transfers,it.airlineCode) }.forEach { offer ->
+            FlightDataParity.localDay(offer.departureAt, offer.origin)?.let { add(it to offer.price) }
+        }
+        if (filters.airline.isEmpty()) (if (stepReturn) returnCalendar else outboundCalendar).filter { it.returnAt.isNullOrBlank() && it.origin.equals(origin,true) && it.destination.equals(destination,true) && filters.accepts(it.transfers,it.airlineCode) }.forEach { day ->
+            runCatching { LocalDate.parse(day.date.take(10)) }.getOrNull()?.let { add(it to day.price) }
+        }
+    }
+    fun selectDay(day: LocalDate) {
+        if (day < minimumDay || day == target) return
+        pending = null; inbound = null
+        if (stepReturn) journey.updateTrip(trip.copy(returnDate = day))
+        else { outbound = null; journey.updateTrip(trip.copy(departureDate = day, saudiArrivalDate = null, returnDate = if (trip.returnDate <= day) day.plusDays(7) else trip.returnDate)) }
+    }
     val chosen = pending ?: if (stepReturn) inbound else outbound
-    LaunchedEffect(stepReturn) { pending = null; listState.scrollToItem(0) }
+    LaunchedEffect(stepReturn) { pending = null; filters = GuidedFilters(); listState.scrollToItem(0) }
 
     fun commit(returnChoice: GuidedFlightChoice? = inbound) {
         if (!GuidedFlightRules.compatible(outbound, returnChoice)) {
@@ -201,14 +258,14 @@ fun IumrahGuidedFlightsScreen(
         }
         val first = requireNotNull(outbound)
         val back = requireNotNull(returnChoice)
-        val outDay = requireNotNull(GuidedFlightRules.departureDay(first.departureAt))
-        val backDay = requireNotNull(GuidedFlightRules.departureDay(back.departureAt))
+        val outDay = requireNotNull(GuidedFlightRules.departureDay(first.departureAt, first.origin))
+        val backDay = requireNotNull(GuidedFlightRules.departureDay(back.departureAt, back.origin))
         val arrivalInstant = runCatching { java.time.Instant.parse(first.arrivalAt.orEmpty()) }.getOrNull()
             ?: runCatching { java.time.OffsetDateTime.parse(first.arrivalAt.orEmpty()).toInstant() }.getOrNull()
             ?: runCatching { java.time.OffsetDateTime.parse(first.departureAt).toInstant().plusSeconds(first.durationMinutes.toLong()*60) }.getOrNull()
         val arrivalDay=arrivalInstant?.atZone(java.time.ZoneId.of("Asia/Riyadh"))?.toLocalDate()
         if(arrivalDay==null || java.time.temporal.ChronoUnit.DAYS.between(arrivalDay,backDay)<(if(trip.scope==com.iumrah.beta.domain.trip.JourneyScope.MAKKAH_AND_MADINAH) 2 else 1)) {
-            selectionError="INVALID_STAY";return
+            selectionError = guidedTr(language, "Недостаточно ночей для выбранного маршрута.", "Not enough nights for this itinerary.", "Bu yo‘nalish uchun tunlar yetarli emas.", "Бу йўналиш учун тунлар етарли эмас.");return
         }
         val nextTrip = trip.copy(
             departureDate = outDay, saudiArrivalDate=arrivalDay, returnDate = backDay,
@@ -254,7 +311,7 @@ fun IumrahGuidedFlightsScreen(
             airline = chosen.airlineName, flightNumber = chosen.flightNumber,
             airlineCode = chosen.airlineCode, durationMinutes = chosen.durationMinutes,
             stops = chosen.stops, departureAt = chosen.departureAt,
-            arrivalAt = chosen.arrivalAt, adultFareUSD = chosen.priceUsd,
+            arrivalAt = chosen.arrivalAt, adultFareUSD = chosen.priceUsd.takeUnless { chosen.publishedPair },
         ) })
         IumrahIntelligence.record("tap", "flight_builder", "continue_to_nuitee_hotels")
         onComplete()
@@ -385,6 +442,13 @@ fun IumrahGuidedFlightsScreen(
                     if (busy) CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.dp)
                 }
             }
+            item {
+                GuidedSearchControls(language, filters, { filters = it; pending = null }, results.map { it.airlineCode }.filter { it.isNotBlank() }.distinct().sorted(),
+                    observations, target, minimumDay, onCalendar = { dateField = stepReturn }, onSelectDay = ::selectDay)
+            }
+            if (filtered.isEmpty() && results.isNotEmpty()) item {
+                GuidedNotice(guidedTr(language,"Нет рейсов с этими фильтрами.","No flights match these filters.","Filtrlarga mos reyslar yo‘q.","Филтрларга мос рейслар йўқ."), language, onRetry = { filters = GuidedFilters() })
+            }
             if (selectionError != null) item {
                 GuidedNotice(selectionError.orEmpty(), language, onRetry = { selectionError = null })
             }
@@ -413,18 +477,19 @@ fun IumrahGuidedFlightsScreen(
                 "Прямые на выбранную дату", "Non-stop on your date", "Tanlangan kundagi to‘g‘ri reyslar",
                 "Танланган кундаги тўғри рейслар")) }
             items(groupExact, key = { it.id }) { choice ->
-                GuidedFlightRow(choice, selected = chosen?.id == choice.id, language = language, onSelect = { pending = choice }) { detail = choice }
-            }
-            if (groupNearby.isNotEmpty()) item { GuidedSectionTitle(guidedTr(language,
-                "Ближайшие даты", "Nearby dates", "Yaqin sanalar", "Яқин саналар")) }
-            items(groupNearby, key = { it.id }) { choice ->
-                GuidedFlightRow(choice, selected = chosen?.id == choice.id, language = language, onSelect = { pending = choice }) { detail = choice }
+                GuidedFlightRow(choice, selected = chosen?.id == choice.id, language = language, onSelect = { pending = if (pending?.id == choice.id) null else choice }, searchDay = target) { detail = choice }
             }
             if (groupConnecting.isNotEmpty()) item { GuidedSectionTitle(guidedTr(language,
                 "С пересадкой", "Connecting", "Transferli", "Трансферли")) }
             items(groupConnecting, key = { it.id }) { choice ->
-                GuidedFlightRow(choice, selected = chosen?.id == choice.id, language = language, onSelect = { pending = choice }) { detail = choice }
+                GuidedFlightRow(choice, selected = chosen?.id == choice.id, language = language, onSelect = { pending = if (pending?.id == choice.id) null else choice }, searchDay = target) { detail = choice }
             }
+            if (groupNearby.isNotEmpty()) item { GuidedSectionTitle(guidedTr(language,
+                "Ближайшие даты", "Nearby dates", "Yaqin sanalar", "Яқин саналар")) }
+            items(groupNearby, key = { it.id }) { choice ->
+                GuidedFlightRow(choice, selected = chosen?.id == choice.id, language = language, onSelect = { pending = if (pending?.id == choice.id) null else choice }, searchDay = target) { detail = choice }
+            }
+            item { Text(guidedTr(language,"Наличие и стоимость проверим после заявки, до оплаты.","Availability and price are checked after your request, before payment.","Mavjudlik va narx arizadan keyin, to‘lovdan oldin tekshiriladi.","Мавжудлик ва нарх аризадан кейин, тўловдан олдин текширилади."), modifier = Modifier.padding(20.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
         }
     }
     detail?.let { item ->
@@ -447,12 +512,12 @@ fun IumrahGuidedFlightsScreen(
                     val picked = pickerState.selectedDateMillis?.let {
                         Instant.ofEpochMilli(it).atZone(ZoneOffset.UTC).toLocalDate()
                     }
-                    if (picked != null && !picked.isBefore(LocalDate.now())) {
+                    if (picked != null && !picked.isBefore(if (isReturn) maxOf(LocalDate.now(), trip.departureDate.plusDays(1)) else LocalDate.now())) {
                         val next = if (isReturn) {
                             trip.copy(returnDate = maxOf(picked, trip.departureDate.plusDays(1)))
                         } else {
-                            trip.copy(departureDate = picked,
-                                returnDate = maxOf(trip.returnDate, picked.plusDays(1)))
+                            trip.copy(departureDate = picked, saudiArrivalDate = null,
+                                returnDate = if (trip.returnDate <= picked) picked.plusDays(7) else trip.returnDate)
                         }
                         journey.updateTrip(next)
                     }
@@ -528,56 +593,63 @@ private fun GuidedSectionTitle(title: String) {
 }
 
 @Composable
-private fun GuidedFlightRow(choice: GuidedFlightChoice, selected: Boolean,
-    language: AppLanguage, onSelect: () -> Unit, onClick: () -> Unit) {
+internal fun GuidedFlightRow(choice: GuidedFlightChoice, selected: Boolean,
+    language: AppLanguage, onSelect: () -> Unit, searchDay: LocalDate? = null, onClick: () -> Unit) {
     val shape = RoundedCornerShape(22.dp)
-    Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 5.dp)
-        .clip(shape).background(MaterialTheme.colorScheme.surface)
-        .border(if (selected) 1.5.dp else .75.dp,
-            MaterialTheme.colorScheme.onSurface.copy(alpha = if (selected) .7f else .09f), shape)
-        .clickable(onClick = onClick).padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(9.dp)) {
-            Icon(CupertinoSymbol.Airplane, null, Modifier.size(20.dp))
-            Text(choice.airlineName, modifier = Modifier.weight(1f), fontWeight = FontWeight.Bold,
-                style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            IconButton(onClick = onSelect, modifier = Modifier.size(44.dp)) {
-                Icon(if (selected) CupertinoSymbol.CheckCircleFill else CupertinoSymbol.CheckCircle, guidedTr(language, "Выбрать рейс", "Select flight", "Reysni tanlash", "Рейсни танлаш"), Modifier.size(24.dp), if (selected) Color(0xFF2B8A69) else MaterialTheme.colorScheme.onSurfaceVariant)
+    val ink=MaterialTheme.colorScheme.onSurface
+    val accent=ink
+    val departureDay=FlightDataParity.localDay(choice.departureAt,choice.origin)
+    val actualArrival=choice.arrivalAt?.takeIf { FlightDataParity.instant(it)!=null }
+    val estimated=actualArrival==null && choice.durationMinutes>0 && FlightDataParity.instant(choice.departureAt)!=null
+    val arrival=actualArrival ?: if(estimated) FlightDataParity.instant(choice.departureAt)?.plusSeconds(choice.durationMinutes.toLong()*60)?.toString() else null
+    val arrivalDay=arrival?.let { FlightDataParity.localDay(it,choice.destination) }
+    Box(Modifier.fillMaxWidth().padding(horizontal=20.dp,vertical=5.dp)) {
+        Column(Modifier.fillMaxWidth().clip(shape).background(MaterialTheme.colorScheme.surface)
+            .border(if(selected)1.5.dp else .75.dp,if(selected)accent else ink.copy(alpha=.07f),shape)
+            .clickable(onClick=onClick).padding(16.dp),verticalArrangement=Arrangement.spacedBy(13.dp)) {
+            Row(Modifier.fillMaxWidth().padding(end=44.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(10.dp)) {
+                val code=choice.airlineCode.uppercase().takeIf { it.matches(Regex("[A-Z0-9]{2}")) }
+                Box(Modifier.size(34.dp).clip(RoundedCornerShape(8.dp)).background(Color.White),contentAlignment=Alignment.Center) {
+                    if(code!=null) coil3.compose.AsyncImage(model="https://www.gstatic.com/flights/airline_logos/70px/$code.png",contentDescription=null,modifier=Modifier.size(30.dp),contentScale=androidx.compose.ui.layout.ContentScale.Fit)
+                    else Icon(CupertinoSymbol.Airplane,null,Modifier.size(20.dp),Color.Black)
+                }
+                Column(Modifier.weight(1f),verticalArrangement=Arrangement.spacedBy(3.dp)) {
+                    Text(choice.airlineName,fontSize=16.sp,fontWeight=FontWeight.Bold,maxLines=2,overflow=TextOverflow.Ellipsis)
+                    Row(horizontalArrangement=Arrangement.spacedBy(6.dp),verticalAlignment=Alignment.CenterVertically) {
+                        if(choice.flightNumber.isNotBlank())Text(choice.flightNumber,fontSize=12.sp,fontWeight=FontWeight.Bold,maxLines=1)
+                        Text(if(choice.source==GuidedFlightChoice.Source.PUBLISHED) "iumrah Direct" else guidedTr(language,"Авиабилет","Flight","Aviachipta","Авиачипта"),fontSize=10.sp,color=MaterialTheme.colorScheme.onSurfaceVariant,maxLines=1)
+                    }
+                }
             }
-            Text(choice.flightNumber, style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            GuidedClock(com.iumrah.beta.data.flight.FlightDataParity.localTime(choice.departureAt, choice.origin),
-                choice.origin, Modifier.weight(1f), Alignment.Start)
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Box(Modifier.width(55.dp).height(2.dp).background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .3f)))
-                Text(if (choice.stops == 0) guidedTr(language, "Прямой", "Non-stop", "To‘g‘ri", "Тўғри")
-                else guidedTr(language, "Пересадка", "Transfer", "Transfer", "Трансфер"),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Row(verticalAlignment=Alignment.Top,horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+                GuidedClock(FlightDataParity.localTime(choice.departureAt,choice.origin),choice.origin,departureDay?.takeIf{it!=searchDay},false,language,Modifier.weight(1f),Alignment.Start)
+                Column(Modifier.weight(1f).padding(top=2.dp),horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.spacedBy(5.dp)) {
+                    if(choice.durationMinutes>0)Text("${choice.durationMinutes/60}h ${choice.durationMinutes%60}m",fontSize=11.sp,color=MaterialTheme.colorScheme.onSurfaceVariant,textAlign=TextAlign.Center)
+                    Icon(if(choice.stops==0)CupertinoSymbol.Airplane else CupertinoSymbol.Route,null,Modifier.size(22.dp),ink)
+                    Text(if(choice.stops==0)guidedTr(language,"Прямой","Direct","To‘g‘ri","Тўғри") else guidedTr(language,"Пересадок: ${choice.stops}","Stops: ${choice.stops}","Transfer: ${choice.stops}","Трансфер: ${choice.stops}"),fontSize=11.sp,color=MaterialTheme.colorScheme.onSurfaceVariant,maxLines=1,overflow=TextOverflow.Ellipsis)
+                }
+                GuidedClock(arrival?.let{FlightDataParity.localTime(it,choice.destination)},choice.destination,arrivalDay?.takeIf{it!=searchDay || it!=departureDay},estimated,language,Modifier.weight(1f),Alignment.End)
             }
-            GuidedClock(choice.arrivalAt?.let { com.iumrah.beta.data.flight.FlightDataParity.localTime(it, choice.destination) }
-                ?: "—", choice.destination, Modifier.weight(1f), Alignment.End)
+            HorizontalDivider(color=ink.copy(alpha=.08f))
+            Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+                val price=choice.priceUsd
+                if(price!=null)Text(if(choice.publishedPair)guidedTr(language,"Туда и обратно · за пассажира","Round trip · per passenger","Borib qaytish · bir yo‘lovchi","Бориб қайтиш · бир йўловчи") else guidedTr(language,"За пассажира","Per passenger","Bir yo‘lovchi uchun","Бир йўловчи учун"),Modifier.weight(1f),fontSize=12.sp,color=MaterialTheme.colorScheme.onSurfaceVariant)
+                else Spacer(Modifier.weight(1f))
+                Text(price?.let{"$"+"%,.0f".format(Locale.US,it)} ?: guidedTr(language,"Подробнее","Details","Batafsil","Батафсил"),fontSize=if(price==null)15.sp else 25.sp,fontWeight=FontWeight.Bold)
+            }
         }
-        HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = .07f))
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(choice.departureAt.take(10), style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
-            Text(if (choice.priceUsd != null) "${"%,.0f".format(Locale.US, choice.priceUsd)} $ / ${guidedTr(language, "чел.", "person", "kishi", "киши")}" else
-                guidedTr(language, "Цена при расчёте", "Price on quote", "Narx hisobda", "Нарх ҳисобда"),
-                style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+        IconButton(onClick=onSelect,modifier=Modifier.align(Alignment.TopEnd).padding(9.dp).size(44.dp)) {
+            Icon(if(selected)CupertinoSymbol.CheckCircleFill else CupertinoSymbol.CircleOutline,guidedTr(language,"Выбрать рейс","Select flight","Reysni tanlash","Рейсни танлаш"),Modifier.size(24.dp),if(selected)accent else MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
 
-@Composable
-private fun GuidedClock(time: String, airport: String, modifier: Modifier = Modifier, align: Alignment.Horizontal) {
-    Column(modifier, horizontalAlignment = align, verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Text(time, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-        Text(airport, style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant)
+@Composable private fun GuidedClock(time:String?,airport:String,day:LocalDate?,estimated:Boolean,language:AppLanguage,modifier:Modifier,align:Alignment.Horizontal) {
+    Column(modifier,horizontalAlignment=align,verticalArrangement=Arrangement.spacedBy(3.dp)) {
+        if(time!=null && time!="—")Text(time,fontSize=28.sp,fontWeight=FontWeight.Bold,maxLines=1)
+        Text(airport.uppercase(),fontSize=19.sp,fontWeight=FontWeight.Bold,maxLines=1)
+        day?.let{Text(it.format(DateTimeFormatter.ofPattern("d MMM",language.locale)),fontSize=12.sp,color=MaterialTheme.colorScheme.onSurfaceVariant,maxLines=1)}
+        if(estimated)Text(guidedTr(language,"Расчётное","Estimated","Hisoblangan","Ҳисобланган"),fontSize=10.sp,color=MaterialTheme.colorScheme.onSurfaceVariant,maxLines=1)
     }
 }
 
@@ -592,7 +664,7 @@ private fun GuidedNotice(text: String, language: AppLanguage, onRetry: () -> Uni
 }
 
 @Composable
-private fun GuidedFlightDetail(choice: GuidedFlightChoice, language: AppLanguage, adults: Int, children: Int, infants: Int, onDismiss: () -> Unit, onSelect: () -> Unit) {
+internal fun GuidedFlightDetail(choice: GuidedFlightChoice, language: AppLanguage, adults: Int, children: Int, infants: Int, onDismiss: () -> Unit, onSelect: () -> Unit) {
     val context=LocalContext.current
     Column(Modifier.fillMaxSize().background(if(MaterialTheme.colorScheme.background.red<.5f) Color(0xFF0B0B0B) else Color(0xFFF2F2F2))) {
         Row(Modifier.fillMaxWidth().background(FlightHeroColor).statusBarsPadding().height(48.dp).padding(horizontal=16.dp),verticalAlignment=Alignment.CenterVertically) {

@@ -75,6 +75,9 @@ import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 import java.time.temporal.ChronoUnit
 import java.util.Locale
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 
 enum class GeneratorFlightChoice { PUBLISHED_DIRECT, FLEXIBLE_DATES, WEEKEND }
 private enum class CuratedLegSelection { OUTBOUND, RETURN }
@@ -110,12 +113,15 @@ fun TripBuilderScreen(
     var showDateCalendar by remember { mutableStateOf(false) }
     var showWeekendCalendar by remember { mutableStateOf(false) }
 
-    val routeKey = "${draft.originCode}|${draft.scope}|${draft.arrivalAirport}"
+    val routeKey = "${draft.originCode}|${draft.scope}|${draft.arrivalAirport}|${draft.returnOriginCode}"
     var loadedRouteKey by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(routeKey) {
         val routeChanged = loadedRouteKey != null && loadedRouteKey != routeKey
         loadedRouteKey = routeKey
-        if (routeChanged) curatedDisplayMode = CuratedFlightDisplayMode.SEPARATE
+        if (routeChanged) {
+            curatedDisplayMode = CuratedFlightDisplayMode.SEPARATE
+            recommendations = emptyList()
+        }
         if (routeChanged && mode != GeneratorFlightChoice.WEEKEND) {
             // Mirrors SwiftUI onChange(routeSelectionKey): a real route edit returns
             // the generator to Published Direct and clears only stale flight IDs.
@@ -130,10 +136,13 @@ fun TripBuilderScreen(
         if (mode != GeneratorFlightChoice.WEEKEND) {
             loadingCurated = true
             curatedError = null
-            recommendations = runCatching { curatedFlights.load(draft) }
-                .onFailure { curatedError = it.message }
-                .getOrDefault(emptyList())
-            loadingCurated = false
+            try {
+                val result = curatedFlights.load(draft)
+                currentCoroutineContext().ensureActive()
+                recommendations = result
+            } catch (ex: CancellationException) { throw ex }
+            catch (ex: Exception) { currentCoroutineContext().ensureActive(); curatedError = ex.message }
+            finally { loadingCurated = false }
         }
     }
 
@@ -175,7 +184,7 @@ fun TripBuilderScreen(
     }
 
     val canContinue = draft.canContinue && when (mode) {
-        GeneratorFlightChoice.PUBLISHED_DIRECT -> selectedCompleteID != null || (selectedOutboundID != null && selectedReturnID != null)
+        GeneratorFlightChoice.PUBLISHED_DIRECT -> !loadingCurated && curatedError == null && (roundTripFlights.any { it.id == selectedCompleteID } || (outboundFlights.any { it.id == selectedOutboundID } && returnFlights.any { it.id == selectedReturnID }))
         GeneratorFlightChoice.FLEXIBLE_DATES -> !draft.isWeekendUmrah
         GeneratorFlightChoice.WEEKEND -> draft.isWeekendUmrah
     }

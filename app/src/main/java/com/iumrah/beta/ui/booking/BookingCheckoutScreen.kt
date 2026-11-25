@@ -12,16 +12,19 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.activity.compose.BackHandler
+import com.iumrah.beta.domain.booking.BookingIdentityPolicy
+import com.iumrah.beta.ui.components.IumrahOrbitV5
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -88,8 +91,14 @@ fun BookingCheckoutScreen(
     var lastName by remember(account.account?.iumrahID) { mutableStateOf(account.account?.lastName.orEmpty()) }
     val context = LocalContext.current
     val container = (context.applicationContext as com.iumrah.beta.IumrahApplication).container
-    var channel by remember { mutableStateOf("email") }
-    var contact by remember(account.account?.iumrahID) { mutableStateOf(account.account?.email.orEmpty()) }
+    val initialPhone = account.account?.phone.orEmpty().ifBlank { "+998" }
+    val initialEmail = account.account?.email.orEmpty()
+    val initialChannel = BookingIdentityPolicy.initialChannel(account.account?.phone.orEmpty(), initialEmail)
+    var channel by remember { mutableStateOf(initialChannel) }
+    var contact by remember { mutableStateOf(if (initialChannel == "sms") initialPhone else initialEmail) }
+    var phoneDraft by remember { mutableStateOf(initialPhone) }
+    var emailDraft by remember { mutableStateOf(initialEmail) }
+    var flowOwner by remember { mutableStateOf<String?>(null) }
     var challenge by remember { mutableStateOf<String?>(null) }
     var code by remember { mutableStateOf("") }
     var proof by remember { mutableStateOf<String?>(null) }
@@ -106,10 +115,15 @@ fun BookingCheckoutScreen(
         onDispose { IumrahIntelligence.detailDisappeared("checkout") }
     }
     val normalizedContact = if (channel == "sms") BookingSessionPolicy.normalizedPhone(contact) else BookingSessionPolicy.normalizedEmail(contact)
-    val contactValid = if (channel == "sms") normalizedContact.length in 9..16 else android.util.Patterns.EMAIL_ADDRESS.matcher(normalizedContact).matches()
-    val validIdentity = firstName.isNotBlank() && lastName.isNotBlank() && contactValid
+    val validIdentity = BookingIdentityPolicy.canRequestCode(firstName, lastName, channel, normalizedContact)
+    fun closeProfile() {
+        if (busy) return
+        showProfile = false
+        challenge = null; code = ""; proof = null; if (!submitted) error = null
+    }
+    BackHandler(enabled = showProfile) { closeProfile() }
 
-    Column(
+    if (!showProfile) Column(
         Modifier.fillMaxSize().background(generatorPageColor()).statusBarsPadding().verticalScroll(rememberScrollState()).padding(horizontal = GeneratorGeometry.pagePadding, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(22.dp),
     ) {
@@ -121,30 +135,53 @@ fun BookingCheckoutScreen(
         error?.let { Text(it, color = MaterialTheme.colorScheme.error, fontSize = 13.sp, modifier = Modifier.padding(horizontal = 4.dp)) }
         GeneratorPrimaryButton(
             title = if (busy) checkoutTr(language,"Создаём бронирование…","Creating booking…","Bron yaratilmoqda…","Брон яратилмоқда…") else checkoutTr(language,"Создать бронирование","Create booking","Bron yaratish","Брон яратиш"),
-            enabled = canBook && !busy,
-        ) { IumrahIntelligence.record("tap", "checkout", "continue_booking"); showProfile = true }
+            enabled = canBook && !busy && !submitted,
+        ) { IumrahIntelligence.record("tap", "checkout", "continue_booking")
+            if (flowOwner != accountStore.bearerToken) {
+                phoneDraft = initialPhone; emailDraft = initialEmail; channel = initialChannel
+                contact = if (channel == "sms") phoneDraft else emailDraft
+            }
+            flowOwner = accountStore.bearerToken; showProfile = true
+        }
+        committed?.takeIf { bookingStore.booking(it.id) != null }?.let { saved -> androidx.compose.material3.TextButton(onClick = { chrome.openBookingCelebration(saved.id) }) { Text(checkoutTr(language,"Открыть созданное бронирование","Open created booking","Yaratilgan bronni ochish","Яратилган бронни очиш")) } }
         Spacer(Modifier.height(34.dp))
     }
 
     if (showProfile) {
-        val sheet = rememberModalBottomSheetState(skipPartiallyExpanded = false)
-        ModalBottomSheet(
-            onDismissRequest = { if (!busy) showProfile = false },
-            sheetState = sheet,
-            containerColor = generatorPageColor(),
-            dragHandle = { Box(Modifier.padding(top=10.dp,bottom=10.dp).size(width=38.dp,height=5.dp).clip(CircleShape).background(MaterialTheme.colorScheme.onSurface.copy(alpha=.18f))) },
-        ) {
-            Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal=GeneratorGeometry.pagePadding).padding(bottom=34.dp),verticalArrangement=Arrangement.spacedBy(13.dp)) {
-                Text(checkoutTr(language,"Данные паломника","Pilgrim details","Ziyoratchi ma’lumotlari","Зиёратчи маълумотлари"),fontSize=27.sp,fontWeight=FontWeight.Bold)
-                Text(checkoutTr(language,"Подтвердите имя и контакт перед созданием бронирования. Эти данные будут привязаны к поездке.","Confirm your name and contact before creating the booking. These details will be linked to the trip.","Bron yaratishdan oldin ism va kontaktni tasdiqlang. Bu ma’lumotlar safarga biriktiriladi.","Брон яратишдан олдин исм ва контактни тасдиқланг. Бу маълумотлар сафарга бириктирилади."),fontSize=13.sp,lineHeight=18.sp,color=MaterialTheme.colorScheme.onSurface.copy(alpha=.56f))
+        Column(Modifier.fillMaxSize().background(generatorPageColor()).statusBarsPadding().navigationBarsPadding().imePadding()) {
+            Row(Modifier.fillMaxWidth().padding(horizontal = GeneratorGeometry.pagePadding, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                IumrahPressable(onClick = { closeProfile() }, modifier = Modifier.size(44.dp), cornerRadius = 99.dp, background = generatorRaisedColor()) {
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Icon(CupertinoSymbol.ChevronLeft, null) }
+                }
+                Text(checkoutTr(language,"Подтверждение брони","Booking confirmation","Bronni tasdiqlash","Бронни тасдиқлаш"), fontSize = 17.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f).padding(horizontal=12.dp))
+                Spacer(Modifier.size(44.dp))
+            }
+            Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal=GeneratorGeometry.pagePadding).padding(top=14.dp,bottom=22.dp),verticalArrangement=Arrangement.spacedBy(18.dp)) {
+                Box(Modifier.fillMaxWidth().height(120.dp).clip(RoundedCornerShape(30.dp)).background(Color.Black), contentAlignment = Alignment.Center) {
+                    IumrahOrbitV5(104.dp, lightOnDark = true, pinnedSymbol = if (proof != null) CupertinoSymbol.ShieldCheck else if (channel == "sms") CupertinoSymbol.Phone else CupertinoSymbol.Mail, accessibilityTitle = "iumrah")
+                }
+                Text(checkoutTr(language,"Подтвердите бронирование","Confirm your booking","Ziyoratchi ma’lumotlarini tasdiqlang","Зиёратчи маълумотларини тасдиқланг"),fontSize=25.sp,fontWeight=FontWeight.Bold)
+                Text(checkoutTr(language,"Укажите имя и фамилию как в загранпаспорте и контакт для уведомлений.","Enter your passport name and a contact for booking updates.","Pasportdagi ism va familiyangizni hamda aloqa ma’lumotini kiriting.","Паспортдаги исм ва фамилиянгизни ҳамда алоқа маълумотини киритинг."),fontSize=15.sp,lineHeight=20.sp,color=MaterialTheme.colorScheme.onSurface.copy(alpha=.56f))
+                Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(Color(0xFFFF3B30).copy(alpha=.075f)).padding(16.dp), verticalArrangement=Arrangement.spacedBy(5.dp)) {
+                    Text(checkoutTr(language,"ВАЖНО: как в загранпаспорте","IMPORTANT: match your passport","MUHIM: pasportdagidek","МУҲИМ: паспортдагидек"),fontWeight=FontWeight.Bold,color=Color(0xFFFF3B30))
+                    Text(checkoutTr(language,"Имя и фамилия должны точно совпадать с загранпаспортом. Ошибки могут повлиять на оформление билетов и документов.","Enter your name exactly as in your passport. Errors may affect tickets and documents.","Ism va familiyani xorijga chiqish pasportidagi kabi aniq kiriting.","Исм ва фамилияни хорижга чиқиш паспортидаги каби аниқ киритинг."),fontSize=13.sp,color=Color(0xFFFF3B30))
+                }
                 // Once verified, lock contact and identity until the request has completed.
                 OutlinedTextField(firstName, { firstName = it }, label = { Text(checkoutTr(language,"Имя","First name","Ism","Исм")) }, modifier = Modifier.fillMaxWidth(), singleLine = true, enabled = !busy && challenge == null)
-                OutlinedTextField(lastName, { lastName = it }, label = { Text(checkoutTr(language,"Фамилия","Last name","Familiya","Фамилия")) }, modifier = Modifier.fillMaxWidth(), singleLine = true, enabled = !busy && challenge == null)
+                OutlinedTextField(lastName, { lastName = it }, label = { Text(checkoutTr(language,"Фамилия","Last name","Familiya","Фамилия")) }, modifier = Modifier.fillMaxWidth(), singleLine = true, enabled = !busy && challenge == null && firstName.trim().length >= 2)
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    androidx.compose.material3.FilterChip(selected = channel == "email", enabled = !busy && challenge == null, onClick = { channel = "email"; contact = account.account?.email.orEmpty() }, label = { Text("Email") })
-                    androidx.compose.material3.FilterChip(selected = channel == "sms", enabled = !busy && challenge == null, onClick = { channel = "sms"; contact = account.account?.phone.orEmpty() }, label = { Text("SMS") })
+                    androidx.compose.material3.FilterChip(selected = channel == "email", enabled = !busy && challenge == null, onClick = { if (channel != "email") { phoneDraft = contact; channel = "email"; contact = emailDraft } }, label = { Text("Email") })
+                    androidx.compose.material3.FilterChip(selected = channel == "sms", enabled = !busy && challenge == null, onClick = { if (channel != "sms") { emailDraft = contact; channel = "sms"; contact = phoneDraft } }, label = { Text("SMS") })
                 }
-                OutlinedTextField(contact, { contact = it }, label = { Text(if (channel == "email") "Email" else checkoutTr(language,"Телефон","Phone","Telefon","Телефон")) }, modifier = Modifier.fillMaxWidth(), singleLine = true, enabled = !busy && challenge == null, keyboardOptions = KeyboardOptions(keyboardType = if (channel == "email") KeyboardType.Email else KeyboardType.Phone))
+                OutlinedTextField(contact, { contact = it }, label = { Text(if (channel == "email") "Email" else checkoutTr(language,"Телефон","Phone","Telefon","Телефон")) }, modifier = Modifier.fillMaxWidth(), singleLine = true, enabled = !busy && challenge == null && lastName.trim().length >= 2, keyboardOptions = KeyboardOptions(keyboardType = if (channel == "email") KeyboardType.Email else KeyboardType.Phone))
+                if (channel == "sms") Text(checkoutTr(language,"SMS-подтверждение доступно для номеров Узбекистана (+998).","SMS confirmation currently supports Uzbekistan numbers (+998).","SMS tasdiqlash hozircha O‘zbekiston raqamlari (+998) uchun.","SMS тасдиқлаш ҳозирча Ўзбекистон рақамлари (+998) учун."),fontSize=12.sp,color=MaterialTheme.colorScheme.onSurfaceVariant)
+                if (quote != null && canBook) GeneratorCard {
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(checkoutTr(language,"Стоимость поездки","Trip total","Safar narxi","Сафар нархи"),fontSize=14.sp,fontWeight=FontWeight.Medium)
+                    Text(com.iumrah.beta.ui.smart.smartMoney(quote.totalPackagePrice,quote.currency,language),fontSize=22.sp,fontWeight=FontWeight.Bold)
+                    }
+                }
+                ManualPaymentNotice(language)
                 if (challenge != null && proof == null) {
                     OutlinedTextField(code, { code = it.filter { c -> c in '0'..'9' }.take(6) }, label = { Text(checkoutTr(language,"Код подтверждения","Verification code","Tasdiqlash kodi","Тасдиқлаш коди")) }, modifier = Modifier.fillMaxWidth(), singleLine = true, enabled = !busy, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
                 }
@@ -152,24 +189,29 @@ fun BookingCheckoutScreen(
                     androidx.compose.material3.TextButton(onClick = { challenge = null; code = ""; proof = null; error = null }) { Text(checkoutTr(language,"Изменить контакт / новый код","Change contact / new code","Kontaktni o‘zgartirish / yangi kod","Контактни ўзгартириш / янги код")) }
                 }
                 error?.let { Text(it, color = MaterialTheme.colorScheme.error, fontSize = 13.sp) }
+            }
+            Column(Modifier.fillMaxWidth().padding(horizontal=GeneratorGeometry.pagePadding).padding(vertical=10.dp), verticalArrangement=Arrangement.spacedBy(6.dp)) {
                 GeneratorPrimaryButton(
                     if (challenge == null) checkoutTr(language,"Получить код","Get code","Kod olish","Код олиш")
                     else if (committed != null) checkoutTr(language,"Подтвердить контакт","Confirm contact","Kontaktni tasdiqlash","Контактни тасдиқлаш")
                     else checkoutTr(language,"Подтвердить и забронировать","Confirm and book","Tasdiqlash va bron qilish","Тасдиқлаш ва брон қилиш"),
-                    enabled = !busy && validIdentity && (committed != null || (!submitted && canBook)) && (challenge == null || code.length == 6 || proof != null),
+                    enabled = !busy && accountStore.bearerToken == flowOwner && validIdentity && (committed != null || (!submitted && canBook)) && (challenge == null || code.length == 6 || proof != null),
                 ) {
-                    if (busy) return@GeneratorPrimaryButton
+                    if (busy || accountStore.bearerToken != flowOwner) return@GeneratorPrimaryButton
                     val currentQuote = quote
                     busy = true; error = null
                     scope.launch {
                         try {
+                            check(accountStore.bearerToken == flowOwner) { "Account changed" }
                             if (challenge == null) {
-                                challenge = bookingStore.service.startGuestContact(channel, normalizedContact, language.code).challengeID
+                                val result = bookingStore.service.startGuestContact(channel, normalizedContact, language.code)
+                                check(accountStore.bearerToken == flowOwner && result.challengeID.isNotBlank()) { "Verification challenge unavailable" }
+                                challenge = result.challengeID
                                 return@launch
                             }
                             val verified = proof ?: bookingStore.service.confirmGuestContact(channel, requireNotNull(challenge), code).let { response ->
                                 check(BookingSessionPolicy.matchesContact(channel, normalizedContact, if (channel == "email") response.email else response.phone)) { "Contact verification mismatch" }
-                                response.verificationToken.also { proof = it }
+                                response.verificationToken.also { check(accountStore.bearerToken == flowOwner && it.isNotBlank()) { "Verification unavailable" }; proof = it }
                             }
                             val session = committed ?: run {
                                 check(!submitted && currentQuote != null) { "Booking already submitted" }
@@ -192,6 +234,7 @@ fun BookingCheckoutScreen(
                                 val intent = BookingCreationNotificationIntent(requestID = requestID, contactChannel = channel, contact = normalizedContact,
                                     verificationToken = verified, locale = language.code, pushDeviceToken = push.state.value.deviceToken.takeIf { push.hasNotificationPermission() },
                                     appBundleID = com.iumrah.beta.BuildConfig.APPLICATION_ID, installationID = container.notificationStore.installationID)
+                                check(accountStore.bearerToken == flowOwner) { "Account changed" }
                                 submitted = true // never replay a create POST after an ambiguous response
                                 bookingStore.create(if (state.nuitee != null) journey.state.value else state, finalQuote, language,
                                     BookingPilgrimProfile(firstName.trim(), lastName.trim(), "", ""), intent).also { created ->
@@ -203,10 +246,11 @@ fun BookingCheckoutScreen(
                                         }
                                     }
                             }
+                            check(accountStore.bearerToken == flowOwner) { "Account changed" }
                             bookingStore.service.attachGuestContact(session.id, session.accessToken, channel, verified, language.code)
                             bookingStore.recordVerifiedContact(session.id, session.accessToken, channel, normalizedContact)
                             // A missing newer exchange route must not undo a valid guest booking.
-                            if (accountStore.bearerToken == null) {
+                            if (flowOwner == null && accountStore.bearerToken == null) {
                                 try {
                                     val auth = container.accountService.exchangeVerifiedBookingProfile(session.id, session.accessToken, verified, channel, language.code)
                                     check(auth.ok && auth.session.token.isNotBlank())
@@ -226,7 +270,7 @@ fun BookingCheckoutScreen(
                         } finally { busy = false }
                     }
                 }
-                committed?.let { saved ->
+                committed?.takeIf { bookingStore.booking(it.id) != null }?.let { saved ->
                     androidx.compose.material3.TextButton(onClick = { showProfile = false; chrome.openBookingCelebration(saved.id) }, enabled = !busy) {
                         Text(checkoutTr(language,"Открыть созданное бронирование","Open created booking","Yaratilgan bronni ochish","Яратилган бронни очиш"))
                     }

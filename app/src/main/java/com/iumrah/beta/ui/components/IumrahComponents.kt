@@ -41,6 +41,13 @@ import androidx.compose.ui.unit.dp
 import com.iumrah.beta.core.design.IumrahGalaxyMetrics
 import com.iumrah.beta.core.design.IumrahHaptics
 import com.iumrah.beta.core.design.IumrahMotion
+import com.iumrah.beta.core.design.LocalIOSParity
+import com.iumrah.beta.core.design.IOSContinuousShape
+import com.iumrah.beta.core.design.iosChromeSurface
+import com.iumrah.beta.core.design.rememberIumrahMotionAllowed
+import androidx.compose.animation.core.snap
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.semantics.Role
 
 @Composable
 fun IumrahPressable(
@@ -61,14 +68,16 @@ fun IumrahPressable(
     val source = remember { MutableInteractionSource() }
     val pressed by source.collectIsPressedAsState()
     val view = LocalView.current
+    val parity = LocalIOSParity.current
+    val motionAllowed = if (parity) rememberIumrahMotionAllowed() else true
     val scale by animateFloatAsState(
         targetValue = if (pressed && enabled) pressedScale else 1f,
-        animationSpec = pressAnimation,
+        animationSpec = if (motionAllowed) pressAnimation else snap(),
         label = "iumrah-press-scale",
     )
     val contentAlpha by animateFloatAsState(
         targetValue = if (pressed && enabled) pressedContentAlpha else 1f,
-        animationSpec = pressAnimation,
+        animationSpec = if (motionAllowed) pressAnimation else snap(),
         label = "iumrah-press-content-alpha",
     )
     val animatedBackground by animateColorAsState(
@@ -77,10 +86,10 @@ fun IumrahPressable(
         } else {
             background
         },
-        animationSpec = backgroundAnimation,
+        animationSpec = if (motionAllowed) backgroundAnimation else snap(),
         label = "iumrah-press-background",
     )
-    val shape = RoundedCornerShape(cornerRadius)
+    val shape = if (parity && cornerRadius < 28.dp) IOSContinuousShape(cornerRadius) else RoundedCornerShape(cornerRadius)
 
     Box(
         modifier = modifier
@@ -96,6 +105,7 @@ fun IumrahPressable(
                 interactionSource = source,
                 indication = null,
                 enabled = enabled,
+                role = if (parity) Role.Button else null,
                 onClick = {
                     if (haptic) IumrahHaptics.soft(view)
                     onClick()
@@ -196,6 +206,24 @@ fun IumrahBackButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    if (LocalIOSParity.current) {
+        val view = LocalView.current
+        val source = remember { MutableInteractionSource() }
+        val pressed by source.collectIsPressedAsState()
+        val motion = rememberIumrahMotionAllowed()
+        val scale by animateFloatAsState(if (pressed) .95f else 1f,
+            if (motion) IumrahMotion.iosButtonPress else snap(), label = "ios-back-press")
+        Box(modifier.size(IumrahGalaxyMetrics.TouchTarget)
+            .graphicsLayer { scaleX = scale; scaleY = scale }
+            .iosChromeSurface(CircleShape)
+            .clickable(interactionSource = source, indication = null,
+                role = Role.Button, onClick = { IumrahHaptics.selection(view); onClick() }),
+            contentAlignment = Alignment.Center) {
+            Icon(CupertinoSymbol.ChevronLeft, contentDescription = "Back",
+                modifier = Modifier.size(17.dp), tint = MaterialTheme.colorScheme.onSurface)
+        }
+        return
+    }
     IumrahPressable(
         onClick = onClick,
         modifier = modifier.offset(y = 6.dp).size(IumrahGalaxyMetrics.TouchTarget),

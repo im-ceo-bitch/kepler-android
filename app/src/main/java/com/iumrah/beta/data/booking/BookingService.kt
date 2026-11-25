@@ -20,6 +20,19 @@ class BookingService(private val api: APIClient) {
         require(number.isNotBlank() && channel in setOf("email","sms") && proof.isNotBlank())
         return api.post("/api/package/booking-contact/recover",RecoveryRequest(number,channel,proof))
     }
+    suspend fun createPublicShare(id: String, headers: Map<String, String>): String {
+        require(id.isNotBlank() && headers.isNotEmpty())
+        val response: BookingPublicShareResponse = api.post("/api/package/booking/$id/share", EmptyShareRequest(), headers)
+        check(response.ok && PublicTripLinkPolicy.isPublicShare(response.shareURL)) { "Invalid public share response" }
+        return response.shareURL
+    }
+
+    suspend fun revokePublicShares(id: String, headers: Map<String, String>) {
+        require(id.isNotBlank() && headers.isNotEmpty())
+        val response: BookingPublicRevokeResponse = api.delete("/api/package/booking/$id/share", headers)
+        check(response.ok && response.revoked) { "Public share revocation not confirmed" }
+    }
+
     suspend fun createBooking(request: BookingCreateEnvelope): BookingCreateResponse =
         api.post(AppConfig.PACKAGE_BOOKING_PATH, request)
 
@@ -202,3 +215,7 @@ data class ClientPushRegistrationResponse(
 @Serializable private data class GuestContactAttach(val verificationToken: String, val locale: String)
 @Serializable data class GuestContactChallenge(val ok: Boolean = true, val challengeID: String, val expiresAt: String)
 @Serializable data class GuestContactProof(val ok: Boolean = true, val verificationToken: String, val email: String? = null, val phone: String? = null)
+
+@Serializable private class EmptyShareRequest
+@Serializable private data class BookingPublicShareResponse(val ok: Boolean, val shareURL: String, val expiresAt: String)
+@Serializable private data class BookingPublicRevokeResponse(val ok: Boolean, val revoked: Boolean)

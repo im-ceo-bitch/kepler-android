@@ -355,14 +355,15 @@ fun PrayerTimesScreen(language: AppLanguage, chrome: AppChromeStore) {
                 }
                 "alert" -> {
                     LazyRowPrayerSelector(selectedKind, language) { selectedKind = it }
-                    val current = options.alerts[selectedKind] ?: PrayerAlert()
-                    fun modify(value: PrayerAlert) { options = options.copy(alerts = options.alerts + (selectedKind to value)) }
+                    var draft by remember { mutableStateOf(options.alerts) }
+                    var previewMessage by remember { mutableStateOf("") }
+                    val current = draft[selectedKind] ?: PrayerAlert()
+                    fun modify(value: PrayerAlert) { draft = draft + (selectedKind to value) }
                     Text(prayerName(selectedKind, language), Modifier.padding(horizontal = 22.dp, vertical = 14.dp), fontSize = 23.sp, fontWeight = FontWeight.Bold)
                     Row(Modifier.fillMaxWidth().padding(horizontal = 22.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                         Text(tr(language, "Уведомление", "Notification", "Bildirishnoma", "Билдиришнома"), Modifier.weight(1f))
                         Switch(current.enabled, onCheckedChange = { enabled ->
                             modify(current.copy(enabled = enabled))
-                            if (enabled && Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) requestNotification.launch(Manifest.permission.POST_NOTIFICATIONS)
                         })
                     }
                     if (current.enabled) {
@@ -379,6 +380,17 @@ fun PrayerTimesScreen(language: AppLanguage, chrome: AppChromeStore) {
                         }
                         Text(tr(language, "Android может задерживать уведомления ради экономии энергии.", "Android may delay alerts to save battery.", "Android batareya tejash uchun eslatmani kechiktirishi mumkin.", "Android батарея тежаш учун эслатмани кечиктириши мумкин."), Modifier.padding(horizontal = 22.dp), fontSize = 12.sp)
                     }
+                    TextButton(onClick = {
+                        val ok = PrayerAlarmScheduler.preview(context, selectedKind, current.sound)
+                        previewMessage = if (ok) tr(language, "Тест запланирован", "Test scheduled", "Sinov rejalashtirildi", "Синов режалаштирилди") else tr(language, "Разрешите уведомления в настройках", "Enable notifications in settings", "Bildirishnomalarga ruxsat bering", "Билдиришномаларга рухсат беринг")
+                    }, modifier = Modifier.fillMaxWidth()) { Text(tr(language,"Тестовое уведомление","Test notification","Sinov bildirishnomasi","Синов билдиришномаси")) }
+                    if (previewMessage.isNotBlank()) Text(previewMessage, Modifier.padding(horizontal = 22.dp), fontSize = 12.sp)
+                    Button(onClick = {
+                        options = options.copy(alerts = draft)
+                        storage.write(options)
+                        if (draft.values.any { it.enabled } && Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) requestNotification.launch(Manifest.permission.POST_NOTIFICATIONS)
+                        sheet = null
+                    }, modifier = Modifier.fillMaxWidth().padding(horizontal = 22.dp)) { Text(tr(language,"Сохранить","Save","Saqlash","Сақлаш")) }
                 }
             }
             Spacer(Modifier.height(28.dp).navigationBarsPadding())

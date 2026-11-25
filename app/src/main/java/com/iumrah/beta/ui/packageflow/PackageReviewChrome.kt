@@ -352,15 +352,59 @@ internal fun reviewTier(l: AppLanguage, tier: PackageTier) = when(tier) {
         Text(smartMoney(amount,"USD",l),fontWeight=FontWeight.SemiBold,fontSize=14.sp)
     }
 }
-@Composable internal fun ReviewItinerary(l: AppLanguage, events: List<com.iumrah.beta.domain.pricing.PackageItineraryPreviewItem>) {
-    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(22.dp)).background(generatorCardColor()).padding(16.dp),verticalArrangement=Arrangement.spacedBy(10.dp)) {
-        ReviewSection(reviewText(l,"Расписание · местное время","Schedule · local time","Jadval · mahalliy vaqt","Жадвал · маҳаллий вақт"))
-        events.sortedWith(compareBy<com.iumrah.beta.domain.pricing.PackageItineraryPreviewItem>{it.dateLocal}.thenBy{it.timeLocal ?: "99:99"}.thenBy{it.id}).groupBy { it.dateLocal }.forEach { (day, rows) ->
-            Text(day,fontWeight=FontWeight.SemiBold)
-            rows.forEach { event -> Row(horizontalArrangement=Arrangement.spacedBy(12.dp)) {
-                Text(event.timeLocal ?: "—",Modifier.width(52.dp),fontSize=12.sp)
-                Column(Modifier.weight(1f)) { Text(event.title,fontWeight=FontWeight.Medium); if(event.location.isNotBlank()) Text(event.location,fontSize=12.sp) }
-            } }
+/** Local-time calendar from the server preview and selected flights. */
+@Composable internal fun ReviewItinerary(l: AppLanguage, state: JourneyState, quote: PackageQuote?) {
+    val events = remember(state.trip,state.nuitee,state.selectedJourney,quote) { buildReviewCalendar(state,quote) }
+    val first = events.minOfOrNull { it.dateLocal }?.let { runCatching { java.time.LocalDate.parse(it) }.getOrNull() } ?: state.trip.departureDate
+    val last = events.maxOfOrNull { it.dateLocal }?.let { runCatching { java.time.LocalDate.parse(it) }.getOrNull() } ?: state.trip.returnDate
+    val count=(java.time.temporal.ChronoUnit.DAYS.between(first,last)+1).coerceIn(1,90).toInt()
+    val days=remember(first,count) { List(count) { first.plusDays(it.toLong()) } }
+    var selected by remember(first,last) { mutableStateOf(first) }
+    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(22.dp)).background(generatorCardColor()).padding(16.dp),verticalArrangement=Arrangement.spacedBy(14.dp)) {
+        Text(reviewText(l,"Расписание поездки · местное время","Planned schedule · local time","Taxminiy jadval · mahalliy vaqt","Тахминий жадвал · маҳаллий вақт"),fontSize=12.sp,color=MaterialTheme.colorScheme.onSurfaceVariant)
+        androidx.compose.foundation.lazy.LazyRow(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+            items(days.size,key={days[it].toString()}) { i ->
+                val day=days[i];val active=day==selected
+                Column(Modifier.widthIn(min=58.dp).clip(RoundedCornerShape(15.dp)).background(if(active)Color.Black else MaterialTheme.colorScheme.onSurface.copy(alpha=.06f)).clickable { selected=day }.padding(10.dp),horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.spacedBy(5.dp)) {
+                    Text(day.dayOfMonth.toString(),fontSize=20.sp,fontWeight=FontWeight.Bold,color=if(active)Color.White else MaterialTheme.colorScheme.onSurface)
+                    Text(day.format(java.time.format.DateTimeFormatter.ofPattern("EEE, MMM",l.locale)),fontSize=10.sp,maxLines=1,color=if(active)Color.White else MaterialTheme.colorScheme.onSurface)
+                }
+            }
         }
+        HorizontalDivider()
+        val rows=events.filter { it.dateLocal==selected.toString() }
+        if(rows.isEmpty()) Text(reviewText(l,"Время мероприятий согласовывается","Activities to be arranged","Tadbirlar vaqti kelishiladi","Тадбирлар вақти келишилади"),fontSize=14.sp,color=MaterialTheme.colorScheme.onSurfaceVariant)
+        rows.forEach { event -> Row(horizontalArrangement=Arrangement.spacedBy(10.dp),verticalAlignment=Alignment.Top) {
+            Text(event.timeLocal ?: "—",Modifier.width(47.dp),fontSize=12.sp,color=MaterialTheme.colorScheme.onSurfaceVariant)
+            val icon=when(event.kind) {
+                "departure","flightHome" -> CupertinoSymbol.AirplaneTakeoff
+                "arrival","arrivalHome" -> CupertinoSymbol.AirplaneLand
+                "hotelCheckIn","hotelCheckOut" -> CupertinoSymbol.Bed
+                "hotelTransfer","intercityTransfer","airportTransfer" -> CupertinoSymbol.Car
+                else -> CupertinoSymbol.Calendar
+            }
+            CupertinoIcon(icon,null,Modifier.size(22.dp))
+            Column(Modifier.weight(1f),verticalArrangement=Arrangement.spacedBy(3.dp)) {
+                Text(calendarTitle(l,event),fontWeight=FontWeight.SemiBold,fontSize=15.sp)
+                if(event.location.isNotBlank()) Text(event.location,fontSize=12.sp,color=MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        } }
+        Text(reviewText(l,"Время трансферов и мероприятий подтверждается перед поездкой.","Transfer and activity times are confirmed before travel.","Transfer va tadbir vaqti safardan oldin tasdiqlanadi.","Трансфер ва тадбир вақти сафардан олдин тасдиқланади."),fontSize=11.sp,color=MaterialTheme.colorScheme.onSurfaceVariant)
     }
+}
+
+private fun calendarTitle(l:AppLanguage,e:com.iumrah.beta.domain.pricing.PackageItineraryPreviewItem):String = when(e.kind) {
+    "departure" -> reviewText(l,"Вылет","Departure","Uchish","Учиш")
+    "arrival" -> reviewText(l,"Прилёт","Arrival","Yetib kelish","Етиб келиш")
+    "arrivalHome" -> reviewText(l,"Возвращение домой","Arrival home","Uyga yetish","Уйга етиш")
+    "airportExit" -> reviewText(l,"Выход из аэропорта","Airport exit","Aeroportdan chiqish","Аэропортдан чиқиш")
+    "hotelTransfer" -> reviewText(l,"Трансфер в отель","Hotel transfer","Mehmonxonaga transfer","Меҳмонхонага трансфер")
+    "hotelCheckIn" -> reviewText(l,"Заселение","Check-in","Joylashish","Жойлашиш")
+    "hotelCheckOut" -> reviewText(l,"Выселение","Check-out","Chiqish","Чиқиш")
+    "intercityTransfer" -> reviewText(l,"Переезд между городами","Intercity transfer","Shaharlararo transfer","Шаҳарлараро трансфер")
+    "umrah" -> reviewText(l,"Совершение умры","Umrah","Umra","Умра")
+    "makkahZiyarat","madinahZiyarat" -> reviewText(l,"Зияраты","Ziyarat","Ziyoratlar","Зиёратлар")
+    "airportTransfer" -> reviewText(l,"Трансфер в аэропорт","Airport transfer","Aeroportga transfer","Аэропортга трансфер")
+    "flightHome" -> reviewText(l,"Вылет домой","Flight home","Uyga uchish","Уйга учиш")
+    else -> e.title
 }

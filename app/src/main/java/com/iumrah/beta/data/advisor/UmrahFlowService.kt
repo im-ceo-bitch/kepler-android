@@ -3,6 +3,11 @@ package com.iumrah.beta.data.advisor
 import android.content.Context
 import com.iumrah.beta.core.network.APIClient
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.currentCoroutineContext
+import com.iumrah.beta.domain.umrahflow.AdvisorContentPolicy
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.MapSerializer
 import kotlinx.serialization.builtins.serializer
@@ -14,6 +19,7 @@ import com.iumrah.beta.domain.umrahflow.UmrahFlowAudioUrlPolicy
 data class UmrahFlowContent(
     val translations: Map<String, String> = emptyMap(),
     val audio: Map<String, String> = emptyMap(),
+    val selectedTranslations: Map<String, String> = translations,
 )
 
 /** Reviewed bundled content plus the unified Advisor API. No legacy database or media host. */
@@ -22,7 +28,7 @@ data class UmrahFlowContent(
 class UmrahFlowService(context: Context? = null, private val api: APIClient = APIClient()) {
     private val json = Json { ignoreUnknownKeys = true }
     private val applicationContext = context?.applicationContext
-    private val cache = applicationContext?.getSharedPreferences("iumrah.umrahFlow.unified.v2", Context.MODE_PRIVATE)
+    private val cache = applicationContext?.getSharedPreferences("iumrah.umrahFlow.unified.v3", Context.MODE_PRIVATE)
     private val offlineCatalog by lazy {
         runCatching {
             applicationContext?.assets?.open("umrah_flow_catalog.json")?.bufferedReader()?.use {
@@ -44,10 +50,10 @@ class UmrahFlowService(context: Context? = null, private val api: APIClient = AP
             return try { json.decodeFromString(mapSerializer, raw) }
             catch (_: Exception) { emptyMap() }
         }
-        // Only v2 cache from the unified backend is read.
+        // v3 intentionally excludes v2 entries that may contain mislabeled English fallback.
         return UmrahFlowContent(
-            translations = (bundled("translations", language) + read("translations")).filterKeys { it in UmrahFlowKeys.all },
-            audio = (bundled("audio", language) + read("audio")).mapNotNull { (key, value) -> UmrahFlowAudioUrlPolicy.resolve(value)?.let { key to it } }.toMap().filterValues(UmrahFlowAudioUrlPolicy::isAllowed),
+            translations = AdvisorContentPolicy.merge(bundled("translations", language), read("translations")).filterKeys { it in UmrahFlowKeys.all },
+            audio = (read("audio") + bundled("audio", language)).mapNotNull { (key, value) -> UmrahFlowAudioUrlPolicy.resolve(value)?.let { key to it } }.toMap().filterValues(UmrahFlowAudioUrlPolicy::isAllowed),
         )
     }
 
@@ -57,21 +63,23 @@ class UmrahFlowService(context: Context? = null, private val api: APIClient = AP
         suspend fun <T> attempt(block: suspend () -> T): T? = try { block() }
         catch (cancelled: CancellationException) { throw cancelled }
         catch (_: Exception) { null }
-        val translations = attempt {
-            api.get<List<TranslationRow>>("/api/services/advisor/translations", query = mapOf("lang" to language), timeoutSeconds = 12)
-                .filter { it.key in UmrahFlowKeys.all }.associate { it.key to it.value }
-        }.orEmpty()
-        val audio = attempt {
-            api.get<List<AudioRow>>("/api/services/advisor/audio", query = mapOf("lang" to language), timeoutSeconds = 12)
-                .mapNotNull { row -> UmrahFlowAudioUrlPolicy.resolve(row.url)?.let { row.key to it } }.toMap()
-        }.orEmpty()
-        val result = UmrahFlowContent(
-            snapshot.translations.ifEmpty { cached("en").translations } + translations,
-            snapshot.audio + audio,
-        )
-        cache?.edit()?.putString("translations.$language", json.encodeToString(mapSerializer, result.translations))
-            ?.putString("audio.$language", json.encodeToString(mapSerializer, result.audio))?.apply()
-        return result
+        val (translations, audio) = coroutineScope {
+            val texts = async { attempt {
+                api.get<List<TranslationRow>>("/api/services/advisor/translations", query = mapOf("lang" to language), timeoutSeconds = 12)
+                    .filter { it.key in UmrahFlowKeys.all && it.value.isNotBlank() }.associate { it.key to it.value }
+            }.orEmpty() }
+            val recordings = async { attempt {
+                api.get<List<AudioRow>>("/api/services/advisor/audio", query = mapOf("lang" to language), timeoutSeconds = 12)
+                    .mapNotNull { row -> UmrahFlowAudioUrlPolicy.resolve(row.url)?.let { row.key to it } }.toMap()
+            }.orEmpty() }
+            texts.await() to recordings.await()
+        }
+        currentCoroutineContext().ensureActive()
+        val selected = AdvisorContentPolicy.merge(snapshot.translations, emptyMap(), translations)
+        val recordings = snapshot.audio + audio
+        cache?.edit()?.putString("translations.$language", json.encodeToString(mapSerializer, selected))
+            ?.putString("audio.$language", json.encodeToString(mapSerializer, recordings))?.apply()
+        return UmrahFlowContent(AdvisorContentPolicy.display(selected, bundled("translations", "en")), recordings, selected)
     }
 
     private companion object {

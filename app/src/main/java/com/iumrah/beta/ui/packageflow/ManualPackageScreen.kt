@@ -35,6 +35,9 @@ import com.iumrah.beta.domain.trip.*
 import com.iumrah.beta.models.flight.*
 import com.iumrah.beta.models.nuitee.*
 import com.iumrah.beta.ui.flights.GuidedFlightChoice
+import com.iumrah.beta.ui.flights.GuidedFlightRow
+import com.iumrah.beta.ui.flights.GuidedFlightDetail
+import com.iumrah.beta.ui.flights.GuidedFlightRules
 import com.iumrah.beta.ui.hotels.*
 import java.time.LocalDate
 import kotlinx.coroutines.CancellationException
@@ -103,7 +106,7 @@ import kotlinx.coroutines.delay
         }}}
     }
     flight?.let{r->ManualFlightPicker(language,plan,r,curated,discovery,{flight=null}){f->try{change{it.chooseFlight(f,r)};flight=null}catch(e:Exception){error=e.message}}}
-    city?.let{c->ManualRoomPicker(language,plan,c,{city=null}){r->change{it.copy(rooms=it.rooms+(c to r))};city=null}}
+    city?.let{c->ManualRoomPicker(language,plan,c,{city=null}){r->change{it.selectRoom(r) ?: it};city=null}}
 }
 
 @Composable private fun ManualComponentFrame(title:String,symbol:CupertinoSymbol,selected:Boolean,language:AppLanguage,onChoose:()->Unit,onRemove:()->Unit,content:@Composable ColumnScope.()->Unit) {
@@ -156,20 +159,23 @@ import kotlinx.coroutines.delay
     LaunchedEffect(plan,returning,retry){busy=true;error=null;val choices=mutableListOf<GuidedFlightChoice>();try{
         try{curated.load(plan).filter{it.nonstop&&it.cabinClass.replace(' ','_').equals(plan.effectiveFlightFilters.cabinClass.wireValue,true)}.forEach{p->if(!returning)choices+=GuidedFlightChoice.Published(p,false) else if(p.inbound!=null||p.effectiveJourneyRole=="return")choices+=GuidedFlightChoice.Published(p,true)}}catch(c:CancellationException){throw c}catch(e:Exception){error=e.message}
         if(plan.effectiveFlightFilters.cabinClass==FlightCabinClass.ECONOMY){try{for(date in listOf(day.toString().take(7),day.toString()))discovery.offers(origin,destination,date).offers.filter{!it.isRoundTrip&&it.price.isFinite()&&it.price>0&&it.durationMinutes>0}.forEach{choices+=GuidedFlightChoice.Data(it)}}catch(c:CancellationException){throw c}catch(e:Exception){error=e.message}}
-        rows=choices.filter{it.origin==origin&&it.destination==destination&&runCatching{val d=LocalDate.parse(it.departureAt.take(10));d>=LocalDate.now()&&kotlin.math.abs(java.time.temporal.ChronoUnit.DAYS.between(d,day))<=3}.getOrDefault(false)}.distinctBy{it.id}.sortedBy{it.departureAt}
+        rows=choices.filter{it.origin==origin&&it.destination==destination&&runCatching{val d=requireNotNull(GuidedFlightRules.departureDay(it.departureAt,it.origin));d>=LocalDate.now()&&kotlin.math.abs(java.time.temporal.ChronoUnit.DAYS.between(d,day))<=3}.getOrDefault(false)}.distinctBy{it.id}.sortedBy{it.departureAt}
     }finally{busy=false}}
+    var pending by remember { mutableStateOf<GuidedFlightChoice?>(null) };var detail by remember { mutableStateOf<GuidedFlightChoice?>(null) }
     ModalBottomSheet(onDismissRequest=onDismiss){LazyColumn(Modifier.fillMaxWidth().heightIn(max=600.dp),contentPadding=PaddingValues(16.dp)){
-        item{Text("$origin → $destination · $day");if(busy)LinearProgressIndicator(Modifier.fillMaxWidth());if(error!=null)Text(error.orEmpty());if(!busy)TextButton(onClick={retry++}){Text(reviewText(language,"Повторить","Retry","Qayta urinish","Қайта уриниш"))}}
-        items(rows,key={it.id}){f->TextButton(onClick={onSelect(f)},modifier=Modifier.fillMaxWidth()){Column{Text("${f.airlineName} · ${f.flightNumber}");Text("${f.departureAt} · ${f.source.name}")}};HorizontalDivider()}
+        item{Text("$origin → $destination · $day",fontSize=22.sp,fontWeight=FontWeight.Bold);if(busy)LinearProgressIndicator(Modifier.fillMaxWidth());if(error!=null)Text(error.orEmpty());if(!busy)TextButton(onClick={retry++}){Text(reviewText(language,"Повторить","Retry","Qayta urinish","Қайта уриниш"))}}
+        items(rows,key={it.id}){f->GuidedFlightRow(f,pending?.id==f.id,language,{pending=if(pending?.id==f.id)null else f},searchDay=day,onClick={detail=f})}
+        pending?.let { choice -> item { IumrahPrimaryButton(reviewText(language,"Выбрать этот авиабилет","Choose this flight","Shu reysni tanlash","Шу рейсни танлаш")){onSelect(choice)} } }
     }}
+    detail?.let { f -> androidx.compose.ui.window.Dialog(onDismissRequest={detail=null},properties=androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth=false,decorFitsSystemWindows=false)) { GuidedFlightDetail(f,language,plan.adults,0,0,{detail=null}) {detail=null;onSelect(f)} } }
 }
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable private fun ManualRoomPicker(language:AppLanguage,plan:TripDraft,city:String,onDismiss:()->Unit,onSelect:(NuiteeRoomSelection)->Unit){
     val service=rememberNuiteeHotelService();val window=TripStayPlanner.windows(plan).let{if(city=="makkah")it.makkah else it.madinah}?:return
-    var query by remember{mutableStateOf("")};val page=rememberNuiteePagedCatalog(service,city,window.checkIn,window.checkOut,plan.adults,query=query);var selected by remember{mutableStateOf<NuiteeHotel?>(null)}
+    var query by remember{mutableStateOf("")};val page=rememberNuiteePagedCatalog(service,city,window.checkIn,window.checkOut,plan.adults,query=query);var selected by remember{mutableStateOf<NuiteeHotel?>(null)};val context=LocalContext.current;val prefs=remember{context.getSharedPreferences("iumrah_nuitee_favorites",0)};var favorites by remember{mutableStateOf(prefs.getStringSet("hotels",emptySet()).orEmpty().toSet())}
     ModalBottomSheet(onDismissRequest=onDismiss){LazyColumn(Modifier.fillMaxWidth().heightIn(max=600.dp),contentPadding=PaddingValues(16.dp)){
         item{OutlinedTextField(query,{query=it},label={Text(reviewText(language,"Отель","Hotel","Mehmonxona","Меҳмонхона"))});Text("${window.checkIn} — ${window.checkOut}");if(page.loading)LinearProgressIndicator(Modifier.fillMaxWidth());page.error?.let{Text(it)};if(page.error!=null)TextButton(onClick=page::retry){Text(reviewText(language,"Повторить","Retry","Qayta urinish","Қайта уриниш"))}}
-        items(page.hotels,key={it.id}){h->TextButton(onClick={selected=h},enabled=!page.sandbox,modifier=Modifier.fillMaxWidth()){Text("${h.name} · ${h.roundedStars}★")};HorizontalDivider()}
+        items(page.hotels,key={it.id}){h->NuiteeListingCard(h,language,page.stale,h.id in favorites,{favorites=if(h.id in favorites)favorites-h.id else favorites+h.id;prefs.edit().putStringSet("hotels",favorites).apply()},{if(!page.sandbox)selected=h},nights=java.time.temporal.ChronoUnit.DAYS.between(window.checkIn,window.checkOut).toInt(),adults=plan.adults,sandbox=page.sandbox)}
     }}
     selected?.let{h->NuiteeHotelDetailSheet(language,service,h,window.checkIn,window.checkOut,plan.adults,onDismiss={selected=null},onRate={rate,meals->onSelect(NuiteeRoomSelection("$city:0",city,0,h,rate,window.checkIn,window.checkOut,plan.adults,emptyList(),meals));selected=null},allowMealSelection=true)}
 }

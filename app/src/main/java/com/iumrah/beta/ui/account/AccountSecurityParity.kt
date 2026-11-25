@@ -37,7 +37,9 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.key
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -96,6 +98,13 @@ internal fun AccountSecurityParityContent(
     accountStore: IumrahAccountStore,
     chrome: AppChromeStore,
 ) {
+    val state by accountStore.state.collectAsState()
+    val owner = accountStore.bearerToken
+    key(state.iumrahID, owner) { ScopedAccountSecurityContent(language, accountStore, chrome) }
+}
+
+@Composable
+private fun ScopedAccountSecurityContent(language: AppLanguage, accountStore: IumrahAccountStore, chrome: AppChromeStore) {
     val scope = rememberCoroutineScope()
     val activity = LocalActivity.current
     var overview by remember { mutableStateOf<IumrahSecurityOverview?>(null) }
@@ -104,7 +113,14 @@ internal fun AccountSecurityParityContent(
     var showPrimaryDialog by remember { mutableStateOf(false) }
     var primaryPassword by remember { mutableStateOf("") }
     var primaryBusy by remember { mutableStateOf(false) }
+    // Contact change state is not saveable: credentials and proofs must never be persisted.
     var emailDialog by remember { mutableStateOf(false) }
+    var phoneMode by remember { mutableStateOf(false) }
+    var recoveryMethod by remember { mutableStateOf<String?>(null) }
+    var recoveryChallenge by remember { mutableStateOf<String?>(null) }
+    var recoveryDestination by remember { mutableStateOf("") }
+    var recoveryCode by remember { mutableStateOf("") }
+    var contactOwner by remember { mutableStateOf<String?>(null) }
     var email by remember { mutableStateOf("") }
     var emailChallenge by remember { mutableStateOf<String?>(null) }
     var emailCode by remember { mutableStateOf("") }
@@ -126,6 +142,22 @@ internal fun AccountSecurityParityContent(
                 .onFailure { throwable -> error = securityErrorMessage(language, throwable) }
             loading = false
         }
+    }
+
+    fun openContact(phone: Boolean, currentValue: String) {
+        contactOwner = accountStore.bearerToken
+        phoneMode = phone
+        email = currentValue
+        emailChallenge = null
+        emailCode = ""
+        emailAuthorizationPassword = ""
+        emailSecurityProof = null
+        recoveryMethod = null
+        recoveryChallenge = null
+        recoveryDestination = ""
+        recoveryCode = ""
+        error = null
+        emailDialog = true
     }
 
     LaunchedEffect(Unit) { reload() }
@@ -202,6 +234,25 @@ internal fun AccountSecurityParityContent(
 
             item {
                 SecurityCard {
+                    SecuritySectionTitle(CupertinoSymbol.Phone, secTr(language, "Phone sign-in", "Вход по телефону", "Telefon orqali kirish", "Телефон орқали кириш"), SecurityBlue)
+                    Spacer(Modifier.height(14.dp))
+                    if (value.loginPhone != null) {
+                        SecurityStatusRow(CupertinoSymbol.CheckCircle, value.loginPhone.phone,
+                            secTr(language, "Verified for sign-in and recovery.", "Подтверждён для входа и восстановления доступа.", "Kirish va tiklash uchun tasdiqlangan.", "Кириш ва тиклаш учун тасдиқланган."), SecurityGreen)
+                    } else {
+                        Text(secTr(language, "Add a verified phone number.", "Добавьте подтверждённый номер телефона.", "Tasdiqlangan telefon raqamini qo‘shing.", "Тасдиқланган телефон рақамини қўшинг."), fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    Spacer(Modifier.height(14.dp))
+                    SecuritySecondaryButton(
+                        title = if (value.loginPhone == null) secTr(language, "Add verified phone", "Добавить подтверждённый телефон", "Tasdiqlangan telefon qo‘shish", "Тасдиқланган телефон қўшиш") else secTr(language, "Change phone", "Изменить телефон", "Telefonni o‘zgartirish", "Телефонни ўзгартириш"),
+                        icon = CupertinoSymbol.Phone,
+                        enabled = value.currentDeviceIsPrimary || value.loginPhone != null || value.loginEmail != null,
+                    ) { openContact(true, value.loginPhone?.phone.orEmpty()) }
+                }
+            }
+
+            item {
+                SecurityCard {
                     SecuritySectionTitle(CupertinoSymbol.Mail, secTr(language, "Email sign-in", "Вход по почте", "Email orqali kirish", "Email орқали кириш"), SecurityBlue)
                     Spacer(Modifier.height(14.dp))
                     if (value.loginEmail != null) {
@@ -223,17 +274,9 @@ internal fun AccountSecurityParityContent(
                     SecuritySecondaryButton(
                         title = if (value.loginEmail == null) secTr(language, "Add verified email", "Добавить подтверждённую почту", "Tasdiqlangan email qo‘shish", "Тасдиқланган email қўшиш") else secTr(language, "Change email", "Изменить почту", "Emailni o‘zgartirish", "Emailни ўзгартириш"),
                         icon = CupertinoSymbol.Mail,
-                        enabled = value.currentDeviceIsPrimary,
-                    ) {
-                        email = value.loginEmail?.email.orEmpty()
-                        emailChallenge = null
-                        emailCode = ""
-                        emailAuthorizationPassword = ""
-                        emailSecurityProof = null
-                        error = null
-                        emailDialog = true
-                    }
-                    if (!value.currentDeviceIsPrimary) {
+                        enabled = value.currentDeviceIsPrimary || value.loginPhone != null || value.loginEmail != null,
+                    ) { openContact(false, value.loginEmail?.email.orEmpty()) }
+                    if (!value.currentDeviceIsPrimary && value.loginPhone == null && value.loginEmail == null) {
                         Spacer(Modifier.height(10.dp))
                         SecurityLockedNote(language, secTr(language, "Only the primary device can change the sign-in email.", "Почту для входа может изменить только основное устройство.", "Kirish emailini faqat asosiy qurilma o‘zgartira oladi.", "Кириш emailини фақат асосий қурилма ўзгартира олади."))
                     }
@@ -296,8 +339,9 @@ internal fun AccountSecurityParityContent(
                         } else {
                             linkingGoogle = true
                             scope.launch {
+                                val owner = accountStore.bearerToken
                                 runCatching { GoogleSignInSupport.signIn(host) }
-                                    .mapCatching { accountStore.linkGoogle(it) }
+                                    .mapCatching { check(owner != null && owner == accountStore.bearerToken) { "Account changed" }; accountStore.linkGoogle(it) }
                                     .onSuccess { reload() }
                                     .onFailure { throwable ->
                                         if (!throwable::class.simpleName.orEmpty().contains("Cancel", ignoreCase = true)) {
@@ -409,68 +453,98 @@ internal fun AccountSecurityParityContent(
     }
 
     if (emailDialog) {
+        val accountState by accountStore.state.collectAsState()
+        LaunchedEffect(accountState.account?.iumrahID, accountStore.bearerToken) {
+            if (contactOwner == null || contactOwner != accountStore.bearerToken) {
+                emailDialog = false; emailSecurityProof = null; emailAuthorizationPassword = ""; recoveryCode = ""; emailCode = ""
+            }
+        }
+        fun closeContact() {
+            emailDialog = false; emailSecurityProof = null; emailAuthorizationPassword = ""
+            recoveryCode = ""; emailCode = ""; recoveryChallenge = null; emailChallenge = null
+        }
+        fun acceptProof(response: com.iumrah.beta.models.account.IumrahSensitiveAuthorizationResponse) {
+            check(response.ok && response.securityProof.isNotBlank() && accountStore.bearerToken == contactOwner) { "Authorization not confirmed" }
+            emailSecurityProof = response.securityProof; overview = response.overview
+            emailAuthorizationPassword = ""; recoveryCode = ""; recoveryChallenge = null; error = null
+        }
+        fun perform(action: suspend () -> Unit) {
+            if (emailBusy || contactOwner == null || accountStore.bearerToken != contactOwner) return
+            emailBusy = true
+            scope.launch {
+                try { action() }
+                catch (cancel: kotlinx.coroutines.CancellationException) { throw cancel }
+                catch (failure: Exception) { error = securityErrorMessage(language, failure) }
+                finally { emailBusy = false }
+            }
+        }
         AlertDialog(
-            onDismissRequest = { if (!emailBusy) { emailDialog = false; emailSecurityProof = null; emailAuthorizationPassword = "" } },
-            icon = { CupertinoIcon(CupertinoSymbol.Mail, null, Modifier.size(30.dp), SecurityBlue) },
-            title = { Text(secTr(language, "Email security", "Безопасность почты", "Email xavfsizligi", "Email хавфсизлиги"), fontWeight = FontWeight.Bold) },
+            onDismissRequest = { if (!emailBusy) closeContact() },
+            icon = { CupertinoIcon(if (phoneMode) CupertinoSymbol.Phone else CupertinoSymbol.Mail, null, Modifier.size(30.dp), SecurityBlue) },
+            title = { Text(if (phoneMode) secTr(language, "Phone security", "Безопасность телефона", "Telefon xavfsizligi", "Телефон хавфсизлиги") else secTr(language, "Email security", "Безопасность почты", "Email xavfsizligi", "Email хавфсизлиги"), fontWeight = FontWeight.Bold) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text(
-                        if (emailChallenge == null) secTr(language, "We will send a verification code to this email.", "Мы отправим код подтверждения на эту почту.", "Bu emailga tasdiqlash kodini yuboramiz.", "Бу emailга тасдиқлаш кодини юборамиз.") else secTr(language, "Enter the verification code sent to $email.", "Введите код подтверждения, отправленный на $email.", "$email manziliga yuborilgan tasdiqlash kodini kiriting.", "$email манзилига юборилган тасдиқлаш кодини киритинг."),
-                        fontSize = 13.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
                     if (emailSecurityProof == null) {
-                        Text(secTr(language, "Confirm your identity with your password or linked Google account.", "Подтвердите личность паролем или привязанным Google-аккаунтом.", "Parol yoki ulangan Google akkaunti orqali tasdiqlang.", "Парол ёки уланган Google аккаунти орқали тасдиқланг."), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        OutlinedTextField(value = emailAuthorizationPassword, onValueChange = { emailAuthorizationPassword = it }, modifier = Modifier.fillMaxWidth(), singleLine = true, label = { Text(secTr(language, "Current password", "Текущий пароль", "Joriy parol", "Жорий парол")) }, visualTransformation = PasswordVisualTransformation())
-                        if (overview?.google?.linked == true && activity != null) {
-                            TextButton(
-                                enabled = !emailBusy,
-                                onClick = {
-                                    emailBusy = true
-                                    scope.launch {
-                                        runCatching {
-                                            val credential = GoogleSignInSupport.signIn(activity)
-                                            accountStore.authorizeSensitiveActionWithGoogle(credential)
-                                        }.onSuccess { proof -> emailSecurityProof = proof.securityProof; emailAuthorizationPassword = ""; error = null }
-                                            .onFailure { error = securityErrorMessage(language, it) }
-                                        emailBusy = false
-                                    }
-                                },
-                            ) { Text(secTr(language, "Authorize with Google", "Подтвердить через Google", "Google orqali tasdiqlash", "Google орқали тасдиқлаш")) }
+                        Text(secTr(language, "Confirm your identity before changing your contact. Recovery using a verified contact will protect this device as your primary device.", "Подтвердите личность перед изменением контакта. Восстановление через подтверждённый контакт сделает это устройство основным.", "Kontaktni o‘zgartirishdan oldin shaxsingizni tasdiqlang. Tasdiqlangan kontakt orqali tiklash bu qurilmani asosiy qiladi.", "Контактни ўзгартиришдан олдин шахсингизни тасдиқланг. Тасдиқланган контакт орқали тиклаш бу қурилмани асосий қилади."), fontSize = 13.sp)
+                        if (recoveryChallenge != null) {
+                            Text(recoveryDestination, fontWeight = FontWeight.SemiBold)
+                            OutlinedTextField(value = recoveryCode, onValueChange = { recoveryCode = it.filter(Char::isDigit).take(6) }, enabled = !emailBusy, singleLine = true, label = { Text(secTr(language, "Verification code", "Код подтверждения", "Tasdiqlash kodi", "Тасдиқлаш коди")) }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
+                            TextButton(enabled = !emailBusy, onClick = { recoveryChallenge = null; recoveryMethod = null; recoveryCode = "" }) { Text(secTr(language, "Use another method", "Другой способ", "Boshqa usul", "Бошқа усул")) }
+                        } else {
+                            OutlinedTextField(value = emailAuthorizationPassword, onValueChange = { emailAuthorizationPassword = it }, enabled = !emailBusy, modifier = Modifier.fillMaxWidth(), singleLine = true, label = { Text(secTr(language, "Current password", "Текущий пароль", "Joriy parol", "Жорий парол")) }, visualTransformation = PasswordVisualTransformation())
+                            val methods = listOfNotNull("phone".takeIf { overview?.loginPhone != null }, "email".takeIf { overview?.loginEmail != null })
+                            methods.forEach { method ->
+                                TextButton(enabled = !emailBusy, onClick = { perform {
+                                    val response = accountStore.startPrimaryRecovery(method, language.localeTag)
+                                    check(accountStore.bearerToken == contactOwner)
+                                    recoveryMethod = method; recoveryChallenge = response.challengeID; recoveryDestination = response.maskedDestination
+                                    recoveryCode = ""; emailAuthorizationPassword = ""; error = null
+                                } }) { Text(if (method == "phone") secTr(language, "Verify by SMS", "Подтвердить по SMS", "SMS orqali tasdiqlash", "SMS орқали тасдиқлаш") else secTr(language, "Verify by email", "Подтвердить по почте", "Email orqali tasdiqlash", "Email орқали тасдиқлаш")) }
+                            }
+                            if (overview?.google?.linked == true && activity != null) {
+                                TextButton(enabled = !emailBusy, onClick = { perform {
+                                    val credential = GoogleSignInSupport.signIn(activity)
+                                    check(accountStore.bearerToken == contactOwner)
+                                    acceptProof(accountStore.authorizeSensitiveActionWithGoogle(credential))
+                                } }) { Text(secTr(language, "Authorize with Google", "Подтвердить через Google", "Google orqali tasdiqlash", "Google орқали тасдиқлаш")) }
+                            }
                         }
                     } else if (emailChallenge == null) {
-                        OutlinedTextField(value = email, onValueChange = { email = it }, modifier = Modifier.fillMaxWidth(), singleLine = true, label = { Text("Email") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email))
+                        if (phoneMode) Text(secTr(language, "SMS is available for Uzbekistan (+998).", "SMS доступно для Узбекистана (+998).", "SMS O‘zbekiston (+998) uchun mavjud.", "SMS Ўзбекистон (+998) учун мавжуд."), fontSize = 13.sp)
+                        OutlinedTextField(value = email, onValueChange = { email = it }, enabled = !emailBusy, modifier = Modifier.fillMaxWidth(), singleLine = true, label = { Text(if (phoneMode) "+998" else "Email") }, keyboardOptions = KeyboardOptions(keyboardType = if (phoneMode) KeyboardType.Phone else KeyboardType.Email))
                     } else {
-                        OutlinedTextField(value = emailCode, onValueChange = { emailCode = it.filter(Char::isDigit).take(8) }, modifier = Modifier.fillMaxWidth(), singleLine = true, label = { Text(secTr(language, "Verification code", "Код подтверждения", "Tasdiqlash kodi", "Тасдиқлаш коди")) }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
+                        Text(email, fontWeight = FontWeight.SemiBold)
+                        OutlinedTextField(value = emailCode, onValueChange = { emailCode = it.filter(Char::isDigit).take(6) }, enabled = !emailBusy, modifier = Modifier.fillMaxWidth(), singleLine = true, label = { Text(secTr(language, "Verification code", "Код подтверждения", "Tasdiqlash kodi", "Тасдиқлаш коди")) }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
                     }
+                    error?.let { Text(it, color = SecurityRed, fontSize = 13.sp) }
                 }
             },
             confirmButton = {
-                Button(
-                    onClick = {
-                        emailBusy = true
-                        scope.launch {
-                            if (emailSecurityProof == null) {
-                                runCatching { accountStore.authorizeSensitiveAction(emailAuthorizationPassword) }
-                                    .onSuccess { response -> emailSecurityProof = response.securityProof; emailAuthorizationPassword = ""; error = null }
-                                    .onFailure { error = securityErrorMessage(language, it) }
-                            } else if (emailChallenge == null) {
-                                runCatching { accountStore.startEmailVerification(email.trim(), language.localeTag, emailSecurityProof!!) }
-                                    .onSuccess { emailChallenge = it.challengeID; error = null }
-                                    .onFailure { error = securityErrorMessage(language, it) }
-                            } else {
-                                runCatching { accountStore.confirmEmailVerification(emailChallenge!!, emailCode.trim(), emailSecurityProof!!) }
-                                    .onSuccess { error = null; emailDialog = false; emailSecurityProof = null; emailAuthorizationPassword = ""; reload() }
-                                    .onFailure { error = securityErrorMessage(language, it) }
-                            }
-                            emailBusy = false
-                        }
-                    },
-                    enabled = !emailBusy && if (emailSecurityProof == null) emailAuthorizationPassword.length >= 8 else if (emailChallenge == null) email.contains('@') else emailCode.length == 6,
-                ) { if (emailBusy) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp) else Text(if (emailSecurityProof == null) secTr(language, "Authorize", "Подтвердить доступ", "Tasdiqlash", "Тасдиқлаш") else if (emailChallenge == null) secTr(language, "Send code", "Отправить код", "Kod yuborish", "Код юбориш") else secTr(language, "Verify", "Подтвердить", "Tasdiqlash", "Тасдиқлаш")) }
+                Button(onClick = { perform {
+                    if (emailSecurityProof == null) {
+                        if (recoveryChallenge != null) acceptProof(accountStore.confirmPrimaryRecovery(requireNotNull(recoveryMethod), requireNotNull(recoveryChallenge), recoveryCode))
+                        else acceptProof(accountStore.authorizeSensitiveAction(emailAuthorizationPassword))
+                    } else if (emailChallenge == null) {
+                        val challenge = if (phoneMode) accountStore.startPhoneVerification(email.trim(), language.localeTag, emailSecurityProof!!).challengeID
+                            else accountStore.startEmailVerification(email.trim(), language.localeTag, emailSecurityProof!!).let { check(it.ok); it.challengeID }
+                        check(challenge.isNotBlank() && accountStore.bearerToken == contactOwner)
+                        emailChallenge = challenge; error = null
+                    } else {
+                        if (phoneMode) accountStore.confirmPhoneVerification(emailChallenge!!, emailCode, emailSecurityProof!!)
+                        else accountStore.confirmEmailVerification(emailChallenge!!, emailCode, emailSecurityProof!!)
+                        check(accountStore.bearerToken == contactOwner)
+                        error = null; closeContact(); reload()
+                    }
+                } }, enabled = !emailBusy && when {
+                    emailSecurityProof == null && recoveryChallenge != null -> recoveryCode.length == 6
+                    emailSecurityProof == null -> emailAuthorizationPassword.isNotBlank()
+                    emailChallenge != null -> emailCode.length == 6
+                    phoneMode -> email.trim().startsWith("+998") && email.count(Char::isDigit) == 12
+                    else -> email.contains('@')
+                }) { if (emailBusy) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp) else Text(
+                    if (emailSecurityProof != null && emailChallenge == null) secTr(language, "Send code", "Отправить код", "Kod yuborish", "Код юбориш") else secTr(language, "Verify", "Подтвердить", "Tasdiqlash", "Тасдиқлаш")) }
             },
-            dismissButton = { TextButton(onClick = { emailDialog = false; emailSecurityProof = null; emailAuthorizationPassword = "" }, enabled = !emailBusy) { Text(secTr(language, "Close", "Закрыть", "Yopish", "Ёпиш")) } },
+            dismissButton = { TextButton(onClick = { closeContact() }, enabled = !emailBusy) { Text(secTr(language, "Close", "Закрыть", "Yopish", "Ёпиш")) } },
         )
     }
 

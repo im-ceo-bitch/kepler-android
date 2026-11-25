@@ -3,6 +3,12 @@ package com.iumrah.beta.ui.onboarding
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.animation.core.tween
+import androidx.compose.ui.platform.LocalView
+import com.iumrah.beta.core.design.IumrahHaptics
+import com.iumrah.beta.core.design.rememberIumrahMotionAllowed
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
@@ -64,14 +70,22 @@ fun BrandWelcomeOnboarding(language: AppLanguage, onLanguageChange: (AppLanguage
     val scope = rememberCoroutineScope()
     var languageOpen by remember { mutableStateOf(false) }
     var leaving by remember { mutableStateOf(false) }
+    val motion = rememberIumrahMotionAllowed()
+    val view = LocalView.current
+    fun move(to: Int) {
+        if (!leaving && !pager.isScrollInProgress && to in introSlides.indices) scope.launch {
+            IumrahHaptics.selection(view)
+            if (motion) pager.animateScrollToPage(to, animationSpec = tween(250)) else pager.scrollToPage(to)
+        }
+    }
     val advance: () -> Unit = {
-        if (!leaving) {
+        if (!leaving && !pager.isScrollInProgress) {
             if (pager.currentPage == introSlides.lastIndex) { leaving = true; onFinished() }
-            else scope.launch { pager.animateScrollToPage(pager.currentPage + 1) }
+            else move(pager.currentPage + 1)
         }
     }
     Box(Modifier.fillMaxSize().background(Color.Black)) {
-        IumrahSignatureWorldBackground(Modifier.fillMaxSize(),mapOpacity=.15f,waveIntensity=0f)
+        IumrahSignatureWorldBackground(Modifier.fillMaxSize(),mapOpacity=.15f,waveIntensity=0f,isAnimating=false)
         Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().padding(vertical=8.dp),
             verticalArrangement=Arrangement.spacedBy(12.dp)) {
             Row(Modifier.fillMaxWidth().padding(horizontal=20.dp),verticalAlignment=Alignment.CenterVertically) {
@@ -92,15 +106,14 @@ fun BrandWelcomeOnboarding(language: AppLanguage, onLanguageChange: (AppLanguage
                 repeat(6) { index -> Box(Modifier.weight(1f).height(3.dp).clip(CircleShape)
                     .background(Color.White.copy(alpha=if(index<=pager.currentPage)1f else .22f))) }
             }
-            HorizontalPager(state=pager,modifier=Modifier.weight(1f)) { index ->
+            HorizontalPager(state=pager,modifier=Modifier.weight(1f),userScrollEnabled=!leaving,verticalAlignment=Alignment.Top) { index ->
                 val item=introSlides[index]
-                Column(Modifier.fillMaxSize().padding(horizontal=20.dp,vertical=8.dp),verticalArrangement=Arrangement.spacedBy(17.dp)) {
+                Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp),verticalArrangement=Arrangement.spacedBy(16.dp)) {
                     if(item.picture!=null) {
                         Image(painterResource(item.picture),null,Modifier.fillMaxWidth().height(240.dp).clip(RoundedCornerShape(22.dp)),
                             contentScale=ContentScale.Crop)
                     } else {
-                        Column(Modifier.fillMaxWidth().height(240.dp).clip(RoundedCornerShape(22.dp))
-                            .background(Color.White.copy(alpha=.08f)).padding(24.dp),verticalArrangement=Arrangement.SpaceEvenly) {
+                        Column(Modifier.fillMaxWidth().heightIn(min=200.dp),verticalArrangement=Arrangement.spacedBy(20.dp,Alignment.CenterVertically),horizontalAlignment=Alignment.CenterHorizontally) {
                             listOf(CupertinoSymbol.Airplane to brandT(language,"Авиабилеты","Flights","Aviachiptalar","Авиачипталар"),
                                 CupertinoSymbol.Bed to brandT(language,"Отели","Hotels","Mehmonxonalar","Меҳмонхоналар"),
                                 CupertinoSymbol.Car to brandT(language,"Трансфер","Transfer","Transfer","Трансфер"),
@@ -111,26 +124,27 @@ fun BrandWelcomeOnboarding(language: AppLanguage, onLanguageChange: (AppLanguage
                             } }
                         }
                     }
-                    Text(item.title(language),fontSize=30.sp,lineHeight=36.sp,fontWeight=FontWeight.Bold,color=Color.White)
+                    Text(item.title(language),fontSize=34.sp,lineHeight=40.sp,fontWeight=FontWeight.Bold,color=Color.White)
                     Text(item.details(language),fontSize=16.sp,lineHeight=23.sp,color=Color.White.copy(alpha=.75f))
                 }
             }
-            Box(Modifier.fillMaxWidth().padding(horizontal=20.dp).height(51.dp).clip(CircleShape)
-                .background(Color.White).clickable(enabled=!leaving,onClick=advance),contentAlignment=Alignment.Center) {
-                Row(verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(14.dp)) {
+            Box(Modifier.fillMaxWidth().padding(horizontal=20.dp).heightIn(min=44.dp).clip(CircleShape)
+                .background(Color.White).clickable(enabled=!leaving && !pager.isScrollInProgress,onClick=advance).padding(12.dp),contentAlignment=Alignment.Center) {
+                Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+                    Spacer(Modifier.weight(.12f))
                     Text(if(pager.currentPage==5)brandT(language,"Начать пользоваться iumrah","Start using iumrah","iumrah’dan foydalanishni boshlash","iumrah’дан фойдаланишни бошлаш")
-                        else brandT(language,"Продолжить","Continue","Davom etish","Давом этиш"),fontWeight=FontWeight.SemiBold,color=Color.Black)
+                        else brandT(language,"Продолжить","Continue","Davom etish","Давом этиш"),fontWeight=FontWeight.SemiBold,color=Color.Black,modifier=Modifier.weight(1f),textAlign=TextAlign.Center,fontSize=15.sp)
                     CupertinoIcon(CupertinoSymbol.ArrowRight,null,Modifier.size(16.dp),Color.Black)
                 }
             }
             Row(Modifier.fillMaxWidth().padding(horizontal=20.dp),verticalAlignment=Alignment.CenterVertically) {
-                TextButton(enabled=pager.currentPage>0,onClick={scope.launch { pager.animateScrollToPage(pager.currentPage-1) }}) {
+                TextButton(enabled=pager.currentPage>0 && !leaving && !pager.isScrollInProgress,onClick={move(pager.currentPage-1)}) {
                     CupertinoIcon(CupertinoSymbol.ChevronLeft,null,Modifier.size(20.dp),Color.White)
                 }
                 Spacer(Modifier.weight(1f))
                 Text("${pager.currentPage+1} / 6",color=Color.White.copy(alpha=.7f),fontSize=13.sp)
                 Spacer(Modifier.weight(1f))
-                TextButton(enabled=pager.currentPage<5,onClick={scope.launch { pager.animateScrollToPage(pager.currentPage+1) }}) {
+                TextButton(enabled=pager.currentPage<5 && !leaving && !pager.isScrollInProgress,onClick={move(pager.currentPage+1)}) {
                     CupertinoIcon(CupertinoSymbol.ChevronRight,null,Modifier.size(20.dp),Color.White)
                 }
             }

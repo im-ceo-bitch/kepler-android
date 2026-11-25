@@ -56,6 +56,7 @@ fun NuiteeJourneyHotelsScreen(language: AppLanguage, journey: JourneyStore, chro
     val draft = state.nuitee
     var city by remember { mutableStateOf("makkah") }
     var roomIndex by remember { mutableIntStateOf(0) }
+    var hotelQuery by remember { mutableStateOf("") }
     var stars by remember { mutableIntStateOf(0) }
     var refresh by remember { mutableIntStateOf(0) }
     val childrenAges = state.childAges.takeIf { it.size==trip.children+trip.infants }
@@ -73,7 +74,7 @@ fun NuiteeJourneyHotelsScreen(language: AppLanguage, journey: JourneyStore, chro
     val listState = rememberLazyListState()
     LaunchedEffect(roomKey) { listState.scrollToItem(0) }
     val allComplete = draft?.let { com.iumrah.beta.domain.nuitee.NuiteeBookingRules.complete(trip, it) } == true
-    val page = rememberNuiteePagedCatalog(service, city, stay.checkIn, stay.checkOut, roomAdults.coerceAtLeast(1), stars, refresh = refresh, childrenAges = roomChildren)
+    val page = rememberNuiteePagedCatalog(service, city, stay.checkIn, stay.checkOut, roomAdults.coerceAtLeast(1), stars, query = hotelQuery, refresh = refresh, childrenAges = roomChildren, enabled = ready && stay.checkOut.isAfter(stay.checkIn))
     val hotels = page.hotels
     val rateError = page.error ?: page.rateError
     val loading = page.loading
@@ -81,9 +82,9 @@ fun NuiteeJourneyHotelsScreen(language: AppLanguage, journey: JourneyStore, chro
     val pricesStale = page.stale
 
     Scaffold(containerColor = MaterialTheme.colorScheme.background, bottomBar = {
-        if (allComplete) Box(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.background)
+        if (ready && allComplete) Box(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.background)
             .navigationBarsPadding().padding(horizontal = 18.dp, vertical = 12.dp)) {
-            IumrahPrimaryButton(title = if (reviewEditing) nuiteeText(language,"Применить", "Apply", "Qo‘llash", "Қўллаш") else nuiteeText(language,"Выбрать трансфер", "Choose transfer",
+            IumrahPrimaryButton(title = if (reviewEditing) nuiteeText(language,"Применить", "Apply", "Qo‘llash", "Қўллаш") else if (state.transferSelectionConfirmed) nuiteeText(language,"Посмотреть итог", "View summary", "Natijani ko‘rish", "Натижани кўриш") else nuiteeText(language,"Выбрать трансфер", "Choose transfer",
                 "Transferni tanlash", "Трансферни танлаш"), onClick = onComplete)
         }
     }) { scaffoldPadding ->
@@ -147,7 +148,7 @@ fun NuiteeJourneyHotelsScreen(language: AppLanguage, journey: JourneyStore, chro
                         OutlinedButton(onClick = { roomIndex = i }, modifier = Modifier.weight(1f),
                             colors = ButtonDefaults.outlinedButtonColors(containerColor =
                                 if (roomIndex == i) MaterialTheme.colorScheme.surfaceVariant else Color.Transparent)) {
-                            Text("${i + 1}")
+                            Text(nuiteeText(language,"Номер", "Room", "Xona", "Хона") + " ${i + 1}", maxLines=1, fontSize=12.sp)
                         }
                     }
                 }
@@ -165,6 +166,12 @@ fun NuiteeJourneyHotelsScreen(language: AppLanguage, journey: JourneyStore, chro
                     "Narx tekshirilmoqda", "Нарх текширилмоқда"), fontSize = 12.sp) }
             }
             item {
+                OutlinedTextField(value=hotelQuery,onValueChange={hotelQuery=it},singleLine=true,modifier=Modifier.fillMaxWidth(),shape=RoundedCornerShape(16.dp),
+                    placeholder={Text(nuiteeText(language,"Название отеля","Hotel name","Mehmonxona nomi","Меҳмонхона номи"))},
+                    leadingIcon={CupertinoIcon(CupertinoSymbol.Search,null,Modifier.size(18.dp))},
+                    trailingIcon={if(hotelQuery.isNotEmpty())TextButton(onClick={hotelQuery=""}){Text("×")}})
+            }
+            item {
                 Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
                     (0..5).forEach { level ->
                         Box(Modifier.weight(1f).height(36.dp).clip(RoundedCornerShape(18.dp))
@@ -179,14 +186,15 @@ fun NuiteeJourneyHotelsScreen(language: AppLanguage, journey: JourneyStore, chro
             if (pricesStale || rateError != null) item { Text(nuiteeText(language,
                 "Для точной цены откройте номер и обновите тариф.", "Open a room to verify its current price.",
                 "Xona narxini tekshiring.", "Хона нархини текширинг."), fontSize = 12.sp) }
-            if (loading) item { CircularProgressIndicator(Modifier.padding(10.dp)) }
-            if (!loading && hotels.isEmpty()) item {
+            if (ready && hotels.isNotEmpty()) item { Text(nuiteeText(language,"Показано ${hotels.size} отелей","Showing ${hotels.size} hotels","${hotels.size} ta mehmonxona ko‘rsatildi","${hotels.size} та меҳмонхона кўрсатилди"),fontSize=13.sp,fontWeight=FontWeight.SemiBold,color=MaterialTheme.colorScheme.onSurfaceVariant) }
+            if (ready && loading) item { CircularProgressIndicator(Modifier.padding(10.dp)) }
+            if (ready && !loading && hotels.isEmpty()) item {
                 Column {
                     Text(rateError ?: nuiteeText(language,"Отелей нет на эти даты", "No stays for these dates", "Mehmonxona yo‘q", "Меҳмонхона йўқ"))
                     TextButton(onClick = { refresh++ }) { Text(nuiteeText(language,"Повторить", "Retry", "Yana", "Яна")) }
                 }
             }
-            items(hotels, key = { "journey-${it.id}" }) { hotel ->
+            items(if (ready) hotels else emptyList(), key = { "journey-${it.id}" }) { hotel ->
                 NuiteeListingCard(hotel, language, pricesStale, favorite = hotel.id in favorites,
                     nights = java.time.temporal.ChronoUnit.DAYS.between(stay.checkIn, stay.checkOut).toInt(), adults = roomAdults, childrenCount = roomChildren.size, sandbox = sandbox,
                     onFavorite = {
@@ -211,7 +219,7 @@ fun NuiteeJourneyHotelsScreen(language: AppLanguage, journey: JourneyStore, chro
                     if (updated.nuitee?.rooms?.get(roomKey)?.rate == rate) {
                         val next = updated.nuitee?.let { draft -> (listOf(city) + draft.requiredCities(trip).filter { it != city }).flatMap { c -> (0 until trip.rooms).map { c to it } }.firstOrNull { (c, i) -> "$c:$i" !in draft.rooms } }
                         if (next != null) { city = next.first; roomIndex = next.second; stars = 0 }
-                        else if (!reviewEditing && updated.nuitee?.let { com.iumrah.beta.domain.nuitee.NuiteeBookingRules.complete(trip, it) } == true) onComplete()
+                        // Keep the final selected room visible. Only explicit CTA advances, as on iOS.
                     }
                 }
                 selectedHotel = null

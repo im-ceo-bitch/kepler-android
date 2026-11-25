@@ -271,7 +271,18 @@ data class IumrahSecurityOverview(
     val apple: IumrahAppleConnectionStatus,
     val google: IumrahGoogleConnectionStatus? = null,
     val sessions: List<IumrahSecuritySession>,
+    val loginPhone: IumrahVerifiedLoginPhone? = null,
 )
+
+@Serializable data class IumrahVerifiedLoginPhone(val phone: String, val verifiedAt: String)
+@Serializable data class IumrahPrimaryRecoveryStartRequest(val method: String, val locale: String)
+@Serializable data class IumrahPrimaryRecoveryStartResponse(val ok: Boolean, val method: String, val challengeID: String, val expiresAt: String? = null, val maskedDestination: String)
+@Serializable data class IumrahPrimaryRecoveryConfirmRequest(val method: String, val challengeID: String, val code: String)
+@Serializable data class IumrahAccountPhoneVerificationStartRequest(val phone: String, val locale: String)
+@Serializable data class IumrahAccountPhoneVerificationConfirmRequest(val challengeID: String, val code: String)
+@Serializable data class IumrahPhoneChallengeStartResponse(val ok: Boolean, val challengeID: String, val expiresAt: String? = null, val phone: String)
+@Serializable data class IumrahPhoneVerificationResponse(val ok: Boolean, val phone: String, val verifiedAt: String)
+
 
 @Serializable data class IumrahClaimPrimaryRequest(val password: String)
 @Serializable data class IumrahAppleRequest(val identityToken: String, val nonce: String)

@@ -118,8 +118,17 @@ fun NuiteeJourneyReviewScreen(language: AppLanguage, journey: JourneyStore, acco
                     if(draft?.rooms?.containsKey("makkah:0")==true) TextButton(enabled=!sending,onClick={editKind="makkah"}) { Text(reviewText(language,"Отель Мекки","Makkah hotel","Makka mehmonxonasi","Макка меҳмонхонаси")) }
                     if(draft?.rooms?.containsKey("madinah:0")==true) TextButton(enabled=!sending,onClick={editKind="madinah"}) { Text(reviewText(language,"Отель Медины","Madinah hotel","Madina mehmonxonasi","Мадина меҳмонхонаси")) }
                 } }
-                items(draft?.rooms?.values?.sortedWith(compareBy<NuiteeRoomSelection>{it.checkin}.thenBy{it.key}).orEmpty(),key={it.key}) { room ->
-                    Box(Modifier.padding(horizontal=16.dp)) { LocalReviewHotel(language,room,!sending,{ editing=room },{ meals -> journey.updateNuiteeRoomMeals(room,meals) }) }
+                val groups = draft?.rooms?.values?.sortedWith(compareBy<NuiteeRoomSelection>{it.checkin}.thenBy{it.key})
+                    ?.groupBy { it.city }?.entries?.toList().orEmpty()
+                items(groups,key={"hotel-group-${it.key}"}) { group ->
+                    val component = if (group.key == "madinah") "madinah_hotel" else "makkah_hotel"
+                    val confirmed = quote?.takeIf { it.hasVerifiedBreakdown }?.tripSummary?.components
+                        ?.firstOrNull { it.code == component }?.amountUsd
+                    Box(Modifier.padding(horizontal=16.dp)) {
+                        LocalReviewHotelGroup(language,group.value,confirmed,!sending,
+                            onHotel={ editKind=group.key },onRoom={ editing=it },
+                            onMeals={ room, meals -> journey.updateNuiteeRoomMeals(room,meals) })
+                    }
                 }
                 items(draft?.pending?.values?.toList().orEmpty(),key={"pending-${it.key}"}) { pending ->
                     Column(Modifier.padding(horizontal=16.dp).fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(generatorCardColor()).padding(14.dp)) {
@@ -132,7 +141,7 @@ fun NuiteeJourneyReviewScreen(language: AppLanguage, journey: JourneyStore, acco
                 quote?.let { item { Box(Modifier.padding(horizontal=16.dp)) { ReviewPriceDistribution(language,it) } } }
                 item { Box(Modifier.padding(horizontal=16.dp)) { com.iumrah.beta.ui.home.BrandComparisonEntry(language,chrome) } }
                 item { Box(Modifier.padding(horizontal=16.dp)) { SavedPackageActions(language,journey,chrome,enabled=!sending && valid && state.transferSelectionConfirmed) } }
-                quote?.itineraryPreview?.takeIf { it.isNotEmpty() }?.let { events -> item { Box(Modifier.padding(horizontal=16.dp)) { ReviewItinerary(language,events) } } }
+                item { Box(Modifier.padding(horizontal=16.dp)) { ReviewItinerary(language,state,quote) } }
                 error?.let { message -> item { Text(message,Modifier.padding(horizontal=16.dp),color=MaterialTheme.colorScheme.error,fontSize=13.sp) } }
             }
         }
@@ -189,27 +198,66 @@ fun NuiteeJourneyReviewScreen(language: AppLanguage, journey: JourneyStore, acco
     }
 }
 
+/** TripSummaryHotelOverview / compactLocalHotelGroup in the SwiftUI reference.
+ * A city is one card; the exact server amount wins over the supplier estimate. */
+@Composable private fun LocalReviewHotelGroup(l: AppLanguage, rooms: List<NuiteeRoomSelection>, confirmed: BigDecimal?, enabled:Boolean,
+    onHotel:()->Unit,onRoom:(NuiteeRoomSelection)->Unit,onMeals:(NuiteeRoomSelection,NuiteeMealChoices)->Unit) {
+    val first=rooms.firstOrNull() ?: return
+    val muted=MaterialTheme.colorScheme.onSurface.copy(alpha=.55f)
+    var expanded by remember(first.city) { mutableStateOf(false) }
+    val nights=ChronoUnit.DAYS.between(first.checkin,first.checkout)
+    val estimate=rooms.takeIf { selections -> selections.all { it.rate.currency.equals("USD",ignoreCase=true) && it.rate.price.isFinite() && it.rate.price>0 } }
+        ?.fold(BigDecimal.ZERO) { total,room -> total+BigDecimal.valueOf(room.rate.price) }
+    val amount=confirmed ?: estimate
+    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(generatorCardColor()).padding(16.dp),verticalArrangement=Arrangement.spacedBy(10.dp)) {
+        Row(horizontalArrangement=Arrangement.spacedBy(12.dp),verticalAlignment=Alignment.Top) {
+            Box(Modifier.size(112.dp).clip(RoundedCornerShape(16.dp)).background(MaterialTheme.colorScheme.surfaceVariant),contentAlignment=Alignment.Center) {
+                CupertinoIcon(CupertinoSymbol.Building,null,Modifier.size(28.dp),muted)
+                first.hotel.coverImageURL?.let { AsyncImage(model=it,contentDescription=first.hotel.name,modifier=Modifier.fillMaxSize(),contentScale=ContentScale.Crop) }
+            }
+            Column(Modifier.weight(1f),verticalArrangement=Arrangement.spacedBy(5.dp)) {
+                val city=if(first.city=="madinah") reviewText(l,"Медина","Madinah","Madina","Мадина") else reviewText(l,"Мекка","Makkah","Makka","Макка")
+                Text("$city · $nights "+reviewText(l,"ночей","nights","tun","тун"),fontSize=12.sp,color=muted)
+                Text(first.hotel.name,fontSize=17.sp,fontWeight=FontWeight.SemiBold)
+                Text(if(first.hotel.roundedStars>0) "★".repeat(first.hotel.roundedStars) else reviewText(l,"Категория не указана","Unrated","Toifasi ko‘rsatilmagan","Тоифаси кўрсатилмаган"),fontSize=12.sp,color=muted)
+                Text("${rooms.size} "+reviewText(l,"ном. · ","rooms · ","xona · ","хона · ")+"${rooms.sumOf { it.adults+it.childrenAges.size }} "+reviewText(l,"гостей","guests","mehmon","меҳмон"),fontSize=12.sp,color=muted)
+                amount?.let { Text(smartMoney(it,"USD",l),fontSize=20.sp,fontWeight=FontWeight.Bold) }
+                if(amount!=null) Text(if(confirmed!=null) reviewText(l,"За все номера и ночи","All rooms and nights","Barcha xona va tunlar","Барча хона ва тунлар") else reviewText(l,"Предварительно · все номера и ночи","Estimated · all rooms and nights","Taxminiy · barcha xona va tunlar","Тахминий · барча хона ва тунлар"),fontSize=11.sp,color=muted)
+            }
+        }
+        // Do not hide a different hotel when a supplier returned mixed selections.
+        rooms.map { it.hotel.name }.distinct().filter { it!=first.hotel.name }.forEach { Text(it,fontSize=13.sp) }
+        ReviewLabel(CupertinoSymbol.Calendar,"${first.checkin} – ${first.checkout}")
+        Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+            OutlinedButton(onClick=onHotel,enabled=enabled,modifier=Modifier.weight(1f),shape=RoundedCornerShape(22.dp)) { Text(reviewText(l,"Изменить отель","Change hotel","Mehmonxonani o‘zgartirish","Меҳмонхонани ўзгартириш"),fontSize=12.sp) }
+            OutlinedButton(onClick={ if(rooms.size==1) onRoom(first) else expanded=!expanded },enabled=enabled,modifier=Modifier.weight(1f),shape=RoundedCornerShape(22.dp)) { Text(reviewText(l,"Номер и питание","Room and meals","Xona va ovqat","Хона ва овқат"),fontSize=12.sp) }
+        }
+        Text(when { rooms.all { it.rate.refundable } -> reviewText(l,"Возврат по условиям тарифа","Refundable under rate terms","Tarif bo‘yicha qaytarish","Тариф бўйича қайтариш")
+            rooms.none { it.rate.refundable } -> reviewText(l,"Невозвратный тариф","Non-refundable rate","Qaytarilmaydigan tarif","Қайтарилмайдиган тариф")
+            else -> reviewText(l,"Условия возврата различаются по номерам","Refund terms vary by room","Qaytarish shartlari xonaga bog‘liq","Қайтариш шартлари хонага боғлиқ") },fontSize=12.sp,color=muted)
+        if(expanded && rooms.size>1) rooms.sortedBy { it.key }.forEach { room ->
+            key(room.key) {
+                HorizontalDivider()
+                LocalReviewHotel(l,room,enabled,{onRoom(room)},{onMeals(room,it)})
+            }
+        }
+    }
+}
+
 @Composable private fun LocalReviewHotel(l: AppLanguage, room: NuiteeRoomSelection, enabled:Boolean, onChange:()->Unit,onMeals:(NuiteeMealChoices)->Unit) {
     val included=NuiteeBookingRules.supplierMeals(room.rate)
     val makkah=room.city=="makkah"
     val muted=MaterialTheme.colorScheme.onSurface.copy(alpha=.55f)
-    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(28.dp)).background(generatorCardColor()).padding(18.dp),verticalArrangement=Arrangement.spacedBy(14.dp)) {
-        Row(horizontalArrangement=Arrangement.spacedBy(14.dp)) {
-            Box(Modifier.width(86.dp).height(100.dp).clip(RoundedCornerShape(16.dp)).background(MaterialTheme.colorScheme.surfaceVariant),contentAlignment=Alignment.Center) {
-                CupertinoIcon(CupertinoSymbol.Building,null,Modifier.size(28.dp),muted)
-                room.hotel.coverImageURL?.let { AsyncImage(model=it,contentDescription=room.hotel.name,modifier=Modifier.fillMaxSize(),contentScale=ContentScale.Crop) }
-            }
-            Column(Modifier.weight(1f),verticalArrangement=Arrangement.spacedBy(6.dp)) {
-                Text(room.hotel.name,fontSize=17.sp,fontWeight=FontWeight.SemiBold)
-                Text("★".repeat(room.hotel.roundedStars)+" · "+if(makkah) reviewText(l,"Мекка","Makkah","Makka","Макка") else reviewText(l,"Медина","Madinah","Madina","Мадина"),fontSize=12.sp,color=muted)
-                Text(room.rate.roomName,fontSize=15.sp)
-            }
-        }
+    Column(Modifier.fillMaxWidth(),verticalArrangement=Arrangement.spacedBy(10.dp)) {
+        Text(room.rate.roomName,fontSize=15.sp,fontWeight=FontWeight.SemiBold)
         val nights=ChronoUnit.DAYS.between(room.checkin,room.checkout)
         ReviewLabel(CupertinoSymbol.Calendar,"${room.checkin} – ${room.checkout} · $nights "+reviewText(l,"ночей","nights","tun","тун"))
-        if(nights>0 && room.rate.price.isFinite() && room.rate.price>0 && room.rate.currency.isNotBlank()) ReviewUnitPrice(l,BigDecimal.valueOf(room.rate.price).divide(BigDecimal.valueOf(nights),java.math.MathContext.DECIMAL128),room.rate.currency,reviewText(l,"Ориентировочно за номер / ночь","Estimated per room / night","Xona / tun uchun taxminan","Хона / тун учун тахминан"))
-        IumrahPressable(onClick=onChange,enabled=enabled,modifier=Modifier.fillMaxWidth().height(48.dp),cornerRadius=16.dp,background=MaterialTheme.colorScheme.surfaceVariant) { Box(Modifier.fillMaxSize(),contentAlignment=Alignment.Center) { Text(reviewText(l,"Изменить номер","Change room","Xonani o‘zgartirish","Хонани ўзгартириш"),fontWeight=FontWeight.SemiBold,fontSize=15.sp) } }
-        HorizontalDivider()
+        Text("${room.adults} "+reviewText(l,"взрослых","adults","kattalar","катталар")+" · ${room.childrenAges.size} "+reviewText(l,"детей","children","bolalar","болалар"),fontSize=12.sp,color=muted)
+        if(room.rate.mealPlan.isNotBlank()) Text(room.rate.mealPlan,fontSize=12.sp,color=muted)
+        Text(if(room.rate.refundable) reviewText(l,"Возврат по условиям тарифа","Refundable under rate terms","Tarif bo‘yicha qaytarish","Тариф бўйича қайтариш") else reviewText(l,"Невозвратный тариф","Non-refundable rate","Qaytarilmaydigan tarif","Қайтарилмайдиган тариф"),fontSize=12.sp,color=muted)
+        if(room.rate.cancellationDescription.isNotBlank()) Text(room.rate.cancellationDescription,fontSize=12.sp,color=muted)
+        if(nights>0 && room.rate.price.isFinite() && room.rate.price>0 && room.rate.currency.isNotBlank()) ReviewUnitPrice(l,BigDecimal.valueOf(room.rate.price).divide(BigDecimal.valueOf(nights),java.math.MathContext.DECIMAL128),room.rate.currency,reviewText(l,"Средняя цена за ночь","Average per night","Tun uchun o‘rtacha","Тун учун ўртача"))
+        OutlinedButton(onClick=onChange,enabled=enabled,modifier=Modifier.fillMaxWidth()) { Text(reviewText(l,"Изменить номер и питание","Change room and meals","Xona va ovqatni o‘zgartirish","Хона ва овқатни ўзгартириш")) }
         Text(reviewText(l,"Питание","Meals","Ovqatlanish","Овқатланиш"),fontSize=17.sp,fontWeight=FontWeight.SemiBold)
         if(room.hotel.roundedStars<=3) {
             val fullyIncluded=included.breakfast && included.dinner && (!makkah || included.lunch)

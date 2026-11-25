@@ -1,0 +1,12 @@
+# Android BEFORE vs AFTER only; not iOS comparison.
+home/default.png
+home/services.png
+home/notifications.png
+localization/uz-latin/home.png
+localization/uz-cyrillic/home.png
+localization/en/home.png
+home/brand-carousel.png
+home/compare-formats.png
+home/published-flights.png
+home/search-expanded.png
+home/scrolled.png

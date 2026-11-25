@@ -74,62 +74,54 @@ class PrayerPreferences(private val context: Context) {
 object PrayerAlarmScheduler {
     private const val slots = 8 * 8 * 2 // eight days, eight prayer kinds, regular + early
     private const val channel = "iumrah_prayer_times"
-    private fun pending(context: Context, slot: Int, kind: PrayerKind?, early: Boolean = false, sound: Boolean = true, city: String = ""): PendingIntent {
+    private fun pending(context: Context, slot: Int, kind: PrayerKind?, lead: Int = 0, sound: Boolean = true, city: String = ""): PendingIntent {
         val intent = Intent(context, PrayerAlertReceiver::class.java).apply {
             action = "com.iumrah.beta.PRAYER_ALERT"
             putExtra("kind", kind?.name ?: "")
-            putExtra("early", early)
+            putExtra("early", lead > 0)
             putExtra("sound", sound)
             putExtra("city", city)
-            putExtra("lead", if (early) 1 else 0)
+            putExtra("lead", lead)
+            putExtra("slot", slot)
         }
         return PendingIntent.getBroadcast(context, 49000 + slot, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
     }
-    fun sync(context: Context, options: PrayerOptions) {
+    @Synchronized fun sync(context: Context, options: PrayerOptions) {
         val alarm = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
-        // Stable slot IDs mean rescheduling cancels outdated city/method/datetime alerts.
         repeat(slots) { slot -> alarm.cancel(pending(context, slot, null)) }
         if (options.alerts.none { it.value.enabled }) return
-        if (ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED && Build.VERSION.SDK_INT >= 33) return
-        val today = LocalDate.now(options.place.zone)
-        val now = Instant.now().plusSeconds(10)
-        for (day in 0L until 8L) {
-            val schedule = PrayerCalculator.calculate(today.plusDays(day), options.place, options.method, options.hanafi)
-            for (kind in PrayerKind.entries) {
-                val pref = options.alerts[kind] ?: continue
-                if (!pref.enabled) continue
-                val fire = schedule.at(kind) ?: continue
-                val kindIndex = kind.ordinal
-                val baseSlot = (day.toInt() * PrayerKind.entries.size + kindIndex) * 2
-                fun scheduleAlert(slot: Int, at: Instant, early: Boolean) {
-                    if (at <= now) return
-                    try { alarm.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at.toEpochMilli(), pending(context, slot, kind, early, pref.sound, options.place.name)) }
-                    catch (_: RuntimeException) { /* Alarm restrictions must not crash the UI. */ }
-                }
-                scheduleAlert(baseSlot, fire.plusSeconds(pref.offset.coerceIn(-30,30) * 60L), false)
-                if (pref.earlyMinutes in setOf(5,10,15,30)) scheduleAlert(baseSlot + 1, fire.minusSeconds(pref.earlyMinutes * 60L), true)
-            }
+        if (Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) return
+        val rules = options.alerts.mapValues { (_, a) -> PrayerReminderRule(a.enabled, a.offset, a.sound, a.earlyMinutes) }
+        PrayerNotificationPolicy.build(Instant.now(), options.place, options.method, options.hanafi, rules).forEach { item ->
+            try { alarm.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, item.at.toEpochMilli(), pending(context, item.slot, item.kind, item.lead, item.sound, options.place.name)) }
+            catch (_: RuntimeException) { /* Android background alarm restrictions. */ }
         }
     }
+    fun preview(context: Context, kind: PrayerKind, sound: Boolean): Boolean = runCatching {
+        if (Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) return false
+        val alarm = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+        alarm.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, System.currentTimeMillis() + 5000, pending(context, slots, kind, 0, sound))
+        true
+    }.getOrDefault(false)
     fun ensureChannel(context: Context) {
         val manager = context.getSystemService(NotificationManager::class.java)
         if (manager.getNotificationChannel(channel) == null) {
             manager.createNotificationChannel(NotificationChannel(channel, "Prayer times", NotificationManager.IMPORTANCE_DEFAULT))
         }
     }
-    fun deliver(context: Context, kind: PrayerKind, early: Boolean, city: String, sound: Boolean) {
+    fun deliver(context: Context, kind: PrayerKind, lead: Int, city: String, sound: Boolean, slot: Int) {
         if (Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) return
         ensureChannel(context)
         val displayName = kind.name.lowercase().replaceFirstChar { it.uppercase() }
         val notification = NotificationCompat.Builder(context, channel)
             .setSmallIcon(R.drawable.ic_stat_iumrah_notification)
             .setContentTitle(displayName)
-            .setContentText(if (early) "Prayer begins soon · $city" else "Prayer time in $city")
+            .setContentText(if (slot == slots) "iumrah Prayer Times · test notification" else if (lead > 0) "Prayer begins in $lead minutes · $city" else "Prayer time in $city")
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .setAutoCancel(true)
             .setSilent(!sound)
             .build()
-        NotificationManagerCompat.from(context).notify((System.currentTimeMillis() / 1000).toInt(), notification)
+        NotificationManagerCompat.from(context).notify(49000 + slot, notification)
     }
 }
 
@@ -140,7 +132,7 @@ class PrayerAlertReceiver : BroadcastReceiver() {
                 PrayerAlarmScheduler.sync(context, PrayerPreferences(context).read())
             "com.iumrah.beta.PRAYER_ALERT" -> {
                 val kind = runCatching { PrayerKind.valueOf(intent.getStringExtra("kind") ?: "") }.getOrNull() ?: return
-                PrayerAlarmScheduler.deliver(context, kind, intent.getBooleanExtra("early", false), intent.getStringExtra("city").orEmpty(), intent.getBooleanExtra("sound", true))
+                PrayerAlarmScheduler.deliver(context, kind, intent.getIntExtra("lead", 0), intent.getStringExtra("city").orEmpty(), intent.getBooleanExtra("sound", true), intent.getIntExtra("slot", 0))
             }
         }
     }

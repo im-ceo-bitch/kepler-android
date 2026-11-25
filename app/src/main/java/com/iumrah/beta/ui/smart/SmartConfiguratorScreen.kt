@@ -57,6 +57,7 @@ internal fun SmartConfiguratorHomeCard(language: AppLanguage, onOpen: () -> Unit
     }
 }
 
+@Suppress("UNUSED_PARAMETER") // legacy Home callback retained for source compatibility; Smart never adopts into it
 @Composable
 internal fun SmartConfiguratorScreen(language: AppLanguage, airports: AirportSearchService, service: SmartConfiguratorService,
                                      resume: SmartDraft?, onSave: (SmartDraft) -> Unit, onClose: () -> Unit,
@@ -77,6 +78,25 @@ internal fun SmartConfiguratorScreen(language: AppLanguage, airports: AirportSea
     var hotelsChanged by remember { mutableStateOf(false) }
     var excludedHotels by remember { mutableStateOf<Map<String, Set<String>>>(emptyMap()) }
     val scope = rememberCoroutineScope()
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val chrome = (context.applicationContext as com.iumrah.beta.IumrahApplication).container.chromeStore
+    var openingReview by remember { mutableStateOf(false) }
+    fun openPrivateReview() {
+        val selected = result ?: return
+        val snapshot = selected.state.value
+        if (openingReview || !snapshot.hasFinalGeneratorQuote || snapshot.quote?.bookingAllowed != true ||
+            snapshot.quote?.hasVerifiedBreakdown != true || busy || replacingCity != null) return
+        val navigation = chrome.state.value
+        if (navigation.currentTab != com.iumrah.beta.core.navigation.AppTab.HOME ||
+            (navigation.route != com.iumrah.beta.core.navigation.AppRoute.Root && navigation.route !is com.iumrah.beta.core.navigation.AppRoute.SmartFlow)) return
+        openingReview = true
+        val previous = SmartRules.steps(preferences.both).let { it[(it.indexOf(8) - 1).coerceAtLeast(0)] }
+        val fromRoot = chrome.state.value.route == com.iumrah.beta.core.navigation.AppRoute.Root
+        chrome.openSmartReview(selected, SmartDraft(preferences, previous, false))
+        // Close the original Home modal only. The resumed SmartFlow route is
+        // removed by navigation and must not pop its newly opened review.
+        if (fromRoot) onClose()
+    }
     var languageMenu by remember { mutableStateOf(false) }
     var airportPicker by remember { mutableStateOf(false) }
     val steps = SmartRules.steps(preferences.both)
@@ -114,6 +134,9 @@ internal fun SmartConfiguratorScreen(language: AppLanguage, airports: AirportSea
     // Key the subscription to the store so a replaced package cannot reuse old state.
     val assembled = result?.let { journey ->
         key(journey) { journey.state.collectAsState().value }
+    }
+    LaunchedEffect(step, assembled?.quote, busy, replacingCity) {
+        if (step == 8 && assembled?.hasFinalGeneratorQuote == true && assembled.quote?.bookingAllowed == true) openPrivateReview()
     }
     val canContinue = when (step) {
         1 -> preferences.origin.matches(Regex("[A-Z]{3}")) && preferences.origin !in setOf("JED", "MED")
@@ -239,7 +262,7 @@ internal fun SmartConfiguratorScreen(language: AppLanguage, airports: AirportSea
                 }
                 val action = when { step == 8 && result != null -> t("Посмотреть пакет", "Review package", "Paketni ko‘rish", "Пакетни кўриш"); step == 8 -> t("Повторить поиск", "Retry search", "Qayta qidirish", "Қайта қидириш"); step == 7 -> t("Собрать мою Умру", "Build my Umrah", "Umramni tayyorlash", "Умрамни тайёрлаш"); step == 0 -> t("Начать", "Get started", "Boshlash", "Бошлаш"); else -> t("Продолжить", "Continue", "Davom etish", "Давом этиш") }
                 SmartAction(action, false, canContinue && !busy && replacingCity == null) {
-                    if (step == 8) { result?.let(onReview) ?: run { attempt++ } }
+                    if (step == 8) { if (result != null) openPrivateReview() else attempt++ }
                     else { step = steps[(index + 1).coerceAtMost(steps.lastIndex)]; if (step == 8) attempt++ }
                 }
               }

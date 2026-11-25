@@ -16,6 +16,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.material3.MaterialTheme
 import com.iumrah.beta.core.design.IumrahColors
 import com.iumrah.beta.core.design.IumrahDesign
+import com.iumrah.beta.core.design.LocalIOSParity
+import com.iumrah.beta.core.design.IOSContinuousShape
 
 /**
  * Standard CONTENT card corresponding to iOS DesignSystem.swift::IumrahCardModifier.
@@ -26,7 +28,7 @@ import com.iumrah.beta.core.design.IumrahDesign
 fun Modifier.iumrahCard(
     background: Color = MaterialTheme.colorScheme.surface,
 ): Modifier {
-    val shape = RoundedCornerShape(IumrahDesign.CardRadius)
+    val shape = if (LocalIOSParity.current) IOSContinuousShape(IumrahDesign.CardRadius) else RoundedCornerShape(IumrahDesign.CardRadius)
     return this
         .fillMaxWidth()
         .shadow(
@@ -59,7 +61,7 @@ fun IumrahMarketingCardSurface(
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit,
 ) {
-    val shape = RoundedCornerShape(IumrahDesign.HeroRadius)
+    val shape = if (LocalIOSParity.current) IOSContinuousShape(IumrahDesign.HeroRadius) else RoundedCornerShape(IumrahDesign.HeroRadius)
     val border = if (dark) Color.White.copy(alpha = 0.08f)
         else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.075f)
     val fill = if (dark) {

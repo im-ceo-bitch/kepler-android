@@ -1,6 +1,9 @@
 package com.iumrah.beta.ui.flights
 
 import com.iumrah.beta.data.flight.FlightDiscoveryOffer
+import com.iumrah.beta.data.flight.FlightDataParity
+import com.iumrah.beta.data.flight.FlightReferenceCatalog
+import com.iumrah.beta.data.flight.FlightDiscoveryItineraryValidator
 import com.iumrah.beta.domain.trip.TripDraft
 import com.iumrah.beta.models.flight.CuratedFlightRecommendation
 import com.iumrah.beta.models.flight.FlightCabinClass
@@ -43,7 +46,7 @@ internal sealed interface GuidedFlightChoice {
         override val arrivalAt get() = leg.arrivalAt
         override val stops get() = leg.stops
         override val durationMinutes get() = leg.durationMinutes
-        override val priceUsd: Double? = null // Published fares are returned by the server quote, not this catalogue.
+        override val priceUsd: Double? get() = recommendation.fareUsdPerTraveler?.takeIf { it.isFinite() && it > 0 } // observation, not quote
         override val publishedPair get() = recommendation.inbound != null
     }
 
@@ -53,10 +56,10 @@ internal sealed interface GuidedFlightChoice {
         override val origin get() = offer.origin.uppercase()
         override val destination get() = offer.destination.uppercase()
         override val airlineCode get() = offer.airlineCode
-        override val airlineName get() = offer.airlineCode.ifBlank { "Airline" }
+        override val airlineName get() = FlightReferenceCatalog.airlineName(offer.airlineCode, offer.airlineCode.ifBlank { "Airline" })
         override val flightNumber get() = offer.flightNumber
         override val departureAt get() = offer.departureAt
-        override val arrivalAt: String? get() = offer.arrivalAt ?: offer.outboundSegments?.lastOrNull()?.arrivalAt
+        override val arrivalAt: String? get() = offer.arrivalAt ?: FlightDiscoveryItineraryValidator.verified(offer.outboundSegments, offer.origin, offer.destination, offer.transfers)?.lastOrNull()?.arrivalAt
         override val stops get() = offer.transfers
         override val durationMinutes get() = offer.durationMinutes
         override val priceUsd get() = offer.price.takeIf { it.isFinite() && it > 0 }
@@ -65,13 +68,12 @@ internal sealed interface GuidedFlightChoice {
 }
 
 internal object GuidedFlightRules {
-    fun departureDay(value: String): LocalDate? =
-        runCatching { LocalDate.parse(value.take(10)) }.getOrNull()
+    fun departureDay(value: String, airport: String): LocalDate? = FlightDataParity.localDay(value, airport)
 
     private fun dedupe(value: GuidedFlightChoice): String {
         val number = value.flightNumber.uppercase().filter(Char::isLetterOrDigit)
         return listOf(value.origin, value.destination, value.airlineCode.uppercase(),
-            number, value.departureAt.take(10), if (number.isBlank()) value.departureAt.take(16) else "")
+            number, departureDay(value.departureAt, value.origin)?.toString().orEmpty(), if (number.isBlank()) value.departureAt.take(16) else "")
             .joinToString("|")
     }
 
@@ -101,7 +103,7 @@ internal object GuidedFlightRules {
                 if (fixed != null) {
                     if (!fixed.origin.equals(trip.returnOriginCode, true) ||
                         !fixed.destination.equals(trip.originCode, true)) continue
-                    val fixedDay = departureDay(fixed.departureAt) ?: continue
+                    val fixedDay = departureDay(fixed.departureAt, fixed.origin) ?: continue
                     if (abs(java.time.temporal.ChronoUnit.DAYS.between(trip.returnDate, fixedDay)) > flexDays) continue
                 }
                 raw.add(GuidedFlightChoice.Published(row, false))
@@ -109,6 +111,8 @@ internal object GuidedFlightRules {
                 when {
                     row.inbound != null && selectedOutbound is GuidedFlightChoice.Published &&
                         selectedOutbound.recommendation.inbound != null &&
+                        row.outbound.origin.equals(selectedOutbound.recommendation.outbound.origin, true) &&
+                        row.outbound.destination.equals(selectedOutbound.recommendation.outbound.destination, true) &&
                         row.outbound.flightNumber == selectedOutbound.recommendation.outbound.flightNumber &&
                         row.outbound.departureAt == selectedOutbound.recommendation.outbound.departureAt &&
                         row.inbound.origin.equals(targetOrigin, true) &&
@@ -133,31 +137,33 @@ internal object GuidedFlightRules {
             if (returnStep && selectedOutbound is GuidedFlightChoice.Published) {
                 if (!selectedOutbound.publishedPair && value.publishedPair) return@filter false
             }
-            val day = departureDay(value.departureAt) ?: return@filter false
-            val outDay = selectedOutbound?.let { departureDay(it.departureAt) }
+            val day = departureDay(value.departureAt, value.origin) ?: return@filter false
+            val outDay = selectedOutbound?.let { departureDay(it.departureAt, it.origin) }
             !day.isBefore(today) && abs(java.time.temporal.ChronoUnit.DAYS.between(target, day)) <= flexDays &&
                 (!returnStep || outDay == null || day.isAfter(outDay))
         }.sortedWith(compareBy<GuidedFlightChoice> {
             if (it.source == GuidedFlightChoice.Source.PUBLISHED) 0 else 1
         }.thenBy { if (it.publishedPair) 0 else 1 }.thenBy { it.id }).distinctBy(::dedupe).toList()
         return outgoing.sortedWith(compareBy<GuidedFlightChoice> { value ->
-            val date = departureDay(value.departureAt) ?: target
+            val date = departureDay(value.departureAt, value.origin) ?: target
             when { date == target && value.stops == 0 -> 0
                 date == target -> 1
                 else -> 2 }
         }.thenBy { value ->
-            abs(java.time.temporal.ChronoUnit.DAYS.between(target, departureDay(value.departureAt) ?: target))
+            abs(java.time.temporal.ChronoUnit.DAYS.between(target, departureDay(value.departureAt, value.origin) ?: target))
         }.thenBy { it.departureAt }.thenBy { it.id })
     }
 
     /** Mixed independent legs are verified by the server; a complete published pair cannot be split. */
     fun compatible(outbound: GuidedFlightChoice?, inbound: GuidedFlightChoice?): Boolean {
         if (outbound == null || inbound == null) return false
-        val outDay = departureDay(outbound.departureAt) ?: return false
-        val inDay = departureDay(inbound.departureAt) ?: return false
+        val outDay = departureDay(outbound.departureAt, outbound.origin) ?: return false
+        val inDay = departureDay(inbound.departureAt, inbound.origin) ?: return false
         if (!inDay.isAfter(outDay) || outbound.origin != inbound.destination) return false
         if (outbound is GuidedFlightChoice.Published && inbound is GuidedFlightChoice.Published) {
             return if (outbound.publishedPair) inbound.publishedPair &&
+                outbound.recommendation.outbound.origin.equals(inbound.recommendation.outbound.origin, true) &&
+                outbound.recommendation.outbound.destination.equals(inbound.recommendation.outbound.destination, true) &&
                 outbound.recommendation.outbound.flightNumber == inbound.recommendation.outbound.flightNumber &&
                 outbound.recommendation.outbound.departureAt == inbound.recommendation.outbound.departureAt
             else !inbound.publishedPair && outbound.recommendation.id != inbound.recommendation.id

@@ -1,0 +1,65 @@
+{
+  "base_source_key_count": {
+    "en": 552,
+    "ru": 552,
+    "uz": 552,
+    "uz-cyrl": 552
+  },
+  "new_entries": {
+    "en": 73,
+    "ru": 73,
+    "uz": 73,
+    "uz-cyrl": 73
+  },
+  "preserved_existing_differences": {
+    "en": [
+      "hotels_title",
+      "tier_comfort_subtitle",
+      "tier_economy_subtitle",
+      "tier_luxury_subtitle",
+      "tier_standard_subtitle",
+      "trip_intro_body",
+      "trip_intro_title"
+    ],
+    "ru": [
+      "hotels_title",
+      "room_type_double",
+      "room_type_quad",
+      "room_type_triple",
+      "tab_care",
+      "tier_comfort_subtitle",
+      "tier_economy_subtitle",
+      "tier_luxury_subtitle",
+      "tier_standard_subtitle",
+      "trip_intro_body",
+      "trip_intro_title"
+    ],
+    "uz": [
+      "hotels_title",
+      "room_type_double",
+      "room_type_quad",
+      "room_type_triple",
+      "tab_care",
+      "tier_comfort_subtitle",
+      "tier_economy_subtitle",
+      "tier_luxury_subtitle",
+      "tier_standard_subtitle",
+      "trip_intro_body",
+      "trip_intro_title"
+    ],
+    "uz-cyrl": [
+      "hotels_title",
+      "room_type_double",
+      "room_type_quad",
+      "room_type_triple",
+      "tab_care",
+      "tier_comfort_subtitle",
+      "tier_economy_subtitle",
+      "tier_luxury_subtitle",
+      "tier_standard_subtitle",
+      "trip_intro_body",
+      "trip_intro_title"
+    ]
+  },
+  "scope": "Legacy existing shared strings remain unchanged to protect Home. Catalogues added are exact source copy; selected hotel UI now reads iOS keys."
+}

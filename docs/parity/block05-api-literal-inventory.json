@@ -1,0 +1,916 @@
+{
+  "note": "Literal source paths, not an API contract proof. Dynamic strings, HTTP methods, authorization, response schemas and live backend behavior require separate verification.",
+  "ios_source_file_count": 348,
+  "android_production_kotlin_file_count": 249,
+  "android_unit_test_kotlin_file_count": 27,
+  "common_literal_paths": [
+    "/api/airports",
+    "/api/bookings",
+    "/api/bookings/:param",
+    "/api/catalog/hotels",
+    "/api/catalog/hotels/:param",
+    "/api/catalog/hotels/client/account/link-booking",
+    "/api/catalog/hotels/client/account/logout",
+    "/api/catalog/hotels/client/account/profile",
+    "/api/catalog/hotels/client/account/session",
+    "/api/catalog/hotels/client/bookings/:param",
+    "/api/catalog/hotels/client/bookings/:param/cancel-request",
+    "/api/catalog/hotels/client/bookings/:param/refund-preview",
+    "/api/catalog/hotels/client/chats/:param/attachments",
+    "/api/catalog/hotels/client/chats/:param/messages",
+    "/api/catalog/hotels/client/chats/:param/read",
+    "/api/catalog/hotels/client/notifications/devices",
+    "/api/catalog/hotels/client/notifications/feed",
+    "/api/catalog/hotels/client/notifications/feed/:param/read",
+    "/api/catalog/hotels/client/push/devices",
+    "/api/catalog/hotels/client/trips",
+    "/api/catalog/hotels/client/trips/:param",
+    "/api/catalog/hotels/client/trips/:param/checkout",
+    "/api/catalog/hotels/client/trips/:param/feedback",
+    "/api/catalog/hotels/client/trips/:param/itinerary",
+    "/api/catalog/hotels/client/trips/:param/receipt",
+    "/api/catalog/hotels/client/trips/:param/security",
+    "/api/catalog/hotels/client/trips/:param/security/passport",
+    "/api/catalog/hotels/client/trips/:param/sync",
+    "/api/catalog/hotels/client/trips/:param/travelers/:param",
+    "/api/catalog/hotels/intelligence/events",
+    "/api/catalog/hotels/team",
+    "/api/catalog/ziyarats",
+    "/api/offers/saved",
+    "/api/offers/saved/:param",
+    "/api/package/booking-contact/email/start",
+    "/api/package/booking-contact/recover",
+    "/api/package/booking-contact/sms/start",
+    "/api/package/booking/:param",
+    "/api/package/booking/:param/contact",
+    "/api/package/booking/:param/customization",
+    "/api/package/booking/:param/friends",
+    "/api/package/booking/:param/friends/credit",
+    "/api/package/booking/:param/friends/redeem",
+    "/api/package/booking/:param/itinerary",
+    "/api/package/booking/:param/share",
+    "/api/package/care-requests",
+    "/api/package/client/account/activate",
+    "/api/package/client/account/activate/email/confirm",
+    "/api/package/client/account/activate/email/start",
+    "/api/package/client/account/activate/sms/confirm",
+    "/api/package/client/account/activate/sms/start",
+    "/api/package/client/account/apple/link",
+    "/api/package/client/account/apple/sign-in",
+    "/api/package/client/account/apple/unlink",
+    "/api/package/client/account/booking-session",
+    "/api/package/client/account/email/confirm",
+    "/api/package/client/account/email/start",
+    "/api/package/client/account/friends",
+    "/api/package/client/account/google/link",
+    "/api/package/client/account/google/sign-in",
+    "/api/package/client/account/google/unlink",
+    "/api/package/client/account/login",
+    "/api/package/client/account/login/email/confirm",
+    "/api/package/client/account/login/email/start",
+    "/api/package/client/account/login/sms/confirm",
+    "/api/package/client/account/login/sms/start",
+    "/api/package/client/account/password/recovery/confirm",
+    "/api/package/client/account/password/recovery/start",
+    "/api/package/client/account/public-card",
+    "/api/package/client/account/register/email/confirm",
+    "/api/package/client/account/register/email/start",
+    "/api/package/client/account/register/sms/confirm",
+    "/api/package/client/account/register/sms/start",
+    "/api/package/client/account/security",
+    "/api/package/client/account/security/authorize/apple",
+    "/api/package/client/account/security/authorize/google",
+    "/api/package/client/account/security/authorize/password",
+    "/api/package/client/account/security/claim-primary",
+    "/api/package/client/account/security/password/change",
+    "/api/package/client/account/security/phone/confirm",
+    "/api/package/client/account/security/phone/start",
+    "/api/package/client/account/security/recovery/confirm",
+    "/api/package/client/account/security/recovery/start",
+    "/api/package/client/account/security/register",
+    "/api/package/client/account/security/sessions/:param",
+    "/api/package/client/account/wallet-pass",
+    "/api/package/estimate",
+    "/api/package/flights/calendar",
+    "/api/package/flights/data",
+    "/api/package/flights/detail",
+    "/api/package/flights/recommendations",
+    "/api/package/flights/recommendations/resolve",
+    "/api/package/flights/search",
+    "/api/package/health",
+    "/api/package/hotel/:param/pricing-sources",
+    "/api/package/hotel/:param/room-categories",
+    "/api/package/nuitee/hotel",
+    "/api/package/nuitee/hotels",
+    "/api/package/nuitee/rates",
+    "/api/package/nuitee/reviews",
+    "/api/package/primary-hotel",
+    "/api/package/quote",
+    "/api/package/quote/commit/:param",
+    "/api/package/smart/plan",
+    "/api/package/storefront/flights",
+    "/api/services/advisor/audio/",
+    "/api/services/fx",
+    "/api/storefront/packages",
+    "/api/storefront/packages/:param",
+    "/api/telegram/link"
+  ],
+  "ios_only_literal_paths": {
+    "/api/bookings/offers/": [
+      "Views/Booking/BusinessOfferView.swift"
+    ],
+    "/api/catalog/hotels/client/notifications/test": [
+      "Services/ClientNotificationCenter.swift"
+    ],
+    "/api/catalog/hotels/client/trips/:param/travelers/:param/passport": [
+      "Services/IumrahAccountService.swift"
+    ],
+    "/api/offers/saved/:param/booking": [
+      "Views/Package/PackageLifecycleViews.swift"
+    ],
+    "/api/offers/saved/:param/thread": [
+      "Views/Package/PackageLifecycleViews.swift"
+    ],
+    "/api/package/booking-contact/email/confirm": [
+      "Services/IumrahBookingContactService.swift"
+    ],
+    "/api/package/booking-contact/sms/confirm": [
+      "Services/IumrahBookingContactService.swift"
+    ],
+    "/api/package/booking/:param/verified-email": [
+      "Services/IumrahBookingContactService.swift"
+    ],
+    "/api/package/booking/:param/verified-phone": [
+      "Services/IumrahBookingContactService.swift"
+    ],
+    "/api/package/client/account/phone/confirm": [
+      "Services/IumrahAccountService.swift"
+    ],
+    "/api/package/client/account/phone/start": [
+      "Services/IumrahAccountService.swift"
+    ],
+    "/api/package/client/account/phone/status": [
+      "Services/IumrahAccountService.swift"
+    ],
+    "/api/services/advisor/:param": [
+      "Umrah Flow/Services/UmrahFlowSupabaseClient.swift"
+    ],
+    "/api/storefront/packages/snapshot": [
+      "Services/HotelStorefrontService.swift"
+    ]
+  },
+  "android_only_literal_paths": {
+    "/api/bookings/offers/:param": [
+      "models/booking/BusinessOfferModels.kt"
+    ],
+    "/api/package/booking-contact/:param/confirm": [
+      "data/booking/BookingService.kt"
+    ],
+    "/api/package/booking/:param/verified-:param": [
+      "data/booking/BookingService.kt"
+    ],
+    "/api/services/advisor/audio": [
+      "data/advisor/UmrahFlowService.kt"
+    ],
+    "/api/services/advisor/translations": [
+      "data/advisor/UmrahFlowService.kt"
+    ]
+  },
+  "ios_paths": {
+    "/api/airports": [
+      "Services/AirportSearchService.swift"
+    ],
+    "/api/bookings": [
+      "Core/AppConfig.swift"
+    ],
+    "/api/bookings/:param": [
+      "Services/BookingService.swift"
+    ],
+    "/api/bookings/offers/": [
+      "Views/Booking/BusinessOfferView.swift"
+    ],
+    "/api/catalog/hotels": [
+      "Services/HotelCatalogService.swift"
+    ],
+    "/api/catalog/hotels/:param": [
+      "Services/HotelCatalogService.swift"
+    ],
+    "/api/catalog/hotels/client/account/link-booking": [
+      "Services/IumrahAccountService.swift"
+    ],
+    "/api/catalog/hotels/client/account/logout": [
+      "Services/IumrahAccountService.swift"
+    ],
+    "/api/catalog/hotels/client/account/profile": [
+      "Services/IumrahAccountService.swift"
+    ],
+    "/api/catalog/hotels/client/account/session": [
+      "Services/IumrahAccountService.swift"
+    ],
+    "/api/catalog/hotels/client/bookings/:param": [
+      "Services/BookingService.swift"
+    ],
+    "/api/catalog/hotels/client/bookings/:param/cancel-request": [
+      "Services/BookingService.swift"
+    ],
+    "/api/catalog/hotels/client/bookings/:param/refund-preview": [
+      "Views/Booking/BookingRefundView.swift"
+    ],
+    "/api/catalog/hotels/client/chats/:param/attachments": [
+      "Services/ChatService.swift"
+    ],
+    "/api/catalog/hotels/client/chats/:param/messages": [
+      "Services/ChatService.swift"
+    ],
+    "/api/catalog/hotels/client/chats/:param/read": [
+      "Services/ChatService.swift"
+    ],
+    "/api/catalog/hotels/client/notifications/devices": [
+      "Services/ClientNotificationCenter.swift"
+    ],
+    "/api/catalog/hotels/client/notifications/feed": [
+      "Services/ClientNotificationCenter.swift"
+    ],
+    "/api/catalog/hotels/client/notifications/feed/:param/read": [
+      "Services/ClientNotificationCenter.swift"
+    ],
+    "/api/catalog/hotels/client/notifications/test": [
+      "Services/ClientNotificationCenter.swift"
+    ],
+    "/api/catalog/hotels/client/push/devices": [
+      "Services/ClientPushService.swift"
+    ],
+    "/api/catalog/hotels/client/trips": [
+      "Services/IumrahAccountService.swift"
+    ],
+    "/api/catalog/hotels/client/trips/:param": [
+      "Services/BookingService.swift",
+      "Services/IumrahAccountService.swift"
+    ],
+    "/api/catalog/hotels/client/trips/:param/checkout": [
+      "Services/IumrahAccountService.swift"
+    ],
+    "/api/catalog/hotels/client/trips/:param/feedback": [
+      "Services/BookingService.swift"
+    ],
+    "/api/catalog/hotels/client/trips/:param/itinerary": [
+      "Services/BookingService.swift"
+    ],
+    "/api/catalog/hotels/client/trips/:param/receipt": [
+      "Services/IumrahAccountService.swift"
+    ],
+    "/api/catalog/hotels/client/trips/:param/security": [
+      "Services/BookingService.swift"
+    ],
+    "/api/catalog/hotels/client/trips/:param/security/passport": [
+      "Services/BookingService.swift"
+    ],
+    "/api/catalog/hotels/client/trips/:param/sync": [
+      "Services/BookingService.swift"
+    ],
+    "/api/catalog/hotels/client/trips/:param/travelers/:param": [
+      "Services/IumrahAccountService.swift"
+    ],
+    "/api/catalog/hotels/client/trips/:param/travelers/:param/passport": [
+      "Services/IumrahAccountService.swift"
+    ],
+    "/api/catalog/hotels/intelligence/events": [
+      "Services/IumrahIntelligence.swift"
+    ],
+    "/api/catalog/hotels/team": [
+      "Services/ChatService.swift"
+    ],
+    "/api/catalog/ziyarats": [
+      "Services/ZiyaratService.swift"
+    ],
+    "/api/offers/saved": [
+      "Views/Package/TripSummarySupport.swift"
+    ],
+    "/api/offers/saved/:param": [
+      "Views/Package/PackageLifecycleViews.swift",
+      "Views/Package/TripSummarySupport.swift"
+    ],
+    "/api/offers/saved/:param/booking": [
+      "Views/Package/PackageLifecycleViews.swift"
+    ],
+    "/api/offers/saved/:param/thread": [
+      "Views/Package/PackageLifecycleViews.swift"
+    ],
+    "/api/package/booking-contact/email/confirm": [
+      "Services/IumrahBookingContactService.swift"
+    ],
+    "/api/package/booking-contact/email/start": [
+      "Services/IumrahBookingContactService.swift"
+    ],
+    "/api/package/booking-contact/recover": [
+      "Services/BookingService.swift"
+    ],
+    "/api/package/booking-contact/sms/confirm": [
+      "Services/IumrahBookingContactService.swift"
+    ],
+    "/api/package/booking-contact/sms/start": [
+      "Services/IumrahBookingContactService.swift"
+    ],
+    "/api/package/booking/:param": [
+      "Services/BookingService.swift"
+    ],
+    "/api/package/booking/:param/contact": [
+      "Services/BookingService.swift"
+    ],
+    "/api/package/booking/:param/customization": [
+      "Services/BookingService.swift"
+    ],
+    "/api/package/booking/:param/friends": [
+      "Services/BookingService.swift"
+    ],
+    "/api/package/booking/:param/friends/credit": [
+      "Services/BookingService.swift"
+    ],
+    "/api/package/booking/:param/friends/redeem": [
+      "Services/BookingService.swift"
+    ],
+    "/api/package/booking/:param/itinerary": [
+      "Services/BookingService.swift"
+    ],
+    "/api/package/booking/:param/share": [
+      "Services/BookingService.swift"
+    ],
+    "/api/package/booking/:param/verified-email": [
+      "Services/IumrahBookingContactService.swift"
+    ],
+    "/api/package/booking/:param/verified-phone": [
+      "Services/IumrahBookingContactService.swift"
+    ],
+    "/api/package/care-requests": [
+      "Services/IumrahCareRequestService.swift"
+    ],
+    "/api/package/client/account/activate": [
+      "Services/IumrahAccountService.swift"
+    ],
+    "/api/package/client/account/activate/email/confirm": [
+      "Networking/APIClient.swift",
+      "Services/IumrahAccountService.swift"
+    ],
+    "/api/package/client/account/activate/email/start": [
+      "Services/IumrahAccountService.swift"
+    ],
+    "/api/package/client/account/activate/sms/confirm": [
+      "Networking/APIClient.swift",
+      "Services/IumrahAccountActivationBridge.swift",
+      "Services/IumrahAccountService.swift"
+    ],
+    "/api/package/client/account/activate/sms/start": [
+      "Services/IumrahAccountActivationBridge.swift",
+      "Services/IumrahAccountService.swift"
+    ],
+    "/api/package/client/account/apple/link": [
+      "Services/IumrahAccountService.swift"
+    ],
+    "/api/package/client/account/apple/sign-in": [
+      "Networking/APIClient.swift",
+      "Services/IumrahAccountService.swift"
+    ],
+    "/api/package/client/account/apple/unlink": [
+      "Services/IumrahAccountService.swift"
+    ],
+    "/api/package/client/account/booking-session": [
+      "Services/IumrahBookingContactService.swift"
+    ],
+    "/api/package/client/account/email/confirm": [
+      "Services/IumrahAccountService.swift"
+    ],
+    "/api/package/client/account/email/start": [
+      "Services/IumrahAccountService.swift"
+    ],
+    "/api/package/client/account/friends": [
+      "Services/IumrahAccountService.swift"
+    ],
+    "/api/package/client/account/google/link": [
+      "Services/IumrahAccountService.swift"
+    ],
+    "/api/package/client/account/google/sign-in": [
+      "Networking/APIClient.swift",
+      "Services/IumrahAccountService.swift"
+    ],
+    "/api/package/client/account/google/unlink": [
+      "Services/IumrahAccountService.swift"
+    ],
+    "/api/package/client/account/login": [
+      "Services/IumrahAccountService.swift"
+    ],
+    "/api/package/client/account/login/email/confirm": [
+      "Services/IumrahAccountService.swift"
+    ],
+    "/api/package/client/account/login/email/start": [
+      "Services/IumrahAccountService.swift"
+    ],
+    "/api/package/client/account/login/sms/confirm": [
+      "Services/IumrahAccountService.swift"
+    ],
+    "/api/package/client/account/login/sms/start": [
+      "Services/IumrahAccountService.swift"
+    ],
+    "/api/package/client/account/password/recovery/confirm": [
+      "Services/IumrahAccountService.swift"
+    ],
+    "/api/package/client/account/password/recovery/start": [
+      "Services/IumrahAccountService.swift"
+    ],
+    "/api/package/client/account/phone/confirm": [
+      "Services/IumrahAccountService.swift"
+    ],
+    "/api/package/client/account/phone/start": [
+      "Services/IumrahAccountService.swift"
+    ],
+    "/api/package/client/account/phone/status": [
+      "Services/IumrahAccountService.swift"
+    ],
+    "/api/package/client/account/public-card": [
+      "Services/IumrahAccountService.swift"
+    ],
+    "/api/package/client/account/register/email/confirm": [
+      "Networking/APIClient.swift",
+      "Services/IumrahAccountActivationBridge.swift"
+    ],
+    "/api/package/client/account/register/email/start": [
+      "Services/IumrahAccountActivationBridge.swift"
+    ],
+    "/api/package/client/account/register/sms/confirm": [
+      "Networking/APIClient.swift",
+      "Services/IumrahAccountService.swift"
+    ],
+    "/api/package/client/account/register/sms/start": [
+      "Services/IumrahAccountService.swift"
+    ],
+    "/api/package/client/account/security": [
+      "Services/IumrahAccountService.swift"
+    ],
+    "/api/package/client/account/security/authorize/apple": [
+      "Services/IumrahAccountService.swift"
+    ],
+    "/api/package/client/account/security/authorize/google": [
+      "Services/IumrahAccountService.swift"
+    ],
+    "/api/package/client/account/security/authorize/password": [
+      "Services/IumrahAccountService.swift"
+    ],
+    "/api/package/client/account/security/claim-primary": [
+      "Services/IumrahAccountService.swift"
+    ],
+    "/api/package/client/account/security/password/change": [
+      "Services/IumrahAccountService.swift"
+    ],
+    "/api/package/client/account/security/phone/confirm": [
+      "Services/IumrahAccountService.swift"
+    ],
+    "/api/package/client/account/security/phone/start": [
+      "Services/IumrahAccountService.swift"
+    ],
+    "/api/package/client/account/security/recovery/confirm": [
+      "Services/IumrahAccountService.swift"
+    ],
+    "/api/package/client/account/security/recovery/start": [
+      "Services/IumrahAccountService.swift"
+    ],
+    "/api/package/client/account/security/register": [
+      "Services/IumrahAccountService.swift"
+    ],
+    "/api/package/client/account/security/sessions/:param": [
+      "Services/IumrahAccountService.swift"
+    ],
+    "/api/package/client/account/wallet-pass": [
+      "Services/IumrahAccountService.swift"
+    ],
+    "/api/package/estimate": [
+      "Services/RemotePackageEngineClient.swift"
+    ],
+    "/api/package/flights/calendar": [
+      "Services/FlightFareCalendarService.swift"
+    ],
+    "/api/package/flights/data": [
+      "Services/AviasalesFlightDiscoveryService.swift"
+    ],
+    "/api/package/flights/detail": [
+      "Services/IumrahFlightDetailService.swift"
+    ],
+    "/api/package/flights/recommendations": [
+      "Services/CuratedFlightRecommendationService.swift"
+    ],
+    "/api/package/flights/recommendations/resolve": [
+      "Services/CuratedFlightRecommendationService.swift"
+    ],
+    "/api/package/flights/search": [
+      "Services/IgnavFlightInventoryProvider.swift"
+    ],
+    "/api/package/health": [
+      "Core/AppConfig.swift"
+    ],
+    "/api/package/hotel/:param/pricing-sources": [
+      "Services/RemotePackageEngineClient.swift"
+    ],
+    "/api/package/hotel/:param/room-categories": [
+      "Services/RemotePackageEngineClient.swift"
+    ],
+    "/api/package/nuitee/hotel": [
+      "Services/NuiteeHotelService.swift"
+    ],
+    "/api/package/nuitee/hotels": [
+      "Services/NuiteeHotelService.swift"
+    ],
+    "/api/package/nuitee/rates": [
+      "Services/NuiteeHotelService.swift"
+    ],
+    "/api/package/nuitee/reviews": [
+      "Services/NuiteeHotelService.swift"
+    ],
+    "/api/package/primary-hotel": [
+      "Services/RemotePackageEngineClient.swift"
+    ],
+    "/api/package/quote": [
+      "Services/RemotePackageEngineClient.swift"
+    ],
+    "/api/package/quote/commit/:param": [
+      "Services/RemotePackageEngineClient.swift"
+    ],
+    "/api/package/smart/plan": [
+      "Views/SmartConfigurator/SmartConfiguratorStore.swift"
+    ],
+    "/api/package/storefront/flights": [
+      "Services/HotelStorefrontService.swift"
+    ],
+    "/api/services/advisor/:param": [
+      "Umrah Flow/Services/UmrahFlowSupabaseClient.swift"
+    ],
+    "/api/services/advisor/audio/": [
+      "Umrah Flow/Services/UmrahFlowOfflineCatalog.swift"
+    ],
+    "/api/services/fx": [
+      "Services/LocalFXRateService.swift"
+    ],
+    "/api/storefront/packages": [
+      "Services/HotelStorefrontService.swift",
+      "State/HomePublicContentCache.swift"
+    ],
+    "/api/storefront/packages/:param": [
+      "Services/HotelStorefrontService.swift"
+    ],
+    "/api/storefront/packages/snapshot": [
+      "Services/HotelStorefrontService.swift"
+    ],
+    "/api/telegram/link": [
+      "Services/TelegramBookingIntegrationService.swift"
+    ]
+  },
+  "android_paths": {
+    "/api/airports": [
+      "data/flight/AirportSearchService.kt"
+    ],
+    "/api/bookings": [
+      "core/config/AppConfig.kt"
+    ],
+    "/api/bookings/:param": [
+      "data/booking/BookingService.kt"
+    ],
+    "/api/bookings/offers/:param": [
+      "models/booking/BusinessOfferModels.kt"
+    ],
+    "/api/catalog/hotels": [
+      "data/hotel/HotelCatalogService.kt"
+    ],
+    "/api/catalog/hotels/:param": [
+      "data/hotel/HotelCatalogService.kt"
+    ],
+    "/api/catalog/hotels/client/account/link-booking": [
+      "data/account/IumrahAccountRoutes.kt"
+    ],
+    "/api/catalog/hotels/client/account/logout": [
+      "data/account/IumrahAccountRoutes.kt"
+    ],
+    "/api/catalog/hotels/client/account/profile": [
+      "data/account/IumrahAccountRoutes.kt"
+    ],
+    "/api/catalog/hotels/client/account/session": [
+      "data/account/IumrahAccountRoutes.kt"
+    ],
+    "/api/catalog/hotels/client/bookings/:param": [
+      "data/booking/BookingService.kt"
+    ],
+    "/api/catalog/hotels/client/bookings/:param/cancel-request": [
+      "data/booking/BookingService.kt"
+    ],
+    "/api/catalog/hotels/client/bookings/:param/refund-preview": [
+      "data/booking/BookingService.kt"
+    ],
+    "/api/catalog/hotels/client/chats/:param/attachments": [
+      "data/chat/ChatService.kt"
+    ],
+    "/api/catalog/hotels/client/chats/:param/messages": [
+      "data/chat/ChatDelta.kt",
+      "data/chat/ChatService.kt"
+    ],
+    "/api/catalog/hotels/client/chats/:param/read": [
+      "data/chat/ChatService.kt"
+    ],
+    "/api/catalog/hotels/client/notifications/devices": [
+      "data/notification/ClientNotificationStore.kt"
+    ],
+    "/api/catalog/hotels/client/notifications/feed": [
+      "data/notification/ClientNotificationStore.kt"
+    ],
+    "/api/catalog/hotels/client/notifications/feed/:param/read": [
+      "data/notification/ClientNotificationStore.kt"
+    ],
+    "/api/catalog/hotels/client/push/devices": [
+      "data/booking/BookingService.kt"
+    ],
+    "/api/catalog/hotels/client/trips": [
+      "data/account/IumrahAccountRoutes.kt"
+    ],
+    "/api/catalog/hotels/client/trips/:param": [
+      "data/account/IumrahAccountRoutes.kt",
+      "data/booking/BookingService.kt"
+    ],
+    "/api/catalog/hotels/client/trips/:param/checkout": [
+      "data/account/IumrahAccountRoutes.kt"
+    ],
+    "/api/catalog/hotels/client/trips/:param/feedback": [
+      "data/booking/BookingService.kt"
+    ],
+    "/api/catalog/hotels/client/trips/:param/itinerary": [
+      "data/booking/BookingService.kt"
+    ],
+    "/api/catalog/hotels/client/trips/:param/receipt": [
+      "data/account/IumrahAccountRoutes.kt"
+    ],
+    "/api/catalog/hotels/client/trips/:param/security": [
+      "data/booking/BookingService.kt"
+    ],
+    "/api/catalog/hotels/client/trips/:param/security/passport": [
+      "data/booking/BookingService.kt"
+    ],
+    "/api/catalog/hotels/client/trips/:param/sync": [
+      "data/booking/BookingService.kt"
+    ],
+    "/api/catalog/hotels/client/trips/:param/travelers/:param": [
+      "data/account/IumrahAccountRoutes.kt"
+    ],
+    "/api/catalog/hotels/intelligence/events": [
+      "core/config/AppConfig.kt"
+    ],
+    "/api/catalog/hotels/team": [
+      "data/chat/ChatService.kt"
+    ],
+    "/api/catalog/ziyarats": [
+      "data/ziyarat/ZiyaratService.kt"
+    ],
+    "/api/offers/saved": [
+      "data/packageflow/SavedPackageStore.kt"
+    ],
+    "/api/offers/saved/:param": [
+      "data/packageflow/SavedPackageStore.kt"
+    ],
+    "/api/package/booking-contact/:param/confirm": [
+      "data/booking/BookingService.kt"
+    ],
+    "/api/package/booking-contact/email/start": [
+      "data/booking/BookingService.kt"
+    ],
+    "/api/package/booking-contact/recover": [
+      "data/booking/BookingService.kt"
+    ],
+    "/api/package/booking-contact/sms/start": [
+      "data/booking/BookingService.kt"
+    ],
+    "/api/package/booking/:param": [
+      "data/booking/BookingService.kt"
+    ],
+    "/api/package/booking/:param/contact": [
+      "data/booking/BookingService.kt"
+    ],
+    "/api/package/booking/:param/customization": [
+      "data/booking/BookingService.kt"
+    ],
+    "/api/package/booking/:param/friends": [
+      "data/booking/BookingService.kt"
+    ],
+    "/api/package/booking/:param/friends/credit": [
+      "data/booking/BookingService.kt"
+    ],
+    "/api/package/booking/:param/friends/redeem": [
+      "data/booking/BookingService.kt"
+    ],
+    "/api/package/booking/:param/itinerary": [
+      "data/booking/BookingService.kt"
+    ],
+    "/api/package/booking/:param/share": [
+      "data/booking/BookingService.kt"
+    ],
+    "/api/package/booking/:param/verified-:param": [
+      "data/booking/BookingService.kt"
+    ],
+    "/api/package/care-requests": [
+      "data/care/IumrahCareRequestService.kt"
+    ],
+    "/api/package/client/account/activate": [
+      "data/account/IumrahAccountRoutes.kt"
+    ],
+    "/api/package/client/account/activate/email/confirm": [
+      "data/account/IumrahAccountRoutes.kt"
+    ],
+    "/api/package/client/account/activate/email/start": [
+      "data/account/IumrahAccountRoutes.kt"
+    ],
+    "/api/package/client/account/activate/sms/confirm": [
+      "data/account/IumrahAccountRoutes.kt"
+    ],
+    "/api/package/client/account/activate/sms/start": [
+      "data/account/IumrahAccountRoutes.kt"
+    ],
+    "/api/package/client/account/apple/link": [
+      "data/account/IumrahAccountRoutes.kt"
+    ],
+    "/api/package/client/account/apple/sign-in": [
+      "data/account/IumrahAccountRoutes.kt"
+    ],
+    "/api/package/client/account/apple/unlink": [
+      "data/account/IumrahAccountRoutes.kt"
+    ],
+    "/api/package/client/account/booking-session": [
+      "data/account/IumrahAccountService.kt"
+    ],
+    "/api/package/client/account/email/confirm": [
+      "data/account/IumrahAccountRoutes.kt"
+    ],
+    "/api/package/client/account/email/start": [
+      "data/account/IumrahAccountRoutes.kt"
+    ],
+    "/api/package/client/account/friends": [
+      "data/account/IumrahAccountRoutes.kt"
+    ],
+    "/api/package/client/account/google/link": [
+      "data/account/IumrahAccountRoutes.kt"
+    ],
+    "/api/package/client/account/google/sign-in": [
+      "data/account/IumrahAccountRoutes.kt"
+    ],
+    "/api/package/client/account/google/unlink": [
+      "data/account/IumrahAccountRoutes.kt"
+    ],
+    "/api/package/client/account/login": [
+      "data/account/IumrahAccountRoutes.kt"
+    ],
+    "/api/package/client/account/login/email/confirm": [
+      "data/account/IumrahAccountRoutes.kt"
+    ],
+    "/api/package/client/account/login/email/start": [
+      "data/account/IumrahAccountRoutes.kt"
+    ],
+    "/api/package/client/account/login/sms/confirm": [
+      "data/account/IumrahAccountRoutes.kt"
+    ],
+    "/api/package/client/account/login/sms/start": [
+      "data/account/IumrahAccountRoutes.kt"
+    ],
+    "/api/package/client/account/password/recovery/confirm": [
+      "data/account/IumrahAccountRoutes.kt"
+    ],
+    "/api/package/client/account/password/recovery/start": [
+      "data/account/IumrahAccountRoutes.kt"
+    ],
+    "/api/package/client/account/public-card": [
+      "data/account/IumrahAccountRoutes.kt"
+    ],
+    "/api/package/client/account/register/email/confirm": [
+      "data/account/IumrahAccountRoutes.kt"
+    ],
+    "/api/package/client/account/register/email/start": [
+      "data/account/IumrahAccountRoutes.kt"
+    ],
+    "/api/package/client/account/register/sms/confirm": [
+      "data/account/IumrahAccountRoutes.kt"
+    ],
+    "/api/package/client/account/register/sms/start": [
+      "data/account/IumrahAccountRoutes.kt"
+    ],
+    "/api/package/client/account/security": [
+      "data/account/IumrahAccountRoutes.kt"
+    ],
+    "/api/package/client/account/security/authorize/apple": [
+      "data/account/IumrahAccountRoutes.kt"
+    ],
+    "/api/package/client/account/security/authorize/google": [
+      "data/account/IumrahAccountRoutes.kt"
+    ],
+    "/api/package/client/account/security/authorize/password": [
+      "data/account/IumrahAccountRoutes.kt"
+    ],
+    "/api/package/client/account/security/claim-primary": [
+      "data/account/IumrahAccountRoutes.kt"
+    ],
+    "/api/package/client/account/security/password/change": [
+      "data/account/IumrahAccountRoutes.kt"
+    ],
+    "/api/package/client/account/security/phone/confirm": [
+      "data/account/IumrahAccountRoutes.kt"
+    ],
+    "/api/package/client/account/security/phone/start": [
+      "data/account/IumrahAccountRoutes.kt"
+    ],
+    "/api/package/client/account/security/recovery/confirm": [
+      "data/account/IumrahAccountRoutes.kt"
+    ],
+    "/api/package/client/account/security/recovery/start": [
+      "data/account/IumrahAccountRoutes.kt"
+    ],
+    "/api/package/client/account/security/register": [
+      "data/account/IumrahAccountRoutes.kt"
+    ],
+    "/api/package/client/account/security/sessions/:param": [
+      "data/account/IumrahAccountRoutes.kt"
+    ],
+    "/api/package/client/account/wallet-pass": [
+      "data/account/IumrahAccountRoutes.kt"
+    ],
+    "/api/package/estimate": [
+      "data/hotel/RemotePackageEngineClient.kt"
+    ],
+    "/api/package/flights/calendar": [
+      "data/flight/FlightFareCalendarService.kt"
+    ],
+    "/api/package/flights/data": [
+      "data/flight/AviasalesFlightDiscoveryService.kt"
+    ],
+    "/api/package/flights/detail": [
+      "data/flight/IumrahFlightDetailService.kt"
+    ],
+    "/api/package/flights/recommendations": [
+      "data/flight/CuratedFlightRecommendationService.kt"
+    ],
+    "/api/package/flights/recommendations/resolve": [
+      "data/flight/CuratedFlightRecommendationService.kt"
+    ],
+    "/api/package/flights/search": [
+      "data/flight/IgnavFlightInventoryProvider.kt"
+    ],
+    "/api/package/health": [
+      "core/config/AppConfig.kt"
+    ],
+    "/api/package/hotel/:param/pricing-sources": [
+      "data/hotel/RemotePackageEngineClient.kt"
+    ],
+    "/api/package/hotel/:param/room-categories": [
+      "data/hotel/RemotePackageEngineClient.kt"
+    ],
+    "/api/package/nuitee/hotel": [
+      "data/nuitee/NuiteeHotelService.kt"
+    ],
+    "/api/package/nuitee/hotels": [
+      "data/nuitee/NuiteeHotelService.kt"
+    ],
+    "/api/package/nuitee/rates": [
+      "data/nuitee/NuiteeHotelService.kt"
+    ],
+    "/api/package/nuitee/reviews": [
+      "data/nuitee/NuiteeHotelService.kt"
+    ],
+    "/api/package/primary-hotel": [
+      "data/hotel/RemotePackageEngineClient.kt"
+    ],
+    "/api/package/quote": [
+      "data/hotel/HotelCatalogService.kt",
+      "data/hotel/RemotePackageEngineClient.kt"
+    ],
+    "/api/package/quote/commit/:param": [
+      "data/hotel/RemotePackageEngineClient.kt"
+    ],
+    "/api/package/smart/plan": [
+      "data/smart/SmartConfiguratorService.kt"
+    ],
+    "/api/package/storefront/flights": [
+      "data/flight/CuratedFlightRecommendationService.kt",
+      "data/hotel/HotelCatalogService.kt"
+    ],
+    "/api/services/advisor/audio": [
+      "data/advisor/UmrahFlowService.kt"
+    ],
+    "/api/services/advisor/audio/": [
+      "domain/umrahflow/UmrahFlowAudioUrlPolicy.kt"
+    ],
+    "/api/services/advisor/translations": [
+      "data/advisor/UmrahFlowService.kt"
+    ],
+    "/api/services/fx": [
+      "data/pricing/LocalFXRateService.kt"
+    ],
+    "/api/storefront/packages": [
+      "data/hotel/HotelCatalogService.kt",
+      "data/smart/HomePublicContentCache.kt"
+    ],
+    "/api/storefront/packages/:param": [
+      "data/hotel/HotelCatalogService.kt"
+    ],
+    "/api/telegram/link": [
+      "data/telegram/TelegramBookingIntegrationService.kt"
+    ]
+  }
+}

@@ -108,7 +108,7 @@ fun FinalPackageScreen(language: AppLanguage, journey: JourneyStore, hotelCatalo
                 quote?.let { item { Box(Modifier.padding(horizontal=16.dp)) { ReviewPriceDistribution(language,it) } } }
                 item { Box(Modifier.padding(horizontal=16.dp)) { com.iumrah.beta.ui.home.BrandComparisonEntry(language,chrome) } }
                 item { Box(Modifier.padding(horizontal=16.dp)) { SavedPackageActions(language,journey,chrome,enabled=!busy && roomsComplete && flightsComplete && hotelsComplete && state.transferSelectionConfirmed) } }
-                quote?.itineraryPreview?.takeIf { it.isNotEmpty() }?.let { events -> item { Box(Modifier.padding(horizontal=16.dp)) { ReviewItinerary(language,events) } } }
+                item { Box(Modifier.padding(horizontal=16.dp)) { ReviewItinerary(language,state,quote) } }
                 error?.let { message -> item { Text(message,Modifier.padding(horizontal=16.dp),color=MaterialTheme.colorScheme.error,fontSize=13.sp) } }
             }
         }

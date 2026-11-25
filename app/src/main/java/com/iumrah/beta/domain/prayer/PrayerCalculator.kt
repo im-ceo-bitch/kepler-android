@@ -79,18 +79,20 @@ object PrayerCalculator {
     private fun baseDay(date: LocalDate, place: PrayerPlace, method: PrayerMethod, hanafi: Boolean): Map<PrayerKind, Instant> {
         val zone = place.zone
         val midnight = date.atStartOfDay(zone)
-        val noonGuess = date.atTime(12, 0).atZone(zone).toInstant()
+        val dayStart = midnight.toInstant()
+        val noonGuess = dayStart.plusSeconds(12 * 3600L)
         var solar = sun(noonGuess)
-        var transit = noonGuess
-        var noonMinutes = 0.0
-        repeat(3) {
-            noonMinutes = 720.0 - 4 * place.longitude - solar.equationMinutes + zone.rules.getOffset(transit).totalSeconds / 60.0
-            val whole = floor(noonMinutes).toLong()
-            // Form local wall time before converting to an instant: DST may make a day != 24h.
-            val local = midnight.toLocalDate().atStartOfDay().plusMinutes(whole).atZone(zone).toInstant()
-            transit = instantPlusMinutes(local, noonMinutes - whole)
-            solar = sun(transit)
+        fun minutes(at: Instant) = 720.0 - 4 * place.longitude - solar.equationMinutes + zone.rules.getOffset(at).totalSeconds / 60.0
+        var noonMinutes = minutes(noonGuess)
+        repeat(2) {
+            val estimate = instantPlusMinutes(dayStart, noonMinutes)
+            solar = sun(estimate)
+            noonMinutes = minutes(estimate)
         }
+        // Same two absolute transit iterations, then wall-clock conversion as Swift.
+        val whole = floor(noonMinutes).toLong()
+        val local = date.atStartOfDay().plusMinutes(Math.floorMod(whole, 1440L)).atZone(zone).toInstant()
+        val transit = instantPlusMinutes(local, noonMinutes - whole)
         val result = mutableMapOf<PrayerKind, Instant>(PrayerKind.DHUHR to transit)
         fun before(angle: Double) = hourAngle(place.latitude, solar.decl, -angle)?.let { instantPlusMinutes(transit, -it) }
         fun after(alt: Double) = hourAngle(place.latitude, solar.decl, alt)?.let { instantPlusMinutes(transit, it) }
@@ -110,11 +112,11 @@ object PrayerCalculator {
             result[PrayerKind.ISHA] = instantPlusMinutes(set, if (ramadan) 120.0 else 90.0)
         }
         if (result[PrayerKind.FAJR] == null && rise != null && set != null) {
-            val night = rise.epochSecond - set.minusSeconds(86400).epochSecond
+            val night = (rise.toEpochMilli() - set.minusSeconds(86400).toEpochMilli()) / 1000.0
             if (night > 0) result[PrayerKind.FAJR] = instantPlusMinutes(rise, -night / 60.0 * method.fajrAngle / 60.0)
         }
         if (result[PrayerKind.ISHA] == null && set != null && rise != null) {
-            val night = rise.plusSeconds(86400).epochSecond - set.epochSecond
+            val night = (rise.plusSeconds(86400).toEpochMilli() - set.toEpochMilli()) / 1000.0
             if (night > 0) result[PrayerKind.ISHA] = instantPlusMinutes(set, night / 60.0 * (method.ishaAngle ?: 17.0) / 60.0)
         }
         if (rise != null) result[PrayerKind.DUHA] = instantPlusMinutes(rise, 20.0)

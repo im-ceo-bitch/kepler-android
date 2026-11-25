@@ -24,6 +24,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.iumrah.beta.core.design.IumrahDesign
 import com.iumrah.beta.core.design.IumrahHaptics
+import com.iumrah.beta.core.design.LocalIOSParity
+import com.iumrah.beta.core.design.rememberIumrahMotionAllowed
 import com.iumrah.beta.core.settings.AppLanguage
 import com.iumrah.beta.ui.cupertino.CupertinoIcon
 import com.iumrah.beta.ui.cupertino.CupertinoSymbol
@@ -35,9 +37,19 @@ internal data class HeaderPill(val label: String, val symbol: CupertinoSymbol, v
 internal fun IumrahHeaderPills(pills: List<HeaderPill>, selected: Int? = null, onSelect: (Int) -> Unit) {
     val listState = rememberLazyListState()
     val view = LocalView.current
-    LaunchedEffect(selected, pills.size) {
+    val parity = LocalIOSParity.current
+    val motion = if (parity) rememberIumrahMotionAllowed() else false
+    LaunchedEffect(selected, pills.size, motion) {
         val index = selected ?: return@LaunchedEffect
-        if (index in pills.indices) listState.scrollToItem(index)
+        if (index in pills.indices) {
+            if (motion && listState.layoutInfo.visibleItemsInfo.isNotEmpty()) {
+                // Center the selected item using measured widths where available.
+                val viewport = listState.layoutInfo.viewportSize.width
+                val itemWidth = listState.layoutInfo.visibleItemsInfo.firstOrNull { it.index == index }?.size
+                val offset = itemWidth?.let { -((viewport - it) / 2).coerceAtLeast(0) } ?: 0
+                listState.animateScrollToItem(index, scrollOffset = offset)
+            } else listState.scrollToItem(index)
+        }
     }
     LazyRow(
         modifier = Modifier.fillMaxWidth().height(IumrahDesign.HeaderPillViewport).selectableGroup(),

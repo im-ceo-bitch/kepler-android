@@ -87,7 +87,7 @@ internal data class ManualJourneyState(
                 a is GuidedFlightChoice.Data && b is GuidedFlightChoice.Data -> {j.commitTripBuilder(t,PackageFlightPath.AVIASALES_SELECTED);j.stageAviasalesFlight(a.offer);j.stageAviasalesFlight(b.offer,returnLeg=true)}
                 else -> {j.commitTripBuilder(t,PackageFlightPath.AVIASALES_SELECTED);j.setMixedFlightIdentity("mixed:${identity(a)}~${identity(b)}")}
             }
-            j.startNuiteeJourney(listOf(a,b).map{NuiteeFlightSnapshot(it.id,it.origin,it.destination,it.airlineName,it.flightNumber,it.airlineCode,it.durationMinutes,it.stops,it.departureAt,it.arrivalAt,it.priceUsd)})
+            j.startNuiteeJourney(listOf(a,b).map{NuiteeFlightSnapshot(it.id,it.origin,it.destination,it.airlineName,it.flightNumber,it.airlineCode,it.durationMinutes,it.stops,it.departureAt,it.arrivalAt,it.priceUsd.takeUnless { _ -> it.publishedPair })})
             cities.forEach{j.chooseNuiteeRoom(rooms.getValue(it))};j.chooseTransferVehicle(v);j.setHaramainFareClass(fare);j.setHaramainAdultTickets(tickets);j.setHaramainTrainSelected(train);j.confirmTransferSelection()
         }
     }

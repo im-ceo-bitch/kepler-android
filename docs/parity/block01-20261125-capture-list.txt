@@ -1,0 +1,21 @@
+# Same content viewport and locale on iOS/Android, no resizing.
+# Home is an Android before/after regression; not iOS parity in this block.
+compact/light/hotels-root.png
+compact/light/booking-root.png
+compact/light/care-root.png
+compact/light/account-root.png
+compact/light/account-security.png
+compact/light/hotel-detail.png
+compact/light/drawer.png
+compact/light/hotels-header-scrolled.png
+compact/dark/hotels-root.png
+compact/dark/booking-root.png
+compact/dark/care-root.png
+compact/dark/account-root.png
+compact/dark/account-security.png
+compact/dark/hotels-header-scrolled.png
+narrow/light/account-root.png
+narrow/light/hotels-root.png
+wide/light/account-sidebar.png
+wide/dark/hotels-sidebar.png
+wide/light/hotel-detail.png

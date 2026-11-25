@@ -27,6 +27,9 @@ import com.iumrah.beta.domain.umrahflow.AdvisorCheckpointStore
 import com.iumrah.beta.domain.umrahflow.TawafCounter
 import com.iumrah.beta.domain.umrahflow.UmrahFlowAudioUrlPolicy
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
+import com.iumrah.beta.domain.umrahflow.AdvisorContentPolicy
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
@@ -103,7 +106,10 @@ fun UmrahAdvisorScreen(
 ) {
     val context = LocalContext.current
     val service = remember(context) { UmrahFlowService(context.applicationContext) }
-    val player = remember(context) { ExoPlayer.Builder(context).build() }
+    val player = remember(context) { ExoPlayer.Builder(context).build().apply {
+        setAudioAttributes(androidx.media3.common.AudioAttributes.Builder().setUsage(androidx.media3.common.C.USAGE_MEDIA).setContentType(androidx.media3.common.C.AUDIO_CONTENT_TYPE_SPEECH).build(), true)
+    } }
+    val systemSpeech = remember(context) { AdvisorSystemSpeech(context.applicationContext) }
 
     var selectedLanguage by remember { mutableStateOf(UmrahGuideLanguage.preferred(appLanguage)) }
     var started by remember { mutableStateOf(false) }
@@ -131,6 +137,19 @@ fun UmrahAdvisorScreen(
     var playingKey by remember { mutableStateOf<String?>(null) }
     var audioLoading by remember { mutableStateOf(false) }
     var audioPlaying by remember { mutableStateOf(false) }
+    var audioError by remember { mutableStateOf(false) }
+    var fallbackText by remember { mutableStateOf("") }
+    var fallbackLanguage by remember { mutableStateOf("en") }
+    fun fallbackSpeech(): Boolean {
+        val key = playingKey ?: return false
+        if (fallbackText.isBlank()) return false
+        return systemSpeech.speak(fallbackText, fallbackLanguage) { playing, failed ->
+            if (playingKey == key) {
+                audioLoading = false; audioPlaying = playing; audioError = failed
+                if (!playing) playingKey = null
+            }
+        }
+    }
     val checkpointStore = remember(context) { AdvisorCheckpointStore(context) }
     var showResume by remember { mutableStateOf(false) }
     val snapshot = AdvisorCheckpoint(stage.name, startPhase, tawafCounter.completed, tawafTextMode,
@@ -159,11 +178,13 @@ fun UmrahAdvisorScreen(
                 if (playbackState == Player.STATE_ENDED) { audioPlaying = false; playingKey = null }
             }
             override fun onPlayerError(error: PlaybackException) {
-                audioLoading = false; audioPlaying = false; playingKey = null
+                audioLoading = false; audioPlaying = false
+                if (!fallbackSpeech()) { playingKey = null; audioError = true }
+                else audioLoading = true
             }
         }
         player.addListener(listener)
-        onDispose { player.removeListener(listener); player.release() }
+        onDispose { player.removeListener(listener); player.release(); systemSpeech.close() }
     }
 
     fun text(key: String, fallback: String = key): String = content.translations[key]?.trim().takeUnless { it.isNullOrBlank() } ?: fallback
@@ -176,18 +197,37 @@ fun UmrahAdvisorScreen(
         Stage.AFTER -> text("home2_3title", stageTitle(target, selectedLanguage))
     }
     fun stopAudio() {
-        player.stop(); player.clearMediaItems()
-        playingKey = null; audioLoading = false; audioPlaying = false
+        playingKey = null; fallbackText = ""; audioError = false
+        systemSpeech.stop(); player.stop(); player.clearMediaItems()
+        audioLoading = false; audioPlaying = false
     }
+    fun narrationTextKey(key: String): String? = when (key) {
+        "tawaf_start" -> listOf("start_text", "start_text1", "start_text2", "start_text3")[startPhase]
+        "safa_end" -> listOf("end_text", "end_text1", "end_text3")[endPhase]
+        "pray" -> "tawafpray_text1"
+        "zam_zam" -> "zamzam_text"
+        "safa_go" -> "safago_text"
+        "safa_dua" -> "start_text3"
+        else -> when {
+            key.startsWith("tawaf_") -> if (tawafTextMode == 2) null else "tawaf${tawafRound}_text${tawafTextMode + 1}"
+            key.startsWith("safa_") -> "safa${safaRound}_text${safaTextMode + 1}"
+            else -> null
+        }
+    }
+    fun speechText(key: String): String = narrationTextKey(key)?.let { content.selectedTranslations[it] }.orEmpty()
+    fun canPlay(key: String): Boolean = content.audio[key]?.let(UmrahFlowAudioUrlPolicy::isAllowed) == true || (systemSpeech.ready && speechText(key).isNotBlank())
     fun play(key: String) {
-        val url = content.audio[key]?.takeIf(UmrahFlowAudioUrlPolicy::isAllowed) ?: return
         if (playingKey == key && (audioPlaying || audioLoading)) { stopAudio(); return }
         stopAudio()
-        playingKey = key
-        audioLoading = true
-        player.setMediaItem(MediaItem.fromUri(url))
-        player.prepare()
-        player.playWhenReady = true
+        fallbackText = speechText(key)
+        fallbackLanguage = selectedLanguage.code
+        playingKey = key; audioLoading = true
+        val url = content.audio[key]?.takeIf(UmrahFlowAudioUrlPolicy::isAllowed)
+        if (url == null) {
+            if (!fallbackSpeech()) { playingKey = null; audioLoading = false; audioError = true }
+        } else {
+            player.setMediaItem(MediaItem.fromUri(url)); player.prepare(); player.playWhenReady = true
+        }
     }
     fun reset() {
         stopAudio(); stage = Stage.START; startPhase = 0; tawafCounter = TawafCounter(); tawafTextMode = 0; tawafMode = RitualMode.LISTEN
@@ -276,13 +316,14 @@ fun UmrahAdvisorScreen(
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
         } else {
             error?.let { message -> Text(message, Modifier.padding(horizontal = 20.dp, vertical = 5.dp), fontSize = 11.sp, color = MaterialTheme.colorScheme.error) }
+            if (audioError) Text(advisorCopy(selectedLanguage, "Аудио недоступно. Продолжайте чтение.", "Audio unavailable. Continue reading.", "Audio mavjud emas. O‘qishni davom ettiring."), Modifier.padding(horizontal = 20.dp, vertical = 5.dp), fontSize = 12.sp, color = MaterialTheme.colorScheme.error)
             AnimatedContent(targetState = stage, transitionSpec = { fadeIn() togetherWith fadeOut() }, label = "advisor-stage") { active ->
                 when (active) {
                     Stage.START -> VoiceStep(
                         language = selectedLanguage,
                         kicker = text("umrah_start_title", "Start Umrah"), title = "",
                         body = text(listOf("start_text","start_text1","start_text2","start_text3")[startPhase], startFallback(startPhase)),
-                        counter = "${startPhase + 1} / 4", audioAvailable = content.audio["tawaf_start"] != null,
+                        counter = "${startPhase + 1} / 4", audioAvailable = canPlay("tawaf_start"),
                         audioActive = playingKey == "tawaf_start" && audioPlaying, audioBuffering = playingKey == "tawaf_start" && audioLoading,
                         onListen = { play("tawaf_start") }, showPrevious = startPhase > 0,
                         onPrevious = { stopAudio(); if (startPhase > 0) startPhase-- },
@@ -294,10 +335,10 @@ fun UmrahAdvisorScreen(
                         listening = {
                             VoiceStep(
                                 kicker = text("tawaf_title", "Tawaf"), title = text("tawaf${tawafRound}_tarab1", "Round $tawafRound"),
-                                body = text("tawaf${tawafRound}_text${if (tawafTextMode == 0) 1 else 2}", "Continue Tawaf calmly and remember Allah."),
-                                counter = "$tawafRound / 7", audioAvailable = content.audio["tawaf_$tawafRound"] != null,
+                                body = text(if (tawafTextMode == 2) "tawaf${tawafRound}_tarab1" else "tawaf${tawafRound}_text${tawafTextMode + 1}", text("tawaf${tawafRound}_text2", "Continue Tawaf calmly and remember Allah.")),
+                                counter = "$tawafRound / 7", audioAvailable = canPlay("tawaf_$tawafRound"),
                                 audioActive = playingKey == "tawaf_$tawafRound" && audioPlaying, audioBuffering = playingKey == "tawaf_$tawafRound" && audioLoading,
-                                onListen = { play("tawaf_$tawafRound") }, onBodyTap = { tawafTextMode = (tawafTextMode + 1) % 2 },
+                                onListen = { play("tawaf_$tawafRound") }, onBodyTap = { stopAudio(); tawafTextMode = AdvisorContentPolicy.nextTawafText(tawafTextMode) },
                                 showPrevious = false, onPrevious = {}, nextDone = false, onNext = {},
                                 language = selectedLanguage,
                                 bottomOverride = {
@@ -310,8 +351,9 @@ fun UmrahAdvisorScreen(
                         reading = {
                             TawafReading(
                                 round = tawafRound, step = tawafReadingStep, zikrCount = tawafZikrCount,
+                                onPage = { tawafReadingStep = it },
                                 text = ::text, onZikr = { if (tawafZikrCount < 20) tawafZikrCount++ },
-                                onSunnahDua = { showSunnahDua = true },
+                                onSunnahDua = { stopAudio(); showSunnahDua = true },
                                 onPrevious = {
                                     if (tawafReadingStep > 0) tawafReadingStep--
                                     else tawafMode = RitualMode.LISTEN
@@ -333,11 +375,11 @@ fun UmrahAdvisorScreen(
                         }
                         VoiceStep(
                             language = selectedLanguage, kicker = copy.first, title = copy.second, body = copy.third, counter = "${postTawafStep + 1} / 4",
-                            audioAvailable = content.audio[keys[postTawafStep]] != null,
+                            audioAvailable = canPlay(keys[postTawafStep]),
                             audioActive = playingKey == keys[postTawafStep] && audioPlaying, audioBuffering = playingKey == keys[postTawafStep] && audioLoading, onListen = { play(keys[postTawafStep]) },
                             showPrevious = true, onPrevious = { stopAudio(); if (postTawafStep > 0) postTawafStep-- else { stage = Stage.TAWAF; tawafMode = RitualMode.LISTEN } },
                             nextDone = postTawafStep == 3, onNext = { stopAudio(); if (postTawafStep < 3) postTawafStep++ else { stage = Stage.SAFA; safaRound = 1 } },
-                            secondaryAction = if (postTawafStep == 3) text("overlay_safa_title", "Dua at Safa and Marwa") to { showSafaDua = true } else null,
+                            secondaryAction = if (postTawafStep == 3) text("overlay_safa_title", "Dua at Safa and Marwa") to { stopAudio(); showSafaDua = true } else null,
                         )
                     }
                     Stage.SAFA -> RitualScreen(
@@ -346,9 +388,9 @@ fun UmrahAdvisorScreen(
                             VoiceStep(
                                 language = selectedLanguage, kicker = text("sai_title","Safa & Marwa"), title = text("safa${safaRound}_title1", "Round $safaRound"),
                                 body = text("safa${safaRound}_text${if(safaTextMode == 0) 1 else 2}", "Continue Sa'i calmly and remember Allah."),
-                                counter = "$safaRound / 7", audioAvailable = content.audio["safa_$safaRound"] != null,
+                                counter = "$safaRound / 7", audioAvailable = canPlay("safa_$safaRound"),
                                 audioActive = playingKey == "safa_$safaRound" && audioPlaying, audioBuffering = playingKey == "safa_$safaRound" && audioLoading,
-                                onListen = { play("safa_$safaRound") }, onBodyTap = { safaTextMode = (safaTextMode + 1) % 2 },
+                                onListen = { play("safa_$safaRound") }, onBodyTap = { stopAudio(); safaTextMode = (safaTextMode + 1) % 2 },
                                 showPrevious = true, onPrevious = { stopAudio(); safaTextMode = 0; safaReadingStep = 0; if(safaRound > 1) safaRound-- else { stage = Stage.POST_TAWAF; postTawafStep = 3 } },
                                 nextDone = safaRound == 7, onNext = { stopAudio(); safaTextMode = 0; safaReadingStep = 0; if(safaRound < 7) safaRound++ else stage = Stage.END },
                             )
@@ -356,9 +398,10 @@ fun UmrahAdvisorScreen(
                         reading = {
                             SafaReading(
                                 round = safaRound, step = safaReadingStep, text = ::text,
-                                onDua = { showSafaDua = true },
+                                onPage = { safaReadingStep = it },
+                                onDua = { stopAudio(); showSafaDua = true },
                                 onPrevious = { if(safaReadingStep > 0) safaReadingStep-- else if(safaRound > 1){ safaRound--; safaReadingStep = 0 } else safaMode = RitualMode.LISTEN },
-                                onNext = { if(safaReadingStep < 2) safaReadingStep++ else { safaReadingStep = 0; if(safaRound < 7) safaRound++ else stage = Stage.END } },
+                                onNext = { if(safaReadingStep < 1) safaReadingStep++ else { safaReadingStep = 0; if(safaRound < 7) safaRound++ else stage = Stage.END } },
                             )
                         }
                     )
@@ -366,7 +409,7 @@ fun UmrahAdvisorScreen(
                         language = selectedLanguage,
                         kicker = text("tahallul_title","Complete Umrah"), title = "",
                         body = text(listOf("end_text","end_text1","end_text3")[endPhase], endFallback(endPhase)), counter = "${endPhase + 1} / 3",
-                        audioAvailable = content.audio["safa_end"] != null,
+                        audioAvailable = canPlay("safa_end"),
                         audioActive = playingKey == "safa_end" && audioPlaying, audioBuffering = playingKey == "safa_end" && audioLoading, onListen = { play("safa_end") }, showPrevious = true,
                         onPrevious = { stopAudio(); if(endPhase > 0) endPhase-- else { stage = Stage.SAFA; safaRound = 7 } },
                         nextDone = endPhase == 2, onNext = { stopAudio(); if(endPhase < 2) endPhase++ else stage = Stage.AFTER }
@@ -419,6 +462,8 @@ fun UmrahAdvisorScreen(
                 arabic = "رَبَّنَا آتِنَا فِي الدُّنْيَا حَسَنَةً، وَفِي الآخِرَةِ حَسَنَةً، وَقِنَا عَذَابَ النَّارِ",
                 transliteration = "Rabbana atina fid-dunya hasanatan, wa fil-akhirati hasanatan, wa qina adhaban-nar",
                 note = text("tawaf_common_text2", "You may also make any permissible dua."),
+                contextNote = text("tawaf_common_text3", "Between the Yemeni Corner and the Black Stone"),
+                extra = listOf(text("tawaf_common_text4", "Ask Allah in your own words."), text("tawaf_common_text1", "Keep your heart present and continue Tawaf calmly.")),
                 onClose = { showSunnahDua = false },
             )
         }
@@ -427,8 +472,8 @@ fun UmrahAdvisorScreen(
         ModalBottomSheet(onDismissRequest = { showSafaDua = false }) {
             DuaSheet(
                 title = text("overlay_safa_title", "Dua at Safa and Marwa"),
-                arabic = "اللّٰهُ أَكْبَرُ، اللّٰهُ أَكْبَرُ، اللّٰهُ أَكْبَرُ\nلَا إِلٰهَ إِلَّا اللّٰهُ وَحْدَهُ لَا شَرِيكَ لَهُ\nلَهُ الْمُلْكُ وَلَهُ الْحَمْدُ، وَهُوَ عَلَىٰ كُلِّ شَيْءٍ قَدِيرٌ",
-                transliteration = "Allāhu akbar, Allāhu akbar, Allāhu akbar. Lā ilāha illallāhu waḥdahu lā sharīka lah...",
+                arabic = "اللّٰهُ أَكْبَرُ، اللّٰهُ أَكْبَرُ، اللّٰهُ أَكْبَرُ\nلَا إِلٰهَ إِلَّا اللّٰهُ وَحْدَهُ لَا شَرِيكَ لَهُ\nلَهُ الْمُلْكُ وَلَهُ الْحَمْدُ، وَهُوَ عَلَىٰ كُلِّ شَيْءٍ قَدِيرٌ\nلَا إِلٰهَ إِلَّا اللّٰهُ وَحْدَهُ\nأَنْجَزَ وَعْدَهُ، وَنَصَرَ عَبْدَهُ، وَهَزَمَ الْأَحْزَابَ وَحْدَهُ",
+                transliteration = "Allāhu akbar, Allāhu akbar, Allāhu akbar. Lā ilāha illallāhu waḥdahu lā sharīka lah, lahul-mulku wa lahul-ḥamd, wa huwa ‘alā kulli shay’in qadīr. Lā ilāha illallāhu waḥdah, anjaza wa‘dah, wa naṣara ‘abdah, wa hazamal-aḥzāba waḥdah.",
                 note = text("overlay_safa_text1", "Repeat this remembrance, then make your own dua."),
                 onClose = { showSafaDua = false },
             )
@@ -602,8 +647,37 @@ private fun VoiceStep(
     }
 }
 
+/** Reading gestures only change the displayed page, never a completed Tawaf circuit. */
 @Composable
-private fun TawafReading(round: Int, step: Int, zikrCount: Int, text: (String, String) -> String, onZikr: () -> Unit, onSunnahDua: () -> Unit, onPrevious: () -> Unit, onNext: () -> Unit) {
+private fun ReadingPager(round: Int, step: Int, count: Int, title: String, onPage: (Int) -> Unit, onPrevious: () -> Unit, onNext: () -> Unit, page: @Composable (Int) -> Unit) {
+    key(round) {
+        val pager = rememberPagerState(initialPage = step.coerceIn(0, count - 1), pageCount = { count })
+        val onPageChanged by rememberUpdatedState(onPage)
+        LaunchedEffect(step) {
+            val target = step.coerceIn(0, count - 1)
+            if (target != pager.settledPage) pager.scrollToPage(target)
+        }
+        LaunchedEffect(pager.settledPage) { if (pager.settledPage != step) onPageChanged(pager.settledPage) }
+        Column(Modifier.fillMaxSize()) {
+            Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text(title.uppercase(), fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.25.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("$round / 7 · ${pager.currentPage + 1} / $count", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            HorizontalPager(state = pager, modifier = Modifier.weight(1f).fillMaxWidth(), verticalAlignment = Alignment.Top) { index ->
+                Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
+                    Column(Modifier.widthIn(max = 620.dp).fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 22.dp, vertical = 20.dp).heightIn(min = 260.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(18.dp, Alignment.CenterVertically)) {
+                        page(index)
+                    }
+                }
+            }
+            StepButtons(step == count - 1, onPrevious, onNext)
+        }
+    }
+}
+
+@Composable
+private fun TawafReading(round: Int, step: Int, zikrCount: Int, text: (String, String) -> String, onPage: (Int) -> Unit, onZikr: () -> Unit, onSunnahDua: () -> Unit, onPrevious: () -> Unit, onNext: () -> Unit) {
     val entries = listOf(
         Triple("DUA", text("tawaf${round}_reading_arab1", ""), null),
         Triple("MEANING", text("tawaf${round}_reading_text1", ""), text("tawaf${round}_reading_text2", "")),
@@ -613,48 +687,40 @@ private fun TawafReading(round: Int, step: Int, zikrCount: Int, text: (String, S
         Triple("MEANING", text("tawaf${round}_reading_text5", ""), text("tawaf${round}_reading_text6", "")),
         Triple("DHIKR", text("tawaf${round}_zikr_repeat", "Dhikr"), text("tawaf${round}_zikr_text", "Remember Allah and make dua.")),
     )
-    val current = entries[step.coerceIn(0, 6)]
-    Box(Modifier.fillMaxSize()) {
-        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 38.dp, vertical = 20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            Text("TAWAF · $round / 7 · ${step + 1} / 7", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Spacer(Modifier.height(24.dp)); Text(current.first, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFF2E66E6))
-            Spacer(Modifier.height(20.dp))
-            if(step == 6) {
-                Surface(onClick = onZikr, shape = RoundedCornerShape(28.dp), color = MaterialTheme.colorScheme.surfaceVariant) {
-                    Column(Modifier.fillMaxWidth().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text("${(20 - zikrCount).coerceAtLeast(0)}", fontSize = 54.sp, fontWeight = FontWeight.Light, color = MaterialTheme.colorScheme.onSurface.copy(alpha=.22f))
-                        Text(current.second, fontSize = 21.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
-                        current.third?.takeIf { it.isNotBlank() }?.let { Text(it, Modifier.padding(top=10.dp), textAlign = TextAlign.Center, color = MaterialTheme.colorScheme.onSurfaceVariant) }
-                    }
+    ReadingPager(round, step, 7, text("tawaf_title", "Tawaf"), onPage, onPrevious, onNext) { index ->
+        val current = entries[index]
+        Text(current.first, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp, color = Color(0xFF2E66E6))
+        if (index == 6) {
+            Surface(onClick = onZikr, shape = RoundedCornerShape(28.dp), color = MaterialTheme.colorScheme.surfaceVariant) {
+                Column(Modifier.fillMaxWidth().padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text("${(20 - zikrCount).coerceAtLeast(0)}", fontSize = 54.sp, fontWeight = FontWeight.Light, color = MaterialTheme.colorScheme.onSurface.copy(alpha = .20f))
+                    Text(current.second, fontSize = 20.sp, fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center)
+                    current.third?.takeIf { it.isNotBlank() }?.let { Text(it, fontSize = 15.sp, textAlign = TextAlign.Center, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                 }
-                Spacer(Modifier.height(14.dp)); OutlinedButton(onClick = onSunnahDua, shape = CircleShape) { Text("Sunnah Dua") }
-            } else {
-                Text(current.second.ifBlank { "—" }, fontSize = if(step % 2 == 0) 28.sp else 23.sp, lineHeight = 36.sp, fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center)
-                current.third?.takeIf { it.isNotBlank() }?.let { Spacer(Modifier.height(18.dp)); Text(it, fontSize = 19.sp, lineHeight = 27.sp, textAlign = TextAlign.Center, color = MaterialTheme.colorScheme.onSurfaceVariant) }
             }
-            Spacer(Modifier.height(110.dp))
+            OutlinedButton(onClick = onSunnahDua, shape = CircleShape) { Text(text("sunna_dua_btn", "Sunnah Dua")) }
+        } else {
+            val arabic = index % 2 == 0
+            val length = current.second.length
+            val size = if (arabic) { if (length > 220) 23 else if (length > 140) 25 else 28 } else { if (length > 260) 19 else if (length > 170) 21 else 23 }
+            Text(current.second.ifBlank { "—" }, fontSize = size.sp, lineHeight = (size + if (arabic) 11 else 7).sp, fontWeight = if (arabic) FontWeight.Medium else FontWeight.SemiBold, textAlign = TextAlign.Center)
+            current.third?.takeIf { it.isNotBlank() }?.let { Text(it, fontSize = (size - 1).sp, lineHeight = (size + 6).sp, textAlign = TextAlign.Center, color = MaterialTheme.colorScheme.onSurfaceVariant) }
         }
-        StepButtons(step == 6, onPrevious, onNext, Modifier.align(Alignment.BottomCenter))
     }
 }
 
 @Composable
-private fun SafaReading(round: Int, step: Int, text: (String, String) -> String, onDua: () -> Unit, onPrevious: () -> Unit, onNext: () -> Unit) {
-    val entries = listOf(
-        text("safa${round}_title1", "Safa & Marwa") to text("safa${round}_text1", "Continue Sa'i calmly and remember Allah."),
-        "DUA" to text("safa${round}_sarab1", "Remember Allah and make dua."),
-        "MEANING" to text("safa${round}_text2", "Make dua in your own words while continuing this passage."),
-    )
-    val current = entries[step.coerceIn(0,2)]
-    Box(Modifier.fillMaxSize()) {
-        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 40.dp, vertical = 28.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            Text("SA'I · $round / 7 · ${step + 1} / 3", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Spacer(Modifier.height(24.dp)); Text(current.first, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color(0xFF2E66E6))
-            Spacer(Modifier.height(24.dp)); Text(current.second, fontSize = 23.sp, lineHeight = 32.sp, fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center)
-            if(step == 1) { Spacer(Modifier.height(18.dp)); OutlinedButton(onClick = onDua, shape = CircleShape) { Text("Dua at Safa & Marwa") } }
-            Spacer(Modifier.height(110.dp))
+private fun SafaReading(round: Int, step: Int, text: (String, String) -> String, onPage: (Int) -> Unit, onDua: () -> Unit, onPrevious: () -> Unit, onNext: () -> Unit) {
+    ReadingPager(round, step, 2, text("sai_title", "Safa & Marwa"), onPage, onPrevious, onNext) { index ->
+        Text(if (index == 0) "GUIDANCE" else "DUA", fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp, color = Color(0xFF2E66E6))
+        text("safa${round}_title1", "").takeIf { it.isNotBlank() }?.let { Text(it, fontSize = 18.sp, fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+        val body = if (index == 0) text("safa${round}_text1", "Continue Sa'i calmly and remember Allah.") else text("safa${round}_text2", "Make dua while continuing this passage.")
+        val size = if (body.length > 240) 20 else 23
+        Text(body, fontSize = size.sp, lineHeight = (size + 7).sp, fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center)
+        if (index == 1) {
+            text("safa${round}_sarab1", "").takeIf { it.isNotBlank() }?.let { val arabSize = if (it.length > 180) 23 else 27; Text(it, fontSize = arabSize.sp, lineHeight = (arabSize + 10).sp, textAlign = TextAlign.Center) }
+            OutlinedButton(onClick = onDua, shape = CircleShape) { Text(text("sunna_dua_btn", "Sunnah Dua")) }
         }
-        StepButtons(step == 2, onPrevious, onNext, Modifier.align(Alignment.BottomCenter))
     }
 }
 
@@ -679,13 +745,19 @@ private fun Completion(title: String, subtitle: String, done: String, restart: S
 }
 
 @Composable
-private fun DuaSheet(title: String, arabic: String, transliteration: String, note: String, onClose: () -> Unit) {
-    Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal=22.dp, vertical=14.dp), horizontalAlignment=Alignment.CenterHorizontally) {
-        Row(Modifier.fillMaxWidth(), verticalAlignment=Alignment.CenterVertically) { Text(title, Modifier.weight(1f), fontSize=24.sp, fontWeight=FontWeight.Bold); TextButton(onClick=onClose){CupertinoIcon(CupertinoSymbol.Close, null, Modifier.size(22.dp))} }
-        Spacer(Modifier.height(20.dp)); Text(arabic, fontSize=27.sp, lineHeight=42.sp, textAlign=TextAlign.Center)
-        Spacer(Modifier.height(20.dp)); Text(transliteration, fontSize=17.sp, lineHeight=25.sp, color=MaterialTheme.colorScheme.onSurfaceVariant, textAlign=TextAlign.Center)
-        Spacer(Modifier.height(20.dp)); Surface(shape=RoundedCornerShape(24.dp), color=MaterialTheme.colorScheme.surfaceVariant){ Text(note, Modifier.padding(18.dp), textAlign=TextAlign.Center) }
-        Spacer(Modifier.height(30.dp))
+private fun DuaSheet(title: String, arabic: String, transliteration: String, note: String, onClose: () -> Unit, contextNote: String? = null, extra: List<String> = emptyList()) {
+    Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 22.dp, vertical = 14.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(24.dp)) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text(title, Modifier.weight(1f), fontSize = 24.sp, fontWeight = FontWeight.Bold)
+            TextButton(onClick = onClose) { Text("×", fontSize = 22.sp) }
+        }
+        contextNote?.let { Text(it, fontSize = 12.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+        Text(arabic, fontSize = 27.sp, lineHeight = 38.sp, fontWeight = FontWeight.Medium, textAlign = TextAlign.Center)
+        Text(transliteration, fontSize = 18.sp, lineHeight = 24.sp, textAlign = TextAlign.Center, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Surface(shape = RoundedCornerShape(24.dp), color = MaterialTheme.colorScheme.surfaceVariant) { Text(note, Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 14.dp), fontSize = 14.sp, textAlign = TextAlign.Center) }
+        extra.forEachIndexed { index, item -> Text(item, fontSize = if (index == extra.lastIndex) 22.sp else 18.sp, fontWeight = if (index == extra.lastIndex) FontWeight.Bold else FontWeight.Medium, textAlign = TextAlign.Center) }
+        Button(onClick = onClose, shape = CircleShape, modifier = Modifier.fillMaxWidth().height(56.dp)) { CupertinoIcon(CupertinoSymbol.Checkmark, "Done", Modifier.size(22.dp)) }
+        Spacer(Modifier.navigationBarsPadding().height(16.dp))
     }
 }
 

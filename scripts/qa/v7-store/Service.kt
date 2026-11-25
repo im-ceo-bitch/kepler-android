@@ -4,6 +4,8 @@ import com.iumrah.beta.models.hotel.HotelSummary
 import com.iumrah.beta.models.hotel.HotelRoom
 import com.iumrah.beta.models.hotel.IumrahRoomCategoryOption
 class BookingService {
+ suspend fun createPublicShare(id:String, headers:Map<String,String>):String = "https://iumrah.app/s/" + "a".repeat(43)
+ suspend fun revokePublicShares(id:String, headers:Map<String,String>) { check(headers.isNotEmpty()) }
  var fetchError:Throwable?=null; var remote:RemoteBooking?=null; var operational:ClientTripResponse?=null; var fetchCalls=0; var operationalCalls=0; var operationalError:Throwable?=null; var operationalHeaders:Map<String,String> = emptyMap(); var createCalls=0; var createError:Throwable?=null
  suspend fun fetchBooking(id:String,token:String):RemoteBooking { fetchCalls++; kotlinx.coroutines.delay(40); fetchError?.let{throw it}; return requireNotNull(remote) }
  suspend fun fetchOperationalTrip(id:String,headers:Map<String,String>):ClientTripResponse { operationalCalls++; operationalHeaders=headers; kotlinx.coroutines.delay(10); operationalError?.let{throw it}; return requireNotNull(operational) }

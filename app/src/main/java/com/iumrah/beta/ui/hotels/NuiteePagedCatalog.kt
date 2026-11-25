@@ -176,13 +176,13 @@ internal class NuiteePagedCatalogState {
 
 @Composable internal fun rememberNuiteePagedCatalog(service: NuiteeHotelService, city: String,
     checkin: LocalDate, checkout: LocalDate, adults: Int, stars: Int = 0, query: String = "",
-    favorites: Set<String>? = null, refresh: Int = 0, childrenAges: List<Int> = emptyList()): NuiteePagedCatalogState {
+    favorites: Set<String>? = null, refresh: Int = 0, childrenAges: List<Int> = emptyList(), enabled: Boolean = true): NuiteePagedCatalogState {
     // Filters intentionally omitted. Filtering is local and must not force a
     // new static catalogue / tariff request on every keystroke or star tap.
-    val state = remember(service,city,checkin,checkout,adults,childrenAges) { NuiteePagedCatalogState() }
+    val state = remember(service,city,checkin,checkout,adults,childrenAges,enabled) { NuiteePagedCatalogState() }
     SideEffect { state.setLocalFilters(stars, query, favorites) }
     LaunchedEffect(state,state.request,refresh) {
-        state.load(service,city,checkin,checkout,adults,refresh,childrenAges)
+        if (enabled) state.load(service,city,checkin,checkout,adults,refresh,childrenAges)
     }
     return state
 }

@@ -8,6 +8,7 @@ import com.iumrah.beta.domain.trip.JourneyScope
 import com.iumrah.beta.domain.trip.PackageMealSelection
 import com.iumrah.beta.domain.trip.SaudiArrivalAirport
 import com.iumrah.beta.domain.journey.JourneyStore
+import com.iumrah.beta.domain.smart.SmartDraft
 
 enum class AppTab { HOME, HOTELS, BOOKING, CARE, ACCOUNT }
 
@@ -63,6 +64,11 @@ sealed interface AppRoute {
     data object GuidedFlights : AppRoute
     data object NuiteeJourneyHotels : AppRoute
     data object NuiteeJourneyReview : AppRoute
+    // Smart routes carry their own in-memory store, not the ordinary trip builder.
+    data class SmartFlow(val draft: SmartDraft) : AppRoute
+    data class SmartReview(val journey: JourneyStore) : AppRoute
+    data class SmartHotels(val journey: JourneyStore) : AppRoute
+    data class SmartCheckout(val journey: JourneyStore) : AppRoute
     data object Flights : AppRoute
     data object StorefrontFlights : AppRoute
     data object StorefrontSunday : AppRoute
@@ -164,8 +170,22 @@ class AppChromeStore {
         }
     }
 
-    fun journeyForRoute(route: AppRoute, tab: AppTab, ordinary: JourneyStore): JourneyStore =
-        if (tab == AppTab.HOTELS && route in familyRoutes) familyJourney ?: ordinary else ordinary
+    fun journeyForRoute(route: AppRoute, tab: AppTab, ordinary: JourneyStore): JourneyStore = when (route) {
+        is AppRoute.SmartReview -> route.journey
+        is AppRoute.SmartHotels -> route.journey
+        is AppRoute.SmartCheckout -> route.journey
+        else -> if (tab == AppTab.HOTELS && route in familyRoutes) familyJourney ?: ordinary else ordinary
+    }
+
+    /** The return destination is the previous Smart step, matching SwiftUI previous(). */
+    fun openSmartReview(value: JourneyStore, returnDraft: SmartDraft) {
+        _state.update { old ->
+            if (old.currentTab != AppTab.HOME || (old.route != AppRoute.Root && old.route !is AppRoute.SmartFlow)) return@update old
+            val prior = if (old.route == AppRoute.Root) listOf(AppRoute.Root) else old.backStack
+            old.copy(route = AppRoute.SmartReview(value),
+                backStack = prior + AppRoute.SmartFlow(returnDraft), isImmersive = false, isSidebarOpen = false)
+        }
+    }
 
     /**
      * Native iOS TabView retains an independent NavigationStack per tab.
@@ -253,10 +273,20 @@ class AppChromeStore {
     // HomeDashboardView presents guided flight selection in its Home NavigationStack.
     // The previous Booking-tab ownership broke Back and tab restoration.
     fun openGuidedFlights() = push(AppRoute.GuidedFlights, tab = AppTab.HOME)
-    fun openNuiteeJourneyHotels() = push(AppRoute.NuiteeJourneyHotels,
-        tab = if (state.value.route == AppRoute.GuidedFlights) state.value.currentTab else AppTab.BOOKING)
-    fun openNuiteeJourneyReview() = push(AppRoute.NuiteeJourneyReview,
-        tab = if (state.value.route == AppRoute.NuiteeJourneyHotels) state.value.currentTab else AppTab.BOOKING)
+    fun openNuiteeJourneyHotels() {
+        val current = state.value.route
+        if (current is AppRoute.SmartReview) push(AppRoute.SmartHotels(current.journey), tab = AppTab.HOME)
+        else push(AppRoute.NuiteeJourneyHotels,
+            tab = if (current == AppRoute.GuidedFlights) state.value.currentTab else AppTab.BOOKING)
+    }
+    fun openNuiteeJourneyReview() {
+        val current = state.value.route
+        if (current is AppRoute.SmartHotels) {
+            if (state.value.backStack.lastOrNull() == AppRoute.SmartReview(current.journey)) back()
+            else push(AppRoute.SmartReview(current.journey), tab = AppTab.HOME)
+        } else push(AppRoute.NuiteeJourneyReview,
+            tab = if (current == AppRoute.NuiteeJourneyHotels) state.value.currentTab else AppTab.BOOKING)
+    }
     fun openFlights() = push(AppRoute.Flights, tab = AppTab.BOOKING)
     fun openStorefrontFlights() = push(AppRoute.StorefrontFlights, tab = AppTab.HOTELS)
     fun openSundayClub() = push(AppRoute.StorefrontSunday, tab = AppTab.HOTELS)
@@ -270,8 +300,12 @@ class AppChromeStore {
     fun openPublicTrip(token: String) {
         if (token.matches(Regex("^[A-Za-z0-9_-]{43}$"))) push(AppRoute.PublicTrip(token), tab = AppTab.BOOKING)
     }
-    fun openBookingCheckout() = push(AppRoute.BookingCheckout,
-        tab = if (state.value.currentTab == AppTab.HOTELS && state.value.route in familyRoutes) AppTab.HOTELS else AppTab.BOOKING)
+    fun openBookingCheckout() {
+        val current = state.value.route
+        if (current is AppRoute.SmartReview) push(AppRoute.SmartCheckout(current.journey), tab = AppTab.HOME)
+        else push(AppRoute.BookingCheckout,
+            tab = if (state.value.currentTab == AppTab.HOTELS && current in familyRoutes) AppTab.HOTELS else AppTab.BOOKING)
+    }
     fun openBookingPackageFromLink(id: String) {
         _state.update { old ->
             old.copy(currentTab = AppTab.BOOKING, route = AppRoute.Root, backStack = emptyList(),
@@ -283,7 +317,12 @@ class AppChromeStore {
     }
     fun consumeBookingPackageRequest(id: String) { _state.update { if (it.requestedBookingID == id) it.copy(requestedBookingID = null) else it } }
     fun openBookingDetail(id: String) = push(AppRoute.BookingDetail(id), tab = AppTab.BOOKING)
-    fun openBookingCelebration(id: String) = push(AppRoute.BookingCelebration(id), tab = AppTab.BOOKING)
+    fun openBookingCelebration(id: String) {
+        // A committed Smart booking must not leave a bookable quote on its back stack.
+        _state.update { old -> if (old.route is AppRoute.SmartCheckout)
+            old.copy(route = AppRoute.Root, backStack = emptyList()) else old }
+        push(AppRoute.BookingCelebration(id), tab = AppTab.BOOKING)
+    }
     fun openBookingHotelChange(id: String, role: String) = push(AppRoute.BookingHotelChange(id, role), tab = AppTab.BOOKING)
     fun openPilgrimCheckout(id: String) = push(AppRoute.PilgrimCheckout(id), tab = AppTab.BOOKING)
     fun openBookingGuideTransfer(id: String) = push(AppRoute.BookingGuideTransfer(id), tab = AppTab.BOOKING)

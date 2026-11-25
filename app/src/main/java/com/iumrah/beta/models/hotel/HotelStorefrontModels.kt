@@ -1,20 +1,23 @@
 package com.iumrah.beta.models.hotel
 
+import kotlinx.serialization.ExperimentalSerializationApi
+import kotlinx.serialization.json.JsonNames
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
+@OptIn(ExperimentalSerializationApi::class)
 @Serializable
 data class StorefrontFlightLeg(
     val airline: String,
-    @SerialName("flight_number") val flightNumber: String,
-    @SerialName("airline_code") val airlineCode: String,
+    @SerialName("flight_number") @JsonNames("flightNumber") val flightNumber: String,
+    @SerialName("airline_code") @JsonNames("airlineCode") val airlineCode: String,
     val origin: String,
     val destination: String,
-    @SerialName("departure_at") val departureAt: String,
-    @SerialName("arrival_at") val arrivalAt: String,
-    @SerialName("duration_minutes") val durationMinutes: Int,
+    @SerialName("departure_at") @JsonNames("departureAt") val departureAt: String,
+    @SerialName("arrival_at") @JsonNames("arrivalAt") val arrivalAt: String,
+    @SerialName("duration_minutes") @JsonNames("durationMinutes") val durationMinutes: Int,
     val stops: Int,
-    @SerialName("cabin_class") val cabinClass: String,
+    @SerialName("cabin_class") @JsonNames("cabinClass") val cabinClass: String,
 )
 
 @Serializable

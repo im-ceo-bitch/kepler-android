@@ -10,6 +10,7 @@ kotlinc -cp "$COROUTINES" \
   "$ROOT/scripts/qa/p00/TripStubs.kt" \
   "$ROOT/scripts/qa/p00/FlowShim.kt" \
   "$ROOT/scripts/qa/p00/JourneyStub.kt" \
+  "$ROOT/scripts/qa/p00/SmartDraftStub.kt" \
   "$ROOT/scripts/qa/p00/ChromeStateSmoke.kt" \
   -include-runtime -d "$OUT/p00.jar"
 java -cp "$OUT/p00.jar:$COROUTINES" com.iumrah.beta.core.navigation.ChromeStateSmokeKt

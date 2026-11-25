@@ -28,6 +28,13 @@ object FlightDataParity {
     private fun zone(airport: String, iso: String): ZoneId? = FlightReferenceCatalog.timeZone(airport)
         ?: runCatching { OffsetDateTime.parse(iso).offset }.getOrNull()
 
+    fun localDay(iso: String, airport: String): java.time.LocalDate? {
+        val parsed = instant(iso)
+        val airportZone = zone(airport, iso)
+        return if (parsed != null && airportZone != null) parsed.atZone(airportZone).toLocalDate()
+        else runCatching { java.time.LocalDate.parse(iso.take(10)) }.getOrNull()
+    }
+
     fun localTime(iso: String, airport: String): String {
         val parsed = instant(iso) ?: return iso.substringAfter('T', "").take(5).ifBlank { "—" }
         val airportZone = zone(airport, iso) ?: return "—"

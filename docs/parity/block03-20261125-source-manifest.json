@@ -1,0 +1,48 @@
+{
+  "reference": "kepler-ios-main 5.zip",
+  "scope": "booking/account/Care/notifications source checkpoint; runtime certification pending",
+  "ios_source_sha256": {
+    "Sources/Views/Booking/IumrahBookingConfirmationView.swift": "3d4e9e3a129ff2e4a743ba39c4e7d2fd3fcaf33744183039ba94e26420433a13",
+    "Sources/Views/Booking/BookingCheckoutView.swift": "57e9003cc0541933ed071a7148af2fa8971e623822c0bc7190a269cfb430497b",
+    "Sources/Views/Chat/BookingChatView.swift": "b15e958268530b9b03382fd66636ed8571f4464375b78e46ef3a8c46f53a9048",
+    "Sources/Services/ClientNotificationCenter.swift": "689658442b5d0d601b1f8f04d801a1a284e3b969362d915277555815448db3e7",
+    "Sources/Services/PushNotificationManager.swift": "41b76f61415f7e94aaaa79f9261387f39893d710602085424415d5557ef02b6e",
+    "Sources/App/IumrahAppDelegate.swift": "761588b67039567ff8bc81045deacb934d9b4aec28127bea67c4d249b8c499a8",
+    "Sources/AppShell/IumrahAccountSecurityView.swift": "43a483c613f987a69a887a459345547a79a3f541f76dbfddea0aabcf11c0ff25",
+    "Sources/Services/BookingService.swift": "aec76acf52179d8db68047329f736833df05254a90a804116c9bde84c3bc92a2"
+  },
+  "protected_sha256": {
+    "app/src/main/java/com/iumrah/beta/ui/home/HomeBrandExperience.kt": "a91a4f799697e8769e92d40da4481fd880f29ae3e3bcf3830df1a183ca5be885",
+    "app/src/main/java/com/iumrah/beta/ui/home/HomeEmotionalCopy.kt": "14ce79af810f41d88f0cf14a7a8e1b4ac5d8eaf0749c31038e5b413e5b70e744",
+    "app/src/main/java/com/iumrah/beta/ui/home/HomePersonalizationSections.kt": "45b74c36a5f3659ae1733cfec1de7b68f7654fa8bfe1d354e65572c5e01bed33",
+    "app/src/main/java/com/iumrah/beta/ui/home/HomePublishedFlights.kt": "bad3126428ac1ddfa41a31375b91b7cb958f92702ed42330b237ebe48a1035ce",
+    "app/src/main/java/com/iumrah/beta/ui/home/HomeReadyPackageTime.kt": "6477e2eba9b80a85588e08caac8eac54699a6cbc6a120a012b61297548418861",
+    "app/src/main/java/com/iumrah/beta/ui/home/HomeScreen.kt": "5d90e3dc88961833bf9498e1437113e62bea3a50e38569c3c261c56563770005",
+    "app/src/main/java/com/iumrah/beta/ui/home/HomeWeatherScreen.kt": "f4cc72bec667b9f843444eddd84d4ff202b814dad56f0f5d09204e3b5a52221c",
+    "app/src/main/java/com/iumrah/beta/ui/home/IumrahGiftCardsScreen.kt": "74711c5f3818124d0d975214d51a73554e546be5340376c1507c87d55ba75f58",
+    "app/src/main/java/com/iumrah/beta/ui/home/IumrahHomeHelpCard.kt": "b416e86234b33388468b342f904a96adc31ed70aeb7b804f03e9ec6e65788f1d",
+    "app/src/main/java/com/iumrah/beta/ui/home/IumrahHomeSearchHero.kt": "2bb55cec735ba570bd8009e775fa23ad642529b90bb9be629b4f8b9f17e27cfa",
+    "app/src/main/java/com/iumrah/beta/ui/home/IumrahServicesScreen.kt": "6704ce8dcbf1b0a5eddcb5c872d690810938ce62560cbee6e9e4538909aeaa10",
+    "app/src/main/java/com/iumrah/beta/ui/homeflow/HomeDestinationCommon.kt": "aa6257fe2b61cc3a6539940506cdd3f3d1ade398761911d785ef81da3f33e455",
+    "app/src/test/java/com/iumrah/beta/ui/home/HomeReadyPackageTimeTest.kt": "20fb1baf1553fc93ec54cda59e0c3a756be988175dbf0799431b4acaa7dc4cc3",
+    "app/src/test/java/com/iumrah/beta/ui/home/PublishedHomeRulesTest.kt": "094db9b61854d0dfd7586d464b4f0fa1da36f63be74e9622e96b244f09eed4c2",
+    ".github/workflows/android-ci.yml": "e1ffc169279d49081bfc7bf1e9a9eb38c584ad76ec501aa7400e6e38139c01de",
+    ".github/workflows/iumrah-apk-test-v10-hotfix02.yml": "51612915da1fe18862eb17c15adf716c2b0e33281d5bae6f104c3c5b21f68be7",
+    ".github/workflows/iumrah-live-ui.yml": "2a84a627b1a04205eabade0d377ddc0348ea13a974db51c78b9f4c03c1fabba1",
+    ".github/workflows/iumrah-play-release-v10.yml": "38bce61f4bac7e24d926168626ea90c4620ba12d18fa8db43a5c555a8438c4fc"
+  },
+  "checks": {
+    "PSI": "PASS 270 files, syntax only",
+    "stage25": "PASS source only",
+    "policy": "PASS 36 JVM assertions",
+    "notification": "PASS JVM actual store with mocked boundaries",
+    "booking": "PASS JVM actual store with mocked boundaries; itinerary 19",
+    "chat": "PASS JVM actual service with mocked boundaries, delta 11, availability 11",
+    "Android Gradle": "NOT RUN",
+    "iOS Xcode": "NOT RUN",
+    "device and live API": "NOT RUN"
+  },
+  "cumulative_file_count": 82,
+  "block03_delta_file_count": 27,
+  "prior_file_count": 58
+}

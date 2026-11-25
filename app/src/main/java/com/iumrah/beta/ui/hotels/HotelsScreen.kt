@@ -1487,6 +1487,25 @@ private fun readyPackagesLoadingText(language: AppLanguage) = when (language) {
 }
 
 private fun hotelText(language: AppLanguage, key: String): String {
+    val iosKey = when (key) {
+        "flights" -> "hotel_storefront_flights"
+        "weekend" -> "hotel_storefront_weekend"
+        "hotel_body" -> "hotel_storefront_hero_body"
+        "hotel_note" -> "hotel_storefront_hero_note"
+        "flights_body" -> "hotel_storefront_flights_hero_body"
+        "flights_note" -> "hotel_storefront_flights_hero_note"
+        "weekend_body" -> "hotel_storefront_weekend_body"
+        "weekend_note" -> "hotel_storefront_weekend_note"
+        "loading" -> "hotel_storefront_loading"
+        "published" -> "hotel_storefront_published_flights"
+        "current" -> "hotel_storefront_current"
+        "per_pilgrim" -> "hotel_storefront_per_pilgrim"
+        "package_total" -> "hotel_storefront_package_total_fmt"
+        "calculating" -> "hotel_storefront_calculating"
+        "includes" -> "hotel_storefront_includes"
+        else -> null
+    }
+    if (iosKey != null) return L10n.text(iosKey, language)
     val values = when (language) {
         AppLanguage.ENGLISH, AppLanguage.ARABIC, AppLanguage.TURKISH, AppLanguage.INDONESIAN, AppLanguage.MALAY -> mapOf(
             "flights" to "Flights", "weekend" to "Weekend",

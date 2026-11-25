@@ -1696,6 +1696,27 @@ private fun selectionText(language: AppLanguage, key: String): String = when (ke
 }
 
 private fun detailText(language: AppLanguage, key: String, vararg args: Any): String {
+    val iosKey = when (key) {
+        "preparing_price" -> "hotel_detail_preparing_price"
+        "trip_options" -> "hotel_detail_package_options_title"
+        "ready_packages" -> "hotel_detail_package_options_subtitle_fmt"
+        "counter" -> "hotel_detail_package_counter_fmt"
+        "your_umrah" -> "hotel_detail_package_title"
+        "days_short" -> "hotel_detail_days_short"
+        "nights_short" -> "hotel_detail_nights_short"
+        "ready_variant" -> "hotel_detail_variant_ready_fmt"
+        "per_pilgrim" -> "hotel_storefront_per_pilgrim"
+        "services" -> "hotel_detail_services"
+        "open_configurator" -> "hotel_detail_open_configurator"
+        "variant_short" -> "hotel_detail_variant_short"
+        "variant_balanced" -> "hotel_detail_variant_balanced"
+        "variant_extended" -> "hotel_detail_variant_extended"
+        "photos" -> "hotel_photos"
+        "view_all_photos" -> "hotel_view_all_photos_fmt"
+        "call" -> "hotel_care_call"
+        else -> null
+    }
+    if (iosKey != null) return if (args.isEmpty()) com.iumrah.beta.core.localization.L10n.text(iosKey, language) else com.iumrah.beta.core.localization.L10n.format(iosKey, language, *args)
     val value = when (language) {
         AppLanguage.RUSSIAN -> mapOf(
             "load_error" to "Не удалось загрузить данные отеля.", "room_error" to "Не удалось загрузить категории номеров.",

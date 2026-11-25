@@ -1,0 +1,45 @@
+{
+  "reference": "kepler-ios-main 5.zip",
+  "protected_sha256": {
+    "app/src/main/java/com/iumrah/beta/ui/home/HomeBrandExperience.kt": "a91a4f799697e8769e92d40da4481fd880f29ae3e3bcf3830df1a183ca5be885",
+    "app/src/main/java/com/iumrah/beta/ui/home/HomeEmotionalCopy.kt": "14ce79af810f41d88f0cf14a7a8e1b4ac5d8eaf0749c31038e5b413e5b70e744",
+    "app/src/main/java/com/iumrah/beta/ui/home/HomePersonalizationSections.kt": "45b74c36a5f3659ae1733cfec1de7b68f7654fa8bfe1d354e65572c5e01bed33",
+    "app/src/main/java/com/iumrah/beta/ui/home/HomePublishedFlights.kt": "bad3126428ac1ddfa41a31375b91b7cb958f92702ed42330b237ebe48a1035ce",
+    "app/src/main/java/com/iumrah/beta/ui/home/HomeReadyPackageTime.kt": "6477e2eba9b80a85588e08caac8eac54699a6cbc6a120a012b61297548418861",
+    "app/src/main/java/com/iumrah/beta/ui/home/HomeScreen.kt": "5d90e3dc88961833bf9498e1437113e62bea3a50e38569c3c261c56563770005",
+    "app/src/main/java/com/iumrah/beta/ui/home/HomeWeatherScreen.kt": "f4cc72bec667b9f843444eddd84d4ff202b814dad56f0f5d09204e3b5a52221c",
+    "app/src/main/java/com/iumrah/beta/ui/home/IumrahGiftCardsScreen.kt": "74711c5f3818124d0d975214d51a73554e546be5340376c1507c87d55ba75f58",
+    "app/src/main/java/com/iumrah/beta/ui/home/IumrahHomeHelpCard.kt": "b416e86234b33388468b342f904a96adc31ed70aeb7b804f03e9ec6e65788f1d",
+    "app/src/main/java/com/iumrah/beta/ui/home/IumrahHomeSearchHero.kt": "2bb55cec735ba570bd8009e775fa23ad642529b90bb9be629b4f8b9f17e27cfa",
+    "app/src/main/java/com/iumrah/beta/ui/home/IumrahServicesScreen.kt": "6704ce8dcbf1b0a5eddcb5c872d690810938ce62560cbee6e9e4538909aeaa10",
+    "app/src/main/java/com/iumrah/beta/ui/homeflow/HomeDestinationCommon.kt": "aa6257fe2b61cc3a6539940506cdd3f3d1ade398761911d785ef81da3f33e455",
+    "app/src/test/java/com/iumrah/beta/ui/home/HomeReadyPackageTimeTest.kt": "20fb1baf1553fc93ec54cda59e0c3a756be988175dbf0799431b4acaa7dc4cc3",
+    "app/src/test/java/com/iumrah/beta/ui/home/PublishedHomeRulesTest.kt": "094db9b61854d0dfd7586d464b4f0fa1da36f63be74e9622e96b244f09eed4c2",
+    ".github/workflows/android-ci.yml": "e1ffc169279d49081bfc7bf1e9a9eb38c584ad76ec501aa7400e6e38139c01de",
+    ".github/workflows/iumrah-apk-test-v10-hotfix02.yml": "51612915da1fe18862eb17c15adf716c2b0e33281d5bae6f104c3c5b21f68be7",
+    ".github/workflows/iumrah-live-ui.yml": "2a84a627b1a04205eabade0d377ddc0348ea13a974db51c78b9f4c03c1fabba1",
+    ".github/workflows/iumrah-play-release-v10.yml": "38bce61f4bac7e24d926168626ea90c4620ba12d18fa8db43a5c555a8438c4fc"
+  },
+  "ios_source_sha256": {
+    "Sources/PrayerTimes/IumrahPrayerCalculator.swift": "c2aca48d9e7b9854056d22dd01771c2dc4526f5ec71f76f1437054a64ec6155c",
+    "Sources/PrayerTimes/IumrahPrayerPreferences.swift": "aee9098956e5f67044724a2e8ba8c0dd34ae31caaa4bbe5809a1b216d168bcc3",
+    "Sources/PrayerTimes/IumrahPrayerTimesView.swift": "c42f3526ffedd50a5f6f19aa82dd1ca9d5a966dd8573b5a2461798b5e1cbf86f",
+    "Sources/Views/Home/IumrahBrandExperience.swift": "2b6a79ce105f14df4d7d34648e419e2987de87863b598d252074ed5535d8900b",
+    "Sources/Umrah Flow/Components/SafaDuaSheet.swift": "23bacbb43e8592ac52bc1376245e2d133e15a54510eb3376dccd6bc3cfd330e3",
+    "Sources/Umrah Flow/Services/UmrahFlowStore.swift": "6cd0e5740f0ffbc187616ed6a1de034ca5a39f7411967638d7c13bf5900658dd",
+    "Sources/Views/ESIM/ESIMView.swift": "3fce0a8d321cfd8fb4b50027e06c73b34e62d246d6345acc666e8d5ce855efd9",
+    "Sources/Services/IumrahWidgetSyncService.swift": "112b2521189490acf7330b3e9b01c518ae2b0aa5dca175b63a9005687aa7ffc4"
+  },
+  "checks": {
+    "policy": "PASS 21 real Kotlin assertions",
+    "P11": "PASS 24 JVM assertions",
+    "cross_platform_calculator": "PASS 4480 instants max 0.001313s",
+    "PSI": "PASS 273 files syntax only",
+    "stage25": "PASS before final calculator change; rerun timed out after structural tests",
+    "Android build": "NOT RUN",
+    "device QA": "NOT RUN"
+  },
+  "cumulative_file_count": 103,
+  "block04_delta_file_count": 21,
+  "prior_file_count": 82
+}

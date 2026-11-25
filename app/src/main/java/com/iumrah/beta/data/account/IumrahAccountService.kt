@@ -170,6 +170,35 @@ class IumrahAccountService(
     suspend fun authorizeSensitiveActionWithGoogle(credential: IumrahGoogleCredential, token: String): IumrahSensitiveAuthorizationResponse =
         api.post(IumrahAccountRoutes.SECURITY_AUTHORIZE_GOOGLE, IumrahGoogleRequest(credential.identityToken, credential.nonce), deviceIdentity.securityHeaders(token))
 
+    suspend fun authorizeSensitiveActionWithApple(credential: IumrahAppleCredential, token: String): IumrahSensitiveAuthorizationResponse =
+        api.post(IumrahAccountRoutes.SECURITY_AUTHORIZE_APPLE, IumrahAppleRequest(credential.identityToken, credential.nonce), deviceIdentity.securityHeaders(token))
+
+    suspend fun startPrimaryRecovery(method: String, locale: String, token: String): IumrahPrimaryRecoveryStartResponse {
+        require(method in setOf("phone", "email"))
+        return api.post(IumrahAccountRoutes.SECURITY_RECOVERY_START, IumrahPrimaryRecoveryStartRequest(method, locale), deviceIdentity.securityHeaders(token))
+    }
+
+    suspend fun confirmPrimaryRecovery(method: String, challengeID: String, code: String, token: String): IumrahSensitiveAuthorizationResponse {
+        require(method in setOf("phone", "email") && challengeID.isNotBlank())
+        return api.post(IumrahAccountRoutes.SECURITY_RECOVERY_CONFIRM, IumrahPrimaryRecoveryConfirmRequest(method, challengeID, code), deviceIdentity.securityHeaders(token))
+    }
+
+    suspend fun unlinkApple(token: String): IumrahSimpleResponse =
+        api.post(IumrahAccountRoutes.APPLE_UNLINK, EmptyBody(), deviceIdentity.securityHeaders(token))
+
+    suspend fun unlinkGoogle(token: String): IumrahSimpleResponse =
+        api.post(IumrahAccountRoutes.GOOGLE_UNLINK, EmptyBody(), deviceIdentity.securityHeaders(token))
+
+    suspend fun startPhoneVerification(phone: String, locale: String, securityProof: String, token: String): IumrahPhoneChallengeStartResponse {
+        require(securityProof.isNotBlank())
+        return api.post(IumrahAccountRoutes.SECURITY_PHONE_START, IumrahAccountPhoneVerificationStartRequest(phone, locale), deviceIdentity.securityHeaders(token) + ("x-iumrah-security-proof" to securityProof))
+    }
+
+    suspend fun confirmPhoneVerification(challengeID: String, code: String, securityProof: String, token: String): IumrahPhoneVerificationResponse {
+        require(securityProof.isNotBlank() && challengeID.isNotBlank())
+        return api.post(IumrahAccountRoutes.SECURITY_PHONE_CONFIRM, IumrahAccountPhoneVerificationConfirmRequest(challengeID, code), deviceIdentity.securityHeaders(token) + ("x-iumrah-security-proof" to securityProof))
+    }
+
     suspend fun changePassword(currentPassword: String, newPassword: String, token: String): IumrahPasswordChangeResponse =
         api.post(IumrahAccountRoutes.SECURITY_CHANGE_PASSWORD, IumrahPasswordChangeRequest(currentPassword, newPassword), deviceIdentity.securityHeaders(token))
 

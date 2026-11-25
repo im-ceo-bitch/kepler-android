@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -108,7 +109,7 @@ internal fun ZiyaratStableScreen(language: AppLanguage, chrome: AppChromeStore, 
     }
 
     Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
-        Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
+        Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding(), horizontalAlignment = Alignment.CenterHorizontally) {
             Row(
                 Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 10.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -126,16 +127,16 @@ internal fun ZiyaratStableScreen(language: AppLanguage, chrome: AppChromeStore, 
             PullToRefreshBox(
                 isRefreshing = updating,
                 onRefresh = { refreshNonce++ },
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier.widthIn(max = 760.dp).fillMaxSize(),
             ) {
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 14.dp, bottom = 40.dp),
+                    contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 18.dp, bottom = 18.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
                     item {
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Text("iumrah Ziyarats", fontSize = 32.sp, lineHeight = 38.sp, fontWeight = FontWeight.Bold)
+                            Text("iumrah Ziyarats", fontSize = 34.sp, lineHeight = 40.sp, fontWeight = FontWeight.Bold)
                             Text(
                                 t(language, "Открывайте исторические места Мекки и Медины в удобном порядке.", "Explore historic sites in Makkah and Madinah at your own pace.", "Makka va Madinaning tarixiy joylarini qulay tartibda kashf eting.", "Макка ва Мадинанинг тарихий жойларини қулай тартибда кашф этинг."),
                                 color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp,
@@ -167,6 +168,7 @@ internal fun ZiyaratStableScreen(language: AppLanguage, chrome: AppChromeStore, 
                                 }
                             }
                         }
+                        Spacer(Modifier.height(12.dp))
                     }
                     item {
                         Row(
@@ -261,8 +263,8 @@ private fun StablePlaceDetail(language: AppLanguage, place: ZiyaratPlace, onClos
     val content = place.localized(language)
     val context = LocalContext.current
     LazyColumn(
-        modifier = Modifier.fillMaxWidth(),
-        contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 35.dp),
+        modifier = Modifier.widthIn(max = 720.dp).fillMaxWidth(),
+        contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 20.dp, bottom = 20.dp),
         verticalArrangement = Arrangement.spacedBy(18.dp),
     ) {
         item { Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -301,7 +303,7 @@ private fun StablePlaceDetail(language: AppLanguage, place: ZiyaratPlace, onClos
                         runCatching { context.startActivity(target) }
                     }
                 },
-                modifier = Modifier.fillMaxWidth().height(50.dp),
+                modifier = Modifier.fillMaxWidth().height(48.dp),
                 shape = CircleShape,
             ) {
                 Text(t(language, "Построить маршрут", "Directions", "Yo‘nalish", "Йўналиш"))

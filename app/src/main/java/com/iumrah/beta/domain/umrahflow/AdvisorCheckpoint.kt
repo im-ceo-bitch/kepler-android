@@ -20,11 +20,11 @@ data class AdvisorCheckpoint(
     fun normalized(): AdvisorCheckpoint? {
         if (stage !in setOf("START", "TAWAF", "POST_TAWAF", "SAFA", "END")) return null
         return copy(startPhase = startPhase.coerceIn(0, 3), tawafCompleted = tawafCompleted.coerceIn(0, 7),
-            tawafTextMode = tawafTextMode.coerceIn(0, 1), tawafMode = if (tawafMode == "READ") "READ" else "LISTEN",
+            tawafTextMode = tawafTextMode.coerceIn(0, 2), tawafMode = if (tawafMode == "READ") "READ" else "LISTEN",
             tawafReadingStep = tawafReadingStep.coerceIn(0, 6), tawafZikrCount = tawafZikrCount.coerceIn(0, 20),
             postTawafStep = postTawafStep.coerceIn(0, 3), safaRound = safaRound.coerceIn(1, 7),
             safaTextMode = safaTextMode.coerceIn(0, 1), safaMode = if (safaMode == "READ") "READ" else "LISTEN",
-            safaReadingStep = safaReadingStep.coerceIn(0, 2), endPhase = endPhase.coerceIn(0, 2))
+            safaReadingStep = safaReadingStep.coerceIn(0, 1), endPhase = endPhase.coerceIn(0, 2))
     }
     val progressFraction: Float get() = when (stage) {
         "START" -> startPhase / 4f * .20f

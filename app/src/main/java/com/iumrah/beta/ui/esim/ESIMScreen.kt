@@ -91,9 +91,10 @@ fun ESIMScreen(
     language: AppLanguage,
     bookingStore: BookingStore,
     chrome: AppChromeStore,
+    bookingID: String? = null,
 ) {
     val state by bookingStore.state.collectAsState()
-    val activeSession = state.sessions.firstOrNull { session ->
+    val activeSession = if (bookingID != null) state.sessions.firstOrNull { it.id == bookingID } else state.sessions.firstOrNull { session ->
         val status = (session.operationStatus ?: session.booking.status).lowercase()
         status != "completed" && status != "cancelled"
     } ?: state.sessions.firstOrNull()
@@ -161,7 +162,7 @@ fun ESIMScreen(
             }
             item { ESIMPlanPreview(language) }
         } else {
-            items(profiles, key = { it.id }) { ESIMProfileCard(it, language) }
+            items(profiles, key = { "${sessionID}:${it.id}" }) { ESIMProfileCard(it, language) }
         }
         item { ESIMPrivacyCard(language) }
     }
@@ -282,7 +283,7 @@ private fun ESIMProfileCard(profile: ClientESIMProfile, language: AppLanguage) {
     val payload = profile.qrPayload()
     ESIMCard {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(18.dp)) {
-            ESIMUsageRing(profile)
+            ESIMUsageRing(profile, language)
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
                 Text(profile.label.ifBlank { "Saudi Arabia eSIM" }, fontSize = 17.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Text(profile.planName.ifBlank { esimText(language, "your_plan") }, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = .56f))
@@ -347,7 +348,7 @@ private fun ESIMProfileCard(profile: ClientESIMProfile, language: AppLanguage) {
 }
 
 @Composable
-private fun ESIMUsageRing(profile: ClientESIMProfile) {
+private fun ESIMUsageRing(profile: ClientESIMProfile, language: AppLanguage) {
     val trackColor = MaterialTheme.colorScheme.onSurface.copy(alpha = .08f)
     Box(Modifier.size(104.dp), contentAlignment = Alignment.Center) {
         Canvas(Modifier.fillMaxSize()) {
@@ -357,12 +358,12 @@ private fun ESIMUsageRing(profile: ClientESIMProfile) {
         if (profile.usageAvailable) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(dataText(profile.remainingMB), fontSize = 15.sp, fontWeight = FontWeight.Bold)
-                Text("left", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = .5f))
+                Text(if (language.code == "tr") "Kalan" else "left", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = .5f))
             }
         } else {
             Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
-                Text("AUTO", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface.copy(alpha = .5f))
+                Text(if (language.code == "tr") "OTOMATİK" else "AUTO", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface.copy(alpha = .5f))
             }
         }
     }
@@ -446,8 +447,8 @@ private fun ClientESIMProfile.validityText(language: AppLanguage): String? = whe
         val raw = expiresAt.trim()
         val day = runCatching { Instant.parse(raw).atZone(ZoneId.systemDefault()).toLocalDate() }
             .recoverCatching { LocalDate.parse(raw.take(10)) }.getOrNull()
-        val date = day?.format(DateTimeFormatter.ofPattern("d MMM yyyy", language.locale)) ?: raw.take(10)
-        "${esimText(language, "valid_until")} $date"
+        val date = day?.format(DateTimeFormatter.ofPattern("d MMM yyyy", language.locale))
+        if (date != null) "${esimText(language, "valid_until")} $date" else validityDays?.takeIf { it > 0 }?.let { "$it ${esimText(language, "days")}" }
     }
     (validityDays ?: 0) > 0 -> "$validityDays ${esimText(language, "days")}"
     else -> null

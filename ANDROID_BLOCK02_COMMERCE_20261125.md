@@ -1,0 +1,17 @@
+# Block 02 — Commerce / 2026-11-25
+Cumulative source update over supplied `kepler-android-main 2.zip`, including Block 01 and nonhome V1. Reference: supplied `kepler-ios-main 5.zip`. No changes in Home/HomeFlow source files or CI workflows. Actual Home rendering still requires regression captures.
+
+## Implemented
+- Guided flights: airport-local date grouping, route/cabin/segment validation, preserve outbound when only return date changes, separate observations from confirmed package prices, optional published fare, date rail across months with gaps rather than invented prices, filters and sorting, revised flight card, explicit selection/detail. Avoid double counting paired published fares in tentative snapshots. USD-only observations; a server quote remains required.
+- Official: clear recommendations on route change (including return airport), cancellation-safe loading, check current recommendation identity before continuing. Hotel selection: local name search, count, correct family/child-age gate, explicit continuation after final room, preserve prior selected room state.
+- Manual: shared flight card/details, explicit confirmation, airport-local grouping, shared hotel card/favorites, use room selection validation. Smart: independent session from preceding patch, shared guided flight UI, hotel name search in editor. Existing quote and availability checks retained.
+- Trip Summary: shared daily rail and calendar from backend itinerary preview or known flight/stay data; airport-local dates, no invented times, one-way return guard. Included alongside preceding review updates.
+
+## Actual verification
+Kotlin compiler PSI: 268 files, zero syntax errors (not Android type checking). Stage25 source suite: pass. P02 hotel rate hydration: 17 scoped cases pass (service/Compose stubs). New commerce JVM smoke: pass, actual pure flight/fare rules + DTOs with offline API/Trip/serialization stubs; verifies local date/time, observed fare gaps, filtering, route/cabin matching and segment validation. ZIP integrity and protected SHA-256: checked. No Android SDK/Gradle, iOS/Xcode, live provider or device screenshot runs. These checks do not certify a production build or pixel equality.
+
+## Open parity work
+Independent Hotels/Flights storefront screens, all official modes and Smart stage-specific layouts, manual sheet vs iOS navigation, transfer/detail interactions, all locales (new strings cover RU/EN/UZ/UZ-Cyrl with English fallback), full screen/state and screenshot comparison are not certified. Native glass and scroll physics require device tuning. The calendar and UI components need full Android compilation and live quote/itinerary verification; no exact parity claim. Prior Block01 platform limitations remain.
+
+## Apply and QA
+Upload this cumulative ZIP to repository root using existing `iumrah-android-update-*.zip` workflow. Do not publish until Android CI and real-device tests pass. Run `bash scripts/qa/block02/test_commerce.sh`, `bash scripts/qa/p02/test_hydration.sh`, `bash scripts/verify-kotlin-syntax-v8.sh`, `bash scripts/verify-stage25.sh`. Capture iOS and Android same locale, theme, viewport and fixture: outbound/return exact/nearby/empty/loading/error, date rail at month boundary, connecting details, official separate/round-trip/flex/weekend, manual flight/hotel/room, Smart edits/requote, hotel search/family/last room, Trip Summary calendar and pricing, booking CTA. Compare Home Android before/after separately. Do not substitute static checks for screenshots.

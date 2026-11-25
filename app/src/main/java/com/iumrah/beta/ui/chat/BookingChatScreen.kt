@@ -66,6 +66,10 @@ import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.flow.first
 import java.util.UUID
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.key
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
@@ -209,14 +213,29 @@ fun BookingChatScreen(
     chatService: ChatService,
     chrome: AppChromeStore,
 ) {
+    val app = LocalContext.current.applicationContext as com.iumrah.beta.IumrahApplication
+    val accountState by app.container.accountStore.state.collectAsState()
+    val bookingState by bookingStore.state.collectAsState()
+    val headers = bookingStore.careHeaders(bookingID)
+    key(bookingID, headers, accountState.iumrahID, bookingState.sessions.firstOrNull { it.id == bookingID }?.id) {
+        ScopedBookingChatScreen(bookingID, language, bookingStore, chatService, chrome, headers)
+    }
+}
+
+@Composable
+private fun ScopedBookingChatScreen(
+    bookingID: String, language: AppLanguage, bookingStore: BookingStore,
+    chatService: ChatService, chrome: AppChromeStore, headers: Map<String, String>,
+) {
     val context = LocalContext.current
     val view = LocalView.current
     val scope = rememberCoroutineScope()
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+    val pushManager = (context.applicationContext as com.iumrah.beta.IumrahApplication).container.pushManager
     val listState = rememberLazyListState()
     val appearance = rememberCareAppearance(bookingID)
     val bookingState by bookingStore.state.collectAsState()
     val session = bookingState.sessions.firstOrNull { it.id == bookingID }
-    val headers = bookingStore.careHeaders(bookingID)
     val dark = MaterialTheme.colorScheme.background.luminanceCompat() < .45f
     val page = if (dark) Color(0xFF000000) else Color(0xFFF7F7F8)
     val primary = if (appearance.wallpaper.isVisual) Color.White else MaterialTheme.colorScheme.onBackground
@@ -236,6 +255,7 @@ fun BookingChatScreen(
     var showProfile by remember { mutableStateOf(false) }
     var fullImagePath by remember(bookingID, headers) { mutableStateOf<String?>(null) }
     var unseenCount by remember { mutableStateOf(0) }
+    var scrollRequest by remember { mutableStateOf(0) }
     val focusRequester = remember { FocusRequester() }
     var composerFocused by remember { mutableStateOf(false) }
 
@@ -255,11 +275,14 @@ fun BookingChatScreen(
                 val data = withContext(Dispatchers.IO) { AndroidImageCodec.jpeg(context.contentResolver, uri, 1600, 84) }
                 chatService.sendPhoto(data, bookingID, headers)
             }.onSuccess { message ->
+                if (bookingStore.careHeaders(bookingID) != headers) return@onSuccess
                 messages = chatService.mergeChat(bookingID, headers, listOf(message))
+                scrollRequest++
                 if (appearance.hapticsEnabled) IumrahHaptics.success(view)
                 if (appearance.soundsEnabled) playCareTone(success = true)
                 isSendingPhoto = false
             }.onFailure {
+                if (it is CancellationException) throw it
                 error = it.message ?: L10n.text("error_chat_load", language)
                 isSendingPhoto = false
                 if (appearance.hapticsEnabled) IumrahHaptics.error(view)
@@ -268,8 +291,15 @@ fun BookingChatScreen(
     }
 
     LaunchedEffect(bookingID) { care = runCatching { chatService.loadCareProfile() }.getOrNull() }
-    LaunchedEffect(bookingID, headers) {
+    LaunchedEffect(bookingID, headers, lifecycle, showProfile) {
+        if (headers.isNotEmpty() && !showProfile) lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
+            pushManager.enterChat(bookingID)
+            try { kotlinx.coroutines.awaitCancellation() } finally { pushManager.leaveChat(bookingID) }
+        }
+    }
+    LaunchedEffect(bookingID, headers, lifecycle) {
         var first = true
+        lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
         while (true) {
             val seenRevision = chatService.refreshRevision.value
             if (headers.isNotEmpty()) {
@@ -278,8 +308,11 @@ fun BookingChatScreen(
                         val oldIDs = messages.mapTo(hashSetOf()) { it.id }
                         val newIncoming = fresh.count { !oldIDs.contains(it.id) && !isMine(it) }
                         if (!first && !atBottom && newIncoming > 0) unseenCount += newIncoming
+                        if (bookingStore.careHeaders(bookingID) != headers) return@onSuccess
+                        val follow = first || atBottom
                         messages = fresh.sortedBy { it.createdAt }
-                        if (first || newIncoming > 0) runCatching { chatService.markRead(bookingID, headers) }
+                        if (follow && messages.isNotEmpty() && (first || newIncoming > 0)) scrollRequest++
+                        if (first || newIncoming > 0) try { chatService.markRead(bookingID, headers) } catch (e: CancellationException) { throw e } catch (_: Exception) { }
                         error = null
                         isLoading = false
                     }
@@ -298,16 +331,22 @@ fun BookingChatScreen(
             } else {
                 first = false
             }
-            withTimeoutOrNull(6_000) { chatService.refreshRevision.first { it != seenRevision } }
+            withTimeoutOrNull(15_000) { chatService.refreshRevision.first { it != seenRevision } }
+        }
         }
     }
 
-    LaunchedEffect(messages.size, pendingText) {
-        if (atBottom && messages.isNotEmpty()) {
-            delay(40)
-            listState.animateScrollToItem(messages.lastIndex)
+    LaunchedEffect(scrollRequest) {
+        if (messages.isNotEmpty() || pendingText != null) {
+            delay(if (composerFocused) 120 else 40)
+            val target = messages.size + (if (pendingText != null) 1 else 0) - 1
+            if (target >= 0) listState.animateScrollToItem(target)
             unseenCount = 0
         }
+    }
+
+    LaunchedEffect(composerFocused) {
+        if (composerFocused) scrollRequest++
     }
 
     if (showProfile) {
@@ -356,11 +395,11 @@ fun BookingChatScreen(
                 } else if (messages.isEmpty() && pendingText == null) {
                     CareEmptyState(language, primary, secondary)
                 } else {
-                    val presentations = remember(messages) { buildPresentations(messages, language) }
+                    val presentations = remember(messages, language) { buildPresentations(messages, language) }
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
                         state = listState,
-                        contentPadding = PaddingValues(start = 14.dp, end = 14.dp, top = 14.dp, bottom = 108.dp),
+                        contentPadding = PaddingValues(start = 14.dp, end = 14.dp, top = 14.dp, bottom = 14.dp),
                     ) {
                         itemsIndexed(messages, key = { _, item -> item.id }) { index, message ->
                             val meta = presentations[index]
@@ -423,12 +462,11 @@ fun BookingChatScreen(
                     }
                 }
             }
-        }
 
         Column(
             modifier = Modifier
-                .align(Alignment.BottomCenter)
                 .fillMaxWidth()
+                .background(MaterialTheme.colorScheme.background)
                 .imePadding()
                 .navigationBarsPadding()
                 .padding(bottom = if (composerFocused) 8.dp else 12.dp),
@@ -465,6 +503,7 @@ fun BookingChatScreen(
                     if (body.isBlank() || headers.isEmpty() || isSending || isSendingPhoto) return@CareComposer
                     text = ""
                     pendingText = body
+                    scrollRequest++
                     val messageID = failedMessageID?.takeIf { failedDraft == body } ?: UUID.randomUUID().toString()
                     failedDraft = body
                     failedMessageID = messageID
@@ -475,14 +514,17 @@ fun BookingChatScreen(
                     scope.launch {
                         runCatching { chatService.send(body, bookingID, headers, messageID) }
                             .onSuccess { message ->
+                                if (bookingStore.careHeaders(bookingID) != headers) return@onSuccess
                                 messages = chatService.mergeChat(bookingID, headers, listOf(message))
                                 pendingText = null
                                 failedDraft = null
                                 failedMessageID = null
                                 isSending = false
+                                scrollRequest++
                                 if (appearance.hapticsEnabled) IumrahHaptics.success(view)
                             }
                             .onFailure { cause ->
+                                if (cause is CancellationException) throw cause
                                 pendingText = null
                                 text = body
                                 isSending = false
@@ -493,6 +535,7 @@ fun BookingChatScreen(
                     }
                 },
             )
+        }
         }
     }
 

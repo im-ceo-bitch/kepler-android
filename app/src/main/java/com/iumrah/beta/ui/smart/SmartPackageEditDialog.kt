@@ -72,6 +72,7 @@ import com.iumrah.beta.ui.components.IumrahPrimaryButton
                 Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).padding(20.dp)) { TextButton(onClick=onDismiss) { Text(t("Закрыть", "Close", "Yopish", "Ёпиш")) } }
             } else {
                 var stars by remember { mutableIntStateOf(0) }
+                var query by remember(roomIndex) { mutableStateOf("") }
                 var hotel by remember(roomIndex) { mutableStateOf<NuiteeHotel?>(null) }
                 var chosenKeys by remember { mutableStateOf<Set<String>>(emptySet()) }
                 val selectedHotelId = state.nuitee?.rooms?.get("$kind:0")?.hotel?.id
@@ -83,13 +84,14 @@ import com.iumrah.beta.ui.components.IumrahPrimaryButton
                     item { TextButton(onClick=onDismiss) { Text(t("Отмена", "Cancel", "Bekor qilish", "Бекор қилиш")) }
                         Text(if(kind=="makkah") t("Отель в Мекке", "Makkah hotel", "Makkadagi mehmonxona", "Маккадаги меҳмонхона") else t("Отель в Медине", "Madinah hotel", "Madinadagi mehmonxona", "Мадинадаги меҳмонхона"), fontSize=25.sp,fontWeight=FontWeight.Bold)
                         Text("${room.checkin} — ${room.checkout} · ${roomIndex + 1}/${prior.size}")
+                        OutlinedTextField(query, { query = it }, modifier = Modifier.fillMaxWidth(), singleLine = true, label = { Text(t("Название отеля", "Hotel name", "Mehmonxona nomi", "Меҳмонхона номи")) })
                         Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) { (0..5).forEach { value -> FilterChip(selected = stars == value, onClick = { stars = value }, label = { Text(if(value==0) "★" else "$value") }) } }
                     }
                     if (page.stale) item { Text(t("Цены требуют проверки", "Prices need verification", "Narxlar tekshirilishi kerak", "Нархлар текширилиши керак")) }
                     if (page.loading) item { CircularProgressIndicator() }
                     if (page.error != null) item { TextButton(onClick = { page.retry() }) { Text(t("Повторить", "Retry", "Qayta urinish", "Қайта уриниш")) } }
                     val rows = if (roomIndex == 0) page.hotels else page.hotels.filter { it.id == selectedHotelId }.ifEmpty { listOfNotNull(state.nuitee?.rooms?.get("$kind:0")?.hotel) }
-                    items(rows, key = { it.id }) { option -> NuiteeListingCard(option, language, page.stale, option.id in favorites, {
+                    items(rows.filter { query.isBlank() || it.name.contains(query.trim(), ignoreCase = true) }, key = { it.id }) { option -> NuiteeListingCard(option, language, page.stale, option.id in favorites, {
                         favorites = if (option.id in favorites) favorites - option.id else favorites + option.id
                         favoritePrefs.edit().putStringSet("hotels", favorites).apply()
                     }, { hotel = option }, nights = java.time.temporal.ChronoUnit.DAYS.between(room.checkin, room.checkout).toInt(), adults = room.adults, childrenCount = room.childrenAges.size, sandbox = page.sandbox) }

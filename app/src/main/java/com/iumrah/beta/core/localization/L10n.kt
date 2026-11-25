@@ -1938,10 +1938,11 @@ object L10n {
     )
 
     fun text(key: String, language: AppLanguage): String {
-        val english = dictionary["en"]?.get(key) ?: key
+        val english = dictionary["en"]?.get(key) ?: IOSLocalizationDelta.text("en", key) ?: key
         return IumrahInternationalTranslations.byKey(language.code, key)
             ?: IumrahInternationalTranslations.byPhrase(language.code, english)
             ?: dictionary[language.code]?.get(key)
+            ?: IOSLocalizationDelta.text(language.code, key)
             ?: english
     }
 
@@ -1951,8 +1952,10 @@ object L10n {
 
     fun format(key: String, language: AppLanguage, vararg args: Any): String {
         // Swift/Foundation uses %@ for object interpolation; java.util.Formatter uses %s.
-        // Normalize only that token so numeric specifiers (%d, %.0f, …) retain source semantics.
-        val format = text(key, language).replace("%@", "%s")
+        // Normalize plain and positional object placeholders; keep escaped percent and numeric specifiers.
+        val format = Regex("%%|%(?:[0-9]+\\$)?@").replace(text(key, language)) { token ->
+            if (token.value == "%%") token.value else token.value.dropLast(1) + "s"
+        }
         return runCatching { String.format(language.locale, format, *args) }
             .getOrElse { text(key, language) }
     }

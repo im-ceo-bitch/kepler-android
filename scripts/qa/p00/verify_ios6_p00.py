@@ -37,7 +37,7 @@ expect('rememberSaveableStateHolder()' in shell and 'SaveableStateProvider(tab)'
        'TabView saveable composition state')
 expect('.clipToBounds()' in shell and 'height(statusInset)' in shell and
        'val rootHeaderVisible =' in shell and 'isAppearanceLightStatusBars = !rootHeaderVisible' in shell, 'Moving root status surface follows header visibility')
-expect('Modifier.fillMaxWidth().statusBarsPadding().height(headerHeight)' in header and
+expect('Modifier.fillMaxWidth().statusBarsPadding()' in header and '.then(if (flexibleFooter) Modifier else Modifier.height(headerHeight))' in header and
        'reportMastheadVisibility' in header, 'Header compensates safe area and reports actual scroll bounds')
 expect('rememberTextMeasurer()' in shell and '(105 downTo 76)' in shell,
        'Intrinsic width-based tab label fitting')

@@ -6,6 +6,7 @@ import com.iumrah.beta.models.account.*
 import com.iumrah.beta.models.booking.ClientTripSnapshot
 import java.util.Locale
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -175,7 +176,7 @@ class IumrahAccountStore(
         val current = requireToken()
         return try {
             service.registerCurrentSession(current, locale)
-            service.securityOverview(current)
+            service.securityOverview(current).also { check(token == current) { "Account changed" } }
         } catch (error: Throwable) {
             val revoked = (error is APIException.Status && error.code == 401) ||
                 (error is APIException.Server && error.code == 401)
@@ -197,7 +198,15 @@ class IumrahAccountStore(
         return dashboard
     }
 
-    suspend fun claimPrimaryDevice(password: String): IumrahSecurityOverview = service.claimPrimaryDevice(password, requireToken())
+    private suspend fun <T> scopedSecurity(action: suspend (String) -> T): T {
+        val current = requireToken()
+        val result = action(current)
+        kotlinx.coroutines.currentCoroutineContext().ensureActive()
+        check(token == current) { "Account changed" }
+        return result
+    }
+
+    suspend fun claimPrimaryDevice(password: String): IumrahSecurityOverview = scopedSecurity { service.claimPrimaryDevice(password, it) }
 
     suspend fun terminateSecuritySession(id: String): Boolean {
         val current = requireToken()
@@ -207,7 +216,7 @@ class IumrahAccountStore(
         return response.signedOut
     }
 
-    suspend fun linkApple(credential: IumrahAppleCredential): IumrahAppleLinkResponse = service.linkApple(credential, requireToken())
+    suspend fun linkApple(credential: IumrahAppleCredential): IumrahAppleLinkResponse = scopedSecurity { service.linkApple(credential, it).also { result -> check(result.ok && result.appleLinked) { "Apple link not confirmed" } } }
 
     suspend fun signInWithGoogle(credential: IumrahGoogleCredential, locale: String = Locale.getDefault().toLanguageTag()): IumrahAccountProfile {
         val response = service.signInWithGoogle(credential, locale)
@@ -216,23 +225,69 @@ class IumrahAccountStore(
         return response.account
     }
 
-    suspend fun linkGoogle(credential: IumrahGoogleCredential): IumrahGoogleLinkResponse = service.linkGoogle(credential, requireToken())
+    suspend fun linkGoogle(credential: IumrahGoogleCredential): IumrahGoogleLinkResponse = scopedSecurity { service.linkGoogle(credential, it).also { result -> check(result.ok && result.googleLinked) { "Google link not confirmed" } } }
 
     suspend fun authorizeSensitiveAction(password: String): IumrahSensitiveAuthorizationResponse =
-        service.authorizeSensitiveAction(password, requireToken())
+        scopedSecurity { service.authorizeSensitiveAction(password, it).also { result -> check(result.ok && result.securityProof.isNotBlank()) { "Authorization not confirmed" } } }
 
     suspend fun authorizeSensitiveActionWithGoogle(credential: IumrahGoogleCredential): IumrahSensitiveAuthorizationResponse =
-        service.authorizeSensitiveActionWithGoogle(credential, requireToken())
+        scopedSecurity { service.authorizeSensitiveActionWithGoogle(credential, it).also { result -> check(result.ok && result.securityProof.isNotBlank()) { "Authorization not confirmed" } } }
+
+    suspend fun authorizeSensitiveActionWithApple(credential: IumrahAppleCredential): IumrahSensitiveAuthorizationResponse =
+        scopedSecurity { service.authorizeSensitiveActionWithApple(credential, it).also { result -> check(result.ok && result.securityProof.isNotBlank()) { "Authorization not confirmed" } } }
+
+    suspend fun startPrimaryRecovery(method: String, locale: String): IumrahPrimaryRecoveryStartResponse {
+        val current = requireToken()
+        val result = service.startPrimaryRecovery(method, locale, current)
+        check(token == current && result.ok && result.method == method && result.challengeID.isNotBlank()) { "Recovery challenge not confirmed" }
+        return result
+    }
+
+    suspend fun confirmPrimaryRecovery(method: String, challengeID: String, code: String): IumrahSensitiveAuthorizationResponse {
+        val current = requireToken()
+        val result = service.confirmPrimaryRecovery(method, challengeID, code, current)
+        check(token == current && result.ok && result.securityProof.isNotBlank()) { "Recovery authorization not confirmed" }
+        return result
+    }
+
+    suspend fun unlinkApple() {
+        val current = requireToken()
+        check(service.unlinkApple(current).ok && token == current) { "Apple unlink not confirmed" }
+    }
+
+    suspend fun unlinkGoogle() {
+        val current = requireToken()
+        check(service.unlinkGoogle(current).ok && token == current) { "Google unlink not confirmed" }
+    }
+
+    suspend fun startPhoneVerification(phone: String, locale: String, securityProof: String): IumrahPhoneChallengeStartResponse {
+        val current = requireToken()
+        val result = service.startPhoneVerification(phone, locale, securityProof, current)
+        check(token == current && result.ok && result.challengeID.isNotBlank()) { "Phone challenge not confirmed" }
+        return result
+    }
+
+    suspend fun confirmPhoneVerification(challengeID: String, code: String, securityProof: String): IumrahPhoneVerificationResponse {
+        val current = requireToken()
+        val result = service.confirmPhoneVerification(challengeID, code, securityProof, current)
+        check(token == current && result.ok && result.phone.isNotBlank()) { "Phone verification not confirmed or account changed" }
+        _state.value.account?.let { profile ->
+            val updated = profile.copy(phone = result.phone)
+            saveSession(current, updated)
+            _state.value = IumrahAccountState(account = updated)
+        }
+        return result
+    }
 
     suspend fun changePassword(currentPassword: String, newPassword: String): IumrahPasswordChangeResponse =
-        service.changePassword(currentPassword, newPassword, requireToken())
+        scopedSecurity { service.changePassword(currentPassword, newPassword, it) }
 
-    suspend fun publicIdentityLink(): IumrahPublicIdentityLinkResponse = service.publicIdentityLink(requireToken())
+    suspend fun publicIdentityLink(): IumrahPublicIdentityLinkResponse = scopedSecurity { service.publicIdentityLink(it) }
 
-    suspend fun walletPass(): ByteArray = service.walletPass(requireToken())
+    suspend fun walletPass(): ByteArray = scopedSecurity { service.walletPass(it) }
 
     suspend fun startEmailVerification(email: String, locale: String, securityProof: String): IumrahEmailChallengeStartResponse =
-        service.startEmailVerification(email, locale, securityProof, requireToken())
+        scopedSecurity { service.startEmailVerification(email, locale, securityProof, it) }
 
     suspend fun confirmEmailVerification(challengeID: String, code: String, securityProof: String): IumrahEmailChallengeConfirmResponse {
         val current = requireToken()

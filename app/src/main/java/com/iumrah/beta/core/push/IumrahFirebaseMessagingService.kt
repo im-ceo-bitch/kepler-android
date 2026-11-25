@@ -33,7 +33,14 @@ class IumrahFirebaseMessagingService : FirebaseMessagingService() {
             message.notification?.body?.takeIf { it.isNotBlank() }?.let { put("pushBody", it) }
         }
         appContainer.pushManager.receiveRemotePayload(payload, opened = false)
-        postVisibleNotification(payload)
+        val event = appContainer.pushManager.state.value.lastEvent ?: return
+        val bookings = appContainer.bookingStore
+        val id = event.bookingID ?: event.destinationBookingID
+        // Old-account payloads must not display private text after logout or account change.
+        if (!bookings.acceptsPushOwner(event.pilgrimID, id)) return
+        val silent = event.type.startsWith("chat_") && id != null &&
+            bookings.careChatKeyForPush(id, event.pilgrimID)?.let { it == appContainer.pushManager.activeChatBookingID } == true
+        postVisibleNotification(payload, silent)
     }
 
     override fun onDeletedMessages() {
@@ -42,7 +49,7 @@ class IumrahFirebaseMessagingService : FirebaseMessagingService() {
         appContainer.pushManager.refreshToken()
     }
 
-    private fun postVisibleNotification(payload: Map<String, String>) {
+    private fun postVisibleNotification(payload: Map<String, String>, silent: Boolean) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
             ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
         ) return
@@ -67,6 +74,8 @@ class IumrahFirebaseMessagingService : FirebaseMessagingService() {
             .setContentText(body)
             .setStyle(NotificationCompat.BigTextStyle().bigText(body))
             .setAutoCancel(true)
+            .setSilent(silent)
+            .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
             .setContentIntent(pending)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setCategory(NotificationCompat.CATEGORY_STATUS)

@@ -22,19 +22,21 @@ object IumrahWidgetSync {
     fun sync(context: Context, sessions: List<StoredBookingSession>, account: IumrahAccountProfile?, language: String) {
         val active = sessions.filter { it.effectiveStatus.uppercase() !in setOf("CANCELLED", "COMPLETED") }
             .minByOrNull { parseDate(it.booking.input.startDate) ?: LocalDate.MAX }
-        val editor = context.getSharedPreferences(STORE, Context.MODE_PRIVATE).edit()
-        editor.putString("locale", language)
-        editor.putString("booking_id", active?.id?.take(100).orEmpty())
-        editor.putString("number", active?.displayBookingNumber.orEmpty())
-        editor.putString("status", active?.effectiveStatus.orEmpty())
-        editor.putString("origin", active?.booking?.input?.originCode.orEmpty())
-        editor.putString("destination", active?.booking?.route?.outboundDestination?.takeIf { it.isNotBlank() } ?: active?.booking?.input?.arrivalAirportCode.orEmpty())
-        editor.putString("date", active?.booking?.input?.startDate.orEmpty())
-        editor.putString("date_end", active?.booking?.input?.endDate.orEmpty())
-        editor.putString("guests", active?.booking?.input?.travelers?.totalPeople?.toString().orEmpty())
-        editor.putString("name", account?.displayName?.ifBlank { listOf(account.firstName, account.lastName).filter { it.isNotBlank() }.joinToString(" ") }?.take(64).orEmpty())
-        editor.putString("iumrah_id", account?.iumrahID?.take(96).orEmpty())
-        editor.apply()
+        val prefs = context.getSharedPreferences(STORE, Context.MODE_PRIVATE)
+        val snapshot = linkedMapOf<String, String>()
+        snapshot.put("locale", language)
+        snapshot.put("booking_id", active?.id?.take(100).orEmpty())
+        snapshot.put("number", active?.displayBookingNumber.orEmpty())
+        snapshot.put("status", active?.effectiveStatus.orEmpty())
+        snapshot.put("origin", active?.booking?.input?.originCode.orEmpty())
+        snapshot.put("destination", active?.booking?.route?.outboundDestination?.takeIf { it.isNotBlank() } ?: active?.booking?.input?.arrivalAirportCode.orEmpty())
+        snapshot.put("date", active?.booking?.input?.startDate.orEmpty())
+        snapshot.put("date_end", active?.booking?.input?.endDate.orEmpty())
+        snapshot.put("guests", active?.booking?.input?.travelers?.totalPeople?.toString().orEmpty())
+        snapshot.put("name", account?.displayName?.ifBlank { listOf(account.firstName, account.lastName).filter { it.isNotBlank() }.joinToString(" ") }?.take(64).orEmpty())
+        snapshot.put("iumrah_id", account?.iumrahID?.take(96).orEmpty())
+        if (snapshot.all { (key, value) -> prefs.getString(key, null) == value }) return
+        prefs.edit().apply { snapshot.forEach { (key, value) -> putString(key, value) } }.apply()
         refreshAll(context)
     }
 

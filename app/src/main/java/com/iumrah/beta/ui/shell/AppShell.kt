@@ -14,6 +14,20 @@ import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.ContentTransform
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.core.snap
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.graphics.luminance
+import com.iumrah.beta.core.design.IOSLayoutProfile
+import com.iumrah.beta.core.design.IOSParityScope
+import com.iumrah.beta.core.design.IOSContinuousShape
+import com.iumrah.beta.core.design.iosChromeSurface
+import com.iumrah.beta.core.design.rememberIumrahMotionAllowed
+import com.iumrah.beta.core.navigation.RouteStateKeys
+import kotlinx.coroutines.delay
 import androidx.compose.animation.togetherWith
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
@@ -188,25 +202,49 @@ fun AppShell(
     val visibleHeaders by chrome.rootMastheadVisible.collectAsState()
     val rootHeaderVisible = visibleHeaders[chromeState.currentTab] ?: true
     val window = (context as? android.app.Activity)?.window
-    DisposableEffect(window, hapticView, isRootTab, rootHeaderVisible) {
+    val isHomeRoot = isRootTab && chromeState.currentTab == AppTab.HOME
+    val darkPage = MaterialTheme.colorScheme.background.luminance() < .5f
+    DisposableEffect(window, hapticView, isRootTab, rootHeaderVisible, isHomeRoot, darkPage) {
         val controller = window?.let { WindowCompat.getInsetsController(it, hapticView) }
         val previous = controller?.isAppearanceLightStatusBars
-        if (isRootTab) controller?.isAppearanceLightStatusBars = !rootHeaderVisible
+        if (isRootTab) controller?.isAppearanceLightStatusBars = !rootHeaderVisible && (isHomeRoot || !darkPage)
         onDispose { if (previous != null) controller?.isAppearanceLightStatusBars = previous }
     }
     val shellNotificationState by notifications.state.collectAsState()
-    val guidedJourney = chrome.journeyForRoute(chromeState.route, chromeState.currentTab, journey)
     // SwiftUI TabView preserves each NavigationStack's scroll/form state.
     // AnimatedContent otherwise disposes a tab on every switch. Save Android's
     // rememberSaveable state by tab identity without composing hidden tabs
     // (which would accidentally start five background API requests).
     val tabSaveableStates = rememberSaveableStateHolder()
+    val routeSaveableStates = rememberSaveableStateHolder()
+    val routeKeys = remember { RouteStateKeys() }
+    LaunchedEffect(chromeState.currentTab, chromeState.route, chromeState.backStack, chromeState.tabNavigation) {
+        // Let the outgoing transition finish before removing popped destinations.
+        delay(500)
+        routeKeys.prune(chromeState).forEach(routeSaveableStates::removeState)
+    }
+    val motionAllowed = rememberIumrahMotionAllowed()
     BackHandler(enabled = chromeState.isSidebarOpen || chromeState.route != AppRoute.Root) {
         if (chromeState.isSidebarOpen) chrome.closeSidebar() else chrome.back()
     }
 
-    SidebarDrawerHost(open = chromeState.isSidebarOpen, language = language, chrome = chrome) {
-    Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+    SidebarDrawerHost(open = chromeState.isSidebarOpen, language = language, chrome = chrome, preserveHome = isHomeRoot) {
+    BoxWithConstraints(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+        val useSidebar = !isHomeRoot && !chromeState.isImmersive && IOSLayoutProfile.resolve(maxWidth.value).usesSidebar
+        Row(Modifier.fillMaxSize()) {
+            if (useSidebar) {
+                Box {
+                    IOSWideSidebar(language, chromeState.currentTab, shellNotificationState.unreadCount,
+                        onSelect = { IumrahHaptics.selection(hapticView); chrome.navigate(it) },
+                        onESIM = chrome::openESIM, onNotifications = chrome::openNotifications)
+                    if (isRootTab) Box(Modifier.align(Alignment.TopCenter).width(268.dp).height(statusInset)
+                        .background(if (rootHeaderVisible) com.iumrah.beta.core.design.IumrahColors.SignatureBlack
+                        else MaterialTheme.colorScheme.background))
+                }
+                Box(Modifier.width(.5.dp).fillMaxHeight().background(MaterialTheme.colorScheme.onSurface.copy(alpha = .1f)))
+            }
+            BoxWithConstraints(Modifier.weight(1f).fillMaxHeight()) {
+            val profile = IOSLayoutProfile.resolve(maxWidth.value)
         AnimatedContent(
             targetState = chromeState.route to chromeState.currentTab,
             // iOS IumrahRootScrollingPage draws the scrolling masthead under
@@ -214,11 +252,29 @@ fun AppShell(
             // Do not pre-consume the status inset here: doing so removes the
             // child header's compensation and clips its scrolling background.
             modifier = Modifier.fillMaxSize()
-                .then(if (isRootTab && !chromeState.isImmersive) Modifier.padding(bottom = bottomNavigationFootprint) else Modifier)
+                .then(if (isRootTab && !chromeState.isImmersive && !useSidebar) Modifier.padding(bottom = bottomNavigationFootprint) else Modifier)
                 .clipToBounds(),
-            transitionSpec = { rootTransform() },
+            transitionSpec = {
+                val homeInvolved = (initialState.first == AppRoute.Root && initialState.second == AppTab.HOME) ||
+                    (targetState.first == AppRoute.Root && targetState.second == AppTab.HOME)
+                when {
+                    homeInvolved -> rootTransform() // Preserve existing Home transition.
+                    !motionAllowed -> fadeIn(snap()).togetherWith(fadeOut(snap()))
+                    initialState.second != targetState.second -> fadeIn(tween(180)).togetherWith(fadeOut(tween(180)))
+                    else -> {
+                        val popping = initialState.first != targetState.first && initialState.first !in chromeState.backStack
+                        val direction = if (popping) -1 else 1
+                        (slideInHorizontally(tween(280, easing = IumrahMotion.iosButtonEaseOut)) { it * direction } + fadeIn(tween(180)))
+                            .togetherWith(slideOutHorizontally(tween(280, easing = IumrahMotion.iosButtonEaseOut)) { -it * direction / 3 } + fadeOut(tween(220)))
+                    }
+                }
+            },
             label = "iumrah-root-navigation",
         ) { (route, tab) ->
+            // AnimatedContent can render an outgoing route concurrently with the new one.
+            val guidedJourney = chrome.journeyForRoute(route, tab, journey)
+            val render: @Composable () -> Unit = {
+            IOSParityScope(tab, route, profile, chromeState.isImmersive, useSidebar) {
             when (route) {
                 AppRoute.Root -> tabSaveableStates.SaveableStateProvider(tab) {
                     when (tab) {
@@ -318,6 +374,22 @@ fun AppShell(
                 )
                 AppRoute.NuiteeJourneyHotels -> NuiteeJourneyHotelsScreen(language, guidedJourney, chrome)
                 AppRoute.NuiteeJourneyReview -> NuiteeJourneyReviewScreen(language, guidedJourney, accountStore, chrome, curatedFlights, packageEngine, unreadCount = shellNotificationState.unreadCount)
+                is AppRoute.SmartFlow -> {
+                    val history = remember(context) { com.iumrah.beta.data.smart.HomeActivityStore(context) }
+                    val service = remember(context, curatedFlights, packageEngine) {
+                        com.iumrah.beta.data.smart.SmartConfiguratorService(curatedFlights, com.iumrah.beta.data.nuitee.NuiteeHotelService(context), packageEngine)
+                    }
+                    val account by accountStore.state.collectAsState()
+                    val owner = if (account.isRestoring) null else com.iumrah.beta.domain.smart.SmartRules.owner(account.isAuthenticated, account.iumrahID)
+                    androidx.compose.runtime.key(owner, route) {
+                        com.iumrah.beta.ui.smart.SmartConfiguratorScreen(language, airports, service, route.draft,
+                            onSave = { history.saveSmart(owner, it) }, onClose = { if (chrome.state.value.route == route) chrome.back() },
+                            onReview = { }, onLanguage = settingsStore::setLanguage)
+                    }
+                }
+                is AppRoute.SmartReview -> NuiteeJourneyReviewScreen(language, route.journey, accountStore, chrome, curatedFlights, packageEngine, unreadCount = shellNotificationState.unreadCount)
+                is AppRoute.SmartHotels -> NuiteeJourneyHotelsScreen(language, route.journey, chrome)
+                is AppRoute.SmartCheckout -> BookingCheckoutScreen(language, route.journey, bookingStore, accountStore, chrome, curatedFlights, packageEngine)
                 AppRoute.Flights -> FlightSearchScreen(
                     language = language,
                     journey = journey,
@@ -389,6 +461,10 @@ fun AppShell(
                 is AppRoute.Rewards -> com.iumrah.beta.ui.account.IumrahRewardsScreen(route.page, language, accountStore, chrome)
                 AppRoute.GiftCards -> IumrahGiftCardsScreen(language, accountStore, chrome)
             }
+            }
+            }
+            if (!RouteStateKeys.canRetain(route)) render()
+            else routeSaveableStates.SaveableStateProvider(routeKeys.key(tab, route), content = render)
         }
 
         // Mirror the moving iOS masthead: after it scrolls away, the status
@@ -402,10 +478,11 @@ fun AppShell(
             )
         }
 
-        if (!chromeState.isImmersive && chromeState.route == AppRoute.Root) {
+        if (!chromeState.isImmersive && chromeState.route == AppRoute.Root && !useSidebar) {
             IumrahBottomBar(
                 language = language,
                 selected = chromeState.currentTab,
+                preserveHome = isHomeRoot,
                 onSelect = {
                     if (it != chromeState.currentTab) {
                         IumrahHaptics.selection(hapticView)
@@ -415,6 +492,8 @@ fun AppShell(
                 modifier = Modifier.align(Alignment.BottomCenter),
             )
         }
+            }
+        }
     }
     }
 }
@@ -423,14 +502,15 @@ private fun rootTransform(): ContentTransform =
     fadeIn(IumrahMotion.rootFade).togetherWith(fadeOut(IumrahMotion.fastFade))
 
 /**
- * Android's five-slot tab chrome. Current iOS RootView actually uses native
- * TabView; IumrahStoreTabBar.swift is not instantiated. This implementation
- * preserves selection/semantics but still needs real-device visual comparison.
+ * Native iOS TabView is the reference for non-Home tabs, including its adaptive
+ * teal tint. Home deliberately keeps the legacy monochrome bar. Native glass
+ * rasterization and the exact system tab geometry need device comparison.
  */
 @Composable
 private fun IumrahBottomBar(
     language: AppLanguage,
     selected: AppTab,
+    preserveHome: Boolean,
     onSelect: (AppTab) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -446,7 +526,8 @@ private fun IumrahBottomBar(
             AppLanguage.ENGLISH -> "Profile"
         }),
     )
-    val black = com.iumrah.beta.core.design.IumrahColors.SignatureBlack
+    val foreground = MaterialTheme.colorScheme.onSurface
+    val dark = MaterialTheme.colorScheme.background.luminance() < .5f
     val shape = RoundedCornerShape(50)
     Box(
         modifier = modifier.fillMaxWidth().navigationBarsPadding()
@@ -456,9 +537,9 @@ private fun IumrahBottomBar(
             modifier = Modifier.fillMaxWidth()
                 .shadow(20.dp, shape, clip = false, ambientColor = Color.Black.copy(alpha = .055f), spotColor = Color.Black.copy(alpha = .055f))
                 .clip(shape)
-                .background(Color.White.copy(alpha = .96f))
-                .border(.8.dp, Color.Black.copy(alpha = .10f), shape)
-                .padding(5.dp),
+                .then(if (preserveHome) Modifier.background(Color.White.copy(alpha = .96f))
+                    .border(.8.dp, Color.Black.copy(alpha = .10f), shape) else Modifier.iosChromeSurface(shape))
+                .padding(5.dp).selectableGroup(),
             horizontalArrangement = Arrangement.spacedBy(2.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -467,8 +548,9 @@ private fun IumrahBottomBar(
                     selected = selected == tab,
                     icon = symbol,
                     label = label,
-                    selectedTint = Color.White,
-                    unselectedTint = Color.Black.copy(alpha = .75f),
+                    selectedTint = if (preserveHome) Color.White else if (dark) Color(0xFF40C8E0) else com.iumrah.beta.core.design.IumrahColors.SystemTeal,
+                    unselectedTint = if (preserveHome) Color.Black.copy(alpha = .75f) else foreground.copy(alpha = .8f),
+                    preserveHome = preserveHome,
                 ) { onSelect(tab) }
             }
         }
@@ -482,10 +564,14 @@ private fun RowScope.BottomTabItem(
     label: String,
     selectedTint: Color,
     unselectedTint: Color,
+    preserveHome: Boolean,
     onClick: () -> Unit,
 ) {
-    val shape = RoundedCornerShape(25.dp)
-    val selectionColor by animateColorAsState(if (selected) com.iumrah.beta.core.design.IumrahColors.SignatureBlack else Color.Transparent, tween(180, easing = CubicBezierEasing(.42f, 0f, .58f, 1f)), label = "tab-selection")
+    val shape = if (preserveHome) RoundedCornerShape(25.dp) else IOSContinuousShape(25.dp)
+    val activeColor = if (preserveHome) com.iumrah.beta.core.design.IumrahColors.SignatureBlack else MaterialTheme.colorScheme.onSurface.copy(alpha = .08f)
+    val motion = if (preserveHome) true else rememberIumrahMotionAllowed()
+    val selectionColor by animateColorAsState(if (selected) activeColor else Color.Transparent,
+        if (motion) tween(180, easing = CubicBezierEasing(.42f, 0f, .58f, 1f)) else snap(), label = "tab-selection")
     Column(
         modifier = Modifier
             .weight(1f)

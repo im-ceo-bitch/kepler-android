@@ -47,6 +47,10 @@ class IumrahPushManager(context: Context) {
         ),
     )
     val state: StateFlow<IumrahPushState> = _state.asStateFlow()
+    @Volatile var activeChatBookingID: String? = null
+        private set
+    fun enterChat(id: String) { activeChatBookingID = id }
+    fun leaveChat(id: String) { if (activeChatBookingID == id) activeChatBookingID = null }
 
     /**
      * Firebase is initialized manually so this repository keeps compiling before the
@@ -142,7 +146,7 @@ class IumrahPushManager(context: Context) {
 
     private fun eventFrom(payload: Map<String, String>): IumrahPushEvent = IumrahPushEvent(
         type = payload["type"]?.trim()?.takeIf(String::isNotEmpty) ?: "notification",
-        bookingID = payload["bookingID"]?.trim()?.takeIf(String::isNotEmpty),
+        bookingID = listOf("bookingID", "bookingId", "destinationBookingID").firstNotNullOfOrNull { payload[it]?.trim()?.takeIf(String::isNotEmpty) },
         status = payload["status"]?.trim()?.takeIf(String::isNotEmpty),
         notificationID = payload["notificationID"]?.trim()?.takeIf(String::isNotEmpty),
         destination = payload["destination"]?.trim()?.takeIf(String::isNotEmpty),
@@ -163,6 +167,6 @@ class IumrahPushManager(context: Context) {
         private const val PREFS = "iumrah.push.android.v1"
         private const val KEY_TOKEN = "fcm-device-token"
         private const val KEY_PERMISSION_REQUESTED = "notification-permission-requested"
-        val KNOWN_KEYS = listOf("type", "bookingID", "status", "notificationID", "destination", "destinationBookingID", "pilgrimID")
+        val KNOWN_KEYS = listOf("type", "bookingID", "bookingId", "status", "notificationID", "destination", "destinationBookingID", "pilgrimID")
     }
 }

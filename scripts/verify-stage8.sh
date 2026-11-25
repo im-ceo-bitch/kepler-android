@@ -12,10 +12,11 @@ required=(
 )
 for f in "${required[@]}"; do test -s "$f" || { echo "STOP: missing Stage 008 file $f"; exit 1; }; done
 grep -q '/client/chats/\$bookingID/messages' app/src/main/java/com/iumrah/beta/data/chat/ChatService.kt
-# Chat refresh is now push-aware: wait for a revision or poll after six seconds.
+# Chat refresh is now push-aware: wait for a revision or poll after fifteen seconds (current iOS reference).
 chat_screen=app/src/main/java/com/iumrah/beta/ui/chat/BookingChatScreen.kt
 chat_service=app/src/main/java/com/iumrah/beta/data/chat/ChatService.kt
-grep -Fq 'withTimeoutOrNull(6_000) { chatService.refreshRevision.first { it != seenRevision } }' "$chat_screen" || { echo 'STOP: chat must refresh on push or six-second timeout'; exit 1; }
+grep -Fq 'withTimeoutOrNull(15_000) { chatService.refreshRevision.first { it != seenRevision } }' "$chat_screen" || { echo 'STOP: chat must refresh on push or fifteen-second timeout'; exit 1; }
+grep -Fq "lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED)" "$chat_screen" || { echo "STOP: chat polling must follow active lifecycle"; exit 1; }
 grep -Fq 'chatService.loadChat(bookingID, headers)' "$chat_screen" || { echo 'STOP: chat must load messages on refresh'; exit 1; }
 grep -Fq 'ChatDelta.path(bookingID, after, unread, previous.scopeVersion)' "$chat_service" || { echo 'STOP: chat must fetch incremental messages'; exit 1; }
 grep -Fq 'chatService.cachedChat(bookingID, headers)' "$chat_screen" || { echo 'STOP: chat must restore scoped message cache'; exit 1; }

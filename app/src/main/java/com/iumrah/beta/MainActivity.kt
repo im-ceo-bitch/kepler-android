@@ -57,9 +57,7 @@ class MainActivity : ComponentActivity() {
         val parts = uri.pathSegments.filter { it.isNotBlank() }
 
         // Public shared trips are read-only. Never route them to BookingDetail.
-        if (uri.scheme.equals("https", true) && uri.host.equals("iumrah.app", true) &&
-            uri.userInfo == null && uri.port in listOf(-1, 443) &&
-            parts.size == 2 && parts[0] == "s" && parts[1].matches(Regex("^[A-Za-z0-9_-]{43}$"))) {
+        if (com.iumrah.beta.data.booking.PublicTripLinkPolicy.isPublicShare(uri.toString())) {
             chrome.openPublicTrip(parts[1])
             return
         }

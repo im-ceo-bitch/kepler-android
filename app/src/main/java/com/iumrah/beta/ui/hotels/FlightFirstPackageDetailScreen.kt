@@ -57,6 +57,7 @@ import com.iumrah.beta.core.share.IumrahPackageShare
 import com.iumrah.beta.core.settings.AppLanguage
 import com.iumrah.beta.core.navigation.HotelConfiguratorDeepLink
 import com.iumrah.beta.data.hotel.HotelCatalogService
+import com.iumrah.beta.data.hotel.StorefrontReturnPolicy
 import com.iumrah.beta.domain.journey.JourneyStore
 import com.iumrah.beta.domain.pricing.PackageQuote
 import com.iumrah.beta.domain.trip.FlightFareScope
@@ -201,6 +202,11 @@ fun FlightFirstPackageDetailScreen(
         val inbound = currentInbound ?: run { repricing = false; return@LaunchedEffect }
         val outID = outboundId ?: run { repricing = false; return@LaunchedEffect }
         val inID = inboundId ?: run { repricing = false; return@LaunchedEffect }
+        if (!StorefrontReturnPolicy.chronological(out.arrivalAt, inbound.departureAt)) {
+            error = detailText(language, "no_alternatives")
+            repricing = false
+            return@LaunchedEffect
+        }
         error = null
         delay(240)
         val stay = packageStayNights(out, inbound, routeScope == JourneyScope.MAKKAH_AND_MADINAH)
@@ -473,10 +479,25 @@ fun FlightFirstPackageDetailScreen(
             kind = kind,
             language = language,
             current = if (kind == PackageLegKind.OUTBOUND) currentOutbound else currentInbound,
-            choices = flightChoices(board, if (kind == PackageLegKind.OUTBOUND) currentOutbound else currentInbound),
+            choices = flightChoices(board, if (kind == PackageLegKind.OUTBOUND) currentOutbound else currentInbound).filter { choice ->
+                kind == PackageLegKind.OUTBOUND || currentOutbound?.let { compatibleReturn(it, choice.leg, routeScope, firstSaudiCity) } == true
+            },
             onDismiss = { picker = null },
             onSelect = { choice ->
-                if (kind == PackageLegKind.OUTBOUND) outboundChoice = choice else inboundChoice = choice
+                if (kind == PackageLegKind.OUTBOUND) {
+                    val previous = inboundChoice?.takeIf { compatibleReturn(choice.leg, it.leg, routeScope, firstSaudiCity) }
+                    val replacement = previous ?: findCompatibleReturn(board, choice.leg, routeScope, firstSaudiCity)
+                    if (replacement == null) {
+                        error = detailText(language, "no_alternatives")
+                    } else {
+                        outboundChoice = choice
+                        inboundChoice = replacement
+                        error = null
+                    }
+                } else if (currentOutbound?.let { compatibleReturn(it, choice.leg, routeScope, firstSaudiCity) } == true) {
+                    inboundChoice = choice
+                    error = null
+                }
                 picker = null
             },
         )
@@ -1063,12 +1084,25 @@ private fun selectBestFlightsForRoute(
                 .forEach { add(PackageFlightChoice(option.id, it)) }
         }
     }.distinctBy { "${it.id}:${it.leg.flightNumber}:${it.leg.departureAt}" }.sortedBy { it.leg.departureAt }
-    val out = candidates(origin, outboundDestination).firstOrNull() ?: return null
-    val inbound = candidates(returnOrigin, origin).firstOrNull()
-        ?: (if (origin != "TAS") candidates(returnOrigin, "TAS").firstOrNull() else null)
-        ?: return null
-    return out to inbound
+    for (out in candidates(origin, outboundDestination)) {
+        val inbound: PackageFlightChoice? = candidates(returnOrigin, origin).firstOrNull { compatibleReturn(out.leg, it.leg, scope, firstSaudiCity) }
+            ?: (if (origin != "TAS") candidates(returnOrigin, "TAS").firstOrNull { compatibleReturn(out.leg, it.leg, scope, firstSaudiCity) } else null)
+        if (inbound != null) return out to inbound
+    }
+    return null
 }
+
+private fun compatibleReturn(out: StorefrontFlightLeg, inbound: StorefrontFlightLeg, scope: JourneyScope, firstSaudiCity: SaudiArrivalAirport): Boolean {
+    val expectedSaudi = if (scope == JourneyScope.MAKKAH_ONLY || firstSaudiCity == SaudiArrivalAirport.MADINAH) "JED" else "MED"
+    return StorefrontReturnPolicy.compatible(out.arrivalAt, inbound.departureAt, out.origin, expectedSaudi, inbound.origin, inbound.destination)
+}
+
+private fun findCompatibleReturn(board: List<StorefrontFlightOption>, out: StorefrontFlightLeg, scope: JourneyScope, firstSaudiCity: SaudiArrivalAirport): PackageFlightChoice? =
+    board.flatMap { option -> listOfNotNull(option.outbound, option.inbound).map { PackageFlightChoice(option.id, it) } }
+        .filter { compatibleReturn(out, it.leg, scope, firstSaudiCity) }
+        .sortedWith(compareBy<PackageFlightChoice> { !it.leg.destination.equals(out.origin, true) }.thenBy { it.leg.departureAt })
+        .firstOrNull()
+
 
 private fun packageStayNights(outbound: StorefrontFlightLeg, inbound: StorefrontFlightLeg, includeMadinah: Boolean): Pair<Int, Int> {
     val start = parseDay(outbound.arrivalAt)

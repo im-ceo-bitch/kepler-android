@@ -67,6 +67,11 @@ import androidx.compose.ui.unit.sp
 import com.iumrah.beta.R
 import com.iumrah.beta.core.design.IumrahColors
 import com.iumrah.beta.core.design.IumrahDesign
+import com.iumrah.beta.core.design.LocalIOSParity
+import com.iumrah.beta.core.design.LocalIOSSidebarVisible
+import com.iumrah.beta.core.design.LocalParityTab
+import com.iumrah.beta.core.design.LocalParityRoute
+import com.iumrah.beta.core.design.iosChromeSurface
 import com.iumrah.beta.IumrahApplication
 import com.iumrah.beta.core.settings.AppLanguage
 import com.iumrah.beta.core.localization.L10n
@@ -104,6 +109,10 @@ fun IumrahRootPageHeader(
 ) {
     val density = LocalDensity.current
     val statusTopPx = WindowInsets.statusBars.getTop(density)
+    val parity = LocalIOSParity.current
+    val sidebarVisible = LocalIOSSidebarVisible.current
+    val ownerTab = LocalParityTab.current
+    val ownerRoute = LocalParityRoute.current
     BoxWithConstraints(
         modifier = modifier
             .fillMaxWidth()
@@ -111,7 +120,8 @@ fun IumrahRootPageHeader(
             // headers participate; nested/detail headers are not the status surface.
             .onGloballyPositioned { coordinates ->
                 val state = chrome.state.value
-                if (state.route == AppRoute.Root && !lightStyle && drawsSignatureBackground) {
+                if (state.route == AppRoute.Root && !lightStyle && drawsSignatureBackground &&
+                    (ownerTab == null || (ownerRoute == AppRoute.Root && ownerTab == state.currentTab))) {
                     chrome.reportMastheadVisibility(state.currentTab,
                         coordinates.boundsInWindow().bottom > statusTopPx)
                 }
@@ -154,7 +164,7 @@ fun IumrahRootPageHeader(
                         horizontalArrangement = Arrangement.SpaceBetween,
                     ) {
                         Box(Modifier.width(slotWidth), contentAlignment = Alignment.CenterStart) {
-                            SignatureHeaderButton(CupertinoSymbol.Menu, 44.dp, chrome::openSidebar, headerCopy(language, "Меню", "Menu", "Menyu", "Меню"))
+                            if (!sidebarVisible) SignatureHeaderButton(CupertinoSymbol.Menu, 44.dp, chrome::openSidebar, headerCopy(language, "Меню", "Menu", "Menyu", "Меню"))
                         }
                         Spacer(Modifier.weight(1f))
                         Image(
@@ -167,8 +177,9 @@ fun IumrahRootPageHeader(
                         if (onHelp == null) SignatureHeaderButton(
                             if (unreadCount > 0) CupertinoSymbol.BellBadge else CupertinoSymbol.Bell,
                             48.dp, chrome::openNotifications, headerCopy(language, "Уведомления", "Notifications", "Bildirishnomalar", "Билдиришномалар"),
-                        ) else Row(Modifier.width(88.dp).height(44.dp).clip(CircleShape)
-                            .background(Color.White.copy(alpha = .105f)).border(.8.dp, Color.White.copy(alpha = .25f), CircleShape),
+                        ) else Row(Modifier.width(88.dp).height(44.dp)
+                            .then(if (parity) Modifier.iosChromeSurface(CircleShape, onPhotography = true)
+                            else Modifier.clip(CircleShape).background(Color.White.copy(alpha = .105f)).border(.8.dp, Color.White.copy(alpha = .25f), CircleShape)),
                             verticalAlignment = Alignment.CenterVertically) {
                             SignatureGroupAction(if (unreadCount > 0) CupertinoSymbol.BellBadge else CupertinoSymbol.Bell,
                                 headerCopy(language, "Уведомления", "Notifications", "Bildirishnomalar", "Билдиришномалар"), chrome::openNotifications)
@@ -279,7 +290,10 @@ private fun SignatureHeaderButton(
     label: String,
 ) {
     Box(Modifier.size(48.dp), contentAlignment = Alignment.CenterStart) {
-        Surface(
+        if (LocalIOSParity.current) {
+            Box(Modifier.size(size).iosChromeSurface(CircleShape, onPhotography = true).clickable(onClick = onClick),
+                contentAlignment = Alignment.Center) { CupertinoIcon(symbol, label, Modifier.size(17.dp), Color.White) }
+        } else Surface(
             modifier = Modifier.size(size),
             onClick = onClick,
             shape = CircleShape,
@@ -356,7 +370,7 @@ private fun HeaderControls(
                     }
                 }
             }
-            GlassCircleButton(
+            if (!LocalIOSSidebarVisible.current) GlassCircleButton(
                 size = controlSize,
                 lightStyle = lightStyle,
                 onClick = chrome::openSidebar,
@@ -383,6 +397,11 @@ private fun GlassCircleButton(
     onClick: () -> Unit,
     content: @Composable () -> Unit,
 ) {
+    if (LocalIOSParity.current) {
+        Box(Modifier.size(size).iosChromeSurface(CircleShape, onPhotography = lightStyle)
+            .clickable(onClick = onClick), contentAlignment = Alignment.Center) { content() }
+        return
+    }
     val fill = if (lightStyle) Color.Black.copy(alpha = .18f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .92f)
     Surface(
         onClick = onClick,

@@ -23,7 +23,9 @@ if ! grep -Fq 'offer.returnAt?.let { returnAt ->' "$FLIGHTS"; then
   grep -Fq 'FlightDiscoveryDetailSheetV46(' "$FLIGHTS" || { echo 'STOP: full-screen flight detail is not wired'; exit 1; }
   test -s app/src/main/java/com/iumrah/beta/ui/flights/FlightDiscoveryDetailV46.kt || { echo 'STOP: full-screen flight detail missing'; exit 1; }
 fi
-grep -Fq '?: (if (origin != "TAS") candidates(returnOrigin, "TAS").firstOrNull() else null)' "$PAIR" || { echo 'STOP: nullable inbound flight-pair fix missing'; exit 1; }
+grep -Fq 'val inbound: PackageFlightChoice? = candidates(returnOrigin, origin).firstOrNull { compatibleReturn(out.leg, it.leg, scope, firstSaudiCity) }' "$PAIR" || { echo 'STOP: nullable compatible inbound flight-pair fix missing'; exit 1; }
+grep -Fq '?: (if (origin != "TAS") candidates(returnOrigin, "TAS").firstOrNull { compatibleReturn(out.leg, it.leg, scope, firstSaudiCity) } else null)' "$PAIR" || { echo 'STOP: compatible fallback return fix missing'; exit 1; }
+grep -Fq 'if (inbound != null) return out to inbound' "$PAIR" || { echo 'STOP: nullable return must be checked'; exit 1; }
 grep -Fq 'import androidx.compose.ui.graphics.graphicsLayer' "$HOTEL" || { echo 'STOP: correct graphicsLayer import missing'; exit 1; }
 if grep -Fq 'import androidx.compose.ui.draw.graphicsLayer' "$HOTEL"; then echo 'STOP: obsolete graphicsLayer import reintroduced'; exit 1; fi
 grep -Fq 'note: String?' "$HOTELS" || { echo 'STOP: Hotels hero optional note fix missing'; exit 1; }

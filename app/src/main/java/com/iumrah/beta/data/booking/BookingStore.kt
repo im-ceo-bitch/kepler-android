@@ -224,6 +224,23 @@ class BookingStore(
             mapOf("Authorization" to "Bearer $token") else emptyMap()
     }
 
+    suspend fun createPublicShare(id: String): String {
+        val session = requireNotNull(booking(id)) { "Booking unavailable" }
+        val headers = headersFor(session)
+        check(headers.isNotEmpty()) { "Booking access required" }
+        val link = service.createPublicShare(id, headers)
+        check(booking(id)?.let { headersFor(it) } == headers) { "Booking access changed" }
+        return link
+    }
+
+    suspend fun revokePublicShares(id: String) {
+        val session = requireNotNull(booking(id)) { "Booking unavailable" }
+        val headers = headersFor(session)
+        check(headers.isNotEmpty()) { "Booking access required" }
+        service.revokePublicShares(id, headers)
+        check(booking(id)?.let { headersFor(it) } == headers) { "Booking access changed" }
+    }
+
     suspend fun create(
         journey: JourneyState,
         quote: PackageQuote,
