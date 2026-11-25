@@ -128,7 +128,7 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.coroutines.resume
 
-enum class HotelsBoard { HOTELS, FLIGHTS, SUNDAY }
+enum class HotelsBoard { HOTELS, FLIGHTS, SUNDAY, GUIDE }
 
 private data class StorefrontInitialLoad(
     val makkah: Result<List<HotelSummary>>,
@@ -181,6 +181,10 @@ fun HotelsScreen(
         return
     }
 
+    if (board == HotelsBoard.GUIDE) {
+        com.iumrah.beta.ui.guides.ManualGuideDirectory(language, chrome, unreadCount, selectBoard)
+        return
+    }
     var refreshSeed by remember { mutableIntStateOf(0) }
     var assemblyExpanded by rememberSaveable { mutableStateOf(false) }
     var displayedOrigin by remember { mutableStateOf(origin) }
@@ -329,6 +333,7 @@ fun HotelsScreen(
         HotelsBoard.HOTELS -> L10n.text("tab_hotels", language)
         HotelsBoard.FLIGHTS -> hotelText(language, "flights")
         HotelsBoard.SUNDAY -> "Sunday Umrah Club"
+        HotelsBoard.GUIDE -> "iumrah Guide"
     }
 
     // iOS HotelsHomeView clips scroll content to the safe-area and keeps its
@@ -356,13 +361,14 @@ fun HotelsScreen(
                 pageTitle, chrome, unreadCount = unreadCount,
                 usesBrandLogo = true, language = language, discovery = true,
                 footer = {
-                    IumrahDiscoveryPills(language, 2) { index ->
+                    IumrahDiscoveryPills(language, 2, includeGuides = true) { index ->
                         when (index) {
                             0 -> chrome.openDiscoveryBuild()
                             1 -> selectBoard(HotelsBoard.HOTELS)
                             2 -> selectBoard(HotelsBoard.FLIGHTS)
                             3 -> chrome.openDiscoveryTransfer()
-                            4 -> chrome.openDiscoveryPackage()
+                            4 -> selectBoard(HotelsBoard.GUIDE)
+                                5 -> chrome.openDiscoveryPackage()
                         }
                     }
                 },
@@ -497,6 +503,7 @@ fun HotelsScreen(
                 item { com.iumrah.beta.ui.home.BrandComparisonEntry(language, chrome) }
             }
 
+            HotelsBoard.GUIDE -> Unit // handled above
             HotelsBoard.SUNDAY -> {
                 item {
                     ShowcaseHero(

@@ -47,6 +47,7 @@ data class StorefrontFlightBoardResponse(
     val origin: String,
     val generatedAt: String,
     val options: List<StorefrontFlightOption> = emptyList(),
+    val catalogComplete: Boolean? = null,
 )
 
 @Serializable

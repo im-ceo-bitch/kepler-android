@@ -54,7 +54,7 @@ private fun unavailable(l: AppLanguage) = l.t("Rewards data is unavailable. Pull
 internal fun rememberRewardsDashboard(account: IumrahAccountStore, revision: Int = 0, pollSeconds: Long = 60): IumrahFriendsDashboard? {
     val state by account.state.collectAsState()
     val owner = account.bearerToken.takeIf { state.isAuthenticated }
-    var dashboard by remember(owner) { mutableStateOf<IumrahFriendsDashboard?>(null) }
+    val dashboard by account.dashboardRewards.collectAsState()
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     var active by remember(lifecycle) { mutableStateOf(lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) }
     DisposableEffect(lifecycle) {
@@ -65,19 +65,12 @@ internal fun rememberRewardsDashboard(account: IumrahAccountStore, revision: Int
     LaunchedEffect(owner, revision, pollSeconds, active) {
         if (owner == null || !active) return@LaunchedEffect
         do {
-            try {
-                val value = account.friendsDashboard()
-                if (account.bearerToken == owner) dashboard = value.takeIf { it.ok }
-            } catch (cancel: CancellationException) { throw cancel }
-            catch (error: Exception) {
-                val status = when(error) { is APIException.Status -> error.code; is APIException.Server -> error.code; else -> null }
-                if (status in listOf(401,403)) dashboard = null
-            }
+            account.refreshDashboardRewards(force = revision > 0 || pollSeconds == 0L)
             if (pollSeconds <= 0) break
             delay(pollSeconds * 1000)
         } while (account.bearerToken == owner)
     }
-    return dashboard.takeIf { owner != null && account.bearerToken == owner }
+    return dashboard.data.takeIf { owner != null && account.bearerToken == owner }
 }
 
 @Composable private fun Badge(symbol: CupertinoSymbol, tint: Color, size: Int = 44) {

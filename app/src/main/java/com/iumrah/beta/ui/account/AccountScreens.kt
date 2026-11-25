@@ -274,7 +274,16 @@ fun AccountRootScreen(
     var isRefreshing by remember { mutableStateOf(false) }
     val accountListState = rememberLazyListState()
     var rewardsRevision by remember { mutableIntStateOf(0) }
+    rememberRewardsDashboard(accountStore, rewardsRevision)
     val visibleTrips = if (accountState.isRestoring) emptyList() else bookings.sessions.filter { bookingStore.booking(it.id) != null && it.effectiveStatus != "DELETED" }
+    val history = remember(context) { com.iumrah.beta.data.smart.HomeActivityStore(context) }
+    val historyRevision by history.revision.collectAsState()
+    val recommendationsEnabled = remember(historyRevision) { history.enabled }
+    val historyOwner = if (accountState.isRestoring) null else com.iumrah.beta.domain.smart.SmartRules.owner(accountState.isAuthenticated, accountState.iumrahID)
+    var clearHistoryConfirm by remember(historyOwner) { mutableStateOf(false) }
+    if (clearHistoryConfirm) AlertDialog(onDismissRequest={clearHistoryConfirm=false},title={Text(tr(language,"Clear recent activity?","Очистить недавние действия?","So‘nggi tarixni tozalash?","Сўнгги тарихни тозалаш?"))},text={Text(tr(language,"This removes local recommendations, not bookings.","Это удалит локальные рекомендации, но не бронирования.","Bu bronlarni emas, mahalliy tavsiyalarni o‘chiradi.","Бу бронларни эмас, маҳаллий тавсияларни ўчиради."))},confirmButton={TextButton(onClick={history.clear(historyOwner);clearHistoryConfirm=false}){Text(tr(language,"Clear","Очистить","Tozalash","Тозалаш"))}},dismissButton={TextButton(onClick={clearHistoryConfirm=false}){Text(tr(language,"Cancel","Отмена","Bekor qilish","Бекор қилиш"))}})
+    var identityOpen by remember(profile?.iumrahID, accountStore.bearerToken) { mutableStateOf(false) }
+    if (identityOpen && profile != null) DashboardIdentityFullscreen(profile, language, accountStore) { identityOpen=false }
     val accountTrips = visibleTrips.filter { BookingSessionPolicy.sameIdentity(it.pilgrimID ?: it.accountOwnerID, profile?.iumrahID) }
     val activeTrip = accountTrips.filterNot { it.isPastAccountTrip() }.minByOrNull { accountTripPriority(it) }
 
@@ -300,44 +309,48 @@ fun AccountRootScreen(
         },
         modifier = Modifier.fillMaxSize(),
     ) {
+    val dashboardSnapshot by accountStore.dashboardRewards.collectAsState()
     LazyColumn(
         modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background),
         state = accountListState,
         contentPadding = PaddingValues(start = PagePad, end = PagePad, top = 0.dp, bottom = 130.dp),
-        verticalArrangement = Arrangement.spacedBy(20.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        item { AccountHeader(language, profile, signalState.unreadCount, chrome, onHelp = { helpOpen = true }) }
+        item { AccountHeader(language, profile, dashboardSnapshot.data?.tier, signalState.unreadCount, chrome, onHelp = { helpOpen = true }) }
         if (profile != null) {
-            item { RewardsBalanceEntry(language, accountStore, chrome, rewardsRevision) }
-            item { CardBlock { SettingsRow(CupertinoSymbol.Gift, "iumrah Friends", tr(language, "Invite a friend", "Пригласить друга", "Do‘stni taklif qilish", "Дўстни таклиф қилиш")) { chrome.openRewards("friends") } } }
-            item { AutomaticHelpCard(language, settings.automaticPageHelp, settingsStore::setAutomaticPageHelp) }
-            item { RewardsAccountCarousel(language, chrome) { IumrahIdentityHeroAndroid(profile, language) } }
-            item { TravelCompanionsParityCard(language) { chrome.openAccountTravelers() } }
-            item { WalletSection(profile, language) }
-            activeTrip?.let { active ->
-                item { IumrahTripWalletEntryAndroid(active, profile, language) }
-            }
-            item { CardBlock {
-                Row(Modifier.fillMaxWidth().clickable { chrome.openSavedHotels() },
-                    verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                    Box(Modifier.size(44.dp).background(Color(0xFFFF3B30).copy(alpha = .12f), androidx.compose.foundation.shape.CircleShape), contentAlignment = Alignment.Center) {
-                        CupertinoIcon(CupertinoSymbol.HeartFill, null, Modifier.size(20.dp), Color(0xFFFF3B30))
-                    }
-                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text(tr(language, "Saved hotels", "Сохранённые отели", "Saqlangan mehmonxonalar", "Сақланган меҳмонхоналар"), fontSize = 20.sp, fontWeight = FontWeight.Bold)
-                        Text(tr(language, "Your favorite stays", "Ваши избранные отели", "Sevimli mehmonxonalaringiz", "Севимли меҳмонхоналарингиз"), fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                    CupertinoIcon(CupertinoSymbol.ChevronRight, null, Modifier.size(13.dp), MaterialTheme.colorScheme.onSurfaceVariant)
-                }
+            item { DashboardBalance(language, accountStore, chrome, rewardsRevision) }
+            item { DashboardBenefits(language, accountStore, chrome) }
+            item { DashboardIdentity(language) { identityOpen=true } }
+            item { DashboardGroup(tr(language,"Your journeys","Ваши путешествия","Safarlaringiz","Сафарларингиз")) {
+                DashboardRow(CupertinoSymbol.Suitcase,tr(language,"Bookings","Бронирования","Bronlar","Бронлар"),tr(language,"Current and past trips","Активные и прошлые поездки","Faol va oldingi safarlar","Фаол ва олдинги сафарлар")){chrome.navigate(AppTab.BOOKING)}
+                DashboardDivider();DashboardRow(CupertinoSymbol.Bookmark,tr(language,"Saved journeys","Сохранённые путешествия","Saqlangan safarlar","Сақланган сафарлар")){chrome.openAccountSavedJourneys()}
+                DashboardDivider();DashboardRow(CupertinoSymbol.Heart,tr(language,"Saved hotels","Избранные отели","Saqlangan mehmonxonalar","Сақланган меҳмонхоналар")){chrome.openSavedHotels()}
+                DashboardDivider();DashboardRow(CupertinoSymbol.Search,tr(language,"Find booking","Найти бронирование","Bronni topish","Бронни топиш"),tr(language,"Access a trip without an account","Доступ к поездке без аккаунта","Akkauntsiz bronni topish","Аккаунтсиз бронни топиш")){recoverBooking=true}
             } }
-            item { TripsSection(visibleTrips, language, chrome) }
-            item { CardBlock { SettingsRow(CupertinoSymbol.Ticket,
-                tr(language, "Find booking", "Найти бронирование", "Bronni topish", "Бронни топиш"),
-                tr(language, "By verified email or phone", "По подтверждённой почте или телефону", "Tasdiqlangan email yoki telefon orqali", "Тасдиқланган email ёки телефон орқали")) { recoverBooking = true } } }
-            item { TelegramIntegrationCard(language) { chrome.openAccountTelegramIntegration() } }
-            item { PaymentSecuritySection(language, activeTrip ?: accountTrips.firstOrNull(), true, chrome) }
-            item { ServicesSection(language, chrome) }
-            item { SettingsSection(language, settings.appearance, signalState.unreadCount, notificationDeliveryStatus, chrome, context) }
+            item { DashboardGroup(tr(language,"Personal details","Личные данные","Shaxsiy ma’lumotlar","Шахсий маълумотлар")) {
+                DashboardRow(CupertinoSymbol.PersonCircle,tr(language,"Profile details","Данные профиля","Profil ma’lumotlari","Профил маълумотлари")){chrome.openAccountUserData()}
+                DashboardDivider();DashboardRow(CupertinoSymbol.Persons,tr(language,"My pilgrims","Мои паломники","Ziyoratchilarim","Зиёратчиларим")){chrome.openAccountTravelers()}
+                DashboardDivider();DashboardRow(CupertinoSymbol.IdentityCard,"iumrah ID",tr(language,"Digital pilgrim ID","Карта паломника","Ziyoratchi kartasi","Зиёратчи картаси")){identityOpen=true}
+            } }
+            item { DashboardGroup(tr(language,"Benefits","Бонусы","Bonuslar","Бонуслар")) {
+                DashboardRow(CupertinoSymbol.Wallet,"iumrah Balance"){chrome.openRewards("balance")};DashboardDivider();DashboardRow(CupertinoSymbol.Star,"iumrah Rewards"){chrome.openRewards()};DashboardDivider();DashboardRow(CupertinoSymbol.Gift,tr(language,"Invite a friend","Пригласите друга","Do‘stingizni taklif qiling","Дўстингизни таклиф қилинг")){chrome.openRewards("friends")}
+            } }
+            item { DashboardGroup(tr(language,"Settings","Настройки","Sozlamalar","Созламалар")) {
+                DashboardRow(CupertinoSymbol.Globe,tr(language,"Language","Язык","Til","Тил"),languageTitle(language)){chrome.openAccountLanguage()}
+                DashboardDivider();DashboardRow(CupertinoSymbol.HalfCircle,tr(language,"Appearance","Оформление","Ko‘rinish","Кўриниш"),appearanceTitle(settings.appearance,language)){chrome.openAccountAppearance()}
+                DashboardDivider();DashboardRow(CupertinoSymbol.Bell,tr(language,"Notifications","Уведомления","Bildirishnomalar","Билдиришномалар")){chrome.openAccountSignals()}
+                DashboardDivider();DashboardRow(CupertinoSymbol.LockShield,tr(language,"Account security","Безопасность","Xavfsizlik","Хавфсизлик")){chrome.openAccountSecurity()}
+                DashboardDivider();Row(Modifier.fillMaxWidth().padding(vertical=10.dp),verticalAlignment=Alignment.CenterVertically){CupertinoIcon(CupertinoSymbol.QuestionCircle,null,Modifier.size(17.dp));Spacer(Modifier.width(12.dp));Text(tr(language,"Automatic tips","Подсказки","Maslahatlar","Маслаҳатлар"),Modifier.weight(1f),fontSize=15.sp);Switch(settings.automaticPageHelp,settingsStore::setAutomaticPageHelp,colors=SwitchDefaults.colors(checkedTrackColor=Color(0xff34c759)))}
+                DashboardDivider();Row(Modifier.fillMaxWidth().padding(vertical=10.dp),verticalAlignment=Alignment.CenterVertically){CupertinoIcon(CupertinoSymbol.Sliders,null,Modifier.size(17.dp));Spacer(Modifier.width(12.dp));Text(tr(language,"Personal recommendations","Персональные рекомендации","Shaxsiy tavsiyalar","Шахсий тавсиялар"),Modifier.weight(1f),fontSize=15.sp);Switch(recommendationsEnabled,history::setEnabled,colors=SwitchDefaults.colors(checkedTrackColor=Color(0xff34c759)))}
+                DashboardDivider();DashboardRow(CupertinoSymbol.Clock,tr(language,"Clear recent activity","Очистить недавние действия","So‘nggi tarixni tozalash","Сўнгги тарихни тозалаш")){clearHistoryConfirm=true}
+            } }
+            item { DashboardGroup(tr(language,"Help & information","Помощь и информация","Yordam va ma’lumot","Ёрдам ва маълумот")) {
+                DashboardRow(CupertinoSymbol.ChatBubble,tr(language,"iumrah Support","Поддержка iumrah","iumrah Yordam","iumrah Ёрдам")){chrome.navigate(AppTab.CARE)};DashboardDivider();DashboardRow(CupertinoSymbol.Send,"Telegram"){chrome.openAccountTelegramIntegration()};DashboardDivider();DashboardRow(CupertinoSymbol.CreditCard,tr(language,"Payment","Оплата","To‘lov","Тўлов")){chrome.openAccountPolicy("payment")};DashboardDivider();DashboardRow(CupertinoSymbol.UndoCircle,tr(language,"Refunds","Возвраты","Qaytarish","Қайтариш")){chrome.openAccountPolicy("refund")};DashboardDivider();DashboardRow(CupertinoSymbol.HandRaised,tr(language,"Privacy","Конфиденциальность","Maxfiylik","Махфийлик")){chrome.openAccountPolicy("privacy")}
+            } }
+            item { DashboardServices(language, chrome) }
+            item { DashboardGroup(tr(language,"Services","Сервисы","Xizmatlar","Хизматлар")) {
+                DashboardRow(CupertinoSymbol.Airplane,"iumrah Flights"){chrome.openAccountFlights(activeTrip?.id)};DashboardDivider();DashboardRow(CupertinoSymbol.Map,"iumrah Ziyarats"){chrome.openAccountZiyarats()};DashboardDivider();DashboardRow(CupertinoSymbol.SimCard,"iumrah eSIM"){chrome.openAccountESIM()}
+            } }
             item {
                 Row(
                     Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(Danger.copy(alpha = .075f)).clickable { signOutConfirm = true }.padding(horizontal = 18.dp).height(56.dp),
@@ -365,9 +378,13 @@ fun AccountRootScreen(
             }
         } else {
             item { SeamlessGuestProfile(language, visibleTrips.firstOrNull(), chrome) }
-            item { AutomaticHelpCard(language, settings.automaticPageHelp, settingsStore::setAutomaticPageHelp) }
+            item { DashboardFriendsPromotion(language, chrome) }
+            item { DashboardGuestRewards(language, accountStore, chrome) }
+            item { DashboardGroup(tr(language,"Your journeys","Ваши путешествия","Safarlaringiz","Сафарларингиз")) {
+                DashboardRow(CupertinoSymbol.Bookmark,tr(language,"Saved journeys","Сохранённые путешествия","Saqlangan safarlar","Сақланган сафарлар")){chrome.openAccountSavedJourneys()};DashboardDivider();DashboardRow(CupertinoSymbol.Search,tr(language,"Find booking","Найти бронирование","Bronni topish","Бронни топиш")){recoverBooking=true}
+            } }
             item { com.iumrah.beta.ui.booking.BookingPasswordlessAccessCard(language, null, accountStore, app.container.accountService, bookingStore) {} }
-            item { GuestSettingsSection(language, settings.appearance, signalState.unreadCount, notificationDeliveryStatus, chrome, context) }
+            item { GuestSettingsSection(language, settings.appearance, signalState.unreadCount, notificationDeliveryStatus, chrome, context, settings.automaticPageHelp, settingsStore::setAutomaticPageHelp) }
         }
         // iOS6 places the brand slogan AFTER account content, not before the
         // guest profile. Keep the account task visually primary.
@@ -458,9 +475,9 @@ private fun SeamlessGuestProfile(language: AppLanguage, session: StoredBookingSe
 }
 
 @Composable
-private fun AccountHeader(language: AppLanguage, profile: IumrahAccountProfile?, unread: Int, chrome: AppChromeStore, onHelp: () -> Unit) {
+private fun AccountHeader(language: AppLanguage, profile: IumrahAccountProfile?, level: String?, unread: Int, chrome: AppChromeStore, onHelp: () -> Unit) {
     val details: (@Composable () -> Unit)? = if (profile == null) null else {
-        { Box(Modifier.padding(horizontal = PagePad)) { IumrahUserDataEntryCardAndroid(language, profile.displayName) { chrome.openAccountUserData() } } }
+        { Box(Modifier.padding(horizontal = PagePad)) { DashboardProfileFooter(language, profile, level) { chrome.openAccountUserData() } } }
     }
     IumrahRootPageHeader(
         title = tr(language, "Profile", "Профиль", "Profil", "Профиль"),
@@ -776,22 +793,12 @@ private fun SettingsSection(language: AppLanguage, appearance: AppAppearance, un
 }
 
 @Composable
-private fun GuestSettingsSection(language: AppLanguage, appearance: AppAppearance, unread: Int, notificationStatus: String, chrome: AppChromeStore, context: android.content.Context) {
-    CardBlock {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            IconBadge(CupertinoSymbol.Sliders, settingsIconTint(CupertinoSymbol.Sliders), 40.dp, 16.dp)
-            Text(tr(language,"App settings","Настройки приложения","Ilova sozlamalari","Илова созламалари"), fontSize = 17.sp, fontWeight = FontWeight.Bold)
-        }
-        Spacer(Modifier.height(18.dp))
-        SettingsRow(CupertinoSymbol.Globe,tr(language,"Language","Язык","Til","Тил"),languageTitle(language)){chrome.openAccountLanguage()}
-        HorizontalDivider(Modifier.padding(start=54.dp))
-        SettingsRow(CupertinoSymbol.HalfCircle,tr(language,"Appearance","Оформление","Ko‘rinish","Кўриниш"),appearanceTitle(appearance,language)){chrome.openAccountAppearance()}
-        HorizontalDivider(Modifier.padding(start=54.dp))
-        SettingsRow(CupertinoSymbol.BellSignal,tr(language,"Umrah status signal","Umra статус сигнал","Umra holat signali","Умра ҳолат сигнали"),if(unread>0) tr(language,"$unread new","$unread новых","$unread yangi","$unread янги") else tr(language,"All caught up","Новых нет","Yangi yo‘q","Янги йўқ")){chrome.openAccountSignals()}
-        HorizontalDivider(Modifier.padding(start=54.dp))
-        SettingsRow(CupertinoSymbol.BellBadge,tr(language,"Notifications","Уведомления","Bildirishnomalar","Билдиришномалар"),notificationStatus){
-            val intent=Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE,context.packageName).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK); runCatching{context.startActivity(intent)}
-        }
+private fun GuestSettingsSection(language: AppLanguage, appearance: AppAppearance, unread: Int, notificationStatus: String, chrome: AppChromeStore, context: android.content.Context, automaticTips:Boolean, onTips:(Boolean)->Unit) {
+    DashboardGroup(tr(language,"Settings","Настройки","Sozlamalar","Созламалар")) {
+        DashboardRow(CupertinoSymbol.Globe,tr(language,"Language","Язык","Til","Тил"),languageTitle(language)){chrome.openAccountLanguage()}
+        DashboardDivider();DashboardRow(CupertinoSymbol.HalfCircle,tr(language,"Appearance","Оформление","Ko‘rinish","Кўриниш")){chrome.openAccountAppearance()}
+        DashboardDivider();DashboardRow(CupertinoSymbol.Bell,tr(language,"Notifications","Уведомления","Bildirishnomalar","Билдиришномалар")){chrome.openAccountSignals()}
+        DashboardDivider();Row(Modifier.fillMaxWidth().padding(vertical=10.dp),verticalAlignment=Alignment.CenterVertically){CupertinoIcon(CupertinoSymbol.QuestionCircle,null,Modifier.size(17.dp));Spacer(Modifier.width(12.dp));Text(tr(language,"Automatic tips","Подсказки","Maslahatlar","Маслаҳатлар"),Modifier.weight(1f),fontSize=15.sp);Switch(automaticTips,onTips,colors=SwitchDefaults.colors(checkedTrackColor=Color(0xff34c759)))}
     }
 }
 

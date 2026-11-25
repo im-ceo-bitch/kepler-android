@@ -136,7 +136,7 @@ fun NuiteeJourneyReviewScreen(language: AppLanguage, journey: JourneyStore, acco
                         Text(reviewText(language,"Без подтверждённой цены","Awaiting provider price","Narx tasdiqlanmagan","Нарх тасдиқланмаган"),fontSize=12.sp)
                     }
                 }
-                item { Box(Modifier.padding(horizontal=16.dp)) { ReviewServices(language,state) { transferSheet=true } } }
+                item { Box(Modifier.padding(horizontal=16.dp)) { ReviewServices(language,state,journey::setGuidePreference) { transferSheet=true } } }
                 quote?.let { item { Box(Modifier.padding(horizontal=16.dp)) { ReviewVerifiedPrice(language,it) } } }
                 quote?.let { item { Box(Modifier.padding(horizontal=16.dp)) { ReviewPriceDistribution(language,it) } } }
                 item { Box(Modifier.padding(horizontal=16.dp)) { com.iumrah.beta.ui.home.BrandComparisonEntry(language,chrome) } }

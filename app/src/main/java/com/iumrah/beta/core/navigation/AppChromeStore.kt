@@ -72,6 +72,7 @@ sealed interface AppRoute {
     data object Flights : AppRoute
     data object StorefrontFlights : AppRoute
     data object StorefrontSunday : AppRoute
+    data object StorefrontGuides : AppRoute
     data object ReturnFlights : AppRoute
     data class FlightDetails(val journeyId: String, val direction: String) : AppRoute
     data object TransferSelection : AppRoute
@@ -263,6 +264,11 @@ class AppChromeStore {
     fun consumeDiscoveryBuild() { _state.update { it.copy(discoveryBuild = false) } }
     fun openDiscoveryTransfer() = push(AppRoute.TransferService)
     fun openDiscoveryPackage() = push(AppRoute.ManualPackage)
+    fun openDiscoveryGuides() = push(AppRoute.StorefrontGuides)
+    fun finishDiscoveryGuide() {
+        if (state.value.route == AppRoute.StorefrontGuides && state.value.backStack.lastOrNull() == AppRoute.ManualPackage) back()
+        else openDiscoveryPackage()
+    }
     // Current iOS routes all public "new trip" entry points to the Home search.
     fun startNewTrip() = openDiscoveryBuild()
     fun openHotelSelection() = push(AppRoute.HotelSelection, tab = AppTab.BOOKING)
@@ -330,6 +336,10 @@ class AppChromeStore {
     fun openBookingZiyarats() = push(AppRoute.BookingZiyarats, tab = AppTab.BOOKING)
     fun openZiyarats() = push(AppRoute.Ziyarats, tab = AppTab.HOME)
     fun openESIM() = push(AppRoute.ESIM, tab = AppTab.HOME)
+    fun openAccountESIM() = push(AppRoute.ESIM, tab = AppTab.ACCOUNT)
+    fun openAccountFlights(bookingId: String?) = push(if (bookingId == null) AppRoute.LiveFlights else AppRoute.TripLiveFlights(bookingId), tab = AppTab.ACCOUNT)
+    fun openAccountZiyarats() = push(AppRoute.Ziyarats, tab = AppTab.ACCOUNT)
+    fun openAccountSavedJourneys() = push(AppRoute.SavedJourneys, tab = AppTab.ACCOUNT)
     fun openLiveFlights() = push(AppRoute.LiveFlights, tab = AppTab.HOME)
     fun openTripLiveFlights(id: String) = push(AppRoute.TripLiveFlights(id), tab = AppTab.BOOKING)
     fun openUmrahPlan() = push(AppRoute.UmrahPlan, tab = AppTab.HOME)

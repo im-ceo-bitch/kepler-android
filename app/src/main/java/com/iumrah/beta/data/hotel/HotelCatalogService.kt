@@ -41,10 +41,10 @@ class HotelCatalogService(private val api: APIClient) {
             check(response.ok && response.hotel.id == id) { "Hotel response mismatch" }; response.hotel
         }
 
-    suspend fun storefrontFlightBoard(origin: String): StorefrontFlightBoardResponse =
+    suspend fun storefrontFlightBoard(origin: String, allPublished: Boolean = false): StorefrontFlightBoardResponse =
         api.get(
             "/api/package/storefront/flights",
-            query = mapOf("origin" to origin.trim().uppercase()),
+            query = buildMap { put("origin", origin.trim().uppercase()); if (allPublished) put("all", "1") },
             timeoutSeconds = 10,
         )
 

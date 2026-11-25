@@ -166,6 +166,7 @@ data class BookingCustomization(
     val ziyaratMadinah: Boolean,
     val meals: Boolean,
     val esim: Boolean,
+    val preferredGuideID: String? = null,
 )
 
 @Serializable data class BookingHotelNames(val makkah: String, val madinah: String)

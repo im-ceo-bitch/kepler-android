@@ -96,6 +96,7 @@ import kotlinx.coroutines.delay
             if(state.vehicle!=null)TextButton(onClick={change{it.copy(vehicle=null,train=false)}}){Text(t("Убрать","Remove","Olib tashlash","Олиб ташлаш"))}
             if(state.cities.size==2&&state.vehicle!=null){Row{Checkbox(state.train,{v->change{it.copy(train=v)}});Text("Haramain")};if(state.train){Row{HaramainFareClass.entries.forEach{f->FilterChip(state.fare==f,{change{it.copy(fare=f)}},label={Text(f.wireValue)})}};Row{TextButton(enabled=state.tickets>1,onClick={change{it.copy(tickets=it.tickets-1)}}){Text("−")};Text("${state.tickets}");TextButton(enabled=state.tickets<plan.adults,onClick={change{it.copy(tickets=it.tickets+1)}}){Text("+")}}}}
         }}}
+        item { com.iumrah.beta.ui.guides.GuidePreferenceCard(language, plan.guidePreference) { chrome.openDiscoveryGuides() } }
         item {Card(Modifier.fillMaxWidth(),shape=RoundedCornerShape(28.dp),colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.surface)){Column(Modifier.padding(20.dp),verticalArrangement=Arrangement.spacedBy(13.dp)){
             Text(t("Стоимость пакета","Package total","Paket narxi","Пакет нархи"),style=MaterialTheme.typography.titleMedium)
             val q=verifiedQuote;val e=estimate

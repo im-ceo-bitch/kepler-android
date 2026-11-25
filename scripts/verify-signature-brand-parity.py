@@ -40,7 +40,7 @@ assert 'Modifier.statusBarsPadding().height(headerHeight)' not in header  # olde
 assert 'Modifier.fillMaxWidth().statusBarsPadding()' in header and '.then(if (flexibleFooter) Modifier else Modifier.height(headerHeight))' in header
 print('PASS: five tab labels are measured against rendered width instead of string length')
 print('PASS: root masthead receives its own top inset; status area follows scrolling masthead and root content clears bottom navigation')
-assert 'discovery = true' in board and 'IumrahDiscoveryPills(language, 2)' in board
+assert 'discovery = true' in board and 'IumrahDiscoveryPills(language, 2, includeGuides = true)' in board
 assert '.height(41.dp)' in board and '.38f' in board
 assert 'IumrahRootPageHeader(' in account and booking and 'IumrahRootPageHeader(' in header
 print('PASS: Hotels/Account/Booking have shared signature chrome')

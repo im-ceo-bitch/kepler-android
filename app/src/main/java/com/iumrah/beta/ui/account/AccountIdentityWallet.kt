@@ -40,6 +40,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -671,3 +672,92 @@ private fun normalizedIdentity(raw: String): String {
         else -> digits.padStart(8, '0')
     }
 }
+
+
+/** Account full-screen identity: port of IumrahAccountView.identityFullscreenView.
+ * The legacy dark dome remains available to the separate trip wallet. */
+@Composable internal fun DashboardIdentityFullscreen(
+    profile: IumrahAccountProfile, language: AppLanguage,
+    account: com.iumrah.beta.data.account.IumrahAccountStore, close: () -> Unit,
+) {
+    val token = account.bearerToken
+    val owner = profile.iumrahID
+    var signedUrl by remember(owner, token) { mutableStateOf<String?>(null) }
+    var flipped by remember(owner, token) { mutableStateOf(false) }
+    var copied by remember(owner, token) { mutableStateOf(false) }
+    val context = LocalContext.current
+    val view = LocalView.current
+    val accountState by account.state.collectAsState()
+    val current = accountState.account?.iumrahID == owner && token != null && account.bearerToken == token
+    androidx.compose.runtime.LaunchedEffect(owner, token) {
+        if (token == null) return@LaunchedEffect
+        try {
+            val link = account.publicIdentityLink()
+            if (link.ok && normalizedIdentity(link.iumrahID) == normalizedIdentity(owner) &&
+                account.bearerToken == token && account.state.value.account?.iumrahID == owner &&
+                validIdentityLink(link.url)) signedUrl = link.url
+        } catch (c: kotlinx.coroutines.CancellationException) { throw c }
+        catch (_: Exception) { /* same public ID fallback as iOS */ }
+    }
+    androidx.compose.runtime.LaunchedEffect(current) { if (!current) close() }
+    androidx.compose.runtime.LaunchedEffect(copied) { if (copied) { kotlinx.coroutines.delay(1800); copied = false } }
+    fun copyId() {
+        if (account.bearerToken != token || account.state.value.account?.iumrahID != owner) return
+        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+        clipboard.setPrimaryClip(ClipData.newPlainText("iumrah ID", normalizedIdentity(owner)))
+        IumrahHaptics.soft(view); copied = true
+    }
+    if (!current) return
+    val rotation by animateFloatAsState(if (flipped) 180f else 0f, iosSpring(.52f,.82f), label="dashboard-id-flip")
+    val density = androidx.compose.ui.platform.LocalDensity.current.density
+    val cardShape = RoundedCornerShape(30.dp)
+    val copyLabel = awTr(language,"Copy ID","Скопировать ID","ID ni nusxalash","ID ни нусхалаш")
+    Dialog(onDismissRequest=close, properties=DialogProperties(usePlatformDefaultWidth=false)) {
+        Surface(Modifier.fillMaxSize(), color=MaterialTheme.colorScheme.background) {
+            Column(Modifier.fillMaxSize().statusBarsPadding().then(Modifier.padding(horizontal=24.dp, vertical=16.dp)), horizontalAlignment=Alignment.CenterHorizontally) {
+                Row(Modifier.fillMaxWidth(), verticalAlignment=Alignment.CenterVertically) {
+                    if(!flipped) androidx.compose.material3.OutlinedButton(onClick=::copyId) { CupertinoIcon(CupertinoSymbol.Copy,null,Modifier.size(16.dp));Spacer(Modifier.width(6.dp));Text(copyLabel) }
+                    Spacer(Modifier.weight(1f))
+                    androidx.compose.material3.FilledTonalIconButton(onClick=close,modifier=Modifier.size(46.dp)) { CupertinoIcon(CupertinoSymbol.Close,awTr(language,"Close","Закрыть","Yopish","Ёпиш"),Modifier.size(20.dp)) }
+                }
+                Spacer(Modifier.weight(1f))
+                Box(Modifier.fillMaxWidth().height(248.dp).graphicsLayer { cameraDistance=10.5f*density }.shadow(12.dp,cardShape,clip=false).clip(cardShape).clickable { IumrahHaptics.soft(view);flipped=!flipped }) {
+                    val back = rotation >= 90f
+                    Box(Modifier.fillMaxSize().graphicsLayer { rotationY=if(back) rotation-180f else rotation;cameraDistance=10.5f*density }.background(Brush.linearGradient(listOf(Color(0xfff2f2f2),Color.White,Color(0xfffafafa)))).border(1.dp,Color.Black.copy(alpha=.07f),cardShape).padding(22.dp)) {
+                        if(back) {
+                            Row(Modifier.fillMaxSize(),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(12.dp)) {
+                                Column(Modifier.weight(1f).fillMaxHeight(),verticalArrangement=Arrangement.spacedBy(8.dp)) {
+                                    Text("iumrah ID",fontSize=26.sp,fontWeight=FontWeight.Bold,color=Color.Black)
+                                    Text(awTr(language,"Digital pilgrim identity","Цифровая ID-карта паломника","Raqamli ziyoratchi ID","Рақамли зиёратчи ID"),fontSize=12.sp,fontWeight=FontWeight.SemiBold,color=Color.Black.copy(alpha=.54f))
+                                    Spacer(Modifier.weight(1f));Text("UMR ID",fontSize=12.sp,fontWeight=FontWeight.Bold,color=Color.Black.copy(alpha=.45f));Text(normalizedIdentity(owner),fontSize=22.sp,fontWeight=FontWeight.Bold,fontFamily=FontFamily.Monospace,color=Color.Black,maxLines=1);Text("iumrah.app",fontFamily=FontFamily.Monospace,fontSize=12.sp,color=Color.Black.copy(alpha=.48f))
+                                }
+                                val url=signedUrl ?: "https://iumrah.app/id/${normalizedIdentity(owner)}"
+                                val qr=remember(url){makeQrBitmap(url)}
+                                if(qr!=null) Box(Modifier.size(136.dp).clip(RoundedCornerShape(18.dp)).background(Color.White).border(.8.dp,Color.Black.copy(alpha=.08f),RoundedCornerShape(18.dp)).padding(10.dp)) { Image(qr.asImageBitmap(),"iumrah ID QR",Modifier.fillMaxSize(),contentScale=ContentScale.Fit) }
+                            }
+                        } else {
+                            Column(Modifier.fillMaxSize(),verticalArrangement=Arrangement.SpaceBetween) {
+                                Row(verticalAlignment=Alignment.Top) { Column(Modifier.weight(1f)) { Text("iumrah ID",fontSize=28.sp,fontWeight=FontWeight.Bold,color=Color.Black);Text(awTr(language,"PERMANENT PILGRIM ACCOUNT","ПОСТОЯННЫЙ АККАУНТ ПАЛОМНИКА","DOIMIY ZIYORATCHI AKKAUNTI","ДОИМИЙ ЗИЁРАТЧИ АККАУНТИ"),fontSize=9.sp,letterSpacing=1.4.sp,fontWeight=FontWeight.Bold,color=Color.Black.copy(alpha=.45f)) };CupertinoIcon(CupertinoSymbol.SignalWave,null,Modifier.size(25.dp),Color.Black.copy(alpha=.42f)) }
+                                val names=profile.displayName.trim().split(Regex("\\s+"),limit=2).filter { it.isNotBlank() }
+                                Column(verticalArrangement=Arrangement.spacedBy(8.dp)) {
+                                    DashboardIdentityFact(awTr(language,"First name","Имя","Ism","Исм"),names.getOrNull(0) ?: profile.firstName.ifBlank { awTr(language,"Pilgrim","Паломник","Ziyoratchi","Зиёратчи") })
+                                    DashboardIdentityFact(awTr(language,"Last name","Фамилия","Familiya","Фамилия"),names.getOrNull(1) ?: profile.lastName.ifBlank { "—" })
+                                }
+                                Column(verticalArrangement=Arrangement.spacedBy(4.dp)) { Text("UMR ID",fontSize=12.sp,fontWeight=FontWeight.Bold,color=Color.Black.copy(alpha=.48f));Row(verticalAlignment=Alignment.CenterVertically) { Text(normalizedIdentity(owner),Modifier.weight(1f),fontSize=25.sp,letterSpacing=1.2.sp,fontFamily=FontFamily.Monospace,fontWeight=FontWeight.Bold,color=Color.Black,maxLines=1);Box(Modifier.clip(CircleShape).background(Color.Black.copy(alpha=.06f)).clickable(onClick=::copyId).padding(horizontal=12.dp,vertical=9.dp)) { CupertinoIcon(CupertinoSymbol.Copy,copyLabel,Modifier.size(16.dp),Color.Black) } } }
+                            }
+                        }
+                    }
+                }
+                Spacer(Modifier.height(22.dp))
+                Text(if(copied) awTr(language,"ID copied","ID скопирован","ID nusxalandi","ID нусхаланди") else awTr(language,"Tap the card to flip it","Нажмите на карту, чтобы перевернуть","Kartani aylantirish uchun bosing","Картани айлантириш учун босинг"),fontSize=15.sp,fontWeight=FontWeight.SemiBold,color=if(copied) Color(0xff268347) else MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(Modifier.weight(1f))
+            }
+        }
+    }
+}
+@Composable private fun DashboardIdentityFact(title:String,value:String) {
+    Column(verticalArrangement=Arrangement.spacedBy(2.dp)) {Text(title,fontSize=12.sp,color=Color.Black.copy(alpha=.48f),fontWeight=FontWeight.SemiBold);Text(value,fontSize=17.sp,fontWeight=FontWeight.SemiBold,color=Color.Black,maxLines=1,overflow=TextOverflow.Ellipsis)}
+}
+internal fun validIdentityLink(url:String):Boolean = runCatching {
+    val uri=java.net.URI(url);uri.scheme.equals("https",true) && !uri.host.isNullOrBlank() && uri.userInfo==null
+}.getOrDefault(false)

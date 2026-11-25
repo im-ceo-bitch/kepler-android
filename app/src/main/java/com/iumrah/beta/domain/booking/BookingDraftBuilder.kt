@@ -101,6 +101,7 @@ object BookingDraftBuilder {
                 ziyaratMadinah = includeMadinah,
                 meals = includesMeals,
                 esim = true,
+                preferredGuideID = trip.guidePreference?.memberID,
             ),
             includedServices = services,
             hotelNames = BookingHotelNames(makkahHotel.name, madinahHotel?.name.orEmpty()),

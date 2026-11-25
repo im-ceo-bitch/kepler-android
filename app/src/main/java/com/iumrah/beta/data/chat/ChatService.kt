@@ -18,6 +18,9 @@ import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 
 @Serializable
+data class IumrahGuideReview(val id: String, val author: String, val text: String)
+
+@Serializable
 data class IumrahPublicProfile(
     val id: String,
     val firstName: String = "",
@@ -36,7 +39,25 @@ data class IumrahPublicProfile(
     val active: Boolean = true,
     val isOwner: Boolean = false,
     val photoURL: String? = null,
-)
+    val bioRU: String? = null,
+    val bioUZ: String? = null,
+    val bioUZCyrl: String? = null,
+    val isHeadGuide: Boolean? = null,
+    val guideAvailability: String? = null,
+    val availabilityStatus: String? = null,
+    val publicRoles: List<String>? = null,
+    val guideAvailable: Boolean? = null,
+    val experienceYears: Int? = null,
+    val languages: List<String>? = null,
+    val introVideoURL: String? = null,
+    val guideReviews: List<IumrahGuideReview>? = null,
+) {
+    fun localizedBio(language: com.iumrah.beta.core.settings.AppLanguage): String = listOf(
+        when(language.code) { "uz" -> bioUZ; "uz-cyrl" -> bioUZCyrl; else -> bioRU },
+        bio, bioRU, bioUZ, bioUZCyrl
+    ).firstNotNullOfOrNull { it?.trim()?.takeIf(String::isNotEmpty) }.orEmpty()
+}
+
 
 @Serializable private data class ChatMessageSendRequest(val body: String, val clientMessageID: String)
 @Serializable private class EmptyPayload
@@ -138,6 +159,14 @@ class ChatService(private val api: APIClient) {
     suspend fun loadTeamProfiles(): List<IumrahPublicProfile> {
         val value = api.get<IumrahPublicProfilesResponse>("/api/catalog/hotels/team")
         return value.members.filter { it.active && it.publicVisible }
+    }
+
+    suspend fun loadGuideProfiles(start: java.time.LocalDate, end: java.time.LocalDate, includeTeam: Boolean = false): List<IumrahPublicProfile> {
+        require(!end.isBefore(start)) { "Invalid guide dates" }
+        val value = api.get<IumrahPublicProfilesResponse>("/api/catalog/hotels/team", query = mapOf(
+            "guideStart" to start.toString(), "guideEnd" to end.toString(), "teamDirectory" to "1"))
+        check(value.ok) { "Guide directory unavailable" }
+        return value.members.filter { it.active && it.publicVisible && (includeTeam || (!it.isOwner && it.roleKind.equals("guide", true))) }
     }
 
     suspend fun loadCareProfile(): IumrahPublicProfile? {

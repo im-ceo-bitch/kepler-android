@@ -221,13 +221,14 @@ fun NuiteeHotelsCatalogScreen(
                 if (!favoritesOnly) IumrahRootPageHeader(nuiteeText(language,"Отели", "Hotels", "Mehmonxonalar", "Меҳмонхоналар"),
                     chrome, unreadCount = unreadCount, usesBrandLogo = true, discovery = true, language = language,
                     footer = {
-                        IumrahDiscoveryPills(language, 1) { index ->
+                        IumrahDiscoveryPills(language, 1, includeGuides = true) { index ->
                             when (index) {
                                 0 -> chrome.openDiscoveryBuild()
                                 1 -> onBoard(HotelsBoard.HOTELS)
                                 2 -> onBoard(HotelsBoard.FLIGHTS)
                                 3 -> chrome.openDiscoveryTransfer()
-                                4 -> chrome.openDiscoveryPackage()
+                                4 -> onBoard(HotelsBoard.GUIDE)
+                                5 -> chrome.openDiscoveryPackage()
                             }
                         }
                     })

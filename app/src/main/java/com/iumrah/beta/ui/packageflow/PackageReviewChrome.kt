@@ -161,14 +161,16 @@ internal fun reviewTier(l: AppLanguage, tier: PackageTier) = when(tier) {
     }
 }
 
-@Composable internal fun ReviewServices(l: AppLanguage, state: JourneyState, onTransfer: () -> Unit) {
+@Composable internal fun ReviewServices(l: AppLanguage, state: JourneyState, onGuide: (com.iumrah.beta.domain.trip.IumrahGuidePreference?) -> Unit, onTransfer: () -> Unit) {
+    var guideOpen by remember { mutableStateOf(false) }
+    if (guideOpen) com.iumrah.beta.ui.guides.GuidePickerSheet(l, state.trip, state.quote?.tripSummary?.components?.firstOrNull { it.code == "accompaniment" }?.let { "${it.amountUsd} USD" }, onDismiss = { guideOpen = false }) { onGuide(it); guideOpen = false }
     var info by remember { mutableStateOf<PackageInfoSheet?>(null) }
     val included=reviewText(l,"Включено","Included","Kiritilgan","Киритилган")
     val both=state.trip.scope==JourneyScope.MAKKAH_AND_MADINAH
     Column(verticalArrangement=Arrangement.spacedBy(18.dp)) {
         ReviewSection(reviewText(l,"В вашем пакете","Your package includes","Paketingizga kiradi","Пакетингизга киради"))
         Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(22.dp)).background(generatorCardColor())) {
-            ReviewServiceRow(CupertinoSymbol.PersonCircle,"iumrah Guide",null,{info=PackageInfoSheet.GUIDE},true)
+            ReviewServiceRow(CupertinoSymbol.PersonCircle,"iumrah Guide",state.trip.guidePreference?.displayName ?: reviewText(l,"Подбор от iumrah","Selected by iumrah","iumrah tanlovi","iumrah танлови"),{guideOpen=true},true)
             ReviewServiceRow(CupertinoSymbol.Heart,"iumrah Care",null,{info=PackageInfoSheet.CARE},true)
             ReviewServiceRow(CupertinoSymbol.Car,"iumrah Transfer",state.selectedTransferVehicle?.modelName,onTransfer,true)
         }

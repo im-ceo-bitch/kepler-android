@@ -11,6 +11,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -32,7 +34,21 @@ class IumrahAccountStore(
 ) {
     private val _state: MutableStateFlow<IumrahAccountState>
     val state: StateFlow<IumrahAccountState> get() = _state.asStateFlow()
+    data class DashboardSnapshot(val data: IumrahFriendsDashboard? = null, val loading: Boolean = false, val stale: Boolean = false)
+    private val rewardsMutex = Mutex()
+    private val rewardsState = MutableStateFlow(DashboardSnapshot())
+    val dashboardRewards = rewardsState.asStateFlow()
+    private var rewardsLoadedAt: Long? = null
+    private var rewardsGeneration = 0L
     private var token: String? = null
+        set(value) {
+            if (field != value) {
+                rewardsGeneration++
+                rewardsLoadedAt = null
+                rewardsState.value = DashboardSnapshot()
+            }
+            field = value
+        }
     private val initialLoad = runCatching { vault.readStrict(VAULT_KEY, StoredIumrahAccountSession.serializer()) }
 
     init {
@@ -185,17 +201,46 @@ class IumrahAccountStore(
         }
     }
 
-    suspend fun friendsDashboard(): IumrahFriendsDashboard {
+    suspend fun refreshDashboardRewards(force: Boolean = false) {
+        if (token == null || !state.value.isAuthenticated) return
+        try { friendsDashboard(force) } catch (c: CancellationException) { throw c } catch (_: Exception) { }
+    }
+
+    suspend fun friendsDashboard(force: Boolean = true): IumrahFriendsDashboard {
         val current = requireToken()
-        val dashboard = try { service.friendsDashboard(current) }
-        catch (error: CancellationException) { throw error }
-        catch (error: Throwable) {
-            check(token == current) { "Account changed" }
-            service.registerCurrentSession(current, Locale.getDefault().toLanguageTag())
-            service.friendsDashboard(current)
+        val generation = rewardsGeneration
+        val requested = System.nanoTime()
+        return rewardsMutex.withLock {
+            fun valid() = token == current && rewardsGeneration == generation && state.value.isAuthenticated
+            if (!valid()) throw APIException.Status(401)
+            val cached = rewardsState.value.data
+            val loaded = rewardsLoadedAt
+            if (cached != null && loaded != null && (loaded >= requested || (!force && requested - loaded < 55_000_000_000L))) return@withLock cached
+            rewardsState.value = rewardsState.value.copy(loading = true)
+            try {
+                val dashboard = try { service.friendsDashboard(current) }
+                catch (error: CancellationException) { throw error }
+                catch (error: Throwable) {
+                    if (!valid()) throw APIException.Status(401)
+                    service.registerCurrentSession(current, Locale.getDefault().toLanguageTag())
+                    service.friendsDashboard(current)
+                }
+                kotlinx.coroutines.currentCoroutineContext().ensureActive()
+                if (!valid()) throw APIException.Status(401)
+                check(dashboard.ok) { "Rewards unavailable" }
+                rewardsLoadedAt = System.nanoTime()
+                rewardsState.value = DashboardSnapshot(data = dashboard)
+                dashboard
+            } catch (cancel: CancellationException) { throw cancel }
+            catch (error: Throwable) {
+                if (valid()) {
+                    val code = when (error) { is APIException.Status -> error.code; is APIException.Server -> error.code; else -> null }
+                    if (code == 401 || code == 403) { rewardsLoadedAt = null; rewardsState.value = DashboardSnapshot() }
+                    else rewardsState.value = rewardsState.value.copy(stale = rewardsState.value.data != null)
+                }
+                throw error
+            } finally { if (valid()) rewardsState.value = rewardsState.value.copy(loading = false) }
         }
-        check(token == current) { "Account changed" }
-        return dashboard
     }
 
     private suspend fun <T> scopedSecurity(action: suspend (String) -> T): T {

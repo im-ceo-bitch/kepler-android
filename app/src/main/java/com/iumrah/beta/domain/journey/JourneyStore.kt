@@ -463,6 +463,14 @@ class JourneyStore {
         }
     }
 
+    /** A guide preference does not change server-owned accommodation or fare pricing. */
+    fun setGuidePreference(value: com.iumrah.beta.domain.trip.IumrahGuidePreference?) {
+        _state.update { current ->
+            if (current.trip.guidePreference == value) current else current.copy(
+                trip = current.trip.copy(guidePreference = value))
+        }
+    }
+
     fun updateTrip(value: TripDraft) {
         _state.update { current ->
             if (current.trip == value) current else JourneyState(

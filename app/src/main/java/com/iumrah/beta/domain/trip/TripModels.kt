@@ -63,6 +63,9 @@ enum class FlightFareScope(val wireValue: String) {
 }
 
 @Serializable
+data class IumrahGuidePreference(val memberID: String, val displayName: String)
+
+@Serializable
 data class TripDraft(
     val origin: String = "TAS",
     val originAirport: Airport? = null,
@@ -85,6 +88,7 @@ data class TripDraft(
     val flightFilters: FlightSearchFilters? = null,
     val flightTripType: FlightTripType? = null,
     val selectedReturnAirport: SaudiArrivalAirport? = null,
+    val guidePreference: IumrahGuidePreference? = null,
 ) {
     val travelerCount: Int get() = adults + children + infants
     val hotelStayStartDate: LocalDate get() = saudiArrivalDate ?: departureDate

@@ -89,14 +89,14 @@ internal fun headerCopy(language: AppLanguage, ru: String, en: String, uz: Strin
 
 /** The My package destination owns an independent manual component basket. */
 @Composable
-internal fun IumrahDiscoveryPills(language: AppLanguage, selection: Int, onSelect: (Int) -> Unit) {
+internal fun IumrahDiscoveryPills(language: AppLanguage, selection: Int, includeGuides: Boolean = false, onSelect: (Int) -> Unit) {
     IumrahHeaderPills(listOf(
         HeaderPill(headerCopy(language, "Собрать умру", "Build Umrah", "Umra tuzish", "Умра тузиш"), CupertinoSymbol.Sparkles),
         HeaderPill(headerCopy(language, "Отели", "Hotels", "Mehmonxonalar", "Меҳмонхоналар"), CupertinoSymbol.Bed),
         HeaderPill(headerCopy(language, "Авиабилеты", "Flights", "Aviachiptalar", "Авиачипталар"), CupertinoSymbol.Airplane),
         HeaderPill(headerCopy(language, "Трансфер", "Transfer", "Transfer", "Трансфер"), CupertinoSymbol.Car),
         HeaderPill(headerCopy(language, "Мой пакет", "My package", "Mening paketim", "Менинг пакетим"), CupertinoSymbol.Suitcase),
-    ), selected = selection, onSelect = onSelect)
+    ).let { pills -> if (includeGuides) pills.take(4) + HeaderPill(headerCopy(language, "Гиды и команда", "Guides & team", "Gidlar va jamoa", "Гидлар ва жамоа"), CupertinoSymbol.PersonCircle) + pills.drop(4) else pills }, selected = selection, onSelect = onSelect)
 }
 
 /** Measure both siblings in one viewport: the overlapped search remains fully tappable. */

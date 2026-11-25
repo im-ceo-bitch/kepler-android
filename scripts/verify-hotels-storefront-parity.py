@@ -43,7 +43,7 @@ def main():
            not all(f'IumrahColors.{color}' in tile for color in ('SystemOrange', 'SystemBlue', 'SystemGreen')),
            'Monochrome board selection supersedes the older orange/blue/green 94pt tiles.')
     verify('discovery = true' in android and
-           android.index('IumrahDiscoveryPills(language, 2)') < android.index('AirportSelector('),
+           android.index('IumrahDiscoveryPills(language, 2, includeGuides = true)') < android.index('AirportSelector('),
            'One world-dots backdrop covers both header and navigation; airport stays below it.')
     verify('Triple(HotelsBoard.HOTELS' in tile and 'CupertinoSymbol.Building' in tile and
            'CupertinoSymbol.Airplane' in tile and 'CupertinoSymbol.Calendar' in tile,

@@ -103,7 +103,7 @@ fun FinalPackageScreen(language: AppLanguage, journey: JourneyStore, hotelCatalo
                 val windows=TripStayPlanner.windows(state.trip)
                 state.makkahHotel?.let { hotel -> item { Box(Modifier.padding(horizontal=16.dp)) { ReviewCatalogHotel(language,hotel,state.makkahRoom?.name ?: state.makkahRoomCategory?.displayName,windows.makkah) {if(!busy) editHotel="makkah"} } } }
                 if(needsMadinah) state.madinahHotel?.let { hotel -> item { Box(Modifier.padding(horizontal=16.dp)) { ReviewCatalogHotel(language,hotel,state.madinahRoom?.name ?: state.madinahRoomCategory?.displayName,windows.madinah ?: windows.makkah) {if(!busy) editHotel="madinah"} } } }
-                item { Box(Modifier.padding(horizontal=16.dp)) { ReviewServices(language,state) {showTransfer=true} } }
+                item { Box(Modifier.padding(horizontal=16.dp)) { ReviewServices(language,state,journey::setGuidePreference) {showTransfer=true} } }
                 quote?.let { item { Box(Modifier.padding(horizontal=16.dp)) { ReviewVerifiedPrice(language,it) } } }
                 quote?.let { item { Box(Modifier.padding(horizontal=16.dp)) { ReviewPriceDistribution(language,it) } } }
                 item { Box(Modifier.padding(horizontal=16.dp)) { com.iumrah.beta.ui.home.BrandComparisonEntry(language,chrome) } }

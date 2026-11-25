@@ -41,7 +41,9 @@ check('.selectable(selected = active, enabled = pill.enabled, role = Role.Button
 check('Color.White.copy(alpha = .07f)' in pills and 'if (active) 1f else .65f' in pills, 'Independent white outlined capsules')
 check(ordered(pills, ['"Собрать умру"', '"Отели"', '"Авиабилеты"', '"Трансфер"', '"Мой пакет"']), 'Five discovery labels in source order')
 for screen, source, selection in [('Home',home,0), ('Hotels',hotels,1), ('Flights',flights,2)]:
-    check(f'IumrahDiscoveryPills(language, {selection})' in source and 'discovery = true' in source, f'{screen}: shared masthead actually used')
+    call = f'IumrahDiscoveryPills(language, {selection})' if screen == 'Home' else f'IumrahDiscoveryPills(language, {selection}, includeGuides = true)'
+    check(call in source and 'discovery = true' in source, f'{screen}: shared masthead actually used')
+    if screen != 'Home': check('HotelsBoard.GUIDE' in source, f'{screen}: new guide directory is reachable')
     check('chrome.openDiscoveryTransfer()' in source and 'chrome.openDiscoveryPackage()' in source, f'{screen}: existing real routes')
 check('IumrahOverlappingMasthead(header = {' in home and 'IumrahOverlappingMasthead(header = {' in hotels, 'Home and hotel search share measured overlap')
 check('masthead.height + card.height - overlap' in pills and 'card.placeRelative(0, masthead.height - overlap, zIndex = 1f)' in pills, 'Search card in parent bounds, topmost hit target')

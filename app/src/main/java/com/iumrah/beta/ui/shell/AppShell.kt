@@ -357,6 +357,12 @@ fun AppShell(
                     unreadCount = shellNotificationState.unreadCount,
                 )
 
+                AppRoute.StorefrontGuides -> HotelsScreen(
+                    language = language, service = hotelCatalog, journey = journey, airports = airports,
+                    flightDiscovery = flightDiscovery, chrome = chrome, initialBoard = HotelsBoard.GUIDE,
+                    unreadCount = shellNotificationState.unreadCount,
+                )
+
                 AppRoute.StorefrontSunday -> HotelsScreen(
                     language = language,
                     service = hotelCatalog,

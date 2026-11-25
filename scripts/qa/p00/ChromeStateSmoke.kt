@@ -95,5 +95,22 @@ fun main() {
         try { f() } catch (x: IllegalArgumentException) { failed++ }
     }
     assertState(failed == 4, "invalid hotel searches rejected")
+    val guides = AppChromeStore()
+    guides.navigate(AppTab.HOTELS)
+    guides.openDiscoveryPackage()
+    guides.openDiscoveryGuides()
+    assertState(guides.state.value.route==AppRoute.StorefrontGuides, "manual guide uses catalogue route")
+    assertState(guides.state.value.backStack.last()==AppRoute.ManualPackage, "manual basket retained")
+    guides.finishDiscoveryGuide()
+    assertState(guides.state.value.route==AppRoute.ManualPackage, "selection returns to same basket")
+    assertState(guides.state.value.backStack==listOf(AppRoute.Root), "no duplicate manual route")
+    guides.back(); guides.finishDiscoveryGuide()
+    assertState(guides.state.value.route==AppRoute.ManualPackage, "root guide selection opens basket")
+    guides.navigate(AppTab.ACCOUNT);guides.openAccountFlights("booking-1")
+    assertState(guides.state.value.currentTab==AppTab.ACCOUNT && guides.state.value.route==AppRoute.TripLiveFlights("booking-1"), "account flights stay in account stack")
+    guides.back();guides.openAccountZiyarats()
+    assertState(guides.state.value.currentTab==AppTab.ACCOUNT && guides.state.value.route==AppRoute.Ziyarats, "account ziyarats stay in account stack")
+    guides.back();guides.openAccountSavedJourneys()
+    assertState(guides.state.value.currentTab==AppTab.ACCOUNT && guides.state.value.route==AppRoute.SavedJourneys, "saved journeys stay in account stack")
     println("P00/P02 chrome and hotel search smoke: PASSED")
 }
