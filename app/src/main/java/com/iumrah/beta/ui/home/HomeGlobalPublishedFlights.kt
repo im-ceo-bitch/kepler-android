@@ -2,6 +2,18 @@
 package com.iumrah.beta.ui.home
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.style.TextAlign
+import com.iumrah.beta.data.flight.FlightDataParity
+import com.iumrah.beta.data.flight.FlightReferenceCatalog
+import com.iumrah.beta.data.flight.AirportMapBootstrapCatalog
+import com.iumrah.beta.models.flight.FlightCabinClass
+import java.time.Instant
+import java.time.LocalDateTime
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.*
 import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
@@ -49,7 +61,7 @@ internal fun flattenGlobalPublished(options: List<StorefrontFlightOption>): List
     val price = option.perTravelerFare.takeIf { option.currency.equals("USD", true) && it.isFinite() && it > 0 }
     listOfNotNull(option.outbound,option.inbound).filter { it.stops == 0 }.map { leg ->
         GlobalPublishedLeg(option.id, CuratedFlightRecommendation.Leg(airline=leg.airline,flightNumber=leg.flightNumber,airlineCode=leg.airlineCode,
-            origin=leg.origin,destination=leg.destination,departureAt=leg.departureAt,arrivalAt=leg.arrivalAt,durationMinutes=leg.durationMinutes,stops=leg.stops,cabinClass=leg.cabinClass),option.inbound!=null,price)
+            origin=leg.origin.uppercase(),destination=leg.destination.uppercase(),departureAt=leg.departureAt,arrivalAt=leg.arrivalAt,durationMinutes=leg.durationMinutes,stops=leg.stops,cabinClass=leg.cabinClass),option.inbound!=null,price)
     }
 }.sortedWith(compareBy<GlobalPublishedLeg>{it.leg.departureAt}.thenBy{it.id}).distinctBy{it.id}
 
@@ -104,31 +116,48 @@ internal class HomePublishedSelection {
         return PublishedHomeRules.compatible(aa,bb,trip.scope)
     }
     fun reconcile(trip: TripDraft) {
-        outbound?.let { if (!outgoing(it,trip)||!cabin(it,trip)||day(it)!=trip.departureDate) {clear();return} }
-        inbound?.let { if (!returning(it,trip)||!cabin(it,trip)||day(it)!=trip.returnDate || outbound?.let { a -> !compatible(a,it,trip) } == true) inbound=null }
+        outbound?.let { if (!outgoing(it,trip)||!cabin(it,trip)||day(it)!=trip.departureDate) outbound=null }
+        inbound?.let { if (!returning(it,trip)||!cabin(it,trip)||day(it)!=trip.returnDate) inbound=null }
     }
-    fun canChoose(f: GlobalPublishedLeg,trip: TripDraft): Boolean {
-        val date=day(f) ?: return false
-        if (f.rowID.isBlank() || f.leg.stops!=0 || f.selectable()==null || !cabin(f,trip) || date.isBefore(LocalDate.now())) return false
-        if (outgoing(f,trip)) return true
-        return returning(f,trip) && date.isAfter(trip.departureDate) && (outbound?.let{compatible(it,f,trip)} ?: true)
+    fun canContinue(trip: TripDraft): Boolean {
+        val a=outbound ?: return false; val b=inbound ?: return false
+        return trip.canContinue && a.future() && b.future() && outgoing(a,trip) && returning(b,trip) && cabin(a,trip) && cabin(b,trip) && day(a)==trip.departureDate && day(b)==trip.returnDate && compatible(a,b,trip)
     }
+    private fun proposed(f: GlobalPublishedLeg,trip: TripDraft): TripDraft? {
+        val direction=f.direction() ?: return null
+        val date=day(f) ?: return null
+        val arrival=PublishedHomeRules.day(f.leg.arrivalAt,f.leg.destination) ?: return null
+        val cabin=FlightCabinClass.entries.firstOrNull{it.wireValue==f.leg.cabinClass.lowercase().replace(' ','_')} ?: return null
+        if(f.rowID.isBlank()||f.leg.stops!=0||f.selectable()==null||!f.future())return null
+        val other=if(direction==0)inbound else outbound
+        if(other!=null && (!other.future()||other.leg.cabinClass.lowercase().replace(' ','_')!=cabin.wireValue))return null
+        val origin=if(direction==0)f.leg.origin else f.leg.destination
+        val saudi=if(direction==0)f.leg.destination else f.leg.origin
+        val airport=SaudiArrivalAirport.entries.firstOrNull{it.iata==saudi} ?: return null
+        var next=trip.copy(origin=origin,originAirport=if(trip.originCode==origin)trip.originAirport else AirportMapBootstrapCatalog.airport(origin),flightFilters=trip.effectiveFlightFilters.copy(cabinClass=cabin),flightTripType=FlightTripType.ROUND_TRIP,flexibility=DateFlexibility.EXACT,saudiArrivalDate=null,scope=if(airport==SaudiArrivalAirport.MADINAH)JourneyScope.MAKKAH_AND_MADINAH else trip.scope)
+        if(direction==0){
+            next=next.copy(arrivalAirport=airport,departureDate=date)
+            if(other!=null){if(!compatible(f,other,next))return null;next=next.copy(returnDate=day(other)?:return null,selectedReturnAirport=SaudiArrivalAirport.entries.firstOrNull{it.iata==other.leg.origin})}
+            else {val minimum=arrival.plusDays(if(next.scope==JourneyScope.MAKKAH_AND_MADINAH)2 else 1);next=next.copy(selectedReturnAirport=null,returnDate=if(next.returnDate<minimum)arrival.plusDays(7)else next.returnDate)}
+        }else{
+            next=next.copy(selectedReturnAirport=airport,returnDate=date)
+            if(other!=null){if(!compatible(other,f,next))return null;next=next.copy(departureDate=day(other)?:return null,arrivalAirport=SaudiArrivalAirport.entries.firstOrNull{it.iata==other.leg.destination}?:SaudiArrivalAirport.JEDDAH)}
+            else {if(next.scope==JourneyScope.MAKKAH_ONLY)next=next.copy(arrivalAirport=SaudiArrivalAirport.JEDDAH);if(next.departureDate>=date){val today=LocalDate.now();if(date<=today)return null;next=next.copy(departureDate=maxOf(today,date.minusDays(7)))}}
+        }
+        return next.takeIf{it.canContinue}
+    }
+    fun canChoose(f: GlobalPublishedLeg,trip: TripDraft): Boolean = selected(f)||proposed(f,trip)!=null
     fun choose(f: GlobalPublishedLeg,journey: JourneyStore): Boolean {
-        val trip=journey.state.value.trip
-        reconcile(trip)
-        if (!canChoose(f,trip)) return false
-        val date=day(f) ?: return false
-        if (outgoing(f,trip)) {
-            if(inbound?.let{!compatible(f,it,trip)} == true) inbound=null
-            outbound=f
-            journey.updateTrip(trip.copy(departureDate=date,returnDate=if(trip.returnDate.isAfter(date))trip.returnDate else date.plusDays(7)))
-        } else { inbound=f; journey.updateTrip(trip.copy(returnDate=date)) }
+        if(outbound?.id==f.id){outbound=null;return true};if(inbound?.id==f.id){inbound=null;return true}
+        val next=proposed(f,journey.state.value.trip)?:return false
+        if(f.direction()==0)outbound=f else inbound=f
+        journey.updateTrip(next)
         return true
     }
     fun commit(journey: JourneyStore): Boolean {
         val trip=journey.state.value.trip; reconcile(trip)
         val a=outbound ?: return false; val b=inbound ?: return false
-        if(!canChoose(a,trip)||!canChoose(b,trip)||!compatible(a,b,trip))return false
+        if(!canContinue(trip))return false
         val dep=day(a) ?: return false; val back=day(b) ?: return false
         val arrival=PublishedHomeRules.day(a.leg.arrivalAt,a.leg.destination) ?: return false
         val airport=SaudiArrivalAirport.entries.firstOrNull{it.iata==b.leg.origin} ?: return false
@@ -154,24 +183,62 @@ internal fun homePublishedSelection(journey: JourneyStore)=selections.getOrPut(j
     }
     if(catalogue.loaded&&catalogue.complete&&!catalogue.failed&&catalogue.flights.isEmpty())Text(homeText(l,"Нет опубликованных рейсов","No published flights","E’lon qilingan reyslar yo‘q","Эълон қилинган рейслар йўқ"),fontSize=13.sp,color=MaterialTheme.colorScheme.onSurfaceVariant)
 }
-@Composable private fun GlobalFlightCard(l:AppLanguage,f:GlobalPublishedLeg,trip:TripDraft,journey:JourneyStore,selection:HomePublishedSelection,chrome:AppChromeStore,horizontal:Boolean){
-    PublishedResultCard(l,PublishedHomeLeg(f.rowID,f.leg,f.pair,f.price?:0.0),selection.selected(f),onOpen={chrome.openHomePublishedFlightDetail(f.id)},onSelect=if(selection.canChoose(f,trip)){{selection.choose(f,journey);Unit}}else null,width=if(horizontal)290.dp else null,hasPrice=f.price!=null)
+internal fun GlobalPublishedLeg.direction(): Int? = when {
+    leg.destination in setOf("JED","MED") && leg.origin !in setOf("JED","MED") -> 0
+    leg.origin in setOf("JED","MED") && leg.destination !in setOf("JED","MED") -> 1
+    else -> null
 }
-@Composable internal fun HomeGlobalPublishedSection(l:AppLanguage,journey:JourneyStore,catalogue:HomeGlobalCatalogue,selection:HomePublishedSelection,chrome:AppChromeStore,startSmart:()->Unit,onContinue:()->Unit,continuing:Boolean,continueError:Boolean){
+internal fun GlobalPublishedLeg.departureInstant(): Instant? = FlightDataParity.instant(leg.departureAt) ?: runCatching {
+    LocalDateTime.parse(leg.departureAt).atZone(FlightReferenceCatalog.timeZone(leg.origin) ?: java.time.ZoneOffset.UTC).toInstant()
+}.getOrNull()
+internal fun GlobalPublishedLeg.future(now: Instant=Instant.now()) = departureInstant()?.let{it>=now}==true
+internal fun prioritizePublished(flights:List<GlobalPublishedLeg>,trip:TripDraft,direction:Int,other:GlobalPublishedLeg?,now:Instant=Instant.now()):List<GlobalPublishedLeg>{
+    val origin=if(direction==0)trip.originCode else trip.returnOriginCode
+    val destination=if(direction==0)trip.outboundDestinationCode else trip.originCode
+    val date=if(direction==0)trip.departureDate else trip.returnDate
+    val cabin=trip.effectiveFlightFilters.cabinClass.wireValue
+    return flights.filter{it.direction()==direction&&it.future(now)}.map{f->
+        val route=f.leg.origin==origin&&f.leg.destination==destination&&f.leg.cabinClass.lowercase().replace(' ','_')==cabin
+        val compatible=other==null||run{val a=if(direction==0)f else other;val b=if(direction==0)other else f;PublishedHomeRules.compatible(PublishedHomeLeg(a.rowID,a.leg,a.pair,a.price?:0.0),PublishedHomeLeg(b.rowID,b.leg,b.pair,b.price?:0.0),trip.scope)}
+        f to if(!route||!compatible)2 else if(PublishedHomeRules.day(f.leg.departureAt,f.leg.origin)==date)0 else 1
+    }.sortedWith(compareBy<Pair<GlobalPublishedLeg,Int>>{it.second}.thenBy{it.first.departureInstant()}.thenBy{it.first.id}).map{it.first}
+}
+@Composable private fun GlobalFlightCard(l:AppLanguage,f:GlobalPublishedLeg,trip:TripDraft,journey:JourneyStore,selection:HomePublishedSelection,chrome:AppChromeStore,horizontal:Boolean,width:androidx.compose.ui.unit.Dp?=if(horizontal)290.dp else null,onError:()->Unit={}){
+    PublishedResultCard(l,PublishedHomeLeg(f.rowID,f.leg,f.pair,f.price?:0.0),selection.selected(f),onOpen={chrome.openHomePublishedFlightDetail(f.id)},onSelect={if(!selection.choose(f,journey))onError()},width=width,hasPrice=f.price!=null)
+}
+@Composable internal fun HomeGlobalPublishedSection(l:AppLanguage,journey:JourneyStore,catalogue:HomeGlobalCatalogue,selection:HomePublishedSelection,chrome:AppChromeStore,openOfficial:()->Unit,onContinue:()->Unit,continuing:Boolean,continueError:Boolean){
     val state by journey.state.collectAsState()
     LaunchedEffect(catalogue){catalogue.load()}
-    Column(verticalArrangement=Arrangement.spacedBy(12.dp)){
-        Row(verticalAlignment=Alignment.CenterVertically){Text(homeText(l,"Прямые рейсы","Direct flights","To‘g‘ridan-to‘g‘ri reyslar","Тўғридан-тўғри рейслар"),Modifier.weight(1f),fontSize=22.sp,fontWeight=FontWeight.Bold);TextButton(onClick=chrome::openHomeAllPublishedFlights){Text(homeText(l,"Все рейсы","All flights","Barcha reyslar","Барча рейслар"),fontSize=14.sp);CupertinoIcon(CupertinoSymbol.ChevronRight,null,Modifier.size(12.dp))}}
-        GlobalCatalogueStatus(l,catalogue)
-        if(catalogue.flights.isNotEmpty()){
-            val scroll=rememberLazyListState()
-            LazyRow(state=scroll,flingBehavior=rememberSnapFlingBehavior(lazyListState=scroll),horizontalArrangement=Arrangement.spacedBy(12.dp)){items(catalogue.flights,key={it.id}){f->GlobalFlightCard(l,f,state.trip,journey,selection,chrome,true)}}
+    var error by remember{mutableStateOf(false)}
+    val now=remember(catalogue.flights,state.trip){Instant.now()}
+    Column(verticalArrangement=Arrangement.spacedBy(20.dp)){
+        for(direction in 0..1){
+            key(direction){
+                val other=if(direction==0)selection.inbound else selection.outbound
+                val flights=remember(catalogue.flights,state.trip,other,now){prioritizePublished(catalogue.flights,state.trip,direction,other,now)}
+                val scroll=rememberLazyListState()
+                LaunchedEffect(state.trip.originCode,state.trip.outboundDestinationCode,state.trip.returnOriginCode,state.trip.departureDate,state.trip.returnDate,state.trip.effectiveFlightFilters.cabinClass,other?.id,flights.map{it.id}){
+                    val selected=if(direction==0)selection.outbound else selection.inbound
+                    scroll.scrollToItem(flights.indexOfFirst{it.id==selected?.id}.coerceAtLeast(0))
+                }
+                Row(verticalAlignment=Alignment.CenterVertically){Text(if(direction==0)homeText(l,"Прямые рейсы туда","Direct outbound flights","Borish uchun to‘g‘ri reyslar","Бориш учун тўғри рейслар")else homeText(l,"Прямые рейсы обратно","Direct return flights","Qaytish uchun to‘g‘ri reyslar","Қайтиш учун тўғри рейслар"),Modifier.weight(1f),fontSize=22.sp,fontWeight=FontWeight.Bold);IconButton(onClick=openOfficial){CupertinoIcon(CupertinoSymbol.ChevronRight,null,Modifier.size(16.dp))}}
+                if(direction==0)GlobalCatalogueStatus(l,catalogue)
+                BoxWithConstraints(Modifier.fillMaxWidth()){
+                    val width=minOf(330.dp,maxWidth*.86f)
+                    LazyRow(state=scroll,flingBehavior=rememberSnapFlingBehavior(lazyListState=scroll),horizontalArrangement=Arrangement.spacedBy(12.dp)){
+                        items(flights,key={it.id}){f->GlobalFlightCard(l,f,state.trip,journey,selection,chrome,true,width){error=true}}
+                        item(key="all-tickets-$direction"){
+                            Column(Modifier.width(width).height((224*LocalDensity.current.fontScale.coerceAtLeast(1f)).dp).clip(RoundedCornerShape(22.dp)).background(Color(0xff202020)).clickable(onClick=openOfficial).padding(16.dp),verticalArrangement=Arrangement.Center,horizontalAlignment=Alignment.CenterHorizontally){CupertinoIcon(CupertinoSymbol.ArrowRight,null,Modifier.size(36.dp),Color.White);Spacer(Modifier.height(12.dp));Text(homeText(l,"Все авиабилеты","All flight tickets","Barcha aviachiptalar","Барча авиачипталар"),fontSize=22.sp,fontWeight=FontWeight.Bold,color=Color.White,textAlign=TextAlign.Center);Text(homeText(l,"Перейти к выбору рейсов","Go to flight selection","Reyslarni tanlashga o‘tish","Рейсларни танлашга ўтиш"),fontSize=13.sp,color=Color.White.copy(alpha=.7f),textAlign=TextAlign.Center)}
+                        }
+                    }
+                }
+            }
         }
-        if(selection.complete)IumrahPrimaryButton(homeText(l,"Продолжить и выбрать отель","Continue and choose hotel","Davom etish va mehmonxona tanlash","Давом этиш ва меҳмонхона танлаш"),enabled=!continuing,onClick=onContinue)
+        if(selection.canContinue(state.trip))IumrahPrimaryButton(homeText(l,"Продолжить к отелям","Continue to hotels","Mehmonxonalarga o‘tish","Меҳмонхоналарга ўтиш"),enabled=!continuing,onClick=onContinue)
         if(continuing) CircularProgressIndicator(Modifier.size(24.dp))
         if(continueError) Text(homeText(l,"Не удалось подтвердить рейсы. Повторите попытку.","Could not confirm flights. Try again.","Reyslar tasdiqlanmadi. Qayta urinib ko‘ring.","Рейслар тасдиқланмади. Қайта уриниб кўринг."),color=MaterialTheme.colorScheme.error,fontSize=13.sp)
-        HomeDashboardLink(CupertinoSymbol.Sparkles,"iumrah Smart",homeText(l,"Собрать индивидуальную умру автоматически","Build your individual Umrah with Smart","Individual umrani Smart bilan tuzing","Индивидуал умрани Smart билан тузинг"),startSmart,compact=true)
     }
+    if(error)AlertDialog(onDismissRequest={error=false},title={Text(homeText(l,"Проверьте совместимость рейсов","Check flight compatibility","Reyslar mosligini tekshiring","Рейслар мослигини текширинг"))},text={Text(homeText(l,"Выберите совместимые даты, аэропорты, класс и тариф. Сначала снимите выбор несовместимого рейса.","Choose compatible dates, airports, cabin and fare. Deselect an incompatible leg first.","Mos sana, aeroport, klass va tarifni tanlang.","Мос сана, аэропорт, класс ва тарифни танланг."))},confirmButton={TextButton(onClick={error=false}){Text("OK")}})
 }
 @Composable internal fun HomeAllPublishedFlightsPage(l:AppLanguage,journey:JourneyStore,service:HotelCatalogService,chrome:AppChromeStore){
     val catalogue=remember(service){homeGlobalCatalogue(service)};val selection=remember(journey){homePublishedSelection(journey)};val state by journey.state.collectAsState();val scope=rememberCoroutineScope()
@@ -182,7 +249,7 @@ internal fun homePublishedSelection(journey: JourneyStore)=selections.getOrPut(j
             LazyColumn(contentPadding=PaddingValues(start=18.dp,end=18.dp,bottom=40.dp),verticalArrangement=Arrangement.spacedBy(12.dp)){
                 item{Text(homeText(l,"Прямые рейсы","Direct flights","To‘g‘ridan-to‘g‘ri reyslar","Тўғридан-тўғри рейслар"),fontSize=31.sp,fontWeight=FontWeight.Bold)}
                 item{Column(verticalArrangement=Arrangement.spacedBy(8.dp)){GlobalCatalogueStatus(l,catalogue)}}
-                items(catalogue.flights,key={it.id}){f->GlobalFlightCard(l,f,state.trip,journey,selection,chrome,false)}
+                items(catalogue.flights.filter{it.direction()!=null&&it.future()},key={it.id}){f->GlobalFlightCard(l,f,state.trip,journey,selection,chrome,false)}
             }
         }
     }

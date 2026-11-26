@@ -25,10 +25,10 @@ def main():
     weather=(PKG/'ui/home/HomeWeatherScreen.kt').read_text()
     panel=(PKG/'ui/booking/JourneyTravelInfoPanel.kt').read_text()
 
-    ordering=['HomeDashboardActiveBooking(', 'HomeDashboardBalance(', 'HomeGlobalPublishedSection(', 'HomeRecentActivitySection(', 'HomeNotificationCarousel(', 'HomeDashboardSaved(', 'HomeDashboardPlanning(', 'DashboardFriendsPromotion(', 'HomeDashboardServices(', 'HomeDashboardGuides(', 'DashboardGuestRewards(', 'HomeAvailablePackagesSection(', 'HomeDestinationsSection(', 'HomeDashboardIncluded(', 'HomeDashboardBenefits(', 'HomeBrandExperience(', 'HomeBrandMission(', 'HomeDashboardCare(', 'HomeBrandSlogan(']
+    ordering=['HomeGlobalPublishedSection(', 'HomeDashboardActiveBooking(', 'HomeDashboardBalance(', 'SmartConfiguratorHomeCard(', 'HomeRecentActivitySection(', 'HomeNotificationCarousel(', 'HomeDashboardSaved(', 'HomeDashboardPlanning(', 'DashboardFriendsPromotion(', 'HomeDashboardServices(', 'HomeDashboardGuides(', 'DashboardGuestRewards(', 'HomeAvailablePackagesSection(', 'HomeDestinationsSection(', 'HomeDashboardIncluded(', 'HomeDashboardBenefits(', 'HomeBrandExperience(', 'HomeBrandMission(', 'HomeDashboardCare(', 'HomeBrandSlogan(']
     body=home[home.index('fun HomeScreen('):home.index('private fun HomeTripToolsSection')]
-    check(all(x in body for x in ordering) and [body.index(x) for x in ordering]==sorted(body.index(x) for x in ordering),'Home sections preserve iOS 7 Dashboard order')
-    check('flightsSelected = published.complete, onContinue = continueFlights' in body and 'published.clear(); history.saveFlight(owner, it)' in body, 'Home search uses real JourneyStore and shared published selection')
+    check(all(x in body for x in ordering) and [body.index(x) for x in ordering]==sorted(body.index(x) for x in ordering),'Home sections preserve iOS 8 Dashboard order')
+    check('flightsSelected = published.canContinue(journeyState.trip), onContinue = continueFlights' in body and 'published.clear(); history.saveFlight(owner, it)' in body, 'Home search uses real JourneyStore and shared published selection')
     check('item { HomeDashboardServices(language, chrome) }' in body and 'item { IumrahServicesCarousel(' not in body, 'Current service grid replaces legacy carousel')
     check('item { HotelFirstPackagesSection(' not in home, 'Home omits historical Hotel-First cards like current iOS')
     check('private fun HomeTripToolsSection' in home and 'Arrangement.spacedBy(13.dp)' in home,'Pilgrim tools block present with 13dp section spacing')

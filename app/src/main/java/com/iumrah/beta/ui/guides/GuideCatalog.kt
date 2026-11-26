@@ -101,7 +101,7 @@ internal fun guideCopy(l: AppLanguage, r: String, e: String, u: String, c: Strin
         try { profiles=service.loadGuideProfiles(start,end,team) }
         catch(c: CancellationException){throw c} catch(e:Exception){failed=true} finally {loading=false}
     }
-    val guides=profiles.filter { !it.isOwner && it.roleKind.equals("guide",true) }
+    val guides=profiles.filter { !it.isOwner && it.roleKind.equals("guide",true) }.sortedByDescending{it.isHeadGuide==true}
     fun choose(p:IumrahPublicProfile){ if(!loading&&!failed&&guides.any{it.id==p.id&&it.guideAvailable==true})onSelect(IumrahGuidePreference(p.id,p.displayName)) }
     Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(30.dp)).background(Color(0xff131313))) {
         Image(painterResource(R.drawable.about_iumrah_kaaba_corner),null,Modifier.fillMaxWidth().height(210.dp),contentScale=ContentScale.Crop)
@@ -134,7 +134,7 @@ internal fun guideCopy(l: AppLanguage, r: String, e: String, u: String, c: Strin
     }
     if(team) profiles.filter { it.isOwner || !it.roleKind.equals("guide",true) }.sortedByDescending{it.isOwner}.forEachIndexed { index,p ->
         if (p.isOwner || index==0 || profiles.filter { it.isOwner || !it.roleKind.equals("guide",true) }.sortedByDescending{it.isOwner}.getOrNull(index-1)?.isOwner==true) Text(if(p.isOwner) guideCopy(l,"Основатель проекта","Founder","Loyiha asoschisi","Лойиҳа асосчиси") else guideCopy(l,"Команда iumrah","iumrah team","iumrah jamoasi","iumrah жамоаси"),fontSize=24.sp,fontWeight=FontWeight.Bold)
-        GuideSurface { GuidePortrait(p,if(p.isOwner)300 else 220,care); Text(if(p.isOwner)"FOUNDER OF IUMRAH" else "IUMRAH TEAM",fontSize=11.sp,letterSpacing=2.sp);Text(p.displayName,fontSize=28.sp,fontWeight=FontWeight.Bold);Text((p.publicRoles ?: listOf(if(p.isOwner)"founder" else p.roleKind)).joinToString(" · "){publicRole(l,it)},fontWeight=FontWeight.SemiBold);Text(p.localizedBio(l));OutlinedButton(care,Modifier.fillMaxWidth()){Text(guideCopy(l,"Проконсультироваться через iumrah Care","Consult through iumrah Care","iumrah Care orqali maslahat olish","iumrah Care орқали маслаҳат олиш"))} } }
+        GuideSurface { Row(horizontalArrangement=Arrangement.spacedBy(12.dp),verticalAlignment=Alignment.CenterVertically){GuideAvatar(p,68);Text(p.displayName,fontSize=20.sp,fontWeight=FontWeight.Bold)};Text((p.publicRoles ?: listOf(if(p.isOwner)"founder" else p.roleKind)).joinToString(" · "){publicRole(l,it)},fontWeight=FontWeight.SemiBold);Text(p.localizedBio(l));OutlinedButton(care,Modifier.fillMaxWidth()){Text(guideCopy(l,"Проконсультироваться через iumrah Care","Consult through iumrah Care","iumrah Care orqali maslahat olish","iumrah Care орқали маслаҳат олиш"))} } }
     if(team && profiles.any{it.isOwner||!it.roleKind.equals("guide",true)})GuideSurface{Text(guideCopy(l,"Личные контакты назначенного гида доступны после подтверждения оплаты.","Assigned guide contacts are available after payment confirmation.","Biriktirilgan gid kontaktlari to‘lov tasdiqlangach ochiladi.","Бириктирилган гид контактлари тўлов тасдиқлангач очилади."))}
     GuideProgram(l,trip)
     GuideSurface {
@@ -150,8 +150,13 @@ internal fun guideCopy(l: AppLanguage, r: String, e: String, u: String, c: Strin
 }
 
 @Composable private fun GuideProfile(l:AppLanguage,p:IumrahPublicProfile,trip:TripDraft,price:String?,detail:()->Unit,choose:()->Unit){GuideSurface{
-    GuidePortrait(p,260,detail);ProfileIdentity(l,p);Text(p.localizedBio(l),maxLines=3,color=MaterialTheme.colorScheme.onSurfaceVariant);HorizontalDivider();Text(guideCopy(l,"Индивидуальное сопровождение семьи","Private family accompaniment","Oilaga shaxsiy hamrohlik","Оилага шахсий ҳамроҳлик"));Text(if(trip.scope==JourneyScope.MAKKAH_ONLY)guideCopy(l,"Мекка","Makkah","Makka","Макка") else guideCopy(l,"Мекка и Медина","Makkah and Madinah","Makka va Madina","Макка ва Мадина"));GuideAvailability(l,p)
-    price?.takeIf{it!="—"}?.let{Row(verticalAlignment=Alignment.CenterVertically){Text(guideCopy(l,"Сопровождение в пакете","Accompaniment in package","Paketdagi hamrohlik","Пакетдаги ҳамроҳлик"),Modifier.weight(1f),fontSize=13.sp,color=MaterialTheme.colorScheme.onSurfaceVariant);Text(it,fontWeight=FontWeight.Bold)}};IumrahSecondaryButton(guideCopy(l,"Подробнее","View profile","Batafsil","Батафсил"),onClick=detail);IumrahPrimaryButton(if(trip.guidePreference?.memberID==p.id)guideCopy(l,"Выбран","Selected","Tanlangan","Танланган")else guideCopy(l,"Выбрать гида","Choose guide","Gid tanlash","Гид танлаш"),enabled=p.guideAvailable==true,onClick=choose)
+    Row(horizontalArrangement=Arrangement.spacedBy(12.dp),verticalAlignment=Alignment.CenterVertically){GuideAvatar(p,68);Column(Modifier.weight(1f)){ProfileIdentity(l,p)}}
+    Text(p.localizedBio(l),maxLines=3,color=MaterialTheme.colorScheme.onSurfaceVariant);GuideAvailability(l,p)
+    price?.takeIf{it!="—"}?.let{Text(it,fontWeight=FontWeight.Bold)}
+    Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){
+        OutlinedButton(onClick=detail,modifier=Modifier.weight(1f)){Text(guideCopy(l,"Подробнее","View profile","Batafsil","Батафсил"))}
+        if(p.guideAvailable==true) Button(onClick=choose,modifier=Modifier.weight(1f)){Text(if(trip.guidePreference?.memberID==p.id)guideCopy(l,"Выбран","Selected","Tanlangan","Танланган")else guideCopy(l,"Выбрать гида","Choose guide","Gid tanlash","Гид танлаш"))}
+    }
 }}
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable private fun GuideDetail(l:AppLanguage,p:IumrahPublicProfile,trip:TripDraft,price:String?,dismiss:()->Unit,choose:()->Unit){
@@ -159,8 +164,7 @@ internal fun guideCopy(l: AppLanguage, r: String, e: String, u: String, c: Strin
         Column(Modifier.fillMaxWidth().navigationBarsPadding().heightIn(max=780.dp)) {
             Row(Modifier.padding(horizontal=18.dp),verticalAlignment=Alignment.CenterVertically) { Text(guideCopy(l,"Профиль гида","Guide profile","Gid profili","Гид профили"),Modifier.weight(1f),fontWeight=FontWeight.Bold,fontSize=20.sp);TextButton(dismiss){Text(guideCopy(l,"Закрыть","Close","Yopish","Ёпиш"))} }
             Column(Modifier.weight(1f,fill=false).verticalScroll(rememberScrollState()).padding(18.dp),verticalArrangement=Arrangement.spacedBy(20.dp)) {
-                GuidePortrait(p,360,{})
-                GuideSurface {ProfileIdentity(l,p);GuideAvailability(l,p);if(p.localizedBio(l).isNotBlank()){HorizontalDivider();Text(guideCopy(l,"О гиде","About the guide","Gid haqida","Гид ҳақида"),fontWeight=FontWeight.Bold);Text(p.localizedBio(l))};AppConfig.absoluteUrl(p.introVideoURL)?.takeIf{it.startsWith("https://")}?.let{url->HorizontalDivider();Text(guideCopy(l,"Знакомство с гидом","Meet your guide","Gid bilan tanishuv","Гид билан танишув"),fontWeight=FontWeight.Bold);GuideIntroVideo(url)} }
+                GuideSurface {Row(horizontalArrangement=Arrangement.spacedBy(14.dp),verticalAlignment=Alignment.CenterVertically){GuideAvatar(p,80);Column(Modifier.weight(1f)){ProfileIdentity(l,p)}};GuideAvailability(l,p);if(p.localizedBio(l).isNotBlank()){HorizontalDivider();Text(guideCopy(l,"О гиде","About the guide","Gid haqida","Гид ҳақида"),fontWeight=FontWeight.Bold);Text(p.localizedBio(l))};AppConfig.absoluteUrl(p.introVideoURL)?.takeIf{it.startsWith("https://")}?.let{url->HorizontalDivider();Text(guideCopy(l,"Знакомство с гидом","Meet your guide","Gid bilan tanishuv","Гид билан танишув"),fontWeight=FontWeight.Bold);GuideIntroVideo(url)} }
                 GuideProgram(l,trip)
                 if(!p.guideReviews.isNullOrEmpty())GuideSurface{Text(guideCopy(l,"Отзывы паломников","Pilgrim reviews","Ziyoratchilar fikri","Зиёратчилар фикри"),fontWeight=FontWeight.Bold);p.guideReviews.forEach{r->Text(r.author,fontWeight=FontWeight.Bold);Text(r.text);HorizontalDivider()}}
                 Text(guideCopy(l,"Конкретное назначение подтвердит команда iumrah после проверки дат. Дополнительные расходы согласовываются заранее.","The iumrah team confirms assignment after checking dates. Additional expenses are agreed in advance.","Gid sanalar tekshirilgach tasdiqlanadi. Qo‘shimcha xarajatlar oldindan kelishiladi.","Гид саналар текширилгач тасдиқланади. Қўшимча харажатлар олдиндан келишилади."),color=MaterialTheme.colorScheme.onSurfaceVariant)
@@ -178,7 +182,7 @@ internal fun guideCopy(l: AppLanguage, r: String, e: String, u: String, c: Strin
     }
 }
 @Composable private fun ProfileIdentity(l:AppLanguage,p:IumrahPublicProfile){Column(verticalArrangement=Arrangement.spacedBy(6.dp)){
-    Row(verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(7.dp)){Text(p.displayName,fontSize=28.sp,fontWeight=FontWeight.Bold,modifier=Modifier.weight(1f,fill=false));CupertinoIcon(CupertinoSymbol.CheckCircleFill,null,Modifier.size(20.dp),Color(0xff007aff))}
+    Row(verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(7.dp)){Text(p.displayName,fontSize=20.sp,fontWeight=FontWeight.Bold,modifier=Modifier.weight(1f,fill=false));CupertinoIcon(CupertinoSymbol.CheckCircleFill,null,Modifier.size(20.dp),Color(0xff007aff))}
     Text(if(p.isHeadGuide==true)guideCopy(l,"Главный гид iumrah","Head guide","iumrah bosh gidi","iumrah бош гиди")else guideCopy(l,"Персональный гид iumrah","Personal guide","iumrah shaxsiy gidi","iumrah шахсий гиди"),color=MaterialTheme.colorScheme.onSurfaceVariant)
     p.experienceYears?.takeIf{it>0}?.let{y->Text(guideCopy(l,"Опыт: $y г.","Experience: $y years","Tajriba: $y yil","Тажриба: $y йил"),fontSize=13.sp)}
     p.languages?.takeIf{it.isNotEmpty()}?.let{Text(it.joinToString(" · "),fontSize=13.sp)}
@@ -216,7 +220,7 @@ private data class GuideStep(val icon:CupertinoSymbol,val title:String,val descr
         Text(guideCopy(l,"Ваша поездка — шаг за шагом","Your journey, step by step","Safaringiz qadamma-qadam","Сафарингиз қадамма-қадам"),color=MaterialTheme.colorScheme.onSurfaceVariant)
         steps.forEachIndexed{i,step->Row(horizontalArrangement=Arrangement.spacedBy(14.dp)){
             Column(horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.spacedBy(5.dp)){
-                Box(Modifier.size(width=82.dp,height=96.dp).clip(RoundedCornerShape(18.dp)).background(MaterialTheme.colorScheme.surfaceVariant),contentAlignment=Alignment.Center){if(step.asset!=null)Image(painterResource(step.asset),null,Modifier.fillMaxSize(),contentScale=ContentScale.Crop)else CupertinoIcon(step.icon,null,Modifier.size(28.dp))}
+                Box(Modifier.size(width=52.dp,height=52.dp).clip(RoundedCornerShape(18.dp)).background(MaterialTheme.colorScheme.surfaceVariant),contentAlignment=Alignment.Center){CupertinoIcon(step.icon,null,Modifier.size(28.dp))}
                 if(i<steps.lastIndex)Box(Modifier.width(1.dp).height(18.dp).background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha=.18f)))
             }
             Column(Modifier.weight(1f),verticalArrangement=Arrangement.spacedBy(6.dp)){Text(guideCopy(l,"ЭТАП","STEP","BOSQICH","БОСҚИЧ")+" "+(i+1).toString().padStart(2,'0'),fontSize=11.sp,letterSpacing=1.3.sp,fontWeight=FontWeight.Bold,color=MaterialTheme.colorScheme.onSurfaceVariant);Text(step.title,fontWeight=FontWeight.Bold);Text(step.description,fontSize=13.sp,color=MaterialTheme.colorScheme.onSurfaceVariant)}
@@ -234,4 +238,11 @@ private data class GuideStep(val icon:CupertinoSymbol,val title:String,val descr
     }
     val ink=if(p.guideAvailable==true)Color(0xff268347)else MaterialTheme.colorScheme.onSurfaceVariant
     Row(horizontalArrangement=Arrangement.spacedBy(6.dp),verticalAlignment=Alignment.CenterVertically){CupertinoIcon(CupertinoSymbol.CalendarClock,null,Modifier.size(16.dp),ink);Text(value,fontSize=13.sp,fontWeight=FontWeight.Medium,color=ink)}
+}
+
+@Composable internal fun GuideAvatar(p:IumrahPublicProfile,size:Int){
+    Box(Modifier.size(size.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceVariant),contentAlignment=Alignment.Center){
+        val photo=AppConfig.absoluteUrl(p.photoURL)?.takeIf{it.startsWith("https://")}
+        if(photo!=null)AsyncImage(photo,p.displayName,Modifier.fillMaxSize(),contentScale=ContentScale.Crop)else CupertinoIcon(CupertinoSymbol.Person,null,Modifier.size((size*.55f).dp))
+    }
 }

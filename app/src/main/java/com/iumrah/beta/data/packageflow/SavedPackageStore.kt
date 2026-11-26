@@ -85,7 +85,7 @@ class SavedPackageStore(private val api: APIClient, private val vault: SecureJso
     }
     suspend fun save(state: JourneyState, language: AppLanguage): SavedPackageEntry = mutex.withLock {
         val quote = requireNotNull(state.quote)
-        require(state.hasFinalGeneratorQuote && state.priceChangeAccepted && quote.hasVerifiedBreakdown && quote.bookingAllowed != false && quote.allowsOccupancy(state.trip.adults,state.trip.rooms))
+        require(quote.quoteId!=null && state.hasFinalGeneratorQuote && state.priceChangeAccepted && quote.hasVerifiedBreakdown && quote.bookingAllowed != false && quote.allowsOccupancy(state.trip.adults,state.trip.rooms))
         val price = requireNotNull(quote.tripSummary)
         val draft = SavedJourneyDraft.from(state)
         val existing = entry(state.savedPackageID)

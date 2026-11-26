@@ -604,17 +604,17 @@ internal fun GuidedFlightRow(choice: GuidedFlightChoice, selected: Boolean,
     val arrival=actualArrival ?: if(estimated) FlightDataParity.instant(choice.departureAt)?.plusSeconds(choice.durationMinutes.toLong()*60)?.toString() else null
     val arrivalDay=arrival?.let { FlightDataParity.localDay(it,choice.destination) }
     Box(Modifier.fillMaxWidth().padding(horizontal=20.dp,vertical=5.dp)) {
-        Column(Modifier.fillMaxWidth().clip(shape).background(MaterialTheme.colorScheme.surface)
+        Column(Modifier.fillMaxWidth().heightIn(min=(224*androidx.compose.ui.platform.LocalDensity.current.fontScale.coerceAtLeast(1f)).dp).clip(shape).background(MaterialTheme.colorScheme.surface)
             .border(if(selected)1.5.dp else .75.dp,if(selected)accent else ink.copy(alpha=.07f),shape)
-            .clickable(onClick=onClick).padding(16.dp),verticalArrangement=Arrangement.spacedBy(13.dp)) {
-            Row(Modifier.fillMaxWidth().padding(end=44.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(10.dp)) {
+            .clickable(onClick=onClick).padding(14.dp),verticalArrangement=Arrangement.SpaceBetween) {
+            Row(Modifier.fillMaxWidth().height(42.dp).padding(end=44.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(10.dp)) {
                 val code=choice.airlineCode.uppercase().takeIf { it.matches(Regex("[A-Z0-9]{2}")) }
                 Box(Modifier.size(34.dp).clip(RoundedCornerShape(8.dp)).background(Color.White),contentAlignment=Alignment.Center) {
                     if(code!=null) coil3.compose.AsyncImage(model="https://www.gstatic.com/flights/airline_logos/70px/$code.png",contentDescription=null,modifier=Modifier.size(30.dp),contentScale=androidx.compose.ui.layout.ContentScale.Fit)
                     else Icon(CupertinoSymbol.Airplane,null,Modifier.size(20.dp),Color.Black)
                 }
                 Column(Modifier.weight(1f),verticalArrangement=Arrangement.spacedBy(3.dp)) {
-                    Text(choice.airlineName,fontSize=16.sp,fontWeight=FontWeight.Bold,maxLines=2,overflow=TextOverflow.Ellipsis)
+                    Text(choice.airlineName,fontSize=16.sp,fontWeight=FontWeight.Bold,maxLines=1,overflow=TextOverflow.Ellipsis)
                     Row(horizontalArrangement=Arrangement.spacedBy(6.dp),verticalAlignment=Alignment.CenterVertically) {
                         if(choice.flightNumber.isNotBlank())Text(choice.flightNumber,fontSize=12.sp,fontWeight=FontWeight.Bold,maxLines=1)
                         Text(if(choice.source==GuidedFlightChoice.Source.PUBLISHED) "iumrah Direct" else guidedTr(language,"Авиабилет","Flight","Aviachipta","Авиачипта"),fontSize=10.sp,color=MaterialTheme.colorScheme.onSurfaceVariant,maxLines=1)
@@ -622,16 +622,16 @@ internal fun GuidedFlightRow(choice: GuidedFlightChoice, selected: Boolean,
                 }
             }
             Row(verticalAlignment=Alignment.Top,horizontalArrangement=Arrangement.spacedBy(8.dp)) {
-                GuidedClock(FlightDataParity.localTime(choice.departureAt,choice.origin),choice.origin,departureDay?.takeIf{it!=searchDay},false,language,Modifier.weight(1f),Alignment.Start)
-                Column(Modifier.weight(1f).padding(top=2.dp),horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.spacedBy(5.dp)) {
-                    if(choice.durationMinutes>0)Text("${choice.durationMinutes/60}h ${choice.durationMinutes%60}m",fontSize=11.sp,color=MaterialTheme.colorScheme.onSurfaceVariant,textAlign=TextAlign.Center)
+                GuidedClock(FlightDataParity.localTime(choice.departureAt,choice.origin),choice.origin,departureDay,false,language,Modifier.weight(1f),Alignment.Start)
+                Column(Modifier.width(76.dp).padding(top=2.dp),horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.spacedBy(5.dp)) {
+                    Text(if(choice.durationMinutes>0) "${choice.durationMinutes/60}h ${choice.durationMinutes%60}m" else "—",modifier=Modifier.height(28.dp),fontSize=11.sp,color=MaterialTheme.colorScheme.onSurfaceVariant,textAlign=TextAlign.Center)
                     Icon(if(choice.stops==0)CupertinoSymbol.Airplane else CupertinoSymbol.Route,null,Modifier.size(22.dp),ink)
                     Text(if(choice.stops==0)guidedTr(language,"Прямой","Direct","To‘g‘ri","Тўғри") else guidedTr(language,"Пересадок: ${choice.stops}","Stops: ${choice.stops}","Transfer: ${choice.stops}","Трансфер: ${choice.stops}"),fontSize=11.sp,color=MaterialTheme.colorScheme.onSurfaceVariant,maxLines=1,overflow=TextOverflow.Ellipsis)
                 }
-                GuidedClock(arrival?.let{FlightDataParity.localTime(it,choice.destination)},choice.destination,arrivalDay?.takeIf{it!=searchDay || it!=departureDay},estimated,language,Modifier.weight(1f),Alignment.End)
+                GuidedClock(arrival?.let{FlightDataParity.localTime(it,choice.destination)},choice.destination,arrivalDay,estimated,language,Modifier.weight(1f),Alignment.End)
             }
             HorizontalDivider(color=ink.copy(alpha=.08f))
-            Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+            Row(Modifier.fillMaxWidth().height(35.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(8.dp)) {
                 val price=choice.priceUsd
                 if(price!=null)Text(if(choice.publishedPair)guidedTr(language,"Туда и обратно · за пассажира","Round trip · per passenger","Borib qaytish · bir yo‘lovchi","Бориб қайтиш · бир йўловчи") else guidedTr(language,"За пассажира","Per passenger","Bir yo‘lovchi uchun","Бир йўловчи учун"),Modifier.weight(1f),fontSize=12.sp,color=MaterialTheme.colorScheme.onSurfaceVariant)
                 else Spacer(Modifier.weight(1f))
@@ -646,10 +646,10 @@ internal fun GuidedFlightRow(choice: GuidedFlightChoice, selected: Boolean,
 
 @Composable private fun GuidedClock(time:String?,airport:String,day:LocalDate?,estimated:Boolean,language:AppLanguage,modifier:Modifier,align:Alignment.Horizontal) {
     Column(modifier,horizontalAlignment=align,verticalArrangement=Arrangement.spacedBy(3.dp)) {
-        if(time!=null && time!="—")Text(time,fontSize=28.sp,fontWeight=FontWeight.Bold,maxLines=1)
+        Text(time?:"—",fontSize=28.sp,fontWeight=FontWeight.Bold,maxLines=1)
         Text(airport.uppercase(),fontSize=19.sp,fontWeight=FontWeight.Bold,maxLines=1)
-        day?.let{Text(it.format(DateTimeFormatter.ofPattern("d MMM",language.locale)),fontSize=12.sp,color=MaterialTheme.colorScheme.onSurfaceVariant,maxLines=1)}
-        if(estimated)Text(guidedTr(language,"Расчётное","Estimated","Hisoblangan","Ҳисобланган"),fontSize=10.sp,color=MaterialTheme.colorScheme.onSurfaceVariant,maxLines=1)
+        Text(day?.format(DateTimeFormatter.ofPattern("d MMM",language.locale))?:"—",fontSize=12.sp,color=MaterialTheme.colorScheme.onSurfaceVariant,maxLines=1)
+        if(estimated)Text(guidedTr(language,"Расчётное","Estimated","Hisoblangan","Ҳисобланган"),fontSize=10.sp,color=MaterialTheme.colorScheme.onSurfaceVariant,maxLines=1) else Spacer(Modifier.height(12.dp))
     }
 }
 

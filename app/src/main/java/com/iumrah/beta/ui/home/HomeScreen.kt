@@ -228,7 +228,7 @@ fun HomeScreen(
         state = homeListState,
         modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background),
         contentPadding = PaddingValues(start = 18.dp, end = 18.dp, top = 0.dp, bottom = 46.dp),
-        verticalArrangement = Arrangement.spacedBy(30.dp),
+        verticalArrangement = Arrangement.spacedBy(20.dp),
     ) {
         item {
             IumrahOverlappingMasthead(header = {
@@ -256,12 +256,13 @@ fun HomeScreen(
                     },
                 )
             }, search = {
-                IumrahHomeSearchHero(language, journeyState.trip, journey, airports, curatedFlights, chrome, searchExpanded, onSearch = { published.clear(); history.saveFlight(owner, it) }, flightsSelected = published.complete, onContinue = continueFlights) { searchExpanded = it }
+                IumrahHomeSearchHero(language, journeyState.trip, journey, airports, curatedFlights, chrome, searchExpanded, onSearch = { published.clear(); history.saveFlight(owner, it) }, flightsSelected = published.canContinue(journeyState.trip), onContinue = continueFlights) { searchExpanded = it }
             })
         }
+        item { HomeGlobalPublishedSection(language, journey, catalog, published, chrome, { searchExpanded=false; chrome.openGuidedFlights() }, continueFlights, continuing, continueError) }
         activeBooking?.let { session -> item { HomeDashboardActiveBooking(language, session, chrome) } }
         if (accountState.isAuthenticated) item { HomeDashboardBalance(language, accountStore, chrome) }
-        item { HomeGlobalPublishedSection(language, journey, catalog, published, chrome, startSmart, continueFlights, continuing, continueError) }
+        item { SmartConfiguratorHomeCard(language,startSmart) }
         if (activity.smart != null || activity.flight != null || activity.hotels.isNotEmpty() || activeBooking != null) item {
             HomeRecentActivitySection(language, activity, activeBooking, chrome, owner,
                 resume = { chrome.openHomeSmart(it) }, repeat = { trip ->

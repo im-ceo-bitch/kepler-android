@@ -249,7 +249,7 @@ fun IumrahHomeSearchHero(
                             },
                         contentAlignment = Alignment.Center,
                     ) {
-                        Text(if (flightsSelected) homeTr(language, "Продолжить и выбрать отель", "Continue and choose hotel", "Davom etish va mehmonxona tanlash", "Давом этиш ва меҳмонхона танлаш") else homeTr(language, "Найти авиабилеты", "Find flights", "Reyslarni topish", "Рейсларни топиш"),
+                        Text(if (flightsSelected) homeTr(language, "Продолжить к отелям", "Continue to hotels", "Mehmonxonalarga o‘tish", "Меҳмонхоналарга ўтиш") else homeTr(language, "Найти авиабилеты", "Find flights", "Reyslarni topish", "Рейсларни топиш"),
                             fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White)
                     }
 

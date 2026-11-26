@@ -46,17 +46,36 @@ private fun saveText(l:AppLanguage,r:String,e:String,u:String,c:String)=reviewTe
     val quote=state.quote; val scope=rememberCoroutineScope()
     var saving by remember { mutableStateOf(false) }; var error by remember { mutableStateOf<String?>(null) }
     var threadID by remember { mutableStateOf<String?>(null) }; var requestRooms by remember { mutableStateOf<Int?>(null) }
-    val canSave=enabled && !saving && state.priceChangeAccepted && state.hasFinalGeneratorQuote && quote?.hasVerifiedBreakdown==true && quote.bookingAllowed!=false && quote.allowsOccupancy(state.trip.adults,state.trip.rooms) && entry?.pendingBookingID==null && entry?.receipt?.status!="converted"
-    val saved=entry != null && entry.savedQuoteID == quote?.quoteId && entry.draft == SavedJourneyDraft.from(state) && entry.receipt?.status!="expired"
+    val canSave=enabled && !saving && state.priceChangeAccepted && state.hasFinalGeneratorQuote && quote?.quoteId!=null && quote.hasVerifiedBreakdown && quote.bookingAllowed!=false && quote.allowsOccupancy(state.trip.adults,state.trip.rooms) && entry?.pendingBookingID==null && entry?.receipt?.status!="converted"
+    val saved=entry != null && quote?.quoteId!=null && entry.savedQuoteID == quote.quoteId && entry.draft == SavedJourneyDraft.from(state) && entry.receipt?.status!="expired"
     fun save(then:(SavedPackageEntry)->Unit={}) {
         if (!canSave || journey.state.value!=state) return
         saving=true;error=null
         scope.launch {
             try {
-                val result=store.save(state,language)
-                val id=requireNotNull(result.receipt).packageID
-                check(journey.attachSavedPackage(state,id)) { "PACKAGE_SELECTION_CHANGED" }
-                then(result)
+                var snapshot=state
+                val initial= requireNotNull(state.quote)
+                val original=SavedJourneyDraft.from(state)
+                for(attempt in 0..1){
+                    check(journey.state.value==snapshot && snapshot.quote?.quoteId!=null){"PACKAGE_SELECTION_CHANGED"}
+                    val result=try{store.save(snapshot,language)}catch(e:com.iumrah.beta.core.network.APIException.Server){
+                        val code=e.serverMessage.uppercase()
+                        if(attempt!=0 || (!code.contains("BOOKING_QUOTE_REFRESH_REQUIRED")&&!code.contains("QUOTE_EXPIRED")))throw e
+                        check(journey.state.value==snapshot){"PACKAGE_SELECTION_CHANGED"}
+                        val engine=(context.applicationContext as IumrahApplication).container.packageEngine
+                        val fresh=journey.refreshTransferQuote(engine::packageQuote)
+                        snapshot=journey.state.value
+                        check(SavedJourneyDraft.from(snapshot)==original && snapshot.savedPackageID==state.savedPackageID && snapshot.quote==fresh && fresh.quoteId!=null && fresh.hasVerifiedBreakdown){"PACKAGE_SELECTION_CHANGED"}
+                        if(fresh.totalPackagePrice.compareTo(initial.totalPackagePrice)!=0 || fresh.currency!=initial.currency || !snapshot.priceChangeAccepted){
+                            error=saveText(language,"Стоимость обновилась. Подтвердите новую цену и повторите сохранение.","The price changed. Accept the new total and save again.","Narx yangilandi. Yangi narxni tasdiqlang va qayta saqlang.","Нарх янгиланди. Янги нархни тасдиқланг ва қайта сақланг.")
+                            return@launch
+                        }
+                        continue
+                    }
+                    val id=requireNotNull(result.receipt).packageID
+                    check(journey.attachSavedPackage(snapshot,id)){"PACKAGE_SELECTION_CHANGED"}
+                    then(result);break
+                }
             } catch(c:CancellationException){throw c} catch(e:Exception){error=e.message ?: "PACKAGE_SAVE_FAILED"} finally{saving=false}
         }
     }

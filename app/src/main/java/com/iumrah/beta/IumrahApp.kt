@@ -46,7 +46,6 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.ensureActive
-import com.iumrah.beta.ui.onboarding.BrandWelcomeOnboarding
 import com.iumrah.beta.ui.shell.AppShell
 import com.iumrah.beta.ui.components.IumrahSignatureLaunchHost
 
@@ -241,11 +240,12 @@ fun IumrahApp() {
                     settingsStore = container.settingsStore,
                 )
             } else {
-                BrandWelcomeOnboarding(
-                    language = settings.language,
-                    onLanguageChange = container.settingsStore::setLanguage,
-                    onFinished = { IumrahIntelligence.record("onboarding_completed", "onboarding"); container.settingsStore.completeOnboarding() },
-                )
+                val context=androidx.compose.ui.platform.LocalContext.current
+                val service=remember(container){com.iumrah.beta.data.smart.SmartConfiguratorService(container.curatedFlightRecommendationService,com.iumrah.beta.data.nuitee.NuiteeHotelService(context),container.packageEngine)}
+                val history=remember(context){com.iumrah.beta.data.smart.HomeActivityStore(context)}
+                val historyOwner=remember { if(accountState.isRestoring) null else com.iumrah.beta.domain.smart.SmartRules.owner(accountState.isAuthenticated,accountState.iumrahID) }
+                com.iumrah.beta.ui.smart.SmartConfiguratorScreen(settings.language,container.airportSearchService,service,null,
+                    onSave={ draft -> if(!accountState.isRestoring && historyOwner==com.iumrah.beta.domain.smart.SmartRules.owner(accountState.isAuthenticated,accountState.iumrahID)) history.saveSmart(historyOwner,draft) },onClose={IumrahIntelligence.record("onboarding_completed","onboarding");container.settingsStore.completeOnboarding()},onReview={},onLanguage=container.settingsStore::setLanguage)
             }
         }
         }

@@ -255,32 +255,32 @@ internal fun HomePublishedFlightCarousel(language: AppLanguage, trip: TripDraft,
     val secondary=MaterialTheme.colorScheme.onSurfaceVariant
     val green=Color(0xFF34C759)
     val shape=RoundedCornerShape(22.dp)
-    Box((if(width == null) Modifier.fillMaxWidth() else Modifier.width(width)).clip(shape).background(MaterialTheme.colorScheme.surface).border(if(selected)1.5.dp else .75.dp,if(selected)green else ink.copy(alpha=.07f),shape)) {
-        Column(Modifier.fillMaxWidth().clickable(onClick=onOpen).padding(16.dp),verticalArrangement=Arrangement.spacedBy(13.dp)) {
-            Row(Modifier.padding(end=44.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(10.dp)) {
+    Box((if(width == null) Modifier.fillMaxWidth() else Modifier.width(width)).heightIn(min=(224*androidx.compose.ui.platform.LocalDensity.current.fontScale.coerceAtLeast(1f)).dp).clip(shape).background(MaterialTheme.colorScheme.surface).border(if(selected)1.5.dp else .75.dp,if(selected)green else ink.copy(alpha=.07f),shape)) {
+        Column(Modifier.fillMaxWidth().heightIn(min=(224*androidx.compose.ui.platform.LocalDensity.current.fontScale.coerceAtLeast(1f)).dp).clickable(onClick=onOpen).padding(14.dp),verticalArrangement=Arrangement.SpaceBetween) {
+            Row(Modifier.height(42.dp).padding(end=if(onSelect==null)0.dp else 44.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(10.dp)) {
                 Box(Modifier.size(34.dp).clip(RoundedCornerShape(8.dp)).background(Color.White),contentAlignment=Alignment.Center) {
                     val code=leg.airlineCode.uppercase()
                     if(code.matches(Regex("[A-Z0-9]{2}"))) AsyncImage(model="https://www.gstatic.com/flights/airline_logos/70px/$code.png",contentDescription=null,modifier=Modifier.size(30.dp),contentScale=ContentScale.Fit)
                     else CupertinoIcon(CupertinoSymbol.Airplane,null,Modifier.size(18.dp),Color.Black)
                 }
                 Column(Modifier.weight(1f),verticalArrangement=Arrangement.spacedBy(3.dp)) {
-                    Text(leg.airline,fontSize=16.sp,fontWeight=FontWeight.Bold,maxLines=2,overflow=TextOverflow.Ellipsis)
+                    Text(leg.airline,fontSize=16.sp,fontWeight=FontWeight.Bold,maxLines=1,overflow=TextOverflow.Ellipsis)
                     Row(horizontalArrangement=Arrangement.spacedBy(6.dp)) { Text(leg.flightNumber,fontSize=12.sp,fontWeight=FontWeight.Bold,maxLines=1);Text("iumrah Direct",fontSize=10.sp,color=secondary,maxLines=1) }
                 }
             }
             Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.Top,horizontalArrangement=Arrangement.spacedBy(8.dp)) {
                 PublishedEndpoint(l,leg.origin,leg.departureAt,Modifier.weight(1f),Alignment.Start)
-                Column(Modifier.weight(.95f).padding(top=2.dp),horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.spacedBy(5.dp)) {
-                    if(leg.durationMinutes>0) Text("${leg.durationMinutes/60} "+ft(l,"ч","h","soat","соат")+" ${leg.durationMinutes%60} "+ft(l,"мин","m","daq","дақ"),fontSize=11.sp,color=secondary,textAlign=TextAlign.Center)
+                Column(Modifier.width(76.dp).padding(top=2.dp),horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.spacedBy(5.dp)) {
+                    Text(if(leg.durationMinutes>0) "${leg.durationMinutes/60} "+ft(l,"ч","h","soat","соат")+" ${leg.durationMinutes%60} "+ft(l,"мин","m","daq","дақ") else "—",modifier=Modifier.height(28.dp),fontSize=11.sp,color=secondary,textAlign=TextAlign.Center,maxLines=2)
                     CupertinoIcon(CupertinoSymbol.Airplane,null,Modifier.size(22.dp),ink)
                     Text(ft(l,"Прямой","Direct","To‘g‘ri","Тўғри"),fontSize=11.sp,color=secondary,maxLines=1)
                 }
                 PublishedEndpoint(l,leg.destination,leg.arrivalAt,Modifier.weight(1f),Alignment.End)
             }
             HorizontalDivider(color=ink.copy(alpha=.08f))
-            Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(8.dp)) {
-                Text(if(flight.isPair)ft(l,"Туда и обратно · 1 чел.","Round trip · per person","Borish va qaytish · 1 kishi","Бориш ва қайтиш · 1 киши") else ft(l,"За 1 человека","Per person","1 kishi uchun","1 киши учун"),Modifier.weight(1f),fontSize=12.sp,color=secondary)
-                Text(if(hasPrice) "$"+java.text.NumberFormat.getNumberInstance(l.locale).apply{maximumFractionDigits=0}.format(flight.priceUsd) else "—",fontWeight=FontWeight.Bold,fontSize=25.sp,maxLines=1)
+            Row(Modifier.fillMaxWidth().height(35.dp),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+                if(hasPrice) Text(if(flight.isPair)ft(l,"Туда и обратно · 1 чел.","Round trip · per person","Borish va qaytish · 1 kishi","Бориш ва қайтиш · 1 киши") else ft(l,"За 1 человека","Per person","1 kishi uchun","1 киши учун"),Modifier.weight(1f),fontSize=12.sp,color=secondary,maxLines=2) else Spacer(Modifier.weight(1f))
+                Text(if(hasPrice) "$"+java.text.NumberFormat.getNumberInstance(l.locale).apply{maximumFractionDigits=0}.format(flight.priceUsd) else ft(l,"Подробнее","Details","Batafsil","Батафсил"),fontWeight=FontWeight.Bold,fontSize=if(hasPrice)25.sp else 15.sp,maxLines=1)
             }
         }
         if(onSelect != null) IconButton(onClick=onSelect,modifier=Modifier.align(Alignment.TopEnd).padding(9.dp).size(44.dp)) { CupertinoIcon(if(selected)CupertinoSymbol.CheckCircleFill else CupertinoSymbol.CircleOutline,ft(l,"Выбрать рейс","Select flight","Reysni tanlash","Рейсни танлаш"),Modifier.size(24.dp),if(selected)green else secondary) }
